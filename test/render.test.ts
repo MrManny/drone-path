@@ -31,7 +31,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   return {
     ...actual,
     spawn: () => {
-      const proc = new EventEmitter() as EventEmitter & {
+      const proc = new EventEmitter() as InstanceType<typeof EventEmitter> & {
         stdin: InstanceType<typeof PassThrough>;
         stderr: InstanceType<typeof PassThrough>;
         kill: () => void;

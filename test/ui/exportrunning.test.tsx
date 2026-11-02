@@ -49,12 +49,12 @@ describe('ExportRunning cancel action', () => {
 
   it('disables Cancel export while canceling', () => {
     renderRunning({ canceling: true });
-    expect(screen.getByRole('button', { name: 'Cancel export' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' }).disabled).toBe(true);
   });
 
   it('shows why a cancel failed', () => {
     renderRunning({ error: 'the app backend went away' });
     expect(screen.getByText('the app backend went away')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Cancel export' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' }).disabled).toBe(false);
   });
 });

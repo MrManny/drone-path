@@ -28,7 +28,8 @@
     "build:ui": "next build ui --webpack",
     "changeset": "changeset",
     "changeset:version": "changeset version && npm install --package-lock-only",
-    "test": "vitest run",
+    "test": "npm run typecheck:test && vitest run",
+    "typecheck:test": "tsc --noEmit -p test/tsconfig.json",
     "lint": "eslint .",
     "prepare": "npm run build"
   },
