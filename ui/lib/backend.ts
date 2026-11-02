@@ -25,6 +25,11 @@ export interface ExportOutputPayload {
   out: string;
 }
 
+/** A downloaded update waits even when its event preceded the subscription. */
+export interface UpdateState {
+  ready: boolean;
+}
+
 export interface AppBridge {
   pickRecording(): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
@@ -42,6 +47,14 @@ export interface AppBridge {
   onPreparing(cb: () => void): () => void;
   /** The preparation's loading steps, so the busy status can show its progress. */
   onPrepareProgress(cb: (progress: PrepareProgress) => void): () => void;
+  /** A newer version finished downloading in the background. */
+  onUpdateReady(cb: () => void): () => void;
+  /** The restart could not start; the prompt may offer it again. */
+  onUpdateRestartFailed(cb: (message: string) => void): () => void;
+  /** The catch-up query for downloads that finished before the subscription. */
+  getUpdateState(): Promise<UpdateState>;
+  /** Restart the app into the downloaded update; the shell installs it. */
+  restartToUpdate(): Promise<ExportAck>;
 }
 
 declare global {

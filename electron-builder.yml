@@ -2,6 +2,13 @@ appId: io.github.mrmanny.neo2flightpath
 productName: Neo2 Flightpath
 # The portable default would contain a space; keep artifact names shell-friendly.
 artifactName: ${name}-${version}-${os}-${arch}.${ext}
+# The auto-update feed: electron-updater reads this repository's releases, and
+# electron-builder generates app-update.yml and the latest*.yml update metadata
+# from it (NSIS and AppImage builds carry them; portable never does).
+publish:
+  provider: github
+  owner: MrManny
+  repo: neo2-flightpath
 directories:
   output: dist-electron
 files:
@@ -14,8 +21,11 @@ files:
   - build/icon.ico
   - build/icons/256x256.png
 win:
-  target: portable
   icon: build/icon.ico
+# NSIS is the default Windows target; without its own artifact name the setup
+# exe would collide with the portable exe on the GitHub release.
+nsis:
+  artifactName: ${name}-${version}-${os}-${arch}-setup.${ext}
 linux:
   target: AppImage
   icon: build/icons

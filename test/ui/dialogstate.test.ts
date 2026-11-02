@@ -20,6 +20,16 @@ const TABLE: Array<{ when: string; from: DialogState; event: DialogEvent; to: Di
   { when: 'exportFinished', from: 'settings', event: { type: 'exportFinished' }, to: 'settings' },
   { when: 'exportFinished', from: 'export-form', event: { type: 'exportFinished' }, to: 'export-form' },
   { when: 'exportFinished', from: 'export-running', event: { type: 'exportFinished' }, to: 'export-form' },
+  { when: 'exportFinished', from: 'update-prompt', event: { type: 'exportFinished' }, to: 'update-prompt' },
+  { when: 'updateReady', from: 'closed', event: { type: 'updateReady' }, to: 'update-prompt' },
+  { when: 'updateReady', from: 'settings', event: { type: 'updateReady' }, to: 'settings' },
+  { when: 'updateReady', from: 'export-form', event: { type: 'updateReady' }, to: 'export-form' },
+  { when: 'updateReady', from: 'export-running', event: { type: 'updateReady' }, to: 'export-running' },
+  { when: 'updateReady', from: 'update-prompt', event: { type: 'updateReady' }, to: 'update-prompt' },
+  { when: 'openSettings', from: 'update-prompt', event: { type: 'openSettings' }, to: 'update-prompt' },
+  { when: 'openExport', from: 'update-prompt', event: { type: 'openExport' }, to: 'update-prompt' },
+  { when: 'exportStarted', from: 'update-prompt', event: { type: 'exportStarted' }, to: 'update-prompt' },
+  { when: 'close', from: 'update-prompt', event: { type: 'close' }, to: 'closed' },
   { when: 'close', from: 'closed', event: { type: 'close' }, to: 'closed' },
   { when: 'close', from: 'settings', event: { type: 'close' }, to: 'closed' },
   { when: 'close', from: 'export-form', event: { type: 'close' }, to: 'closed' },
@@ -32,11 +42,14 @@ describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) =>
   });
 });
 
-describe.each<DialogState>(['closed', 'settings', 'export-form'])('canDismiss(%s)', (state) => {
-  it('is true, so Escape, the backdrop and the close may dismiss', () => {
-    expect(canDismiss(state)).toBe(true);
-  });
-});
+describe.each<DialogState>(['closed', 'settings', 'export-form', 'update-prompt'])(
+  'canDismiss(%s)',
+  (state) => {
+    it('is true, so Escape, the backdrop and the close may dismiss', () => {
+      expect(canDismiss(state)).toBe(true);
+    });
+  },
+);
 
 describe('canDismiss(export-running)', () => {
   it('is false, so the running job keeps its dialog on screen', () => {
@@ -53,6 +66,19 @@ describe('the export run round trip', () => {
     expect(canDismiss(state)).toBe(false);
     expect(dialogReducer(state, { type: 'close' })).toBe('export-running');
     state = dialogReducer(state, { type: 'exportFinished' });
+    expect(canDismiss(state)).toBe(true);
+    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
+  });
+});
+
+describe('the update prompt round trip', () => {
+  it('waits for a quiet UI and then dismisses like any dialog', () => {
+    let state: DialogState = 'settings';
+    state = dialogReducer(state, { type: 'updateReady' });
+    expect(state).toBe('settings');
+    state = dialogReducer(state, { type: 'close' });
+    state = dialogReducer(state, { type: 'updateReady' });
+    expect(state).toBe('update-prompt');
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');
   });

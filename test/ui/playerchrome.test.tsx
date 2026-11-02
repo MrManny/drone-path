@@ -7,6 +7,8 @@ import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { Scene } from '../../src/renderer/scene.js';
 import { PlayerChrome } from '../../ui/components/PlayerChrome.js';
+import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
+import { useDialogs } from '../../ui/hooks/useDialogs.js';
 import { START_PREPARE_PROGRESS } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 
@@ -62,6 +64,13 @@ const SESSION: UiSession = {
 
 const SETTINGS: RenderConfig = { ...DEFAULT_CONFIG };
 
+// The player receives the app's one dialog machine from the page; the wrapper
+// runs the real machine so dialog behavior stays what the page gets.
+function Chrome(props: Omit<PlayerChromeProps, 'dialogs'>) {
+  const dialogs = useDialogs();
+  return <PlayerChrome {...props} dialogs={dialogs} />;
+}
+
 const rafQueue: Array<(now: number) => void> = [];
 let rafNow = 0;
 
@@ -90,7 +99,7 @@ afterEach(() => {
 
 describe('PlayerChrome', () => {
   it('loads the recording and gates playback on tile warm-up', async () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
     expect(warmup.disabled).toBe(true);
     await waitFor(() => {
@@ -100,14 +109,14 @@ describe('PlayerChrome', () => {
   });
 
   it('renders the video and the swap control', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.getByRole('button', { name: 'Swap view' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
   });
 
   it('groups the bar into left Open, centered transport, and right view controls', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const controls = document.querySelector('.controls') as HTMLElement;
     const left = controls.querySelector('.controls-left') as HTMLElement;
     const center = controls.querySelector('.controls-center') as HTMLElement;
@@ -131,7 +140,7 @@ describe('PlayerChrome', () => {
   });
 
   it('collects the speed buttons in one labeled group', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const group = screen.getByRole('group', { name: 'Playback speed' });
     const rates = within(group)
       .getAllByRole('button')
@@ -149,12 +158,12 @@ describe('PlayerChrome', () => {
   });
 
   it('applies the frame the driver already reached when the scene arrives', async () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(0));
   });
 
   it('seeks the video into the target frame span and repaints the scene when scrubbing', async () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const video = document.querySelector('video') as HTMLVideoElement;
     // jsdom's media element ignores currentTime writes; track them instead.
     let currentTime = 0;
@@ -173,7 +182,7 @@ describe('PlayerChrome', () => {
   });
 
   it('swaps the picture-in-picture layout', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
     expect(mapPane.className).toContain('pane-pip');
     fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
@@ -181,7 +190,7 @@ describe('PlayerChrome', () => {
   });
 
   it('opens the settings panel from the cog button', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
@@ -190,7 +199,7 @@ describe('PlayerChrome', () => {
   });
 
   it('pins only the picture-in-picture pane to a sized box', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
     const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
 
@@ -212,7 +221,7 @@ describe('PlayerChrome', () => {
   });
 
   it('keeps the map pip above the footage in video view', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
     const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
     expect(mapPane.className).toContain('pane-pip');
@@ -222,7 +231,7 @@ describe('PlayerChrome', () => {
   });
 
   it('keeps the drone footage pip above the map in map view', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
     const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
     const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
@@ -233,7 +242,7 @@ describe('PlayerChrome', () => {
   });
 
   it('does not swap views when the map pane is clicked', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
     fireEvent.click(mapPane);
     expect(mapPane.className).toContain('pane-pip');
@@ -294,7 +303,7 @@ function key(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
 
 async function renderPlayer(onOpen: () => void = () => {}): Promise<FakePlayback> {
   render(
-    <PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={onOpen} />,
+    <Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={onOpen} />,
   );
   await waitFor(() => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Play' }).disabled).toBe(false);
@@ -328,7 +337,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
   });
 
   it('gates keyboard play on tile warm-up', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
     key(window, { key: ' ' });
     expect(fake.play).not.toHaveBeenCalled();
@@ -357,7 +366,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
   });
 
   it('claims keys that land before the post-commit effect flush', async () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
     const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
     // The enabling commit's MutationObserver microtask runs before that
@@ -553,7 +562,7 @@ describe('PlayerChrome shortcut guard rails', () => {
 
 describe('PlayerChrome flight stats strip', () => {
   it('renders no telemetry chips over the player', () => {
-    render(<PlayerChrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(document.querySelector('.stats')).toBeNull();
     expect(screen.queryByText(/^(Duration|Track|Heading:)/)).toBeNull();
     expect(screen.queryByText(/no-lock cues/)).toBeNull();
@@ -564,7 +573,7 @@ describe('PlayerChrome open notice', () => {
   it('reports a failed Open inside the player and keeps the recording on screen', () => {
     const onDismiss = vi.fn();
     render(
-      <PlayerChrome
+      <Chrome
         session={SESSION}
         settings={SETTINGS}
         onSettingsChange={() => {}}
@@ -581,7 +590,7 @@ describe('PlayerChrome open notice', () => {
 
   it('shows the preparing status over the player and holds Open until the file is ready', () => {
     render(
-      <PlayerChrome
+      <Chrome
         session={SESSION}
         settings={SETTINGS}
         onSettingsChange={() => {}}
@@ -600,7 +609,7 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
   (openState) => {
     it('shows no notice and keeps Open available', () => {
       render(
-        <PlayerChrome
+        <Chrome
           session={SESSION}
           settings={SETTINGS}
           onSettingsChange={() => {}}

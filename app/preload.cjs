@@ -22,4 +22,9 @@ contextBridge.exposeInMainWorld('neo2flightpath', {
   onExportDone: (cb) => subscribe('neo2flightpath:export:done', cb),
   onPreparing: (cb) => subscribe('neo2flightpath:preparing', () => cb()),
   onPrepareProgress: (cb) => subscribe('neo2flightpath:preparing:progress', cb),
+  onUpdateReady: (cb) => subscribe('neo2flightpath:update:ready', () => cb()),
+  onUpdateRestartFailed: (cb) =>
+    subscribe('neo2flightpath:update:restart-failed', (message) => cb(message)),
+  getUpdateState: () => ipcRenderer.invoke('neo2flightpath:update:state'),
+  restartToUpdate: () => ipcRenderer.invoke('neo2flightpath:update:restart'),
 });

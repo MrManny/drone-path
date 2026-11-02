@@ -136,19 +136,19 @@ button:disabled {
 }
 
 button.primary,
-button.export-primary {
+button.dialog-primary {
   color: var(--accent-ink);
   background: var(--accent);
   border-color: transparent;
   font-weight: 600;
 }
 button.primary:hover:not(:disabled),
-button.export-primary:hover:not(:disabled) {
+button.dialog-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: transparent;
 }
 button.primary:active:not(:disabled),
-button.export-primary:active:not(:disabled) {
+button.dialog-primary:active:not(:disabled) {
   background: var(--accent-press);
 }
 button.primary {

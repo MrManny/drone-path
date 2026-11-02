@@ -97,7 +97,7 @@ export function ExportForm({
         <button type="button" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="export-primary" onClick={onStart}>
+        <button type="button" className="dialog-primary" onClick={onStart}>
           Start export
         </button>
       </div>
