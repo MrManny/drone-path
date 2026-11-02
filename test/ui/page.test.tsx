@@ -182,12 +182,12 @@ describe('Open flow on the landing', () => {
     expect(screen.getByText('Warming tiles… 0/48')).toBeTruthy();
     expect(
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
-    ).toBe('6');
+    ).toBe('67');
     harness.report({ stage: 'tiles', done: 15, total: 51, tilesDone: 12, tilesTotal: 48 });
     expect(screen.getByText('Warming tiles… 12/48')).toBeTruthy();
     expect(
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
-    ).toBe('29');
+    ).toBe('75');
     await harness.settle({ ok: true });
   });
 
