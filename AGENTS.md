@@ -31,6 +31,8 @@ Development instructions; [README.md](README.md) is the user manual.
 - Use parameterized tests with `describe.for`/`describe.each` for "bulk" testing.
 - Behavior changes ship with tests (a bug fix gets a regression test).
   Never commit `.only`, `.skip` or `.todo`.
+- `npm test` type-checks the test tree first (`npm run typecheck:test`,
+  `tsc --noEmit` over `test/tsconfig.json`); keep it clean.
 
 ## Conventions
 

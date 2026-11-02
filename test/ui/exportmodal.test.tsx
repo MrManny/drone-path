@@ -6,8 +6,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
+import type { ExportRequest, RenderConfig } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
+import type { ExportOutputPayload } from '../../ui/lib/backend.js';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
 import type { DialogRunEvent } from '../../ui/lib/dialogstate.js';
 import type { LoopState } from '../../ui/lib/loop.js';
@@ -51,10 +52,10 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
   const listeners: { done?: (outcome: ExportOutcome) => void } = {};
   const bridge = {
     pickExportOutput: vi.fn(async () => ({ ok: true, path: '/exports/a.mp4' })),
-    startExport: vi.fn(async () => ({ ok: true })),
+    startExport: vi.fn(async (_request: ExportRequest) => ({ ok: true })),
     cancelExport: vi.fn(async () => ({ ok: true })),
-    revealExportOutput: vi.fn(async () => ({ ok: true })),
-    openExportOutput: vi.fn(async () => ({ ok: true })),
+    revealExportOutput: vi.fn(async (_payload: ExportOutputPayload) => ({ ok: true })),
+    openExportOutput: vi.fn(async (_payload: ExportOutputPayload) => ({ ok: true })),
     onExportProgress: vi.fn(() => () => {}),
     onExportCapture: vi.fn(() => () => {}),
     onExportDone: vi.fn((cb: (outcome: ExportOutcome) => void) => {
@@ -367,7 +368,7 @@ describe('ExportModal rainy paths', () => {
     await reachPhase('running', emitDone);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
     expect(await screen.findByText('The export could not be canceled. Try again.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Cancel export' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' }).disabled).toBe(false);
   });
 
   it('shows the reason when the cancel request itself fails', async () => {
@@ -379,6 +380,6 @@ describe('ExportModal rainy paths', () => {
     await reachPhase('running', emitDone);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
     expect(await screen.findByText('the app backend went away')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Cancel export' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' }).disabled).toBe(false);
   });
 });

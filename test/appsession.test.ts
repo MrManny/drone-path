@@ -117,7 +117,9 @@ describe('createAppSession', () => {
 
   it('refuses a pick while another is in progress', async () => {
     const file = mp4();
-    let release: ((value: UiSession) => void) | null = null;
+    // An assertion initializer: the resolver runs inside the Promise executor,
+    // and control-flow analysis cannot see assignments made in closures.
+    let release = null as ((value: UiSession) => void) | null;
     const prepare = vi.fn(
       () =>
         new Promise<UiSession>((resolve) => {

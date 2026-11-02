@@ -205,14 +205,14 @@ describe('Open flow on the landing', () => {
     fireEvent.click(open);
     fireEvent.click(open);
     expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
-    await harness.settle({ canceled: true });
+    await harness.settle({ ok: false, canceled: true });
   });
 });
 
 describe.each([
   {
     outcome: 'the picker is canceled',
-    result: { canceled: true },
+    result: { ok: false, canceled: true },
     text: 'No recording picked.',
     role: 'status',
   },
@@ -232,7 +232,7 @@ describe.each([
   it('shows that outcome and never a busy status', async () => {
     const harness = installBridge();
     fireEvent.click(await openLanding());
-    await harness.settle(result as PickResult);
+    await harness.settle(result);
     expect(screen.getByRole(role).textContent).toContain(text);
     expect(screen.queryByText(/Preparing/)).toBeNull();
   });
