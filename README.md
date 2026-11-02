@@ -40,15 +40,15 @@ Output lands in the `out/` folder as `<basename>_map.mp4` (both configurable; `-
 
 All frames below are from the same recording:
 
-![Source footage at 1:20: autumn meadows and forest](docs/images/example-source-frame.jpg)
+![Source footage: autumn forest and mountain panorama](docs/images/example-source-frame.jpg)
 
-*Source footage at 1:20 — the flight recording the examples below are rendered from.*
+*Source footage — the flight recording the examples below are rendered from.*
 
-![Default output at 1:20: satellite map with growing trail and heading arrow](docs/images/example-map-satellite.jpg)
+![Default output: satellite map with growing trail and heading arrow](docs/images/example-map-satellite.jpg)
 
 *Default settings (first two commands): satellite map, growing trail and heading arrow.*
 
-![Topographic output at 1:20 with heading, altitude and speed chips](docs/images/example-map-topo-hud.jpg)
+![Topographic output with heading, altitude and speed chips](docs/images/example-map-topo-hud.jpg)
 
 *`--style topo --hud heading,alt,speed` (third command): topographic map with heading, altitude and speed chips.*
 
@@ -77,6 +77,11 @@ Launching let's you load a drone video, but it can take a hot second to
 acquire the map data.
 The screen then shows the footage and the map overlay in a swappable
 picture-in-picture layout on one shared timeline scrubber.
+
+![Desktop app: drone footage with the map overlay in picture-in-picture](docs/images/app-main-window.jpg)
+
+*The desktop app playing a recording: footage and map overlay in picture-in-picture,
+with the flight trail, drone position and HUD chips on one shared timeline scrubber.*
 
 Play, pause and scrub keep the video frame, trail, drone position
 and HUD chips on the same frame; the map fills its pane at any window size,
