@@ -1,8 +1,11 @@
 // Export modal state as a pure reducer: form edits, the request snapshot
 // frozen at confirm, and the job's lifecycle events. Framework-free so the
-// transitions stay unit-testable.
+// transitions stay unit-testable. The form always holds the effective even
+// dimensions the pipeline renders (normalizeDimensions), so the fields can
+// never show a number the export would silently change (#94).
 
 import type { ExportRequest, FrameRange } from '../../src/config.js';
+import { normalizeDimensions } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { RecordingSummary } from '../../src/run.js';
@@ -22,6 +25,7 @@ export function captureFraction(capture: CaptureProgress | null): number | null 
 
 export interface ExportForm {
   outPath: string | null;
+  /** The effective even sizes (rounded down, minimum 64), never the raw typed text. */
   width: number;
   height: number;
   /** null = the full recording. */
@@ -59,7 +63,7 @@ export type ExportEvent =
 export function initialExportState(width: number, height: number): ExportState {
   return {
     phase: 'form',
-    form: { outPath: null, width, height, range: null },
+    form: { outPath: null, ...normalizeDimensions(width, height), range: null },
     request: null,
     messages: [],
     capture: null,
@@ -77,11 +81,19 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
         : state;
     case 'setWidth':
       return state.phase === 'form'
-        ? { ...state, form: { ...state.form, width: event.width }, error: null }
+        ? {
+            ...state,
+            form: { ...state.form, ...normalizeDimensions(event.width, state.form.height) },
+            error: null,
+          }
         : state;
     case 'setHeight':
       return state.phase === 'form'
-        ? { ...state, form: { ...state.form, height: event.height }, error: null }
+        ? {
+            ...state,
+            form: { ...state.form, ...normalizeDimensions(state.form.width, event.height) },
+            error: null,
+          }
         : state;
     case 'setRange':
       return state.phase === 'form'

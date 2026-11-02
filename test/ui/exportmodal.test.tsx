@@ -325,6 +325,63 @@ describe('ExportModal done action payloads', () => {
   });
 });
 
+describe('ExportModal dimension fields commit the effective size (#94)', () => {
+  it.for<{ label: string; typed: string; committed: string }>([
+    { label: 'Width', typed: '769', committed: '768' },
+    { label: 'Height', typed: '765', committed: '764' },
+  ])('$label: typing $typed and blurring shows $committed', ({ label, typed, committed }) => {
+    installBridge();
+    renderModal({ in: null, out: null });
+    const input = screen.getByLabelText<HTMLInputElement>(label, { exact: true });
+    fireEvent.change(input, { target: { value: typed } });
+    fireEvent.blur(input);
+    expect(input.value).toBe(committed);
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(screen.queryByText('Must be at least 64 px.')).toBeNull();
+  });
+
+  it('sends the committed sizes in the export request', async () => {
+    const { bridge } = installBridge();
+    renderModal({ in: null, out: null });
+    const width = screen.getByLabelText<HTMLInputElement>('Width', { exact: true });
+    const height = screen.getByLabelText<HTMLInputElement>('Height', { exact: true });
+    fireEvent.change(width, { target: { value: '769' } });
+    fireEvent.change(height, { target: { value: '765' } });
+    fireEvent.blur(width);
+    fireEvent.blur(height);
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await waitFor(() => expect(bridge.startExport).toHaveBeenCalledTimes(1));
+    expect(bridge.startExport.mock.calls[0][0].config).toMatchObject({ width: 768, height: 764 });
+  });
+
+  it('keeps the done summary consistent with the committed size', async () => {
+    const { emitDone } = installBridge();
+    renderModal({ in: null, out: null });
+    const width = screen.getByLabelText<HTMLInputElement>('Width', { exact: true });
+    fireEvent.change(width, { target: { value: '769' } });
+    fireEvent.blur(width);
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    emitDone({ status: 'ok', summary: { ...SUMMARY, width: 768, height: 768 } });
+    expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 768×768')).toBeTruthy();
+  });
+
+  it.for<{ typed: string; label: string }>([
+    { typed: '10', label: 'a below-minimum value' },
+    { typed: '', label: 'a non-finite value' },
+  ])('drops $label on blur and shows the last valid size', ({ typed }) => {
+    installBridge();
+    renderModal({ in: null, out: null });
+    const width = screen.getByLabelText<HTMLInputElement>('Width', { exact: true });
+    fireEvent.change(width, { target: { value: typed } });
+    expect(screen.getByText('Must be at least 64 px.')).toBeTruthy();
+    fireEvent.blur(width);
+    expect(screen.queryByText('Must be at least 64 px.')).toBeNull();
+    expect(width.value).toBe('768');
+    expect(width.getAttribute('aria-invalid')).toBeNull();
+  });
+});
+
 describe('ExportModal rainy paths', () => {
   it('shows a start failure in the form and keeps the form usable', async () => {
     installBridge({

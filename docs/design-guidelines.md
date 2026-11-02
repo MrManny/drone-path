@@ -141,6 +141,7 @@ Spacing values are literals on this scale; use nothing else:
 
 - **Settings row:** label (`label.settings-label`, 96px, `--text-2`), control (36px high, `--surface-2`, 1px `--hairline-strong` border, 8px radius, 0 16px padding, 14px text), and one helper slot holding the hint (`.hint`, 13px, `--text-3`) or the message (`.field-message`, 13px, `--danger`).
 - **Number field** (`NumberField`): 96px wide, tabular numerals, `min` and `step` props (step 1; 0.5 for Intro and Outro). A valid value applies at once. A value that is not finite, is below `min`, or fails the owner's check is rejected: the typed text stays, `aria-invalid="true"` is set, the border turns `--danger` with a 1px inset ring, `aria-describedby` points at the message, and the message replaces the hint: "Must be {rule}." Rules in use: "0 or more", "at least 64 px". On blur the typed text is dropped and the last valid value shows.
+- **Export dimensions** (Width and Height in the export "How" group): the commit applies the pipeline's own rule (`normalizeDimensions`, `src/config.ts`), so the field always shows the effective even size (each rounded down, minimum 64) the export renders — typing 769 and blurring shows 768. Rejected input (below the minimum, non-finite) behaves as in the Number field rule above.
 - **Select** (`SelectField`): a native `select` styled as a field (`appearance: none`, 32px right padding, chevron as background image). Options show plain labels; the raw vocabulary value is what applies.
 - **Groups:** `fieldset.settings-group` with a 13px `legend` in `--text-3`: "HUD chips"; "What" and "How" in export.
 
@@ -223,7 +224,7 @@ Spacing values are literals on this scale; use nothing else:
 - **Frame rate:** `formatFrameRate` (`ui/lib/framerate.ts`) turns a rational rate into decimal fps rounded to hundredths, with " fps" (60000/1001 → "59.94 fps").
 - **Time:** `formatTime` (`ui/lib/frametime.ts`) gives m:ss from whole seconds, rounded, with no hour field. Readout "0:00 / 0:34"; loop readout "loop 0:10–0:12" ("?" for an unset point); segment "0:10–0:12 · 121 frames" (frames = out − in + 1).
 - **Frames and seeks:** displayed time is frame index ÷ fps; seeks land mid-span at (frame + 0.5) ÷ fps so a presented time quantized to microseconds can never settle on the neighboring frame; a one-second jump is `round(fps)` frames (`framesForSeconds`).
-- **Export summary:** "{frames} frames @ {fps} · {seconds} s · {width}×{height}". Seconds are whole; width and height are the even sizes rendered (each rounded down, minimum 64), so they can differ from the typed values. Dimensions are px, minimum 64 (`MIN_DIMENSION`, `src/config.ts`).
+- **Export summary:** "{frames} frames @ {fps} · {seconds} s · {width}×{height}". Seconds are whole; width and height are the even sizes rendered (each rounded down, minimum 64) and equal the sizes the fields committed (§8.4), so the summary never diverges from the dialog. Dimensions are px, minimum 64 (`MIN_DIMENSION`, `src/config.ts`).
 - **Percent:** whole percent, rounded ("Rendering 83%"). **Units:** px, s, m, fps; speed uses "×". **Numerals:** tabular for readouts, number fields and the progress label; decimal point "."; " · " between parts; "–" for ranges; "×" for sizes and speed.
 
 ## 13. Accessibility
