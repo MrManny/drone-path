@@ -240,13 +240,19 @@ describe('createScene', () => {
     expect(host.querySelector('#chip-alt .num')?.textContent).toBe('11');
     expect(host.querySelector('#chip-speed .num')?.textContent).toBe('2.5');
     expect((host.querySelector('#drone-arrow') as HTMLElement).style.transform).toBe('rotate(90deg)');
-    expect(polylines.at(-1)?.adds).toEqual([[46.61, 14.26]]);
+    expect(polylines.at(-1)?.sets.at(-1)).toEqual([
+      [46.61, 14.26],
+      [46.611, 14.261],
+    ]);
 
     await applyFrame(scene, 2);
     expect(drone.latlngs.at(-1)).toEqual([46.612, 14.262]);
     expect(host.querySelector('#chip-alt .num')?.textContent).toBe('--');
     expect(host.querySelector('#chip-speed .num')?.textContent).toBe('3.1');
-    expect(polylines.at(-1)?.adds).toEqual([[46.61, 14.26], [46.612, 14.262]]);
+    expect(polylines.at(-1)?.sets.at(-1)).toEqual([
+      [46.61, 14.26],
+      [46.612, 14.262],
+    ]);
   });
 
   it('resolves setFrame only after the canvas paint barrier', async () => {
@@ -309,7 +315,13 @@ describe('createScene', () => {
     const { L, polylines } = fakeL(host);
     const scene = createScene(
       host,
-      sceneData({ trailLat: [], trailLon: [], trailFrame: [] }),
+      sceneData({
+        lat: [],
+        lon: [],
+        trailLat: [],
+        trailLon: [],
+        trailFrame: [],
+      }),
       { L },
     );
     await applyFrame(scene, 2);
@@ -388,7 +400,16 @@ describe('Scene.update', () => {
     expect(host.querySelector('#chip-alt .num')?.textContent).toBe('101');
   });
 
-  it('rebuilds the decorations when the decimated track changes', async () => {
+  it.each([
+    {
+      name: 'the decimated trail changes',
+      next: { trailLat: [46.61], trailLon: [14.26], trailFrame: [0] },
+    },
+    {
+      name: 'the frame track changes',
+      next: { lat: [46.61], lon: [14.26] },
+    },
+  ])('rebuilds the decorations when $name', async ({ next }) => {
     const { host } = mount();
     const { L, polylines, removals } = fakeL(host);
     const base = sceneData();
@@ -397,9 +418,7 @@ describe('Scene.update', () => {
 
     await restyle(scene, {
       ...base,
-      trailLat: [46.61],
-      trailLon: [14.26],
-      trailFrame: [0],
+      ...next,
     });
 
     expect(removals.count).toBeGreaterThan(0);

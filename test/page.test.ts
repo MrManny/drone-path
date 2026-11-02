@@ -152,6 +152,10 @@ describe('buildPageHtml (headless)', () => {
     expect(data['trailLat']).toEqual([46.61, 46.612]);
     expect(data['trailLon']).toEqual([14.26, 14.262]);
     expect(data['trailFrame']).toEqual([0, 2]);
+    // The frame track is the trail tip's source: the exported overlay draws
+    // the flown path up to each captured frame (#95).
+    expect(data['lat']).toEqual([46.61, 46.611, 46.612]);
+    expect(data['lon']).toEqual([14.26, 14.261, 14.262]);
   });
 
   it('escapes "</" in the inlined JSON', () => {
