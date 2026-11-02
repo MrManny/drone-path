@@ -335,9 +335,12 @@ class SceneState implements Scene {
       trailLayers,
       drone,
       trailCtl: createTrailController(
-        this.data.trailLat,
-        this.data.trailLon,
-        this.data.trailFrame,
+        {
+          lat: this.data.trailLat,
+          lon: this.data.trailLon,
+          frame: this.data.trailFrame,
+        },
+        { lat: this.data.lat, lon: this.data.lon },
         trailLayers,
       ),
       arrowEl: this.host.querySelector<HTMLElement>('#drone-arrow'),
@@ -434,6 +437,7 @@ class SceneState implements Scene {
     const decorInvalidated =
       next.style !== prev.style ||
       next.trailLat !== prev.trailLat ||
+      next.lat !== prev.lat ||
       next.width !== prev.width ||
       next.height !== prev.height;
     if (decorInvalidated) this.rebuildDecor();

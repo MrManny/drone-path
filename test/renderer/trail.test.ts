@@ -1,42 +1,44 @@
 import { describe, expect, it } from 'vitest';
 
 import { createTrailController, lastIndexAtOrBefore } from '../../src/renderer/trail.js';
-import type { TrailLayer } from '../../src/renderer/trail.js';
+import type { FrameTrack, TrailLayer, TrailTrack } from '../../src/renderer/trail.js';
 
-interface Call {
-  kind: 'add' | 'set';
-  points: Array<[number, number]>;
-}
-
-function spyLayer(): { calls: Call[]; layer: TrailLayer } {
-  const calls: Call[] = [];
+function spyLayer(): { calls: Array<Array<[number, number]>>; layer: TrailLayer } {
+  const calls: Array<Array<[number, number]>> = [];
   return {
     calls,
     layer: {
-      addLatLng(latlng: [number, number]): void {
-        calls.push({ kind: 'add', points: [[latlng[0], latlng[1]]] });
-      },
       setLatLngs(points: Array<[number, number]>): void {
-        calls.push({
-          kind: 'set',
-          points: points.map((p) => [p[0], p[1]] as [number, number]),
-        });
+        calls.push(points.map((p) => [p[0], p[1]] as [number, number]));
       },
     },
   };
 }
 
-// Decimated track where point j sits at frame 2j (frames 0, 2, 4, ...).
-function track(points: number): { lat: number[]; lon: number[]; frame: number[] } {
+// Per-frame positions along a straight line; the decimated track keeps every
+// second frame and picks its points from the frame arrays, exactly like
+// decimateTrack copies them.
+function track(points: number): { trail: TrailTrack; frames: FrameTrack } {
   const lat: number[] = [];
   const lon: number[] = [];
-  const frame: number[] = [];
-  for (let j = 0; j < points; j++) {
-    lat.push(46 + j * 0.001);
-    lon.push(14 + j * 0.001);
-    frame.push(j * 2);
+  for (let f = 0; f < points * 2 - 1; f++) {
+    lat.push(46 + f * 0.0005);
+    lon.push(14 + f * 0.0005);
   }
-  return { lat, lon, frame };
+  const frame: number[] = [];
+  for (let j = 0; j < points; j++) frame.push(j * 2);
+  return {
+    trail: {
+      lat: frame.map((f) => lat[f]),
+      lon: frame.map((f) => lon[f]),
+      frame,
+    },
+    frames: { lat, lon },
+  };
+}
+
+function pos(f: number): [number, number] {
+  return [46 + f * 0.0005, 14 + f * 0.0005];
 }
 
 describe('lastIndexAtOrBefore', () => {
@@ -57,58 +59,77 @@ describe('lastIndexAtOrBefore', () => {
 });
 
 describe('createTrailController', () => {
-  it('appends decimated points forward without any array copies', () => {
+  it('grows the prefix and moves the tip with every forward frame', () => {
     const t = track(5);
     const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
     for (let i = 0; i <= 8; i++) ctl.setFrame(i);
-    expect(a.calls.map((c) => c.kind)).toEqual(['add', 'add', 'add', 'add', 'add']);
-    a.calls.forEach((c, j) => expect(c.points).toEqual([[t.lat[j], t.lon[j]]]));
+    expect(a.calls).toEqual([
+      [pos(0)],
+      [pos(0), pos(1)],
+      [pos(0), pos(2)],
+      [pos(0), pos(2), pos(3)],
+      [pos(0), pos(2), pos(4)],
+      [pos(0), pos(2), pos(4), pos(5)],
+      [pos(0), pos(2), pos(4), pos(6)],
+      [pos(0), pos(2), pos(4), pos(6), pos(7)],
+      [pos(0), pos(2), pos(4), pos(6), pos(8)],
+    ]);
+  });
+
+  it('ends the trail at the frame position, not at the last kept point', () => {
+    const t = track(5);
+    const a = spyLayer();
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
+    ctl.setFrame(3);
+    expect(a.calls.at(-1)).toEqual([pos(0), pos(2), pos(3)]);
+  });
+
+  it('replaces the coinciding kept point with the tip instead of duplicating it', () => {
+    const t = track(5);
+    const a = spyLayer();
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
+    ctl.setFrame(4);
+    expect(a.calls.at(-1)).toEqual([pos(0), pos(2), pos(4)]);
   });
 
   it('truncates the trail on backward seeks with no stale segments', () => {
     const t = track(5);
     const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
     ctl.setFrame(8);
     a.calls.length = 0;
     ctl.setFrame(5);
-    expect(a.calls).toEqual([{ kind: 'set', points: [[t.lat[0], t.lon[0]], [t.lat[1], t.lon[1]], [t.lat[2], t.lon[2]]] }]);
+    expect(a.calls).toEqual([[pos(0), pos(2), pos(4), pos(5)]]);
   });
 
   it('truncates back to the very first point', () => {
     const t = track(5);
     const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
     ctl.setFrame(8);
     a.calls.length = 0;
     ctl.setFrame(0);
-    expect(a.calls).toEqual([{ kind: 'set', points: [[t.lat[0], t.lon[0]]] }]);
+    expect(a.calls).toEqual([[pos(0)]]);
   });
 
-  it('rebuilds once on a large forward jump instead of appending per point', () => {
+  it('draws a large forward jump in one setLatLngs with a bounded prefix', () => {
     const t = track(101);
     const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
     ctl.setFrame(0);
     a.calls.length = 0;
     ctl.setFrame(100);
-    expect(a.calls.map((c) => c.kind)).toEqual(['set']);
-    expect(a.calls[0].points).toHaveLength(51);
-  });
-
-  it('keeps appending for small forward advances', () => {
-    const t = track(101);
-    const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
-    for (let i = 0; i <= 8; i++) ctl.setFrame(i);
-    expect(a.calls.map((c) => c.kind)).toEqual(['add', 'add', 'add', 'add', 'add']);
+    expect(a.calls).toHaveLength(1);
+    expect(a.calls[0]).toHaveLength(51);
+    expect(a.calls[0][0]).toEqual(pos(0));
+    expect(a.calls[0][50]).toEqual(pos(100));
   });
 
   it('is idempotent for repeated frame indices', () => {
     const t = track(5);
     const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
     ctl.setFrame(4);
     a.calls.length = 0;
     ctl.setFrame(4);
@@ -120,7 +141,7 @@ describe('createTrailController', () => {
     const t = track(3);
     const a = spyLayer();
     const b = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer, b.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer, b.layer]);
     ctl.setFrame(0);
     ctl.setFrame(1);
     ctl.setFrame(4);
@@ -130,18 +151,58 @@ describe('createTrailController', () => {
 
   it('stays quiet for an empty track', () => {
     const a = spyLayer();
-    const ctl = createTrailController([], [], [], [a.layer]);
+    const ctl = createTrailController(
+      { lat: [], lon: [], frame: [] },
+      { lat: [], lon: [] },
+      [a.layer],
+    );
     ctl.setFrame(100);
+    ctl.setFrame(101);
     expect(a.calls).toEqual([]);
   });
 
   it('truncates fully when the target precedes the first decimated point', () => {
     const t = track(3);
     const a = spyLayer();
-    const ctl = createTrailController(t.lat, t.lon, t.frame, [a.layer]);
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
     ctl.setFrame(4);
     a.calls.length = 0;
     ctl.setFrame(-1);
-    expect(a.calls).toEqual([{ kind: 'set', points: [] }]);
+    expect(a.calls).toEqual([[]]);
+  });
+
+  it('falls back to the prefix when the frame lies beyond the frame track', () => {
+    const t = track(5);
+    const a = spyLayer();
+    const ctl = createTrailController(t.trail, t.frames, [a.layer]);
+    ctl.setFrame(20);
+    expect(a.calls.at(-1)).toEqual([pos(0), pos(2), pos(4), pos(6), pos(8)]);
+  });
+
+  // Issue #95 regression: a hovering or straight flight decimates to its
+  // endpoints, so a prefix-only trail stayed a single (invisible) point for
+  // the whole flight and the map canvas never changed. The tip keeps the
+  // trail reaching the drone and growing on every frame.
+  it('grows the trail to the drone even when decimation collapses the track', () => {
+    const lat = Array.from({ length: 11 }, (_, f) => 46.5 + f * 0.00001);
+    const lon = Array.from({ length: 11 }, (_, f) => 14.2 + f * 0.00001);
+    const trail: TrailTrack = {
+      lat: [lat[0], lat[10]],
+      lon: [lon[0], lon[10]],
+      frame: [0, 10],
+    };
+    const a = spyLayer();
+    const ctl = createTrailController(trail, { lat, lon }, [a.layer]);
+
+    ctl.setFrame(5);
+    expect(a.calls.at(-1)).toEqual([
+      [lat[0], lon[0]],
+      [lat[5], lon[5]],
+    ]);
+
+    a.calls.length = 0;
+    ctl.setFrame(6);
+    expect(a.calls).toHaveLength(1);
+    expect(a.calls[0].at(-1)).toEqual([lat[6], lon[6]]);
   });
 });
