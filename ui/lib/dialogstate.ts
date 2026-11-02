@@ -2,14 +2,16 @@
 // may be dismissed come from a single state, so Escape, the backdrop and the
 // header close can never disagree. "export-form" covers every dismissable
 // phase of the export dialog (form, done, canceled, error); a running job
-// pins it as "export-running".
-export type DialogState = 'closed' | 'settings' | 'export-form' | 'export-running';
+// pins it as "export-running". "update-prompt" is the auto-update restart
+// prompt; it only opens over a quiet UI and is dismissable like settings.
+export type DialogState = 'closed' | 'settings' | 'export-form' | 'export-running' | 'update-prompt';
 
 export type DialogEvent =
   | { type: 'openSettings' }
   | { type: 'openExport' }
   | { type: 'exportStarted' }
   | { type: 'exportFinished' }
+  | { type: 'updateReady' }
   | { type: 'close' };
 
 /** The job-lifecycle slice the export modal feeds the machine. */
@@ -18,13 +20,15 @@ export type DialogRunEvent = Extract<DialogEvent, { type: 'exportStarted' | 'exp
 export function dialogReducer(state: DialogState, event: DialogEvent): DialogState {
   switch (event.type) {
     case 'openSettings':
-      return state === 'export-running' ? state : 'settings';
+      return state === 'export-running' || state === 'update-prompt' ? state : 'settings';
     case 'openExport':
-      return state === 'export-running' ? state : 'export-form';
+      return state === 'export-running' || state === 'update-prompt' ? state : 'export-form';
     case 'exportStarted':
       return state === 'export-form' ? 'export-running' : state;
     case 'exportFinished':
       return state === 'export-running' ? 'export-form' : state;
+    case 'updateReady':
+      return state === 'closed' ? 'update-prompt' : state;
     case 'close':
       return state === 'export-running' ? state : 'closed';
   }

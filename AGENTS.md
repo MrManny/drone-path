@@ -12,8 +12,9 @@ Development instructions; [README.md](README.md) is the user manual.
   The UI builds with webpack (`--webpack`): Turbopack cannot resolve the
   shared renderer's NodeNext `.js` specifiers.
 - `npm run app:pack` packages the desktop app with `electron-builder` into
-  `dist-electron/`: `-- --dir` for the unpacked smoke, `-- --win portable` and
-  `-- --linux AppImage` for release artifacts.
+  `dist-electron/`: `-- --dir` for the unpacked smoke, `-- --win nsis` (the
+  self-updating installer), `-- --win portable` and `-- --linux AppImage` for
+  release artifacts.
 - When adding a new dependency, pin it to a patch-level range (i.e. `~1.2.3`);
   new dependencies **must not** have high or critical security issues on
   Snyk. Check `https://security.snyk.io/package/npm/<package_name>`.

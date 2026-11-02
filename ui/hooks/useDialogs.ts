@@ -14,6 +14,7 @@ export interface Dialogs {
   modalOpen: boolean;
   settingsOpen: boolean;
   exportOpen: boolean;
+  updateOpen: boolean;
   /** The one dismissal rule, for Escape, the backdrop and the header close. */
   dismissible: boolean;
   dispatchDialog: (event: DialogEvent) => void;
@@ -25,6 +26,7 @@ export function useDialogs(): Dialogs {
     modalOpen: dialog !== 'closed',
     settingsOpen: dialog === 'settings',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
+    updateOpen: dialog === 'update-prompt',
     dismissible: canDismiss(dialog),
     dispatchDialog,
   };

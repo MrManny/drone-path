@@ -22,6 +22,7 @@ import { requireTools } from '../dist/ff.js';
 import { rangePlan } from '../dist/range.js';
 import { outputPathFor } from '../dist/run.js';
 import { createTileFetcher } from '../dist/tiles.js';
+import { initUpdates } from './update.mjs';
 
 const SCHEME = 'app';
 // --dev-url points the window at `next dev` (hot reload) instead of the
@@ -56,6 +57,10 @@ function createShellState() {
     config: null,
     tileFetcher: null,
     exportRunner: null,
+    // The update controller, or null when this build cannot self-update.
+    updates: null,
+    // A downloaded update waits even if its announcement raced the renderer.
+    updateReady: false,
     // The destination of the last successful export: the only path the
     // renderer may reveal or open.
     lastExportOut: null,
@@ -288,6 +293,19 @@ function registerIpcHandlers(state) {
       return { ok: false, error: errorMessage(e) };
     }
   });
+  ipcMain.handle('neo2flightpath:update:restart', (event) => {
+    assertTrusted(event);
+    if (!state.updates) return { ok: false, error: 'this build does not self-update' };
+    // No pendingClose here: the prompt never opens over a running export, and
+    // a failed restart must not poison the export close guard.
+    return state.updates.restart({
+      onError: (message) => sendToWindow(state, 'neo2flightpath:update:restart-failed', message),
+    });
+  });
+  ipcMain.handle('neo2flightpath:update:state', (event) => {
+    assertTrusted(event);
+    return { ready: state.updateReady };
+  });
 }
 
 function installProtocolHandler(state) {
@@ -390,6 +408,15 @@ async function startup() {
   try {
     await initServices(state);
     initExportRunner(state);
+    state.updates = initUpdates({
+      log,
+      onReady: () => {
+        // Buffered: the cache fast path can announce before the renderer
+        // subscribes, and the state handler replays it on mount.
+        state.updateReady = true;
+        sendToWindow(state, 'neo2flightpath:update:ready');
+      },
+    });
     registerIpcHandlers(state);
     installProtocolHandler(state);
     ensureUiExport();

@@ -69,7 +69,7 @@ All frames below are from the same recording:
 ## Desktop app
 
 For reviewing flights without the terminal, grab the packaged desktop app
-(Windows portable or Linux AppImage) from
+(Windows NSIS installer or portable exe, Linux AppImage) from
 [GitHub Releases](https://github.com/MrManny/neo2-flightpath/releases), or run
 `npm run build && npm run app` from a checkout. Launching it opens a window where
 **Open…** picks a video through the native file dialog; while the recording is
@@ -103,6 +103,14 @@ the native save dialog. Exports run one at a time and cannot be paused;
 a working file and only replaces the chosen file once it has been verified, so
 a failed or canceled export never touches an existing file. Closing the window
 during an export asks whether to stop it.
+
+Packaged builds update themselves: when a newer
+[release](https://github.com/MrManny/neo2-flightpath/releases) exists, the app
+downloads it in the background and asks once whether to **Restart now** into
+it or keep working with **Later** (the update then installs when you quit).
+The Windows installer and the Linux AppImage self-update; the portable exe
+never does, so download the newest one by hand. Update checks fail quietly
+when offline and never hold up startup.
 
 ## Usage
 

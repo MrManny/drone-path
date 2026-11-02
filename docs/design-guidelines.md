@@ -4,7 +4,7 @@ Standing reference for the Electron desktop UI. Read before changing anything un
 
 ## 1. Purpose, scope and status
 
-- **Scope:** the app UI: landing, player (video, map overlay, control bar), settings and export dialogs, icons, copy and error text. Native OS dialogs in `app/main.mjs` are not styled here; their wording follows section 10.
+- **Scope:** the app UI: landing, player (video, map overlay, control bar), settings, export and update dialogs, icons, copy and error text. Native OS dialogs in `app/main.mjs` are not styled here; their wording follows section 10.
 - **Out of scope:** the frames and map overlay rendered by `src/renderer/` (its palette included) and CLI output.
 - **Tokens:** live only in the `:root` block of `ui/app/globals.css`, named by role. Components consume tokens through classes; inline styles are limited to runtime geometry (`pipStyle()`, loop band and progress widths, the map host's `isolation`).
 - **Status:** dark theme only.
@@ -57,7 +57,7 @@ Color tokens live in the `:root` block of `ui/app/globals.css` (section 1):
 
 - **Stacks:** `--font-ui`: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif. `--font-mono`: ui-monospace, "Cascadia Mono", Consolas, monospace. No font file is bundled or loaded.
 - **Type scale** (every size and weight in `ui/app/globals.css`): 28/600 landing title, 18/600 dialog titles, 16/600 landing primary button, 14/400 body and controls, 13/400 hints, legends and readouts, 12/400 mono details and paths.
-- **Weights:** 400 and 600; 600 also on `h1`, `h2`, `button.primary`, `button.export-primary` and the pressed speed segment. Headings use `letter-spacing: -0.01em`.
+- **Weights:** 400 and 600; 600 also on `h1`, `h2`, `button.primary`, `button.dialog-primary` and the pressed speed segment. Headings use `letter-spacing: -0.01em`.
 - **Line height:** 1 for buttons; 1.5 for notice text, hints, landing copy and mono text.
 - **Tabular numerals** (`font-variant-numeric: tabular-nums`): readouts, number fields, the progress label and the preparation's tile count.
 - **Case:** sentence case; capitals only for names and acronyms (ALT, SPD, HUD, SRT).
@@ -111,7 +111,7 @@ Spacing values are literals on this scale; use nothing else:
 |---|---|---|---|
 | Default | `button` | None | Open…, In, Out, Clear, Swap view, Export…, Settings, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss |
 | Primary, landing | `button.primary` | Accent fill, `--accent-ink` text, 600, transparent border, 44px high, 0 24px padding, 16px text | Open… on the landing |
-| Primary, dialog | `button.export-primary` | Accent fill, `--accent-ink` text, 600, transparent border; default size | Start export |
+| Primary, dialog | `button.dialog-primary` | Accent fill, `--accent-ink` text, 600, transparent border; default size | Start export; Restart now |
 | Speed segment | `.speed-group button.speed` | Transparent fill, no border, 30px high, 0 8px padding, pill | 1×, 2×, 3×, 4× |
 | Dismiss | `.notice-dismiss` | 28px high, 0 8px padding | Dismiss in notices |
 
@@ -134,7 +134,7 @@ Spacing values are literals on this scale; use nothing else:
 | `warning` | Settings: no altitude telemetry, so the ALT chip stays off |
 | `danger` | Open failed; export could not start; export failed; reveal or open failed; cancel failed |
 
-- **Placement:** landing, below Open… (16px top margin). Player: a centered overlay at the top of the stage (16px from the top, at most 560px wide, z-index 3, `--shadow-float`), showing only Open preparing and Open errors. Dialogs: above the footer on the export form and while running; under the title in the done, canceled and error phases. Settings: inside the HUD chips group.
+- **Placement:** landing, below Open… (16px top margin). Player: a centered overlay at the top of the stage (16px from the top, at most 560px wide, z-index 3, `--shadow-float`), showing only Open preparing and Open errors. Dialogs: above the footer on the export form and while running; under the title in the done, canceled and error phases, and in the update prompt. Settings: inside the HUD chips group.
 - **Dismissible:** only when the owner passes `onDismiss`; today only Open errors are. Notices that describe a state clear when the state changes. Export form errors clear on the next form edit or start; action and cancel errors clear on the next attempt or when the job settles (`ui/lib/exportstate.ts`).
 
 ### 8.4 Fields
@@ -146,7 +146,7 @@ Spacing values are literals on this scale; use nothing else:
 
 ### 8.5 Dialogs
 
-- **Anatomy:** overlay `.settings-overlay`; panel `.settings-panel` (`role="dialog"`, `aria-label` "Settings" or "Export"); header `.settings-header` (18px title and the header close); body; footer `.dialog-actions` (right-aligned, wrapping, 8px gap, 16px top margin), export only. Settings has no footer and applies changes on change.
+- **Anatomy:** overlay `.settings-overlay`; panel `.settings-panel` (`role="dialog"`, `aria-label` "Settings", "Export" or "Update"); header `.settings-header` (18px title and the header close); body; footer `.dialog-actions` (right-aligned, wrapping, 8px gap, 16px top margin), export and the update prompt. Settings has no footer and applies changes on change.
 - **Position and size:** the top edge sits 56px (`--dialog-top`) below the window top in every phase. The panel is `min(440px, 100%)` wide, padded 24px, at most `100vh − 80px` high, and scrolls inside.
 - **Header close** (`DialogClose`): always present, labeled "Close" with a glyph. While closing would interrupt work it is disabled, and its `title` gives the reason: "Export is running. Cancel it to close."
 - **Footer by phase** (export):
@@ -161,6 +161,7 @@ Spacing values are literals on this scale; use nothing else:
 
 - **Escape and backdrop:** Settings closes on Escape, backdrop click or header Close at any time. Export closes on them only when not running; while running they are ignored. One rule drives all three, from the dialog visibility state (`ui/lib/dialogstate.ts`): the export modal reports its job's start and finish there, and the header close and backdrop read the dismissal rule back.
 - **Lock while busy:** during an export the header close is disabled, and closing the window asks "An export is in progress" (native prompt, `app/main.mjs`). Cancel export is the only way out.
+- **Update prompt:** titled "Update"; its message is the info notice under the title, and its footer carries Later and Restart now (primary). Escape, the backdrop and the header close all mean Later. When the restart starts every dismissal locks too: the primary reads "Restarting…" and the header close is disabled with "The app is restarting." If the restart cannot start, the prompt unlocks and offers Restart now again. The prompt appears at most once per session and only over a quiet UI: never over another dialog or a running export.
 - **Shortcuts:** while a dialog is open, player shortcuts are off; only Escape reaches the dialog logic (section 13).
 
 ### 8.6 Progress
@@ -197,6 +198,7 @@ Spacing values are literals on this scale; use nothing else:
 | Export "What" | Full recording (0:34); In–Out segment (0:10–0:12 · 121 frames) — shown only when a loop is set |
 | Export "How" | Width, Height; hint "px"; message "Must be at least 64 px." |
 | Settings | Map style (Satellite, Topographic), View (Follow, Overview), Zoom, Zoom-out, Intro (s), Outro (s); HUD chips: Heading arrow, Altitude (ALT), Speed (SPD) |
+| Update dialog | Update (title); Restart now, Later / "Restarting…"; message "A new version is ready to install. Restart now to finish updating, or keep working and the update installs when you quit." |
 | Notices | Dismiss; "Technical details" |
 
 ## 11. Error guidance

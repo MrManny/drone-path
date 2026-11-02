@@ -42,7 +42,11 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            label: win-x64
+            label: win-x64-nsis
+            target: --win nsis
+            artifact: dist-electron/*.exe
+          - os: windows-latest
+            label: win-x64-portable
             target: --win portable
             artifact: dist-electron/*.exe
           - os: ubuntu-latest

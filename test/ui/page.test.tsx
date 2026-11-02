@@ -65,6 +65,8 @@ function installBridge() {
   const listeners: {
     preparing?: () => void;
     progress?: (progress: PrepareProgress) => void;
+    updateReady?: () => void;
+    restartFailed?: (message: string) => void;
   } = {};
   const bridge = {
     getSettings: vi.fn(async () => DEFAULT_CONFIG),
@@ -87,6 +89,20 @@ function installBridge() {
         listeners.progress = undefined;
       };
     }),
+    onUpdateReady: vi.fn((cb: () => void) => {
+      listeners.updateReady = cb;
+      return () => {
+        listeners.updateReady = undefined;
+      };
+    }),
+    onUpdateRestartFailed: vi.fn((cb: (message: string) => void) => {
+      listeners.restartFailed = cb;
+      return () => {
+        listeners.restartFailed = undefined;
+      };
+    }),
+    getUpdateState: vi.fn(async () => ({ ready: false })),
+    restartToUpdate: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
   };
   (window as { neo2flightpath?: unknown }).neo2flightpath = bridge;
   return {
@@ -99,6 +115,16 @@ function installBridge() {
     report: (progress: PrepareProgress) => {
       act(() => {
         listeners.progress?.(progress);
+      });
+    },
+    updateReady: () => {
+      act(() => {
+        listeners.updateReady?.();
+      });
+    },
+    restartFailed: () => {
+      act(() => {
+        listeners.restartFailed?.('restart failed');
       });
     },
     settle: async (result: PickResult) => {
@@ -228,5 +254,100 @@ describe('Open flow over the player', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(document.querySelector('.controls')).not.toBeNull();
+  });
+});
+
+describe('update prompt', () => {
+  it('prompts over the landing once the background download finishes', async () => {
+    const harness = installBridge();
+    await openLanding();
+    harness.updateReady();
+    expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('A new version is ready to install.');
+  });
+
+  it('waits out another dialog and then prompts exactly once', async () => {
+    const harness = installBridge();
+    fireEvent.click(await openLanding());
+    harness.prepare();
+    await harness.settle({ ok: true });
+    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    harness.updateReady();
+    expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Later' }));
+    expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
+    harness.updateReady();
+    expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
+  });
+
+  it('restarts into the update on request', async () => {
+    const harness = installBridge();
+    await openLanding();
+    harness.updateReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    expect(harness.bridge.restartToUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers the prompt again when the restart could not start', async () => {
+    const harness = installBridge();
+    harness.bridge.restartToUpdate.mockRejectedValueOnce(new Error('shell gone'));
+    await openLanding();
+    harness.updateReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy(),
+    );
+  });
+
+  it('dismisses the prompt with Escape', async () => {
+    const harness = installBridge();
+    await openLanding();
+    harness.updateReady();
+    expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
+  });
+
+  it('locks even Escape while the restart runs', async () => {
+    const harness = installBridge();
+    harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
+    await openLanding();
+    harness.updateReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    expect(screen.getByRole('button', { name: 'Restarting…' })).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
+  });
+
+  it('unlocks the prompt when the shell refuses to restart', async () => {
+    const harness = installBridge();
+    harness.bridge.restartToUpdate.mockResolvedValueOnce({ ok: false, error: 'no update' });
+    await openLanding();
+    harness.updateReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
+  });
+
+  it('unlocks the prompt when the restart fails after the ack', async () => {
+    const harness = installBridge();
+    harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
+    await openLanding();
+    harness.updateReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    harness.restartFailed();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
+  });
+
+  it('picks up a download that finished before the subscription', async () => {
+    const harness = installBridge();
+    harness.bridge.getUpdateState.mockResolvedValueOnce({ ready: true });
+    await openLanding();
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy());
   });
 });

@@ -7,9 +7,13 @@ import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { LandingPanel } from '../components/LandingPanel.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';
+import { UpdatePrompt } from '../components/UpdatePrompt.js';
+import { useDialogs } from '../hooks/useDialogs.js';
 import { appBridge } from '../lib/backend.js';
+import type { DialogEvent } from '../lib/dialogstate.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
+import { shouldPrompt, updateReducer } from '../lib/updatestate.js';
 
 interface LoadedSession {
   id: number;
@@ -22,6 +26,21 @@ export default function Page() {
   // One settings object for the panel and the export modal; seeded from the
   // resolved config the app backend hands over.
   const [settings, setSettings] = useState<RenderConfig>(DEFAULT_CONFIG);
+  // The one dialog machine: the player's dialogs and the update prompt share
+  // it, so the prompt can never stack onto another dialog.
+  const dialogs = useDialogs();
+  const { modalOpen, updateOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
+  const [updatePhase, dispatchUpdate] = useReducer(updateReducer, 'idle');
+  // While the restart runs nothing may dismiss the prompt: the wrapped
+  // dispatch refuses close for every caller, Escape included.
+  const dispatchDialog = useCallback(
+    (event: DialogEvent) => {
+      if (updatePhase === 'restarting' && event.type === 'close') return;
+      dispatchDialogRaw(event);
+    },
+    [updatePhase, dispatchDialogRaw],
+  );
+  const sharedDialogs = { ...dialogs, dispatchDialog };
   const nextId = useRef(0);
   // Guards re-entry for the whole Open flow, preparation included.
   const picking = useRef(false);
@@ -61,6 +80,51 @@ export default function Page() {
     };
   }, []);
 
+  // The shell announces a finished background download once per update; the
+  // state query catches downloads that finished before this subscription.
+  useEffect(() => {
+    let offReady: (() => void) | null = null;
+    let offFailed: (() => void) | null = null;
+    try {
+      offReady = appBridge().onUpdateReady(() => dispatchUpdate({ type: 'ready' }));
+      offFailed = appBridge().onUpdateRestartFailed(() =>
+        dispatchUpdate({ type: 'restartFailed' }),
+      );
+      void appBridge()
+        .getUpdateState()
+        .then((state) => {
+          if (state.ready) dispatchUpdate({ type: 'ready' });
+        })
+        .catch(() => {
+          // A missing state answer changes nothing; the event may still come.
+        });
+    } catch {
+      // Outside the app shell there is no backend to report updates.
+    }
+    return () => {
+      offReady?.();
+      offFailed?.();
+    };
+  }, []);
+
+  // The prompt waits for a quiet UI: it never opens over another dialog or an
+  // export dialog pinned open by a running job.
+  useEffect(() => {
+    if (!shouldPrompt(updatePhase, modalOpen)) return;
+    dispatchUpdate({ type: 'prompt' });
+    dispatchDialog({ type: 'updateReady' });
+  }, [updatePhase, modalOpen, dispatchDialog]);
+
+  // Escape dismisses the prompt on the landing too, where no player hotkeys run.
+  useEffect(() => {
+    if (!updateOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dispatchDialog({ type: 'close' });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [updateOpen, dispatchDialog]);
+
   const handlePick = useCallback(() => {
     if (picking.current) return;
     picking.current = true;
@@ -83,18 +147,46 @@ export default function Page() {
 
   const dismissOpen = useCallback(() => dispatch({ type: 'dismiss' }), []);
 
-  if (loaded) {
-    return (
-      <PlayerChrome
-        key={loaded.id}
-        session={loaded.value}
-        settings={settings}
-        onSettingsChange={setSettings}
-        onOpen={handlePick}
-        openState={pickState}
-        onDismissOpenState={dismissOpen}
-      />
-    );
-  }
-  return <LandingPanel state={pickState} onPick={handlePick} onDismiss={dismissOpen} />;
+  const restartUpdate = useCallback(() => {
+    dispatchUpdate({ type: 'restart' });
+    const failed = () => dispatchUpdate({ type: 'restartFailed' });
+    try {
+      void appBridge()
+        .restartToUpdate()
+        .then((ack) => {
+          if (!ack.ok) failed();
+        })
+        .catch(failed);
+    } catch {
+      failed();
+    }
+  }, []);
+
+  const postponeUpdate = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
+
+  return (
+    <>
+      {loaded ? (
+        <PlayerChrome
+          key={loaded.id}
+          session={loaded.value}
+          settings={settings}
+          onSettingsChange={setSettings}
+          onOpen={handlePick}
+          dialogs={sharedDialogs}
+          openState={pickState}
+          onDismissOpenState={dismissOpen}
+        />
+      ) : (
+        <LandingPanel state={pickState} onPick={handlePick} onDismiss={dismissOpen} />
+      )}
+      {dialogs.updateOpen ? (
+        <UpdatePrompt
+          restarting={updatePhase === 'restarting'}
+          onRestart={restartUpdate}
+          onLater={postponeUpdate}
+        />
+      ) : null}
+    </>
+  );
 }

@@ -24,6 +24,7 @@ describe('useDialogs', () => {
       modalOpen: false,
       settingsOpen: false,
       exportOpen: false,
+      updateOpen: false,
       dismissible: true,
       dispatchDialog: result.current.dispatchDialog,
     });
@@ -81,5 +82,24 @@ describe('useDialogs', () => {
     send({ type: 'close' });
     expect(result.current.modalOpen).toBe(false);
     expect(result.current.settingsOpen).toBe(false);
+  });
+
+  it('opens the update prompt as a dismissable modal', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'updateReady' });
+    expect(result.current.modalOpen).toBe(true);
+    expect(result.current.updateOpen).toBe(true);
+    expect(result.current.dismissible).toBe(true);
+  });
+
+  it('keeps the update prompt when other dialogs ask to open', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'updateReady' });
+    send({ type: 'openSettings' });
+    expect(result.current.updateOpen).toBe(true);
+    send({ type: 'openExport' });
+    expect(result.current.updateOpen).toBe(true);
+    send({ type: 'close' });
+    expect(result.current.modalOpen).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import type { PickState } from '../lib/pickstate.js';
-import { useDialogs } from '../hooks/useDialogs.js';
+import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import { ControlBar } from './ControlBar.js';
@@ -21,6 +21,8 @@ export interface PlayerChromeProps {
   settings: RenderConfig;
   onSettingsChange: (config: RenderConfig) => void;
   onOpen: () => void;
+  /** The app's one dialog machine, shared with the update prompt at page level. */
+  dialogs: Dialogs;
   /** The Open flow: only preparing and failures show over the player. */
   openState?: PickState;
   onDismissOpenState?: () => void;
@@ -33,6 +35,7 @@ export function PlayerChrome({
   settings,
   onSettingsChange,
   onOpen,
+  dialogs,
   openState = IDLE_OPEN,
   onDismissOpenState,
 }: PlayerChromeProps) {
@@ -54,7 +57,7 @@ export function PlayerChrome({
     scrubRef,
     timeRef,
   } = usePlayback(video, durationSec);
-  const { modalOpen, settingsOpen, exportOpen, dismissible, dispatchDialog } = useDialogs();
+  const { modalOpen, settingsOpen, exportOpen, dismissible, dispatchDialog } = dialogs;
   const [mapIsMain, setMapIsMain] = useState(false);
   const swap = useCallback(() => setMapIsMain((v) => !v), []);
 
