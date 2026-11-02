@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ExportRequest } from '../../src/config.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import { captureFraction, exportReducer, initialExportState } from '../../ui/lib/exportstate.js';
-import type { ExportState } from '../../ui/lib/exportstate.js';
+import type { ExportEvent, ExportState } from '../../ui/lib/exportstate.js';
 
 const REQUEST: ExportRequest = {
   outPath: '/exports/a.mp4',
@@ -52,6 +52,45 @@ describe('export form', () => {
     expect(exportReducer(state, { type: 'choose', path: '/elsewhere.mp4' }).form.outPath).toBe(
       '/exports/a.mp4',
     );
+  });
+});
+
+describe('effective dimension commits (#94)', () => {
+  it.for<{ name: string; event: ExportEvent; want: { width: number; height: number } }>([
+    {
+      name: 'a typed 769 width commits the effective 768',
+      event: { type: 'setWidth', width: 769 },
+      want: { width: 768, height: 768 },
+    },
+    {
+      name: 'a typed 765 height commits the effective 764',
+      event: { type: 'setHeight', height: 765 },
+      want: { width: 768, height: 764 },
+    },
+    {
+      name: 'a typed 65 width rounds down to the minimum 64',
+      event: { type: 'setWidth', width: 65 },
+      want: { width: 64, height: 768 },
+    },
+    {
+      name: 'an even value applies unchanged',
+      event: { type: 'setWidth', width: 800 },
+      want: { width: 800, height: 768 },
+    },
+    {
+      name: 'the other dimension stays untouched',
+      event: { type: 'setHeight', height: 501 },
+      want: { width: 768, height: 500 },
+    },
+  ])('$name', ({ event, want }) => {
+    const state = exportReducer(initialExportState(768, 768), event);
+    expect(state.form.width).toBe(want.width);
+    expect(state.form.height).toBe(want.height);
+  });
+
+  it('starts with the effective sizes of odd settings dimensions', () => {
+    const state = initialExportState(769, 501);
+    expect(state.form).toEqual({ outPath: null, width: 768, height: 500, range: null });
   });
 });
 
