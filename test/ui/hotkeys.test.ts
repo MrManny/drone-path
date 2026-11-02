@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { HotkeyAction, HotkeyEvent } from '../../ui/lib/hotkeys.js';
-import { mapKey } from '../../ui/lib/hotkeys.js';
+import { INITIAL_SESSION, mapKey } from '../../ui/lib/hotkeys.js';
+import type { HotkeyContext, HotkeySession } from '../../ui/lib/hotkeys.js';
 
 const PLAYING = { modalOpen: false };
 const MODAL = { modalOpen: true };
@@ -10,6 +11,20 @@ const input = { tagName: 'INPUT' };
 const select = { tagName: 'SELECT' };
 const textarea = { tagName: 'textarea' };
 const button = { tagName: 'BUTTON' };
+
+// Runs a key stream through the mapper so the Esc reservation's session
+// behavior is exercised the way the hook drives it.
+function mapSequence(
+  events: HotkeyEvent[],
+  ctx: HotkeyContext,
+): (HotkeyAction | null)[] {
+  let session: HotkeySession = INITIAL_SESSION;
+  return events.map((event) => {
+    const result = mapKey(event, ctx, session);
+    session = result.session;
+    return result.action;
+  });
+}
 
 interface Case {
   name: string;
@@ -81,14 +96,14 @@ describe('mapKey', () => {
     { name: 'Space is inert in a text field', event: { key: ' ', target: textarea }, want: null },
     { name: 'letters are inert in a select', event: { key: 's', target: select }, want: null },
     { name: 'arrows are inert in a scrubber field', event: { key: 'ArrowRight', target: input }, want: null },
-    { name: 'Esc leaves a select dropdown alone', event: { key: 'Escape', target: select }, ctx: MODAL, want: null },
+    { name: 'first Esc leaves a select dropdown alone', event: { key: 'Escape', target: select }, ctx: MODAL, want: null },
     {
-      name: 'Esc leaves a select dropdown alone without modal',
+      name: 'first Esc leaves a select dropdown alone without modal',
       event: { key: 'Escape', target: select },
       want: null,
     },
   ])('$name', ({ event, ctx, want }) => {
-    expect(mapKey(event, ctx ?? PLAYING)).toEqual(want);
+    expect(mapKey(event, ctx ?? PLAYING).action).toEqual(want);
   });
 
   it.for<Case>([
@@ -99,6 +114,52 @@ describe('mapKey', () => {
     { name: 'swap while a modal is open', event: { key: 's' }, ctx: MODAL, want: null },
     { name: 'Ctrl+O while a modal is open', event: { key: 'o', ctrlKey: true }, ctx: MODAL, want: null },
   ])('$name is inert', ({ event, ctx, want }) => {
-    expect(mapKey(event, ctx ?? MODAL)).toEqual(want);
+    expect(mapKey(event, ctx ?? MODAL).action).toEqual(want);
+  });
+});
+
+describe('mapKey Esc over a focused select (#93)', () => {
+  const escOnSelect: HotkeyEvent = { key: 'Escape', target: select };
+  const otherSelect = { tagName: 'SELECT' };
+
+  it.for<{ name: string; events: HotkeyEvent[]; ctx: HotkeyContext; want: (HotkeyAction | null)[] }>([
+    {
+      name: 'the second Esc closes the open overlay',
+      events: [escOnSelect, escOnSelect],
+      ctx: MODAL,
+      want: [null, { type: 'closeOverlay' }],
+    },
+    {
+      name: 'the second Esc clears the loop without an overlay',
+      events: [escOnSelect, escOnSelect],
+      ctx: PLAYING,
+      want: [null, { type: 'clearLoop' }],
+    },
+    {
+      name: 'another key on the select reserves a new Esc',
+      events: [escOnSelect, { key: 'ArrowDown', target: select }, escOnSelect, escOnSelect],
+      ctx: MODAL,
+      want: [null, null, null, { type: 'closeOverlay' }],
+    },
+    {
+      name: 'moving to another target reserves a new Esc',
+      events: [escOnSelect, { key: 'Escape', target: otherSelect }, { key: 'Escape', target: otherSelect }],
+      ctx: MODAL,
+      want: [null, null, { type: 'closeOverlay' }],
+    },
+    {
+      name: 'a repeating Esc after the reserved one still acts',
+      events: [escOnSelect, { key: 'Escape', target: select, repeat: true }],
+      ctx: MODAL,
+      want: [null, { type: 'closeOverlay' }],
+    },
+    {
+      name: 'every Esc after the reserved one keeps acting',
+      events: [escOnSelect, escOnSelect, escOnSelect],
+      ctx: MODAL,
+      want: [null, { type: 'closeOverlay' }, { type: 'closeOverlay' }],
+    },
+  ])('$name', ({ events, ctx, want }) => {
+    expect(mapSequence(events, ctx)).toEqual(want);
   });
 });
