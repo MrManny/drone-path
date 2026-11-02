@@ -1,4 +1,4 @@
-# neo2-flightpath
+# Neo 2 Flightpath
 
 This handy little tool allows you to render flight-path map videos
 from DJI drone recordings (DJI Neo 2 and similar).
@@ -71,24 +71,16 @@ All frames below are from the same recording:
 For reviewing flights without the terminal, grab the packaged desktop app
 (Windows NSIS installer or portable exe, Linux AppImage) from
 [GitHub Releases](https://github.com/MrManny/neo2-flightpath/releases), or run
-`npm run build && npm run app` from a checkout. Launching it opens a window where
-**Open…** picks a video through the native file dialog; while the recording is
-prepared (probe, telemetry, view plan and map tile pre-warm) a progress bar
-names the current stage and counts the warmed tiles
-(`Warming tiles… 12/48`). The
-screen then shows the footage and the map overlay (trail, heading arrow, HUD
-chips) in a swappable picture-in-picture layout on one shared timeline
-scrubber. Play, pause and scrub keep the video frame, trail, drone position
+`npm run build && npm run app` from a checkout.
+
+Launching let's you load a drone video, but it can take a hot second to
+acquire the map data.
+The screen then shows the footage and the map overlay in a swappable
+picture-in-picture layout on one shared timeline scrubber.
+
+Play, pause and scrub keep the video frame, trail, drone position
 and HUD chips on the same frame; the map fills its pane at any window size,
 while the export framing follows `--width` / `--height` as usual.
-
-The **Settings** panel (opened from the control bar) mirrors the CLI option
-vocabulary &mdash; map style, view, zoom/zoom-out, intro/outro seconds, HUD
-chips &mdash; and every change restyles the preview instantly, without
-reloading the recording; the `alt` chip hides
-itself automatically when the telemetry has no altitude. A look change fetches
-any missing map tiles on demand (politely, at two requests per second) into the
-same cache the CLI uses.
 
 - The app embeds Chromium and needs no system browser, but it does need
   **ffmpeg + ffprobe** on `PATH` like the CLI; map tiles need internet on the
@@ -97,20 +89,13 @@ same cache the CLI uses.
 
 **Export…** (button in the control bar) renders the recording with the look you
 see in the preview. Choose *Full recording* or the *In–Out segment* (set the
-loop points with `I` / `O` first), set the output size, press **Start export**, and pick the file with
-the native save dialog. Exports run one at a time and cannot be paused;
-*Cancel export* stops the render and removes its working file. The video is written to
-a working file and only replaces the chosen file once it has been verified, so
-a failed or canceled export never touches an existing file. Closing the window
-during an export asks whether to stop it.
+loop points with `I` / `O` first), set the output size, press **Start export**,
+and pick the destination file.
 
 Packaged builds update themselves: when a newer
 [release](https://github.com/MrManny/neo2-flightpath/releases) exists, the app
 downloads it in the background and asks once whether to **Restart now** into
 it or keep working with **Later** (the update then installs when you quit).
-The Windows installer and the Linux AppImage self-update; the portable exe
-never does, so download the newest one by hand. Update checks fail quietly
-when offline and never hold up startup.
 
 ## Usage
 
@@ -145,8 +130,8 @@ optionally with `--recurse`). Every recording is processed independently.
 | `--config <path>` | auto | config file (see below) |
 | `-q, --quiet` | off | suppress progress output |
 
-The heading arrow shows drone yaw when the `CAM meta` stream provides it
-(valid even while hovering), otherwise the yaw is computed from the track.
+The heading arrow shows drone yaw when the `CAM meta` stream provides it,
+otherwise the yaw is computed from the track.
 
 ## Examples
 
@@ -168,11 +153,6 @@ directory (or named explicitly with `--config`). A complete example lives in
 All keys are optional.
 Anything omitted falls back to the default in the option table above.
 
-Values must use proper JSON types — numbers as JSON numbers; quoted numbers
-(`"width": "768"`), empty strings and odd literals (`0x10`) are rejected with
-`invalid number for <name>: ...`, while CLI flags accept plain decimal
-literals.
-
 ## Tiles & attribution
 
 - `satellite`: Esri World Imagery — attribution *Imagery © Esri, Maxar,
@@ -183,7 +163,6 @@ literals.
 Attribution is rendered into every frame. Tiles are fetched at a polite rate
 (~2.5 requests/s, custom `User-Agent`), cached permanently, and failed tiles
 are retried on the next run.
-Do not mass-produce tiles against the public endpoints.
 
 ## Feature requests
 
