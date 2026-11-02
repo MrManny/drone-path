@@ -4,7 +4,7 @@ Standing reference for the Electron desktop UI. Read before changing anything un
 
 ## 1. Purpose, scope and status
 
-- **Scope:** the app UI: landing, player (video, map overlay, control bar), settings, export and update dialogs, icons, copy and error text. Native OS dialogs in `app/main.mjs` are not styled here; their wording follows section 10.
+- **Scope:** the app UI: landing, player (video, map overlay, control bar), settings, export and update dialogs, the help overlay, icons, copy and error text. Native OS dialogs in `app/main.mjs` are not styled here; their wording follows section 10.
 - **Out of scope:** the frames and map overlay rendered by `src/renderer/` (its palette included) and CLI output.
 - **Tokens:** live only in the `:root` block of `ui/app/globals.css`, named by role. Components consume tokens through classes; inline styles are limited to runtime geometry (`pipStyle()`, loop band and progress widths, the map host's `isolation`).
 - **Status:** dark theme only.
@@ -109,7 +109,7 @@ Spacing values are literals on this scale; use nothing else:
 
 | Variant | Selector | Difference from the recipe | Used for |
 |---|---|---|---|
-| Default | `button` | None | Open…, In, Out, Clear, Swap view, Export…, Settings, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss |
+| Default | `button` | None | Open…, In, Out, Clear, Swap view, Export…, Settings, Help, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss |
 | Primary, landing | `button.primary` | Accent fill, `--accent-ink` text, 600, transparent border, 44px high, 0 24px padding, 16px text | Open… on the landing |
 | Primary, dialog | `button.dialog-primary` | Accent fill, `--accent-ink` text, 600, transparent border; default size | Start export; Restart now |
 | Speed segment | `.speed-group button.speed` | Transparent fill, no border, 30px high, 0 8px padding, pill | 1×, 2×, 3×, 4× |
@@ -173,12 +173,21 @@ Spacing values are literals on this scale; use nothing else:
 - **Unknown amount:** no indeterminate bar exists. The export label reads "Preparing…" and the fill stays at 0%; while canceling it reads "Canceling…".
 - **Busy controls:** the landing Open… reads "Preparing…" and is disabled while the recording is prepared; the player's Open… is disabled; Play reads "Warming tiles…" and is disabled until the map is ready.
 
+### 8.7 Help
+
+- The help overlay renders the user manual (`docs/user/*.md`, compiled into the UI export): dialog anatomy in a wide panel, opened from the landing and the control bar ("Help"), dismissed like Settings (Escape, backdrop, header close).
+- **Panel:** `.help-panel` widens the dialog panel to `min(880px, 100%)`; every other panel rule follows section 8.5 (56px top offset, 24px padding, scrolls inside).
+- **Body:** `.help-body` places the `.help-nav` page list (200px, derived from the manual index) beside the `.help-content` article. The current page is `aria-current="page"` in `--accent` on a `--surface-2` fill; nav links are text links without underline.
+- **Content:** compiled GitHub Flavored Markdown renders as prose: headings 18px/16px/14px at 600, body 14px at 1.5 line height, links in `--accent` (underlined), inline and block code in `--font-mono` 12px on `--surface-2`, tables with hairline borders and 8px cells, images full-width with a hairline border and 8px radius; an image caption stands as one italic paragraph under it.
+- Internal links navigate in place and scroll to their heading anchor; web links open in the system browser (the window-open handler in `app/main.mjs`).
+- Help is fully offline: pages and images are compiled into `ui/out`, nothing is fetched at runtime.
+
 ## 9. Layout and responsiveness
 
 - **Window:** default 1600×950; minimum 1024×600 (`app/main.mjs`).
 - **Landing:** card at most 560px wide, 32px padding, 12vh top margin, centered.
 - **Player stage:** fills the area above the control bar. The video is the main pane (`object-fit: contain`, black letterbox). By default the map is the picture-in-picture pane: 30% of the stage width in a 16:9 frame; a video in that pane takes its own aspect, and a portrait video takes 45% of the stage height. The pane sits 16px from the right and bottom edges. Swap view exchanges the two.
-- **Control bar:** `--bar-h` 64px. Above 1440px it is one row: Open… (left); transport (center: Play, In, Out, Clear, timeline, time readout, loop readout, speed group); Swap view, Export… and Settings (right). Gaps 8px; padding 0 16px.
+- **Control bar:** `--bar-h` 64px. Above 1440px it is one row: Open… (left); transport (center: Play, In, Out, Clear, timeline, time readout, loop readout, speed group); Swap view, Export…, Settings and Help (right). Gaps 8px; padding 0 16px.
 - **At 1440px and below:** the bar is 96px high in two rows. The left and right groups share the first row; the transport takes the second. Row gap 8px; padding 8px 16px.
 - **Timeline:** minimum 120px, `clamp(120px, 28vw, 420px)` wide, growing to fill its row.
 - **Dialogs:** `min(440px, 100%)` wide; top offset 56px (§8.5).
@@ -193,7 +202,7 @@ Spacing values are literals on this scale; use nothing else:
 
 | Where | Labels |
 |---|---|
-| Landing and player bar | Open…, Preparing…, Play / Pause, Warming tiles…, In, Out, Clear (`aria-label` "Set loop in", "Set loop out", "Clear loop"), Swap view, Export…, Settings |
+| Landing and player bar | Open…, Preparing…, Play / Pause, Warming tiles…, In, Out, Clear (`aria-label` "Set loop in", "Set loop out", "Clear loop"), Swap view, Export…, Settings, Help |
 | Preparation status | Probing the recording…, Loading telemetry…, Planning the view…, Warming tiles… 12/48 (running tile count) |
 | Export dialog | Start export, Cancel, Cancel export / Canceling…, Reveal in folder, Open video, Close; progress "Rendering N%" / "Preparing…" |
 | Export "What" | Full recording (0:34); In–Out segment (0:10–0:12 · 121 frames) — shown only when a loop is set |

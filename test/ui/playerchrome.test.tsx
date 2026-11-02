@@ -65,10 +65,14 @@ const SESSION: UiSession = {
 const SETTINGS: RenderConfig = { ...DEFAULT_CONFIG };
 
 // The player receives the app's one dialog machine from the page; the wrapper
-// runs the real machine so dialog behavior stays what the page gets.
-function Chrome(props: Omit<PlayerChromeProps, 'dialogs'>) {
+// runs the real machine so dialog behavior stays what the page gets. Help
+// defaults to a no-op so tests that do not exercise it stay quiet.
+function Chrome({
+  onHelp = () => {},
+  ...props
+}: Omit<PlayerChromeProps, 'dialogs' | 'onHelp'> & { onHelp?: () => void }) {
   const dialogs = useDialogs();
-  return <PlayerChrome {...props} dialogs={dialogs} />;
+  return <PlayerChrome {...props} onHelp={onHelp} dialogs={dialogs} />;
 }
 
 const rafQueue: Array<(now: number) => void> = [];
@@ -98,6 +102,21 @@ afterEach(() => {
 });
 
 describe('PlayerChrome', () => {
+  it('opens help through the control bar', () => {
+    const onHelp = vi.fn();
+    render(
+      <Chrome
+        session={SESSION}
+        settings={SETTINGS}
+        onSettingsChange={() => {}}
+        onOpen={() => {}}
+        onHelp={onHelp}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    expect(onHelp).toHaveBeenCalledTimes(1);
+  });
+
   it('loads the recording and gates playback on tile warm-up', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
@@ -133,10 +152,11 @@ describe('PlayerChrome', () => {
     expect(within(center).getByText('0:00 / 0:03')).toBeTruthy();
     expect(within(center).getByRole('group', { name: 'Playback speed' })).toBeTruthy();
 
-    expect(within(right).getAllByRole('button')).toHaveLength(3);
+    expect(within(right).getAllByRole('button')).toHaveLength(4);
     expect(within(right).getByRole('button', { name: 'Swap view' })).toBeTruthy();
     expect(within(right).getByRole('button', { name: 'Export…' })).toBeTruthy();
     expect(within(right).getByRole('button', { name: 'Settings' })).toBeTruthy();
+    expect(within(right).getByRole('button', { name: 'Help' })).toBeTruthy();
   });
 
   it('collects the speed buttons in one labeled group', () => {

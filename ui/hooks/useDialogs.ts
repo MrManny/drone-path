@@ -13,6 +13,7 @@ export interface Dialogs {
   /** A modal overlay is open: player shortcuts are off. */
   modalOpen: boolean;
   settingsOpen: boolean;
+  helpOpen: boolean;
   exportOpen: boolean;
   updateOpen: boolean;
   /** The one dismissal rule, for Escape, the backdrop and the header close. */
@@ -25,6 +26,7 @@ export function useDialogs(): Dialogs {
   return {
     modalOpen: dialog !== 'closed',
     settingsOpen: dialog === 'settings',
+    helpOpen: dialog === 'help',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
     updateOpen: dialog === 'update-prompt',
     dismissible: canDismiss(dialog),

@@ -186,6 +186,11 @@ button.primary {
 .landing .hint {
   margin: 16px 0 0;
 }
+.landing-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 /* One notice for every surface: same placement, type size and tone tokens. */
 .notice {
@@ -592,6 +597,125 @@ input[type='radio']:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Help: the manual's reading surface - dialog anatomy in a wide panel, nav
+   column and compiled page content beside each other. */
+.help-panel {
+  width: min(880px, 100%);
+}
+.help-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+.help-nav {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+}
+.help-nav a {
+  padding: 8px 16px;
+  color: var(--text-2);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+.help-nav a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.help-nav a[aria-current='page'] {
+  color: var(--accent);
+  background: var(--surface-2);
+  border-color: var(--hairline-strong);
+  font-weight: 600;
+}
+.help-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.5;
+}
+.help-content h1 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+.help-content h2 {
+  margin: 24px 0 8px;
+  font-size: 16px;
+}
+.help-content h3 {
+  margin: 16px 0 8px;
+  font-size: 14px;
+}
+.help-content p,
+.help-content pre,
+.help-content table,
+.help-content ul,
+.help-content ol,
+.help-content blockquote {
+  margin: 0 0 16px;
+}
+.help-content ul,
+.help-content ol {
+  padding-left: 24px;
+}
+.help-content li {
+  margin: 4px 0;
+}
+.help-content a {
+  color: var(--accent);
+}
+.help-content code {
+  padding: 0 4px;
+  font: 12px/1.5 var(--font-mono);
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+.help-content pre {
+  padding: 16px;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+.help-content pre code {
+  padding: 0;
+  background: none;
+}
+.help-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.help-content th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.help-content th,
+.help-content td {
+  padding: 8px;
+  border: 1px solid var(--hairline);
+}
+.help-content blockquote {
+  padding: 0 16px;
+  color: var(--text-2);
+  border-left: 1px solid var(--hairline-strong);
+}
+.help-content img {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+.help-content p:has(> em:only-child) {
+  font-size: 13px;
+  color: var(--text-3);
 }
 
 /* At 1440px and below the bar cannot hold one row without overlaps: the view

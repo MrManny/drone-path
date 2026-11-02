@@ -34,37 +34,23 @@ npx neo2-flightpath "my-flight.mp4"
 npx neo2-flightpath "my-flight.mp4" --style topo --hud heading,alt,speed
 ```
 
-Output lands in the `out/` folder as `<basename>_map.mp4` (both configurable; `--out-dir` writes beside the source when given no folder).
+Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder
+and the name are configurable. This needs Node.js 24 or newer and
+**ffmpeg + ffprobe** on `PATH`; all requirements and install options are in
+[Getting started](docs/user/getting-started.md).
 
-### Example output
+## Documentation
 
-All frames below are from the same recording:
+The user manual lives in [docs/user/](docs/user/README.md); the desktop app
+ships the same pages as offline help. Highlights:
 
-![Source footage: autumn forest and mountain panorama](docs/images/example-source-frame.jpg)
-
-*Source footage — the flight recording the examples below are rendered from.*
-
-![Default output: satellite map with growing trail and heading arrow](docs/images/example-map-satellite.jpg)
-
-*Default settings (first two commands): satellite map, growing trail and heading arrow.*
-
-![Topographic output with heading, altitude and speed chips](docs/images/example-map-topo-hud.jpg)
-
-*`--style topo --hud heading,alt,speed` (third command): topographic map with heading, altitude and speed chips.*
-
-## Requirements
-
-- **Node.js >= 24**
-- **ffmpeg + ffprobe** on `PATH` (telemetry extraction and video encoding).
-  Windows: `winget install Gyan.FFmpeg`; macOS: `brew install ffmpeg`;
-  Linux: `apt install ffmpeg`.
-- **Google Chrome or Microsoft Edge** installed — rendering uses the system
-  browser via `playwright-core`, which itself never downloads a browser. No
-  system browser either? `npx playwright install chromium` works too (the
-  Playwright browser registry is tried automatically), and any Chromium
-  executable can be forced with `--browser <path>`.
-- Internet on the first run: map tiles are fetched politely and cached
-  permanently afterwards (see *Tiles & attribution*).
+- [Getting started](docs/user/getting-started.md) — requirements, install options, and your first render.
+- [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, and exporting video from the app.
+- [Keyboard shortcuts](docs/user/keyboard-shortcuts.md) — every shortcut of the review player at a glance.
+- [CLI usage](docs/user/cli.md) — inputs, examples, and example output.
+- [CLI and config reference](docs/user/cli-reference.md) — every option and config key with its default.
+- [Config file](docs/user/config-file.md) — where `.neo2flightpath.json` is found and how defaults apply.
+- [Tiles and attribution](docs/user/tiles-and-attribution.md) — map sources, attribution, and tile caching.
 
 ## Desktop app
 
@@ -73,101 +59,15 @@ For reviewing flights without the terminal, grab the packaged desktop app
 [GitHub Releases](https://github.com/MrManny/neo2-flightpath/releases), or run
 `npm run build && npm run app` from a checkout.
 
-Launching let's you load a drone video, but it can take a hot second to
-acquire the map data.
-The screen then shows the footage and the map overlay in a swappable
-picture-in-picture layout on one shared timeline scrubber.
+The app shows the footage and the map overlay in a swappable
+picture-in-picture layout on one shared timeline scrubber;
+[the manual](docs/user/desktop-app.md) walks through loading a recording,
+reviewing a flight, looping a passage, and exporting.
 
 ![Desktop app: drone footage with the map overlay in picture-in-picture](docs/images/app-main-window.jpg)
 
 *The desktop app playing a recording: footage and map overlay in picture-in-picture,
 with the flight trail, drone position and HUD chips on one shared timeline scrubber.*
-
-Play, pause and scrub keep the video frame, trail, drone position
-and HUD chips on the same frame; the map fills its pane at any window size,
-while the export framing follows `--width` / `--height` as usual.
-
-- The app embeds Chromium and needs no system browser, but it does need
-  **ffmpeg + ffprobe** on `PATH` like the CLI; map tiles need internet on the
-  first run and are cached like CLI tiles.
-- One recording at a time — batch rendering stays a CLI concern.
-
-**Export…** (button in the control bar) renders the recording with the look you
-see in the preview. Choose *Full recording* or the *In–Out segment* (set the
-loop points with `I` / `O` first), set the output size, press **Start export**,
-and pick the destination file.
-
-Packaged builds update themselves: when a newer
-[release](https://github.com/MrManny/neo2-flightpath/releases) exists, the app
-downloads it in the background and asks once whether to **Restart now** into
-it or keep working with **Later** (the update then installs when you quit).
-
-## Usage
-
-If you are stuck, `npx neo2-flightpath --help` can help.
-
-```
-neo2-flightpath <inputs...> [options]
-```
-
-`<inputs...>` are `.mp4` files and/or folders (folders are scanned for `*.mp4`,
-optionally with `--recurse`). Every recording is processed independently.
-
-| Option | Default | Meaning |
-|---|---|---|
-| `--out-dir <dir>` | `out` | output folder (writes beside the source video when omitted) |
-| `--out-suffix <suffix>` | `_map` | output name = `<basename><suffix>.mp4` |
-| `--width <px>` / `--height <px>` | `768` / `768` | canvas size (rounded down to even) |
-| `--style <name>` | `satellite` | `satellite` (Esri World Imagery) or `topo` (OpenTopoMap) |
-| `--view <mode>` | `follow` | `follow`: drone centered, map slides under it; `overview`: static whole-track map |
-| `--zoom <n>` | `0` | fixed view zoom (`0` = auto-fit to the track) |
-| `--zoom-out <n>` | `1` | auto-fit only: pull the camera back *n* zoom levels |
-| `--intro-sec <s>` / `--outro-sec <s>` | `2` / `2` | smoothstep zoom-in intro / zoom-out outro |
-| `--hud <list>` | `heading` | comma list of `heading`, `alt`, `speed` — or `none`; the `alt` chip hides automatically when the telemetry has no altitude |
-| `--workers <n>` | `4` | parallel browser capture pages |
-| `--capture <mode>` | `jpeg` | `jpeg` (q95 screenshots, ~5x faster) or `png`; `canvas` is parked |
-| `--preset <name>` | `medium` | x264 preset (`medium` \| `veryfast`) |
-| `--tile-cache <dir>` | per-user cache | tile cache directory |
-| `--browser <path>` | system Chrome/Edge | browser executable |
-| `--skip-existing` | off | skip recordings whose output exists and matches the source (frame count + frame rate) |
-| `--recurse` | off | scan input folders recursively |
-| `--json` | off | print one NDJSON summary line per recording on stdout (progress stays on stderr) |
-| `--config <path>` | auto | config file (see below) |
-| `-q, --quiet` | off | suppress progress output |
-
-The heading arrow shows drone yaw when the `CAM meta` stream provides it,
-otherwise the yaw is computed from the track.
-
-## Examples
-
-```sh
-# quick conversion: one video, all default settings
-neo2-flightpath "flight.mp4"
-
-# full flight-path video: topographic map and the complete HUD
-# (heading arrow + altitude + speed chips)
-neo2-flightpath "flight.mp4" --style topo --hud heading,alt,speed
-```
-
-## Config file
-
-Options can live in a `.neo2flightpath.json` discovered upward from the working
-directory (or named explicitly with `--config`). A complete example lives in
-[.neo2flightpath.example.json](.neo2flightpath.example.json).
-
-All keys are optional.
-Anything omitted falls back to the default in the option table above.
-
-## Tiles & attribution
-
-- `satellite`: Esri World Imagery — attribution *Imagery © Esri, Maxar,
-  Earthstar Geographics, and the GIS User Community* (Esri usage limits apply).
-- `topo`: OpenTopoMap — attribution *© OpenStreetMap contributors, SRTM |
-  Style: © OpenTopoMap (CC-BY-SA)*.
-
-Attribution is rendered into every frame. Tiles are fetched at a polite rate
-(~2.5 requests/s, custom `User-Agent`), cached permanently, and failed tiles
-are retried on the next run.
 
 ## Feature requests
 

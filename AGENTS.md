@@ -1,13 +1,16 @@
 # AGENTS.md
 
-Development instructions; [README.md](README.md) is the user manual.
+Development instructions; the user manual lives in [docs/user/](docs/user/README.md),
+[README.md](README.md) is the quick-start front door.
 
 ## Setup & commands
 
 - Node.js 24 or 26, npm. Use `npm ci` to install dependencies.
-- `npm run build` compiles the CLI (`dist/`) and builds the UI export
-  (`ui/out/`); `npm run app` starts the Electron desktop app against it
-  (packaging uses `electron-builder`).
+- `npm run build` compiles the CLI (`dist/`), compiles the user manual into
+  the UI (`npm run build:manual`), and builds the UI export (`ui/out/`);
+  `npm run app` starts the Electron desktop app against it (packaging uses
+  `electron-builder`). `npm run docs:reference` regenerates the checked-in
+  `docs/user/cli-reference.md` from the option vocabulary in `src/config.ts`.
 - `npm run app:dev` runs the UI with hot reload (`next dev`) inside Electron.
   The UI builds with webpack (`--webpack`): Turbopack cannot resolve the
   shared renderer's NodeNext `.js` specifiers.
@@ -31,8 +34,20 @@ Development instructions; [README.md](README.md) is the user manual.
 - Use parameterized tests with `describe.for`/`describe.each` for "bulk" testing.
 - Behavior changes ship with tests (a bug fix gets a regression test).
   Never commit `.only`, `.skip` or `.todo`.
-- `npm test` type-checks the test tree first (`npm run typecheck:test`,
-  `tsc --noEmit` over `test/tsconfig.json`); keep it clean.
+- `npm test` regenerates the manual bundle (`npm run build:manual`), then
+  type-checks the test tree (`npm run typecheck:test`, `tsc --noEmit` over
+  `test/tsconfig.json`); keep it clean.
+
+## User manual
+
+`docs/user/*.md` is the user manual: plain GitHub Flavored Markdown, rendered
+on GitHub and compiled into the app's offline help by `src/manual/`. Internal
+links are relative `.md` links with GitHub heading anchors; images live in
+`docs/images/` and are referenced as `../images/<file>`. `docs/user/README.md`
+is the navigation index and every page must be listed there.
+`docs/user/cli-reference.md` is generated (`npm run docs:reference`, never
+hand-edited), and `docs/user/keyboard-shortcuts.md` must cover the key
+vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 
 ## Conventions
 

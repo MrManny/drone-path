@@ -9,6 +9,7 @@ import { engagedLoop, hasLoop } from '../lib/loop.js';
 import { CloseIcon } from '../icons/CloseIcon.js';
 import { ExportIcon } from '../icons/ExportIcon.js';
 import { FolderOpenIcon } from '../icons/FolderOpenIcon.js';
+import { HelpIcon } from '../icons/HelpIcon.js';
 import { MarkInIcon } from '../icons/MarkInIcon.js';
 import { MarkOutIcon } from '../icons/MarkOutIcon.js';
 import { PauseIcon } from '../icons/PauseIcon.js';
@@ -34,6 +35,7 @@ export interface ControlBarProps {
   timeRef: RefObject<HTMLSpanElement | null>;
   onExport: () => void;
   onSettings: () => void;
+  onHelp: () => void;
 }
 
 export function ControlBar({
@@ -51,6 +53,7 @@ export function ControlBar({
   timeRef,
   onExport,
   onSettings,
+  onHelp,
 }: ControlBarProps) {
   const bandPct = (i: number): number => (maxFrame > 0 ? (i / maxFrame) * 100 : 0);
   const loopPoints = engagedLoop(loop);
@@ -154,6 +157,10 @@ export function ControlBar({
         >
           <SettingsIcon />
           Settings
+        </button>
+        <button type="button" onClick={onHelp}>
+          <HelpIcon />
+          Help
         </button>
       </div>
     </div>

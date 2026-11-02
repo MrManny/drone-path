@@ -27,6 +27,16 @@ const TABLE: Array<{ when: string; from: DialogState; event: DialogEvent; to: Di
   { when: 'updateReady', from: 'export-running', event: { type: 'updateReady' }, to: 'export-running' },
   { when: 'updateReady', from: 'update-prompt', event: { type: 'updateReady' }, to: 'update-prompt' },
   { when: 'openSettings', from: 'update-prompt', event: { type: 'openSettings' }, to: 'update-prompt' },
+  { when: 'openHelp', from: 'closed', event: { type: 'openHelp' }, to: 'help' },
+  { when: 'openHelp', from: 'help', event: { type: 'openHelp' }, to: 'help' },
+  { when: 'openHelp', from: 'settings', event: { type: 'openHelp' }, to: 'help' },
+  { when: 'openHelp', from: 'export-form', event: { type: 'openHelp' }, to: 'help' },
+  { when: 'openHelp', from: 'export-running', event: { type: 'openHelp' }, to: 'export-running' },
+  { when: 'openHelp', from: 'update-prompt', event: { type: 'openHelp' }, to: 'update-prompt' },
+  { when: 'openSettings', from: 'help', event: { type: 'openSettings' }, to: 'settings' },
+  { when: 'openExport', from: 'help', event: { type: 'openExport' }, to: 'export-form' },
+  { when: 'updateReady', from: 'help', event: { type: 'updateReady' }, to: 'help' },
+  { when: 'close', from: 'help', event: { type: 'close' }, to: 'closed' },
   { when: 'openExport', from: 'update-prompt', event: { type: 'openExport' }, to: 'update-prompt' },
   { when: 'exportStarted', from: 'update-prompt', event: { type: 'exportStarted' }, to: 'update-prompt' },
   { when: 'close', from: 'update-prompt', event: { type: 'close' }, to: 'closed' },
@@ -42,7 +52,7 @@ describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) =>
   });
 });
 
-describe.each<DialogState>(['closed', 'settings', 'export-form', 'update-prompt'])(
+describe.each<DialogState>(['closed', 'settings', 'help', 'export-form', 'update-prompt'])(
   'canDismiss(%s)',
   (state) => {
     it('is true, so Escape, the backdrop and the close may dismiss', () => {

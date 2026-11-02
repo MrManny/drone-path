@@ -45,6 +45,13 @@ export type ConfigOverrides = Partial<RenderConfig>;
 
 export const CONFIG_FILE_NAME = '.neo2flightpath.json';
 
+// The config-file selection flag: vocabulary outside the config keys,
+// shared by the CLI and the generated reference so they cannot drift.
+export const CONFIG_FILE_OPTION = {
+  flags: '--config <path>',
+  help: 'config file (default: .neo2flightpath.json discovered upward from the working directory)',
+} as const;
+
 export const STYLE_VALUES: readonly Style[] = ['satellite', 'topo'];
 export const VIEW_VALUES: readonly View[] = ['follow', 'overview'];
 const CAPTURE_VALUES: Capture[] = ['jpeg', 'png'];
