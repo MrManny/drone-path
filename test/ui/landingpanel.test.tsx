@@ -50,7 +50,7 @@ describe('LandingPanel', () => {
     );
     expect(screen.getByText('Warming tiles… 12/48')).toBeTruthy();
     const bar = screen.getByRole('progressbar', { name: 'Preparation progress' });
-    expect(bar.getAttribute('aria-valuenow')).toBe('29');
+    expect(bar.getAttribute('aria-valuenow')).toBe('75');
   });
 
   it('reports a cancel', () => {
