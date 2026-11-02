@@ -1,5 +1,29 @@
 # neo2-flightpath
 
+## 0.4.0
+
+- **New:** The desktop app now updates itself from GitHub Releases:
+  packaged builds download a newer version in the background and ask
+  once whether to restart into it. Windows releases gain a self-updating
+  NSIS installer next to the portable exe (which never self-updates).
+- **Fixed:** Escape now closes the Settings and Export dialogs even
+  while a select field is focused: the first Escape is still reserved
+  for the select's own dropdown, and the second one closes the dialog.
+- **Fixed:** The export dialog's Width and Height fields now show
+  exactly what the export renders: typing an odd size and leaving the
+  field commits the even size (rounded down, at least 64 px), so the
+  fields, the export and the done summary always agree.
+- **Fixed:** The preparation progress bar no longer shrinks mid-load:
+  its percent now grows monotonically to 100 across probing, telemetry,
+  view planning and the tile pre-warm.
+- **Fixed:** The map trail now grows with playback and ends at the
+  drone: the flown path is drawn up to the current frame's position
+  instead of stalling on the decimated points, so the trail appears and
+  grows on every recording (including hovering and straight flights) in
+  the app and exported overlays alike.
+- **Internal:** The test tree is type-checked before the unit tests
+  run, and the OpenTelemetry packages are up to date.
+
 ## 0.3.0
 
 - **New:** The desktop app — pick a recording and watch its flight path on a
