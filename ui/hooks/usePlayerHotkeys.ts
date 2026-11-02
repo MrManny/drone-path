@@ -7,8 +7,8 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { framesForSeconds } from '../lib/frametime.js';
-import type { HotkeyAction } from '../lib/hotkeys.js';
-import { mapKey } from '../lib/hotkeys.js';
+import type { HotkeyAction, HotkeySession } from '../lib/hotkeys.js';
+import { INITIAL_SESSION, mapKey } from '../lib/hotkeys.js';
 
 /** The handlers behind the player's actions. */
 export interface PlayerActionHandlers {
@@ -79,9 +79,13 @@ export function usePlayerHotkeys(
   // inside the subscribing effect, a key landing between a commit and its
   // passive effects ran a stale closure and silently no-oped (#62).
   const hotkeyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  // The mapper's cross-event session (the Esc a focused select may keep)
+  // lives here so it survives re-renders without resubscribing.
+  const sessionRef = useRef<HotkeySession>(INITIAL_SESSION);
   useLayoutEffect(() => {
     hotkeyHandlerRef.current = (e: KeyboardEvent): void => {
-      const action = mapKey(e, { modalOpen: ctx.modalOpen });
+      const { action, session } = mapKey(e, { modalOpen: ctx.modalOpen }, sessionRef.current);
+      sessionRef.current = session;
       if (action === null) return;
       // No page scroll on Space, no double toggle on a focused button.
       e.preventDefault();

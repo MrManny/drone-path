@@ -42,6 +42,15 @@ function pressKey(init: KeyboardEventInit): KeyboardEvent {
   return event;
 }
 
+function pressKeyOn(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+  if (init.repeat) Object.defineProperty(event, 'repeat', { value: true });
+  act(() => {
+    target.dispatchEvent(event);
+  });
+  return event;
+}
+
 describe('usePlayerHotkeys action map', () => {
   it.for<{ name: string; action: HotkeyAction; verify: (h: PlayerActionHandlers) => void }>([
     {
@@ -141,6 +150,19 @@ describe('usePlayerHotkeys key subscription', () => {
     expect(handlers.openRecording).not.toHaveBeenCalled();
     pressKey({ key: 'Escape' });
     expect(handlers.closeOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the first Esc for a focused select and closes on the second (#93)', () => {
+    const handlers = fakeHandlers();
+    mountHotkeys(handlers, { ...CTX, modalOpen: true });
+    const select = document.createElement('select');
+    document.body.append(select);
+    select.focus();
+    pressKeyOn(select, { key: 'Escape' });
+    expect(handlers.closeOverlay).not.toHaveBeenCalled();
+    pressKeyOn(select, { key: 'Escape' });
+    expect(handlers.closeOverlay).toHaveBeenCalledTimes(1);
+    select.remove();
   });
 
   it('subscribes once and still acts on the latest handlers (#62)', () => {

@@ -2,7 +2,8 @@
 // mapping, so every shortcut and guard rail stays unit-testable away from the
 // DOM. Guard rails: shortcuts are inert while focus is in an editable control,
 // Space yields to a focused button, link or disclosure, everything except Esc
-// is inert while a modal overlay is open, and held keys auto-repeat only for
+// is inert while a modal overlay is open, a focused select keeps at most one
+// Esc per interaction for its own dropdown, and held keys auto-repeat only for
 // stepping/jumping (a repeating Space would flicker play/pause, a repeating S
 // would flicker the layout).
 
@@ -37,6 +38,22 @@ export interface HotkeyContext {
   modalOpen: boolean;
 }
 
+/** The cross-event state a key stream threads through mapKey calls. */
+export interface HotkeySession {
+  /** Identity of the previous key event's target, by reference. */
+  target: unknown;
+  /** The previous key was an Esc while a select held focus. */
+  selectEscaped: boolean;
+}
+
+export const INITIAL_SESSION: HotkeySession = { target: undefined, selectEscaped: false };
+
+export interface HotkeyResult {
+  action: HotkeyAction | null;
+  /** Feed the next mapKey call to keep the Esc reservation per interaction. */
+  session: HotkeySession;
+}
+
 const EDITABLE_TAGS = new Set(['INPUT', 'SELECT', 'TEXTAREA']);
 // Space activates these when focused; hijacking it would steal that activation.
 const ACTIVATABLE_TAGS = new Set(['BUTTON', 'A', 'SUMMARY']);
@@ -46,7 +63,32 @@ function tagNameOf(target: unknown): string {
   return typeof tag === 'string' ? tag.toUpperCase() : '';
 }
 
-export function mapKey(event: HotkeyEvent, ctx: HotkeyContext): HotkeyAction | null {
+/**
+ * Maps one key event to its action and the session for the next event. The
+ * session reserves at most one Esc per select interaction: the first Esc over
+ * a focused select belongs to the select's own dropdown, every further one
+ * passes through, and any other key or target change marks a fresh
+ * interaction that gets a new reservation.
+ */
+export function mapKey(
+  event: HotkeyEvent,
+  ctx: HotkeyContext,
+  session: HotkeySession = INITIAL_SESSION,
+): HotkeyResult {
+  return {
+    action: mapAction(event, ctx, session.selectEscaped && event.target === session.target),
+    session: {
+      target: event.target,
+      selectEscaped: tagNameOf(event.target) === 'SELECT' && event.key === 'Escape',
+    },
+  };
+}
+
+function mapAction(
+  event: HotkeyEvent,
+  ctx: HotkeyContext,
+  selectEscaped: boolean,
+): HotkeyAction | null {
   const ctrl = event.ctrlKey === true;
   const meta = event.metaKey === true;
   const alt = event.altKey === true;
@@ -55,10 +97,10 @@ export function mapKey(event: HotkeyEvent, ctx: HotkeyContext): HotkeyAction | n
   const { key } = event;
 
   // Esc stands apart: it closes an open overlay from anywhere and clears the
-  // loop otherwise. A focused select keeps the key so its native dropdown can
-  // close before any overlay does.
+  // loop otherwise. The first Esc over a focused select is reserved for the
+  // select's own dropdown; the next one closes like from anywhere else (#93).
   if (key === 'Escape') {
-    if (tag === 'SELECT') return null;
+    if (tag === 'SELECT' && !selectEscaped) return null;
     return ctx.modalOpen ? { type: 'closeOverlay' } : { type: 'clearLoop' };
   }
 
