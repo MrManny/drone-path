@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// open_pr <title> <body_path> [base]: verify, push and open a pull request.
-// Runs safe_push first, then fails fast when a feat:/fix: title would open
-// without a new .changeset/*.md fragment. The PR gets the labels of the first
-// issue the body references ("Refs #42" / "Closes #42" / "Fixes #42"), and
-// that issue moves to "In review" ("Issue 42 set to 'in review'") when your
-// gh login can edit this repo's GitHub project; otherwise that step is
-// skipped silently. [base] defaults to main; pass a branch to target it.
-// Part of the agent tooling in scripts/; not shipped in the app or bundle.
+// open_pr <title> <body_path> [base]: verify, push and open a pull request
+// against [base] (defaults to main). Runs safe_push first, then fails fast
+// when a feat:/fix: title would open without a new .changeset/*.md fragment.
+// The PR gets the labels of the first issue the body references ("Refs #42",
+// "Closes #42", "Fixes #42"), is assigned to you ("Assigned PR to @me"), and
+// that issue moves to "In review" ("Issue 42 set to 'in review'"). Assignment
+// and project status steps are best-effort and never block the PR. Part of
+// the agent tooling in scripts/; not shipped in the app or bundle.
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -28,6 +28,17 @@ function listChanged(base) {
 function issueLabels(issue) {
   const json = execOrThrow('gh', ['issue', 'view', issue, '--json', 'labels']);
   return JSON.parse(json).labels.map((label) => label.name);
+}
+
+// Best-effort like the project status: a missed assignment notes to stderr
+// but must never undo a PR that already opened.
+function assignPrToMe() {
+  try {
+    execOrThrow('gh', ['pr', 'edit', '--add-assignee', '@me']);
+    console.log('Assigned PR to @me');
+  } catch (error) {
+    console.error(`PR assignee could not be set: ${errorMessage(error)}`);
+  }
 }
 
 export function runOpenPr(argv) {
@@ -52,6 +63,7 @@ export function runOpenPr(argv) {
     const args = ['pr', 'create', '--title', title, '--body-file', bodyPath, '--base', base];
     for (const label of issue ? issueLabels(issue) : []) args.push('--label', label);
     execOrThrow('gh', args, { stdio: 'inherit' });
+    assignPrToMe();
     if (issue && setIssueStatus(issue, 'In review')) {
       console.log(`Issue ${issue} set to 'in review'`);
     }
