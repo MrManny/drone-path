@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import type { PrepareProgress } from '../../src/run.js';
-import { prepareNoticeText, preparePercent } from '../../ui/lib/preparetext.js';
+import { prepareNoticeText, preparePercent, tilesWarmingText } from '../../ui/lib/preparetext.js';
 
 function progress(overrides: Partial<PrepareProgress> = {}): PrepareProgress {
   return { stage: 'probe', done: 0, total: 3, tilesDone: 0, tilesTotal: 0, ...overrides };
 }
+
+describe('tilesWarmingText', () => {
+  it('counts the tiles the same way for the notice and the player hint', () => {
+    expect(tilesWarmingText(7, 9)).toBe('Warming tiles… 7/9');
+    expect(tilesWarmingText(12, 48)).toBe('Warming tiles… 12/48');
+  });
+});
 
 describe('prepareNoticeText', () => {
   it.each<{ overrides: Partial<PrepareProgress>; text: string }>([

@@ -21,3 +21,18 @@ export function pipStyle(
   }
   return { aspectRatio: '16 / 9', width: '30%', height: 'auto', zIndex: 2 };
 }
+
+// The frame the map fills, in px: the picture-in-picture box (30% of the
+// stage at 16:9) until the views swap. Mirrors the .pane-pip rule and the
+// --bar-h breakpoints of ui/app/globals.css, so the gate and the warm plan
+// can target what the map shows before it mounts.
+export function mapFrameSize(
+  innerWidth: number,
+  innerHeight: number,
+  mapIsMain: boolean,
+): { width: number; height: number } {
+  const stage = { width: innerWidth, height: innerHeight - (innerWidth <= 1440 ? 96 : 64) };
+  if (mapIsMain) return stage;
+  const width = Math.round(stage.width * 0.3);
+  return { width, height: Math.round((width * 9) / 16) };
+}

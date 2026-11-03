@@ -2,6 +2,11 @@
 // stage and counts the tiles during the map pre-warm (design guidelines §8.6).
 import type { PrepareProgress } from '../../src/run.js';
 
+/** The tile pre-warm count, shared by the loading notice and the player hint. */
+export function tilesWarmingText(done: number, total: number): string {
+  return `Warming tiles… ${done}/${total}`;
+}
+
 export function prepareNoticeText(progress: PrepareProgress): string {
   switch (progress.stage) {
     case 'probe':
@@ -11,7 +16,7 @@ export function prepareNoticeText(progress: PrepareProgress): string {
     case 'plan':
       return 'Planning the view…';
     case 'tiles':
-      return `Warming tiles… ${progress.tilesDone}/${progress.tilesTotal}`;
+      return tilesWarmingText(progress.tilesDone, progress.tilesTotal);
   }
 }
 
