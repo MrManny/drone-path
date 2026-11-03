@@ -177,7 +177,7 @@ Spacing values are literals on this scale; use nothing else:
 
 - The help overlay renders the user manual (`docs/user/*.md`, compiled into the UI export): dialog anatomy in a wide panel, opened from the landing and the control bar ("Help"), dismissed like Settings (Escape, backdrop, header close).
 - **Panel:** `.help-panel` widens the dialog panel to `min(880px, 100%)`; every other panel rule follows section 8.5 (56px top offset, 24px padding, scrolls inside).
-- **Body:** `.help-body` places the `.help-nav` page list (200px, derived from the manual index) beside the `.help-content` article. The current page is `aria-current="page"` in `--accent` on a `--surface-2` fill; nav links are text links without underline.
+- **Body:** `.help-body` places the `.help-nav` page list (200px, derived from the manual index) beside the `.help-content` article. The nav stays in view while the page scrolls (sticky at the scrollport top; an overflowing index scrolls inside the nav). The current page is `aria-current="page"` in `--accent` on a `--surface-2` fill; nav links are text links without underline.
 - **Content:** compiled GitHub Flavored Markdown renders as prose: headings 18px/16px/14px at 600, body 14px at 1.5 line height, links in `--accent` (underlined), inline and block code in `--font-mono` 12px on `--surface-2`, tables with hairline borders and 8px cells, images full-width with a hairline border and 8px radius; an image caption stands as one italic paragraph under it.
 - Internal links navigate in place and scroll to their heading anchor; web links open in the system browser (the window-open handler in `app/main.mjs`).
 - Help is fully offline: pages and images are compiled into `ui/out`, nothing is fetched at runtime.

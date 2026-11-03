@@ -610,11 +610,16 @@ input[type='radio']:disabled {
   gap: 24px;
 }
 .help-nav {
+  position: sticky;
+  top: 0;
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 200px;
+  /* Long indexes scroll inside the nav instead of being cut off. */
+  max-height: calc(100vh - var(--dialog-top) - 48px);
+  overflow-y: auto;
 }
 .help-nav a {
   padding: 8px 16px;
