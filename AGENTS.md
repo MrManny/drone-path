@@ -102,7 +102,8 @@ never part of the application or its bundle, and not linted or unit-tested.
   "build okay"), then push the current branch; on failure the full error is on stderr.
 - `node scripts/open-pr.mjs <title> <body_path> [base]` — safe-push, fail fast when a
   `feat:`/`fix:` title lacks a `.changeset/*.md` fragment, label the PR from the first
-  referenced issue and set it "In review", then open the PR (base defaults to `main`).
+  referenced issue and set it "In review", then open the PR (base defaults to `main`)
+  and assign it to `@me` (best-effort: a failure notes to stderr and the PR still opens).
 
 Project status steps are best-effort: they are skipped silently only when the
 project cannot be read at all (no project access, or `gh` cannot see the repo);

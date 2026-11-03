@@ -6,7 +6,9 @@
 // that issue moves to "In review" ("Issue 42 set to 'in review'") when your
 // gh login can edit this repo's GitHub project; otherwise that step is
 // skipped silently. [base] defaults to main; pass a branch to target it.
-// Part of the agent tooling in scripts/; not shipped in the app or bundle.
+// The fresh PR is assigned to you ("Assigned PR to @me") best-effort: when
+// the assignee cannot be set a short note goes to stderr and the PR stays
+// open. Part of the agent tooling in scripts/; not shipped in the app or bundle.
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -28,6 +30,17 @@ function listChanged(base) {
 function issueLabels(issue) {
   const json = execOrThrow('gh', ['issue', 'view', issue, '--json', 'labels']);
   return JSON.parse(json).labels.map((label) => label.name);
+}
+
+// Best-effort like the project status: a missed assignment notes to stderr
+// but must never undo a PR that already opened.
+function assignPrToMe() {
+  try {
+    execOrThrow('gh', ['pr', 'edit', '--add-assignee', '@me']);
+    console.log('Assigned PR to @me');
+  } catch (error) {
+    console.error(`PR assignee could not be set: ${errorMessage(error)}`);
+  }
 }
 
 export function runOpenPr(argv) {
@@ -52,6 +65,7 @@ export function runOpenPr(argv) {
     const args = ['pr', 'create', '--title', title, '--body-file', bodyPath, '--base', base];
     for (const label of issue ? issueLabels(issue) : []) args.push('--label', label);
     execOrThrow('gh', args, { stdio: 'inherit' });
+    assignPrToMe();
     if (issue && setIssueStatus(issue, 'In review')) {
       console.log(`Issue ${issue} set to 'in review'`);
     }
