@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { errorMessage } from './errors.js';
-import type { Bbox } from './geo.js';
+import type { Bbox, LatLon } from './geo.js';
+import { unproject } from './geo.js';
 import { outputMatchesSource, probeVideo, verifyOutput } from './ff.js';
 import type { VideoProbe } from './ff.js';
 import { videoBaseName } from './inputs.js';
@@ -16,8 +17,8 @@ import type {
 } from './telemetry-math.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats } from './tiles.js';
-import { planIntroOutroFrames, planView } from './plan.js';
-import type { IntroOutroFrames, Overview } from './plan.js';
+import { gateTiles, displayedTiles, planIntroOutroFrames, planView } from './plan.js';
+import type { IntroOutroFrames, Overview, TileCoord } from './plan.js';
 import { buildPageHtml, planPageOpts } from './page.js';
 import type { PageOpts } from './page.js';
 import { renderVideo } from './render.js';
@@ -48,8 +49,9 @@ const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan', 'tiles'] as const;
 /** The loading stage a preparation is in; tiles is the long map pre-warm. */
 export type PrepareStage = (typeof PREPARE_STAGE_ORDER)[number];
 
-// The loading bar advances one step per stage and one per planned tile during
-// the pre-warm: 3 + tile count steps in total.
+// The loading bar advances one step per stage and one per warmed tile during
+// the pre-warm: 3 + tile count steps in all. The tiles are the whole plan, or
+// only the gate tiles when the preparation waits for those (tileWait).
 export interface PrepareProgress {
   stage: PrepareStage;
   /** Completed steps: the finished stages plus the settled tiles. */
@@ -252,6 +254,17 @@ export interface PipelineOptions {
   onProgress?: PrepareProgressFn;
   /** Typed capture progress, for progress displays. */
   onCapture?: (progress: CaptureProgress) => void;
+  /**
+   * Which tiles the preparation waits for: the whole plan (the render
+   * pipeline, so frames never fall back to placeholders) or only the gate
+   * tiles around the drone (the app, which streams the rest behind the open).
+   */
+  tileWait?: 'all' | 'gate';
+  /**
+   * The frame the app's player shows (its map pane), so the gate covers the
+   * first frame's visible tiles; defaults to the export canvas.
+   */
+  frameSize?: { width: number; height: number };
 }
 
 // A segment export renders source frames start..end inclusive; the guard
@@ -283,7 +296,7 @@ export interface PreparedRecording {
 }
 
 // One loading-bar step per stage until the tile pre-warm, which adds one step
-// per planned tile on top (see PrepareProgress).
+// per warmed tile on top (see PrepareProgress).
 const PREPARE_STAGE_STEPS = PREPARE_STAGE_ORDER.indexOf('tiles');
 
 // Loading-bar bookkeeping: stage starts derive their step from the stage
@@ -334,6 +347,8 @@ interface PrepareStageEnv {
   parent: Span | undefined;
   deps: PipelineDeps;
   report: PrepareReporter;
+  tileWait: 'all' | 'gate';
+  frameSize?: { width: number; height: number };
 }
 
 async function probeStage(
@@ -402,20 +417,60 @@ async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Over
     return computed;
   });
   log(describeView(config, overview, config.style));
-  report.revealTiles(overview.tiles.length);
   return overview;
+}
+
+// The drone's position at the start of the recording; the frame samples
+// carry it, the bbox center stands in when they do not.
+function startFixOf(tel: Telemetry): LatLon {
+  const fix = tel.frames.find((frame) => frame.fix !== null)?.fix;
+  return (
+    fix ?? {
+      lat: (tel.bbox.minLat + tel.bbox.maxLat) / 2,
+      lon: (tel.bbox.minLon + tel.bbox.maxLon) / 2,
+    }
+  );
+}
+
+// The gate runs off the frame the player opens on: the pane's window at the
+// intro's zoomed-out first frame (one level out doubles the visible area),
+// around the drone's position - and, for overview, the map's own center.
+function gateSet(
+  env: PrepareStageEnv,
+  overview: Overview,
+  tel: Telemetry,
+  introOutro: IntroOutroFrames,
+): TileCoord[] {
+  const { config, frameSize } = env;
+  const frame = frameSize ?? { width: config.width, height: config.height };
+  const start = startFixOf(tel);
+  const center =
+    config.view === 'follow'
+      ? start
+      : unproject(overview.centerPx.x, overview.centerPx.y, overview.zoom);
+  const zoomedOut = introOutro.introN > 0 ? 2 : 1;
+  return gateTiles(
+    displayedTiles(tel.bbox, overview.zoom, frame, config),
+    start,
+    { width: frame.width * zoomedOut, height: frame.height * zoomedOut },
+    center,
+  );
 }
 
 async function tileWarmStage(
   env: PrepareStageEnv,
   overview: Overview,
+  tel: Telemetry,
+  introOutro: IntroOutroFrames,
 ): Promise<PrefetchStats> {
-  const { config, log, tracer, parent, deps, report } = env;
+  const { config, log, tracer, parent, deps, report, tileWait } = env;
+  const tiles = tileWait === 'gate' ? gateSet(env, overview, tel, introOutro) : overview.tiles;
+  report.revealTiles(tiles.length);
   report.begin('tiles');
   const tileStats = await stage(tracer, 'tiles.prefetch', parent, {}, async (span) => {
     const stats = await deps.prefetchTiles({
       style: config.style,
-      tiles: overview.tiles,
+      tiles,
       cacheDir: config.tileCache,
       log,
       onTile: () => {
@@ -453,6 +508,8 @@ export async function prepareSession(
     parent: options.trace?.parent,
     deps: options.deps ?? realDeps,
     report: createPrepareReporter(options.onProgress),
+    tileWait: options.tileWait ?? 'all',
+    frameSize: options.frameSize,
   };
 
   // Config producers normalize the canvas (config.normalizeDimensions); the
@@ -462,7 +519,7 @@ export async function prepareSession(
   const { probe, introOutro } = await probeStage(env);
   const { tel, hud } = await telemetryStage(env, probe);
   const overview = await viewPlanStage(env, tel);
-  const tileStats = await tileWarmStage(env, overview);
+  const tileStats = await tileWarmStage(env, overview, tel, introOutro);
   const frames = frameArrays(tel);
 
   return {
