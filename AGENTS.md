@@ -95,6 +95,8 @@ UI tokens, components, copy and error text.
 
 Deterministic helpers in `scripts/` for repetitive GitHub tasks; tooling only —
 never part of the application or its bundle, and not linted or unit-tested.
+Every script opens with a tl;dr comment of at most 10 lines on how/when to use
+it, so an agent can read just the first 10 lines.
 
 - `node scripts/start-work.mjs <branch>` — assign the issue in
   `<type>/<issue-number>-<slug>`, create the branch, set it "In progress".

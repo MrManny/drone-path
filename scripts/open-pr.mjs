@@ -1,14 +1,12 @@
 #!/usr/bin/env node
-// open_pr <title> <body_path> [base]: verify, push and open a pull request.
-// Runs safe_push first, then fails fast when a feat:/fix: title would open
-// without a new .changeset/*.md fragment. The PR gets the labels of the first
-// issue the body references ("Refs #42" / "Closes #42" / "Fixes #42"), and
-// that issue moves to "In review" ("Issue 42 set to 'in review'") when your
-// gh login can edit this repo's GitHub project; otherwise that step is
-// skipped silently. [base] defaults to main; pass a branch to target it.
-// The fresh PR is assigned to you ("Assigned PR to @me") best-effort: when
-// the assignee cannot be set a short note goes to stderr and the PR stays
-// open. Part of the agent tooling in scripts/; not shipped in the app or bundle.
+// open_pr <title> <body_path> [base]: verify, push and open a pull request
+// against [base] (defaults to main). Runs safe_push first, then fails fast
+// when a feat:/fix: title would open without a new .changeset/*.md fragment.
+// The PR gets the labels of the first issue the body references ("Refs #42",
+// "Closes #42", "Fixes #42"), is assigned to you ("Assigned PR to @me"), and
+// that issue moves to "In review" ("Issue 42 set to 'in review'"). Assignment
+// and project status steps are best-effort and never block the PR. Part of
+// the agent tooling in scripts/; not shipped in the app or bundle.
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
