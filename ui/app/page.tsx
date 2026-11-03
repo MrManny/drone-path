@@ -6,11 +6,13 @@ import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { LandingPanel } from '../components/LandingPanel.js';
+import { HelpOverlay } from '../components/HelpOverlay.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';
 import { UpdatePrompt } from '../components/UpdatePrompt.js';
 import { useDialogs } from '../hooks/useDialogs.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
+import { MANUAL } from '../lib/manual/generated/manual.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
 import { shouldPrompt, updateReducer } from '../lib/updatestate.js';
@@ -29,7 +31,7 @@ export default function Page() {
   // The one dialog machine: the player's dialogs and the update prompt share
   // it, so the prompt can never stack onto another dialog.
   const dialogs = useDialogs();
-  const { modalOpen, updateOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
+  const { modalOpen, helpOpen, updateOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
   const [updatePhase, dispatchUpdate] = useReducer(updateReducer, 'idle');
   // While the restart runs nothing may dismiss the prompt: the wrapped
   // dispatch refuses close for every caller, Escape included.
@@ -115,15 +117,16 @@ export default function Page() {
     dispatchDialog({ type: 'updateReady' });
   }, [updatePhase, modalOpen, dispatchDialog]);
 
-  // Escape dismisses the prompt on the landing too, where no player hotkeys run.
+  // Escape dismisses the prompt and the help overlay on the landing too,
+  // where no player hotkeys run.
   useEffect(() => {
-    if (!updateOpen) return;
+    if (!updateOpen && !helpOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') dispatchDialog({ type: 'close' });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [updateOpen, dispatchDialog]);
+  }, [updateOpen, helpOpen, dispatchDialog]);
 
   const handlePick = useCallback(() => {
     if (picking.current) return;
@@ -164,6 +167,9 @@ export default function Page() {
 
   const postponeUpdate = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
+  const openHelp = useCallback(() => dispatchDialog({ type: 'openHelp' }), [dispatchDialog]);
+  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
+
   return (
     <>
       {loaded ? (
@@ -173,12 +179,18 @@ export default function Page() {
           settings={settings}
           onSettingsChange={setSettings}
           onOpen={handlePick}
+          onHelp={openHelp}
           dialogs={sharedDialogs}
           openState={pickState}
           onDismissOpenState={dismissOpen}
         />
       ) : (
-        <LandingPanel state={pickState} onPick={handlePick} onDismiss={dismissOpen} />
+        <LandingPanel
+          state={pickState}
+          onPick={handlePick}
+          onHelp={openHelp}
+          onDismiss={dismissOpen}
+        />
       )}
       {dialogs.updateOpen ? (
         <UpdatePrompt
@@ -187,6 +199,7 @@ export default function Page() {
           onLater={postponeUpdate}
         />
       ) : null}
+      {helpOpen ? <HelpOverlay bundle={MANUAL} onClose={closeOverlay} /> : null}
     </>
   );
 }

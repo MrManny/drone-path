@@ -21,6 +21,7 @@ export interface PlayerChromeProps {
   settings: RenderConfig;
   onSettingsChange: (config: RenderConfig) => void;
   onOpen: () => void;
+  onHelp: () => void;
   /** The app's one dialog machine, shared with the update prompt at page level. */
   dialogs: Dialogs;
   /** The Open flow: only preparing and failures show over the player. */
@@ -35,6 +36,7 @@ export function PlayerChrome({
   settings,
   onSettingsChange,
   onOpen,
+  onHelp,
   dialogs,
   openState = IDLE_OPEN,
   onDismissOpenState,
@@ -122,6 +124,7 @@ export function PlayerChrome({
         timeRef={timeRef}
         onExport={() => dispatchDialog({ type: 'openExport' })}
         onSettings={() => dispatchDialog({ type: 'openSettings' })}
+        onHelp={onHelp}
       />
       {settingsOpen ? (
         <SettingsPanel

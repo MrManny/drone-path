@@ -3,7 +3,7 @@ import { Command, Option } from 'commander';
 
 import { ERROR_PREFIX, errorMessage } from './errors.js';
 import { VERSION } from './version.js';
-import { CONFIG_OPTIONS, cliDefaultOf } from './config.js';
+import { CONFIG_FILE_OPTION, CONFIG_OPTIONS, cliDefaultOf } from './config.js';
 import { resolveConfig } from './configfile.js';
 import type { ConfigOverrides, RenderConfig } from './config.js';
 import { collectRecordings } from './inputs.js';
@@ -42,10 +42,7 @@ export function buildProgram(): Command {
     if (defaultValue !== '') option.default(defaultValue);
     program.addOption(option);
   }
-  program.option(
-    '--config <path>',
-    'config file (default: .neo2flightpath.json discovered upward from the working directory)',
-  );
+  program.option(CONFIG_FILE_OPTION.flags, CONFIG_FILE_OPTION.help);
   return program;
 }
 

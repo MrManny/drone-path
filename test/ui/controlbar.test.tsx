@@ -24,6 +24,7 @@ function renderBar(overrides: Partial<ControlBarProps> = {}) {
     timeRef: { current: null },
     onExport: vi.fn(),
     onSettings: vi.fn(),
+    onHelp: vi.fn(),
     ...overrides,
   };
   render(<ControlBar {...props} />);
@@ -53,12 +54,14 @@ describe('ControlBar action protocol', () => {
     expect(props.dispatch).toHaveBeenCalledWith({ type: 'clearLoop' });
   });
 
-  it('keeps Export and Settings on their own handlers', () => {
+  it('keeps Export, Settings and Help on their own handlers', () => {
     const props = renderBar();
     fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
     expect(props.onExport).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(props.onSettings).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    expect(props.onHelp).toHaveBeenCalledTimes(1);
     expect(props.dispatch).not.toHaveBeenCalled();
   });
 

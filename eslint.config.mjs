@@ -44,6 +44,9 @@ export default tseslint.config(
       'ui/.next/',
       'ui/out/',
       'ui/next-env.d.ts',
+      // Generated manual modules and assets (src/manual/build.ts output).
+      'ui/lib/manual/generated/',
+      'ui/public/',
       // Agent helper scripts are not linted on purpose (accepted risk).
       'scripts/start-work.mjs',
       'scripts/safe-push.mjs',

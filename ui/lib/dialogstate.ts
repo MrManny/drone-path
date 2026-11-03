@@ -1,13 +1,21 @@
 // Dialog visibility as one state machine: which dialog is open and whether it
 // may be dismissed come from a single state, so Escape, the backdrop and the
-// header close can never disagree. "export-form" covers every dismissable
-// phase of the export dialog (form, done, canceled, error); a running job
-// pins it as "export-running". "update-prompt" is the auto-update restart
-// prompt; it only opens over a quiet UI and is dismissable like settings.
-export type DialogState = 'closed' | 'settings' | 'export-form' | 'export-running' | 'update-prompt';
+// header close can never disagree. "help" is the user manual overlay.
+// "export-form" covers every dismissable phase of the export dialog (form,
+// done, canceled, error); a running job pins it as "export-running".
+// "update-prompt" is the auto-update restart prompt; it only opens over a
+// quiet UI and is dismissable like settings.
+export type DialogState =
+  | 'closed'
+  | 'settings'
+  | 'help'
+  | 'export-form'
+  | 'export-running'
+  | 'update-prompt';
 
 export type DialogEvent =
   | { type: 'openSettings' }
+  | { type: 'openHelp' }
   | { type: 'openExport' }
   | { type: 'exportStarted' }
   | { type: 'exportFinished' }
@@ -21,6 +29,8 @@ export function dialogReducer(state: DialogState, event: DialogEvent): DialogSta
   switch (event.type) {
     case 'openSettings':
       return state === 'export-running' || state === 'update-prompt' ? state : 'settings';
+    case 'openHelp':
+      return state === 'export-running' || state === 'update-prompt' ? state : 'help';
     case 'openExport':
       return state === 'export-running' || state === 'update-prompt' ? state : 'export-form';
     case 'exportStarted':

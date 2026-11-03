@@ -11,13 +11,13 @@ afterEach(cleanup);
 
 describe('LandingPanel', () => {
   it('offers the pick flow when idle', () => {
-    render(<LandingPanel state={{ kind: 'idle' }} onPick={() => {}} />);
+    render(<LandingPanel state={{ kind: 'idle' }} onPick={() => {}} onHelp={() => {}} />);
     expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
     expect(screen.getByText(/SRT sidecar/)).toBeTruthy();
   });
 
   it('keeps the status line empty while the native picker is open', () => {
-    render(<LandingPanel state={{ kind: 'picking' }} onPick={() => {}} />);
+    render(<LandingPanel state={{ kind: 'picking' }} onPick={() => {}} onHelp={() => {}} />);
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' });
     expect(button.disabled).toBe(false);
     expect(screen.queryByText(/Preparing/)).toBeNull();
@@ -28,7 +28,7 @@ describe('LandingPanel', () => {
     render(
       <LandingPanel
         state={{ kind: 'preparing', progress: START_PREPARE_PROGRESS }}
-        onPick={() => {}}
+        onPick={() => {}} onHelp={() => {}}
       />,
     );
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' });
@@ -45,7 +45,7 @@ describe('LandingPanel', () => {
           kind: 'preparing',
           progress: { stage: 'tiles', done: 15, total: 51, tilesDone: 12, tilesTotal: 48 },
         }}
-        onPick={() => {}}
+        onPick={() => {}} onHelp={() => {}}
       />,
     );
     expect(screen.getByText('Warming tiles… 12/48')).toBeTruthy();
@@ -54,12 +54,12 @@ describe('LandingPanel', () => {
   });
 
   it('reports a cancel', () => {
-    render(<LandingPanel state={{ kind: 'canceled' }} onPick={() => {}} />);
+    render(<LandingPanel state={{ kind: 'canceled' }} onPick={() => {}} onHelp={() => {}} />);
     expect(screen.getByText('No recording picked.')).toBeTruthy();
   });
 
   it('reports failures with their message', () => {
-    render(<LandingPanel state={{ kind: 'error', message: 'boom' }} onPick={() => {}} />);
+    render(<LandingPanel state={{ kind: 'error', message: 'boom' }} onPick={() => {}} onHelp={() => {}} />);
     expect(screen.getByText('Could not open the recording: boom')).toBeTruthy();
   });
 
@@ -67,7 +67,7 @@ describe('LandingPanel', () => {
     render(
       <LandingPanel
         state={{ kind: 'error', message: 'not a readable .mp4 file: C:\\Windows\\win.ini' }}
-        onPick={() => {}}
+        onPick={() => {}} onHelp={() => {}}
       />,
     );
     expect(
@@ -80,7 +80,7 @@ describe('LandingPanel', () => {
   it('dismisses a failure through its notice', async () => {
     const onDismiss = vi.fn();
     render(
-      <LandingPanel state={{ kind: 'error', message: 'boom' }} onPick={() => {}} onDismiss={onDismiss} />,
+      <LandingPanel state={{ kind: 'error', message: 'boom' }} onPick={() => {}} onHelp={() => {}} onDismiss={onDismiss} />,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -88,9 +88,16 @@ describe('LandingPanel', () => {
 
   it('invokes onPick on click', async () => {
     const onPick = vi.fn();
-    render(<LandingPanel state={{ kind: 'idle' }} onPick={onPick} />);
+    render(<LandingPanel state={{ kind: 'idle' }} onPick={onPick} onHelp={() => {}} />);
     await userEvent.click(screen.getByRole('button', { name: 'Open…' }));
     expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it('invokes onHelp on click', async () => {
+    const onHelp = vi.fn();
+    render(<LandingPanel state={{ kind: 'idle' }} onPick={() => {}} onHelp={onHelp} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Help' }));
+    expect(onHelp).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -98,7 +105,7 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'ready'
   'a landing in the $kind state',
   (state) => {
     it('shows no status line', () => {
-      render(<LandingPanel state={state} onPick={() => {}} />);
+      render(<LandingPanel state={state} onPick={() => {}} onHelp={() => {}} />);
       expect(screen.queryByRole('status')).toBeNull();
       expect(screen.queryByRole('alert')).toBeNull();
     });

@@ -352,6 +352,12 @@ function createWindow(state) {
   state.win.on('closed', () => {
     state.win = null;
   });
+  // Web links (e.g. in the user manual) open in the system browser, never in
+  // a second app window.
+  state.win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 // Closing the window must not silently kill a running export and strand

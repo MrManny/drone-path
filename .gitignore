@@ -6,6 +6,8 @@ dist/
 dist-electron/
 ui/.next/
 ui/next-env.d.ts
+ui/lib/manual/generated/
+ui/public/
 *.tsbuildinfo
 
 # configuration, caches and renderings
