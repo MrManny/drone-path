@@ -19,7 +19,8 @@ that's all cool with me.
 
 For us humans, there is a desktop app (see *Desktop app*): it opens a window
 where you pick a recording and watch its flight path on the map in sync with
-the footage.
+the footage. The player opens as soon as the map tiles around the drone are
+ready and the rest of the map keeps loading in the background.
 
 ## Quick start
 
