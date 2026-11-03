@@ -13,7 +13,7 @@ import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'elect
 
 import { resolveAppAsset } from '../dist/appassets.js';
 import { APP_ORIGIN, uiExportRoot } from '../dist/apppaths.js';
-import { createAppSession } from '../dist/appsession.js';
+import { createAppSession, parseWarmRequest } from '../dist/appsession.js';
 import { parseExportRequest } from '../dist/config.js';
 import { resolveConfig } from '../dist/configfile.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
@@ -21,7 +21,7 @@ import { createExportRunner } from '../dist/exportjob.js';
 import { requireTools } from '../dist/ff.js';
 import { rangePlan } from '../dist/range.js';
 import { outputPathFor } from '../dist/run.js';
-import { createTileFetcher } from '../dist/tiles.js';
+import { createTileTraffic } from '../dist/tiles.js';
 import { initUpdates } from './update.mjs';
 
 const SCHEME = 'app';
@@ -55,7 +55,7 @@ function createShellState() {
     win: null,
     session: null,
     config: null,
-    tileFetcher: null,
+    tileTraffic: null,
     exportRunner: null,
     // The update controller, or null when this build cannot self-update.
     updates: null,
@@ -145,10 +145,10 @@ async function handleRequest(state, request) {
     case 'video':
       return videoResponse(request, plan.filePath);
     case 'tile': {
-      // Always through the fetcher: it serves cached tiles immediately,
+      // Always through the tile traffic: it serves cached tiles immediately,
       // retries tiles whose earlier download failed (so they recover once
       // connectivity returns) and falls back to the placeholder.
-      const file = await state.tileFetcher.ensure(plan.style, plan.tile);
+      const file = await state.tileTraffic.ensure(plan.style, plan.tile);
       return fileResponse(file, 'image/png');
     }
     case 'export':
@@ -182,7 +182,9 @@ async function initServices(state) {
   await requireTools();
   const resolved = resolveConfig({});
   state.config = resolved.config;
-  state.tileFetcher = createTileFetcher(state.config.tileCache);
+  // One polite tile queue for the whole app: on-demand tiles the player
+  // needs right now jump ahead of the background pre-warm.
+  state.tileTraffic = createTileTraffic(state.config.tileCache);
   state.session = createAppSession({
     config: state.config,
     pickFile: () => pickRecording(state),
@@ -190,6 +192,8 @@ async function initServices(state) {
     onPreparing: () => sendToWindow(state, 'neo2flightpath:preparing'),
     onPrepareProgress: (progress) =>
       sendToWindow(state, 'neo2flightpath:preparing:progress', progress),
+    streamTiles: (options) => state.tileTraffic.stream(options),
+    onWarmProgress: (progress) => sendToWindow(state, 'neo2flightpath:warm:progress', progress),
   });
 }
 
@@ -206,9 +210,13 @@ function initExportRunner(state) {
 }
 
 function registerIpcHandlers(state) {
-  ipcMain.handle('neo2flightpath:pick', (event) => {
+  ipcMain.handle('neo2flightpath:pick', (event, raw) => {
     assertTrusted(event);
-    return state.session.pick();
+    try {
+      return state.session.pick(parseWarmRequest(raw));
+    } catch (e) {
+      return { ok: false, error: errorMessage(e) };
+    }
   });
   ipcMain.handle('neo2flightpath:session', (event) => {
     assertTrusted(event);
@@ -217,6 +225,15 @@ function registerIpcHandlers(state) {
   ipcMain.handle('neo2flightpath:settings', (event) => {
     assertTrusted(event);
     return state.config;
+  });
+  ipcMain.handle('neo2flightpath:warm:retarget', (event, raw) => {
+    assertTrusted(event);
+    try {
+      state.session.warm.retarget(parseWarmRequest(raw));
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: errorMessage(e) };
+    }
   });
 
   ipcMain.handle('neo2flightpath:export:pick-output', async (event) => {

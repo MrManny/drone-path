@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## Loading a recording
 
-Launch the app and pick a drone video; the first load can take a moment while the map data is acquired.
+Launch the app and pick a drone video. The player opens as soon as the map tiles around the drone at the first frame are warm; the remaining tiles the map can show keep loading in the background while a small "Warming tiles…" hint over the player counts them, and playback is ready right away. Changing the map style, zoom or view in [Settings](#settings) starts loading the tiles for the new view instead.
 
 ![Desktop app start screen before a recording is loaded](../images/app-landing.jpg)
 

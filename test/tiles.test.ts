@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createTileFetcher, prefetchTiles } from '../src/tiles.js';
+import { createTileTraffic, prefetchTiles } from '../src/tiles.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(() => {
@@ -16,13 +16,28 @@ function okFetch() {
   return vi.fn(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
 }
 
-describe('createTileFetcher', () => {
+// The tile a recorded request was for, however the source orders its
+// z/x/y segments in the URL.
+function tileIndex(starts: string[], tile: { z: number; x: number; y: number }): number {
+  return starts.findIndex((url) => {
+    const segs = url.split('/').slice(-3).map(Number);
+    return segs.includes(tile.z) && segs.includes(tile.x) && segs.includes(tile.y);
+  });
+}
+
+const T0 = { z: 1, x: 0, y: 0 };
+const T1 = { z: 1, x: 0, y: 1 };
+const T2 = { z: 1, x: 0, y: 2 };
+const T3 = { z: 1, x: 0, y: 3 };
+const T4 = { z: 1, x: 0, y: 4 };
+
+describe('createTileTraffic ensure', () => {
   it('downloads a missing tile into the cache and returns it', async () => {
     const dir = tmpDir();
     const fetchStub = okFetch();
     vi.stubGlobal('fetch', fetchStub);
 
-    const file = await createTileFetcher(dir).ensure('satellite', { z: 1, x: 2, y: 3 });
+    const file = await createTileTraffic(dir).ensure('satellite', { z: 1, x: 2, y: 3 });
 
     expect(file).toBe(path.join(dir, 'esri-imagery', '1', '2', '3.png'));
     expect(fs.existsSync(file)).toBe(true);
@@ -38,7 +53,7 @@ describe('createTileFetcher', () => {
       }),
     );
 
-    const file = await createTileFetcher(dir).ensure('topo', { z: 1, x: 2, y: 3 });
+    const file = await createTileTraffic(dir).ensure('topo', { z: 1, x: 2, y: 3 });
 
     expect(file).toBe(path.join(dir, 'opentopomap', '1', '2', '3.placeholder.png'));
     expect(fs.existsSync(file)).toBe(true);
@@ -52,7 +67,7 @@ describe('createTileFetcher', () => {
     const fetchStub = okFetch();
     vi.stubGlobal('fetch', fetchStub);
 
-    const file = await createTileFetcher(dir).ensure('satellite', { z: 1, x: 2, y: 3 });
+    const file = await createTileTraffic(dir).ensure('satellite', { z: 1, x: 2, y: 3 });
 
     expect(file).toBe(cachePath);
     expect(fetchStub).not.toHaveBeenCalled();
@@ -62,11 +77,11 @@ describe('createTileFetcher', () => {
     const dir = tmpDir();
     const fetchStub = okFetch();
     vi.stubGlobal('fetch', fetchStub);
-    const fetcher = createTileFetcher(dir);
+    const traffic = createTileTraffic(dir);
 
     const [a, b] = await Promise.all([
-      fetcher.ensure('satellite', { z: 1, x: 2, y: 3 }),
-      fetcher.ensure('satellite', { z: 1, x: 2, y: 3 }),
+      traffic.ensure('satellite', { z: 1, x: 2, y: 3 }),
+      traffic.ensure('satellite', { z: 1, x: 2, y: 3 }),
     ]);
 
     expect(a).toBe(b);
@@ -84,11 +99,9 @@ describe('createTileFetcher', () => {
         return new Response(new Uint8Array([1]), { status: 200 });
       }),
     );
-    const fetcher = createTileFetcher(dir);
+    const traffic = createTileTraffic(dir);
 
-    const pending = [0, 1, 2, 3].map((y) =>
-      fetcher.ensure('satellite', { z: 1, x: 0, y }),
-    );
+    const pending = [0, 1, 2, 3].map((y) => traffic.ensure('satellite', { z: 1, x: 0, y }));
     await vi.advanceTimersByTimeAsync(3000);
     await Promise.all(pending);
 
@@ -109,9 +122,9 @@ describe('createTileFetcher', () => {
         return new Response('nope', { status: 500 });
       }),
     );
-    const fetcher = createTileFetcher(dir);
+    const traffic = createTileTraffic(dir);
 
-    const pending = fetcher.ensure('satellite', { z: 1, x: 0, y: 0 });
+    const pending = traffic.ensure('satellite', { z: 1, x: 0, y: 0 });
     await vi.advanceTimersByTimeAsync(3000);
     await pending;
 
@@ -129,16 +142,212 @@ describe('createTileFetcher', () => {
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValue(new Response(new Uint8Array([1]), { status: 200 }));
     vi.stubGlobal('fetch', fetchStub);
-    const fetcher = createTileFetcher(dir);
+    const traffic = createTileTraffic(dir);
 
-    const failed = await fetcher.ensure('topo', { z: 1, x: 2, y: 3 });
+    const failed = await traffic.ensure('topo', { z: 1, x: 2, y: 3 });
     expect(failed).toContain('placeholder');
 
     // The placeholder must not pin the tile: the next request retries and
     // caches the real tile once the network is back.
-    const recovered = await fetcher.ensure('topo', { z: 1, x: 2, y: 3 });
+    const recovered = await traffic.ensure('topo', { z: 1, x: 2, y: 3 });
     expect(recovered).toBe(path.join(dir, 'opentopomap', '1', '2', '3.png'));
     expect(fs.existsSync(recovered)).toBe(true);
+  });
+});
+
+describe('createTileTraffic stream', () => {
+  it('settles every tile once and reports the full plan as its total', async () => {
+    const dir = tmpDir();
+    const cachePath = path.join(dir, 'esri-imagery', '1', '0', '0.png');
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, 'cached');
+    const fetchStub = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(new Uint8Array([1]), { status: 200 }))
+      .mockResolvedValue(new Response('nope', { status: 500 }));
+    vi.stubGlobal('fetch', fetchStub);
+
+    const onTile = vi.fn();
+    const stats = await createTileTraffic(dir).stream({
+      style: 'satellite',
+      tiles: [T0, T1, T2],
+      onTile,
+    });
+
+    expect(stats).toEqual({ downloaded: 1, failed: 1, total: 3 });
+    expect(onTile).toHaveBeenCalledTimes(3);
+    expect(onTile.mock.calls.flat().sort()).toEqual(['cached', 'downloaded', 'failed'].sort());
+  });
+
+  it('resolves without fetching when the plan is already cached', async () => {
+    const dir = tmpDir();
+    const cachePath = path.join(dir, 'esri-imagery', '1', '0', '0.png');
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, 'cached');
+    vi.stubGlobal('fetch', vi.fn());
+
+    const stats = await createTileTraffic(dir).stream({ style: 'satellite', tiles: [T0] });
+
+    expect(stats).toEqual({ downloaded: 0, failed: 0, total: 1 });
+  });
+
+  it('serves on-demand tiles ahead of the queued pre-warm', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const starts: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        starts.push(url);
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }),
+    );
+    const traffic = createTileTraffic(dir);
+
+    const warm = traffic.stream({ style: 'satellite', tiles: [T0, T1, T2, T3] });
+    const onDemand = traffic.ensure('satellite', T4);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.all([warm, onDemand]);
+
+    expect(starts).toHaveLength(5);
+    expect(tileIndex(starts, T4)).toBeLessThan(tileIndex(starts, T2));
+  });
+
+  it('keeps on-demand and pre-warm starts inside one 2.0/s budget', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const starts: number[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        starts.push(Date.now());
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }),
+    );
+    const traffic = createTileTraffic(dir);
+
+    const warm = traffic.stream({ style: 'satellite', tiles: [T0, T1, T2] });
+    const onDemand = [T3, T4].map((tile) => traffic.ensure('satellite', tile));
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.all([warm, ...onDemand]);
+
+    expect(starts).toHaveLength(5);
+    for (let i = 1; i < starts.length; i++) {
+      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
+    }
+  });
+
+  it('drops queued and in-flight downloads when the pre-warm is canceled', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const starts: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (url: string, init: { signal?: AbortSignal }) =>
+          new Promise<Response>((_resolve, reject) => {
+            starts.push(url);
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          }),
+      ),
+    );
+    const traffic = createTileTraffic(dir);
+    const controller = new AbortController();
+
+    const warm = traffic.stream({
+      style: 'satellite',
+      tiles: [T0, T1, T2, T3],
+      signal: controller.signal,
+    });
+    // Handle the rejection now: it settles at abort, before the test awaits.
+    const warmFails = expect(warm).rejects.toThrow('tile download canceled');
+    await vi.advanceTimersByTimeAsync(600);
+    expect(starts).toHaveLength(2);
+
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(3000);
+    await warmFails;
+
+    // The queued pair never fetched, and no canceled tile left a placeholder
+    // that would stand in for the real tile on a later request.
+    expect(starts).toHaveLength(2);
+    expect(fs.existsSync(path.join(dir, 'esri-imagery', '1', '0', '2.placeholder.png'))).toBe(
+      false,
+    );
+  });
+
+  it('downloads a canceled tile normally on the next request', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: { signal?: AbortSignal }) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          }),
+      ),
+    );
+    const traffic = createTileTraffic(dir);
+    const controller = new AbortController();
+
+    const warm = traffic.stream({
+      style: 'satellite',
+      tiles: [T0, T1, T2],
+      signal: controller.signal,
+    });
+    const warmFails = expect(warm).rejects.toThrow('tile download canceled');
+    await vi.advanceTimersByTimeAsync(600);
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(1000);
+    await warmFails;
+
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.stubGlobal('fetch', okFetch());
+    const file = await traffic.ensure('satellite', T2);
+    expect(file).toBe(path.join(dir, 'esri-imagery', '1', '0', '2.png'));
+  });
+
+  it('never hands a canceled stream\'s downloads to the next one', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const first = new AbortController();
+    // Requests hang until their signal aborts (the canceled stream); once
+    // the first stream is aborted, the replacement stream's requests succeed.
+    const fetchStub = vi.fn(
+      (_url: string, init: { signal?: AbortSignal }) =>
+        new Promise<Response>((resolve, reject) => {
+          if (!first.signal.aborted) {
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          } else {
+            resolve(new Response(new Uint8Array([1]), { status: 200 }));
+          }
+        }),
+    );
+    vi.stubGlobal('fetch', fetchStub);
+    const traffic = createTileTraffic(dir);
+
+    const warm = traffic.stream({
+      style: 'satellite',
+      tiles: [T0, T1, T2],
+      signal: first.signal,
+    });
+    const warmFails = expect(warm).rejects.toThrow('tile download canceled');
+    await vi.advanceTimersByTimeAsync(600);
+    first.abort();
+
+    // The pivot enqueues the overlapping plan while the canceled stream's
+    // downloads are still winding down; it must run its own.
+    const second = new AbortController();
+    const pivoted = traffic.stream({
+      style: 'satellite',
+      tiles: [T0, T1, T2],
+      signal: second.signal,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await expect(pivoted).resolves.toEqual({ downloaded: 3, failed: 0, total: 3 });
+    await warmFails;
   });
 });
 
@@ -153,10 +362,7 @@ describe('prefetchTiles', () => {
 
     const stats = await prefetchTiles({
       style: 'satellite',
-      tiles: [
-        { z: 1, x: 0, y: 0 },
-        { z: 1, x: 0, y: 1 },
-      ],
+      tiles: [T0, T1],
       cacheDir: dir,
     });
 
@@ -175,7 +381,7 @@ describe('prefetchTiles', () => {
 
     const stats = await prefetchTiles({
       style: 'satellite',
-      tiles: [{ z: 1, x: 0, y: 0 }],
+      tiles: [T0],
       cacheDir: dir,
     });
 
@@ -197,11 +403,7 @@ describe('prefetchTiles', () => {
     const onTile = vi.fn();
     await prefetchTiles({
       style: 'satellite',
-      tiles: [
-        { z: 1, x: 0, y: 0 },
-        { z: 1, x: 0, y: 1 },
-        { z: 1, x: 0, y: 2 },
-      ],
+      tiles: [T0, T1, T2],
       cacheDir: dir,
       onTile,
     });
@@ -220,7 +422,7 @@ describe('prefetchTiles', () => {
     const onTile = vi.fn();
     const stats = await prefetchTiles({
       style: 'satellite',
-      tiles: [{ z: 1, x: 0, y: 0 }],
+      tiles: [T0],
       cacheDir: dir,
       onTile,
     });
@@ -230,4 +432,3 @@ describe('prefetchTiles', () => {
     expect(onTile).toHaveBeenCalledWith('cached');
   });
 });
-

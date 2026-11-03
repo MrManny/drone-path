@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
-import type { UiSession } from '../../src/appsession.js';
-import { DEFAULT_CONFIG } from '../../src/config.js';
+import type { UiSession, WarmProgress, WarmRequest } from '../../src/appsession.js';
+import { DEFAULT_CONFIG, settingsPatchOf } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { LandingPanel } from '../components/LandingPanel.js';
 import { HelpOverlay } from '../components/HelpOverlay.js';
@@ -15,6 +15,7 @@ import type { DialogEvent } from '../lib/dialogstate.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
+import { mapFrameSize } from '../lib/pipstyle.js';
 import { shouldPrompt, updateReducer } from '../lib/updatestate.js';
 
 interface LoadedSession {
@@ -25,6 +26,8 @@ interface LoadedSession {
 export default function Page() {
   const [pickState, dispatch] = useReducer(pickReducer, { kind: 'idle' });
   const [loaded, setLoaded] = useState<LoadedSession | null>(null);
+  // The background pre-warm's running count; the hint reads it in the player.
+  const [warm, setWarm] = useState<WarmProgress | null>(null);
   // One settings object for the panel and the export modal; seeded from the
   // resolved config the app backend hands over.
   const [settings, setSettings] = useState<RenderConfig>(DEFAULT_CONFIG);
@@ -82,6 +85,33 @@ export default function Page() {
     };
   }, []);
 
+  // The background tile pre-warm's running count feeds the player's hint;
+  // the player re-targets the stream itself whenever the map re-plans.
+  useEffect(() => {
+    if (!loaded) return;
+    let off: (() => void) | null = null;
+    try {
+      off = appBridge().onWarmProgress(setWarm);
+    } catch {
+      // Outside the app shell there is no background pre-warm.
+    }
+    return () => {
+      off?.();
+    };
+  }, [loaded]);
+
+  const retargetWarm = useCallback((request: WarmRequest) => {
+    try {
+      void appBridge()
+        .retargetWarm(request)
+        .catch(() => {
+          // A refused pivot leaves those tiles to the on-demand fetches.
+        });
+    } catch {
+      // Outside the app shell there is no background pre-warm.
+    }
+  }, []);
+
   // The shell announces a finished background download once per update; the
   // state query catches downloads that finished before this subscription.
   useEffect(() => {
@@ -135,18 +165,23 @@ export default function Page() {
     void (async () => {
       const event = await pickRecordingFlow(
         {
-          pickRecording: () => appBridge().pickRecording(),
+          pickRecording: () =>
+            appBridge().pickRecording({
+              settings: settingsPatchOf(settings),
+              frame: mapFrameSize(window.innerWidth, window.innerHeight, false),
+            }),
           getSession: () => appBridge().getSession(),
         },
         (session) => {
           nextId.current += 1;
+          setWarm(null);
           setLoaded({ id: nextId.current, value: session });
         },
       );
       dispatch(event);
       picking.current = false;
     })();
-  }, []);
+  }, [settings]);
 
   const dismissOpen = useCallback(() => dispatch({ type: 'dismiss' }), []);
 
@@ -183,6 +218,8 @@ export default function Page() {
           dialogs={sharedDialogs}
           openState={pickState}
           onDismissOpenState={dismissOpen}
+          warm={warm}
+          onWarmRetarget={retargetWarm}
         />
       ) : (
         <LandingPanel

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeOverview, planIntroOutroFrames } from '../src/plan.js';
-import type { Bbox } from '../src/geo.js';
+import {
+  GATE_TILE_COUNT,
+  computeOverview,
+  displayedTiles,
+  gateTiles,
+  planIntroOutroFrames,
+} from '../src/plan.js';
+import type { TileCoord } from '../src/plan.js';
+import type { Bbox, LatLon } from '../src/geo.js';
+import { unproject } from '../src/geo.js';
 
 const BBOX: Bbox = {
   minLat: 46.6129,
@@ -110,5 +118,101 @@ describe('planIntroOutroFrames clamping', () => {
     expect(r.introN + r.outroN).toBeLessThanOrEqual(2);
     expect(r.introN).toBeGreaterThanOrEqual(0);
     expect(r.outroN).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('gateTiles', () => {
+  // A 5x5 plan grid at one tile zoom, the way tilesCovering hands them over.
+  const GRID: TileCoord[] = [];
+  for (let x = 0; x < 5; x++) {
+    for (let y = 0; y < 5; y++) GRID.push({ z: 5, x, y });
+  }
+  const centerOf = (x: number, y: number): LatLon => unproject(x * 256 + 128, y * 256 + 128, 5);
+  const keys = (tiles: TileCoord[]): string[] => tiles.map((t) => `${t.x}/${t.y}`).sort();
+
+  it('covers the pane window the first frame shows', () => {
+    // 512x256 of map px around the drone's tile: 5 columns x 3 rows with
+    // the one-tile slack, a superset of the drone's own 3x3.
+    const gate = gateTiles(GRID, centerOf(2, 2), { width: 512, height: 256 });
+    expect(keys(gate)).toEqual([
+      '0/1', '0/2', '0/3', '1/1', '1/2', '1/3', '2/1', '2/2', '2/3',
+      '3/1', '3/2', '3/3', '4/1', '4/2', '4/3',
+    ]);
+  });
+
+  it('keeps the drone tile and its 8 neighbors as a floor', () => {
+    // The window centers on the map's own view far from the drone: the
+    // neighborhood still joins it (overview centers on the track).
+    const gate = gateTiles(GRID, centerOf(4, 4), { width: 256, height: 256 }, centerOf(0, 0));
+    expect(keys(gate)).toEqual([
+      '0/0', '0/1', '1/0', '1/1', '2/2', '2/3', '2/4', '3/2', '3/3',
+      '3/4', '4/2', '4/3', '4/4',
+    ]);
+  });
+
+  it('clips the neighborhood to the plan at its edges', () => {
+    const gate = gateTiles(GRID, centerOf(0, 0), { width: 256, height: 256 });
+    expect(keys(gate)).toEqual([
+      '0/0', '0/1', '0/2', '1/0', '1/1', '1/2', '2/0', '2/1', '2/2',
+    ]);
+  });
+
+  it('keeps plan order', () => {
+    const gate = gateTiles(GRID, centerOf(2, 2), { width: 512, height: 256 });
+    const order = gate.map((t) => GRID.indexOf(t));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  describe.for([
+    { name: 'none', count: 0 },
+    { name: 'one', count: 1 },
+    { name: 'five', count: 5 },
+    { name: 'exactly the floor', count: GATE_TILE_COUNT },
+  ])('a plan of $name tiles', ({ count }) => {
+    it('warms the whole plan, leaving nothing to stream later', () => {
+      const plan = GRID.slice(0, count);
+      expect(gateTiles(plan, centerOf(2, 2), { width: 512, height: 512 })).toEqual(plan);
+    });
+  });
+});
+
+describe('displayedTiles', () => {
+  const BBOX: Bbox = {
+    minLat: 46.6129,
+    maxLat: 46.6132,
+    minLon: 14.2622,
+    maxLon: 14.2626,
+  };
+
+  it('covers the map element the app lays out: twice the pane plus the slide', () => {
+    const frame = { width: 480, height: 270 };
+    const tiles = displayedTiles(BBOX, 15, frame, { style: 'satellite', view: 'follow' });
+    expect(tiles.length).toBeGreaterThan(0);
+    expect(tiles.every((t) => t.z === 15)).toBe(true);
+    const xs = tiles.map((t) => t.x);
+    const ys = tiles.map((t) => t.y);
+    // 2x the pane plus one tile of slack covers a small window of the plan,
+    // and a bigger frame covers strictly more.
+    expect(Math.max(...xs) - Math.min(...xs) + 1).toBeLessThanOrEqual(8);
+    expect(Math.max(...ys) - Math.min(...ys) + 1).toBeLessThanOrEqual(7);
+    const larger = displayedTiles(BBOX, 15, { width: 960, height: 540 }, {
+      style: 'satellite',
+      view: 'follow',
+    });
+    expect(tiles.length).toBeLessThan(larger.length);
+  });
+
+  it('follows the zoom it is given, never re-fitting', () => {
+    const shallow = displayedTiles(BBOX, 14, { width: 480, height: 270 }, {
+      style: 'satellite',
+      view: 'overview',
+    });
+    const deep = displayedTiles(BBOX, 16, { width: 480, height: 270 }, {
+      style: 'satellite',
+      view: 'overview',
+    });
+    expect(shallow.every((t) => t.z === 14)).toBe(true);
+    expect(deep.every((t) => t.z === 16)).toBe(true);
+    expect(deep.length).toBeGreaterThanOrEqual(shallow.length);
   });
 });

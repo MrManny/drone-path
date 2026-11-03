@@ -356,6 +356,24 @@ export function effectiveZoomOut(config: Pick<RenderConfig, 'zoom' | 'zoomOut'>)
   return config.zoom > 0 ? 0 : config.zoomOut;
 }
 
+/** The look settings the settings panel owns. */
+export type SettingsPatch = Pick<
+  RenderConfig,
+  'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec'
+>;
+
+export function settingsPatchOf(config: RenderConfig): SettingsPatch {
+  return {
+    style: config.style,
+    view: config.view,
+    zoom: config.zoom,
+    zoomOut: config.zoomOut,
+    hud: config.hud,
+    introSec: config.introSec,
+    outroSec: config.outroSec,
+  };
+}
+
 // The smallest canvas the renderer and the app's dimension fields accept, in
 // one home so the CLI, the pipeline and the export modal cannot disagree.
 export const MIN_DIMENSION = 64;

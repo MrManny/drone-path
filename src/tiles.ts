@@ -1,8 +1,9 @@
 // The polite tile download policy in one home: every request start - retries
 // included - is spaced REQUEST_INTERVAL_MS apart (2.0 req/s) and at most
 // DOWNLOAD_WORKERS downloads run at once, whichever entry point drives them.
-// prefetchTiles (batch pre-warm) and createTileFetcher (live restyle) are
-// thin wrappers whose queue strategies only decide ordering and sharing.
+// createTileTraffic (the app: on-demand tiles and the background pre-warm on
+// one queue) and prefetchTiles (the pipeline's bulk pre-warm) are thin
+// wrappers whose priorities decide ordering and sharing.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -52,17 +53,26 @@ function tileUrl(style: Style, tile: TileCoord): string {
     .replace('{y}', String(tile.y));
 }
 
+// A canceled download is not a failed one: no placeholder is written and the
+// tile stays uncached, so a later request may fetch the real tile.
+function canceled(signal: AbortSignal): Error {
+  return new Error('tile download canceled', { cause: signal.reason });
+}
+
 async function downloadTile(
   url: string,
   cachePath: string,
   acquire: RequestGate,
+  signal?: AbortSignal,
 ): Promise<boolean> {
   for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt++) {
     await acquire();
     try {
       const res = await fetch(url, {
         headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        signal: signal
+          ? AbortSignal.any([AbortSignal.timeout(FETCH_TIMEOUT_MS), signal])
+          : AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
       if (res.ok) {
         fs.mkdirSync(path.dirname(cachePath), { recursive: true });
@@ -70,19 +80,17 @@ async function downloadTile(
         return true;
       }
     } catch {
+      if (signal?.aborted) throw canceled(signal);
       await sleep(RETRY_DELAY_MS);
     }
   }
   return false;
 }
 
-/** Supplies the solid placeholder PNG for a style's failed downloads. */
-export type PlaceholderSource = (style: Style) => Buffer;
-
 // Placeholder PNGs are pure derivations of the tile source's background
 // color; memoizing per downloader keeps repeat failures cheap without any
 // module-level mutable state.
-function createPlaceholderSource(): PlaceholderSource {
+function createPlaceholderSource(): (style: Style) => Buffer {
   const cache = new Map<Style, Buffer>();
   return (style) => {
     let png = cache.get(style);
@@ -105,7 +113,7 @@ export interface TileFetchResult {
 interface FetchContext {
   cacheDir: string;
   acquire: RequestGate;
-  placeholderPng: PlaceholderSource;
+  placeholderPng: (style: Style) => Buffer;
 }
 
 // The full cache dance for one tile: hit, download, or placeholder. The
@@ -115,10 +123,11 @@ async function fetchTileToCache(
   ctx: FetchContext,
   style: Style,
   tile: TileCoord,
+  signal?: AbortSignal,
 ): Promise<TileFetchResult> {
   const paths = tilePaths(ctx.cacheDir, style, tile);
   if (fs.existsSync(paths.file)) return { file: paths.file, status: 'cached' };
-  if (await downloadTile(tileUrl(style, tile), paths.file, ctx.acquire)) {
+  if (await downloadTile(tileUrl(style, tile), paths.file, ctx.acquire, signal)) {
     return { file: paths.file, status: 'downloaded' };
   }
   fs.mkdirSync(path.dirname(paths.placeholder), { recursive: true });
@@ -127,44 +136,62 @@ async function fetchTileToCache(
 }
 
 /**
- * How the downloader orders and shares queued work: `batch` appends jobs and
- * runs each tile once (the pre-warm), `live` serves the newest requests first
- * - a style flip or zoom change makes the previous viewport stale, and those
- * tiles can wait behind what the user is looking at now - and shares one
- * download per tile between concurrent callers.
+ * A queued download's urgency: `now` serves the tile the player is looking at
+ * and jumps the queue; `background` streams one plan's tiles behind it. The
+ * two never share a download, so a canceled pre-warm cannot abort an
+ * on-demand fetch.
  */
-export type TileQueueStrategy = 'batch' | 'live';
+export type TilePriority = 'now' | 'background';
 
-export interface TileDownloader {
-  /** Queues one tile; resolves with the file to serve (real or placeholder). */
-  enqueue(style: Style, tile: TileCoord): Promise<TileFetchResult>;
+interface QueuedTile {
+  style: Style;
+  tile: TileCoord;
+  signal?: AbortSignal;
+  settle: (result: TileFetchResult) => void;
+  fail: (error: unknown) => void;
+  detach: () => void;
 }
 
-export function createTileDownloader(
+interface Downloader {
+  enqueue(
+    style: Style,
+    tile: TileCoord,
+    options?: { priority?: TilePriority; signal?: AbortSignal },
+  ): Promise<TileFetchResult>;
+}
+
+interface InFlightEntry {
+  promise: Promise<TileFetchResult>;
+  /** Downloads are shared within one stream only: its abort decides their fate. */
+  signal?: AbortSignal;
+}
+
+function createDownloader(
   cacheDir: string,
-  strategy: TileQueueStrategy,
-  placeholderPng: PlaceholderSource = createPlaceholderSource(),
-): TileDownloader {
-  const ctx: FetchContext = {
-    cacheDir,
-    acquire: createRequestGate(),
-    placeholderPng,
-  };
-  const inFlight = new Map<string, Promise<TileFetchResult>>();
+  placeholderPng: (style: Style) => Buffer,
+): Downloader {
+  const ctx: FetchContext = { cacheDir, acquire: createRequestGate(), placeholderPng };
+  const inFlight = new Map<string, InFlightEntry>();
   const queue: QueuedTile[] = [];
   let active = 0;
 
   function pump(): void {
     while (active < DOWNLOAD_WORKERS) {
-      const job: QueuedTile | undefined = queue.shift();
+      const job = queue.shift();
       if (!job) break;
+      if (job.signal?.aborted) {
+        job.detach();
+        job.fail(canceled(job.signal));
+        continue;
+      }
       active++;
       void (async () => {
         try {
-          job.settle(await fetchTileToCache(ctx, job.style, job.tile));
+          job.settle(await fetchTileToCache(ctx, job.style, job.tile, job.signal));
         } catch (e) {
           job.fail(e);
         } finally {
+          job.detach();
           active--;
           pump();
         }
@@ -173,33 +200,47 @@ export function createTileDownloader(
   }
 
   return {
-    enqueue(style, tile): Promise<TileFetchResult> {
-      const key = tilePaths(cacheDir, style, tile).file;
-      const shared = strategy === 'live' ? inFlight.get(key) : undefined;
-      if (shared) return shared;
+    enqueue(style, tile, options = {}): Promise<TileFetchResult> {
+      const priority = options.priority ?? 'background';
+      const key = `${priority}:${tilePaths(cacheDir, style, tile).file}`;
+      // A canceled stream's downloads must never be handed to the next one:
+      // sharing follows the abort signal of the download it joins.
+      const shared = inFlight.get(key);
+      if (shared && shared.signal === options.signal) return shared.promise;
       const task = new Promise<TileFetchResult>((resolve, reject) => {
-        const job: QueuedTile = { style, tile, settle: resolve, fail: reject };
-        if (strategy === 'live') queue.unshift(job);
+        const job: QueuedTile = {
+          style,
+          tile,
+          signal: options.signal,
+          settle: resolve,
+          fail: reject,
+          detach: () => {},
+        };
+        const signal = options.signal;
+        if (signal) {
+          const onAbort = (): void => {
+            const at = queue.indexOf(job);
+            if (at < 0) return;
+            queue.splice(at, 1);
+            job.detach();
+            reject(canceled(signal));
+          };
+          signal.addEventListener('abort', onAbort, { once: true });
+          job.detach = () => signal.removeEventListener('abort', onAbort);
+        }
+        if (priority === 'now') queue.unshift(job);
         else queue.push(job);
         pump();
       });
-      if (strategy === 'live') {
-        void task.then(
-          () => inFlight.delete(key),
-          () => inFlight.delete(key),
-        );
-        inFlight.set(key, task);
-      }
+      const entry: InFlightEntry = { promise: task, signal: options.signal };
+      const clear = (): void => {
+        if (inFlight.get(key) === entry) inFlight.delete(key);
+      };
+      void task.then(clear, clear);
+      inFlight.set(key, entry);
       return task;
     },
   };
-}
-
-interface QueuedTile {
-  style: Style;
-  tile: TileCoord;
-  settle: (result: TileFetchResult) => void;
-  fail: (error: unknown) => void;
 }
 
 export interface PrefetchStats {
@@ -208,60 +249,66 @@ export interface PrefetchStats {
   total: number;
 }
 
-// Polite bulk fetching: 2 concurrent workers, 2.0 req/s. onTile fires once per
-// tile as it settles (cached, downloaded or failed) so callers can track the
-// pre-warm's running progress.
-export async function prefetchTiles({
-  style,
-  tiles,
-  cacheDir,
-  log = () => {},
-  onTile = () => {},
-}: {
+/** One plan's slice of the tile pre-warm, streamed through the polite queue. */
+export interface WarmOptions {
   style: Style;
   tiles: TileCoord[];
-  cacheDir: string;
   log?: (msg: string) => void;
   onTile?: (status: TileStatus) => void;
-}): Promise<PrefetchStats> {
-  const missing: TileCoord[] = [];
-  for (const tile of tiles) {
-    if (fs.existsSync(tilePaths(cacheDir, style, tile).file)) onTile('cached');
-    else missing.push(tile);
-  }
-  if (missing.length === 0) {
-    return { downloaded: 0, failed: 0, total: tiles.length };
-  }
-  log(`tiles: ${tiles.length} needed, ${missing.length} to download (${style})`);
-
-  const downloader = createTileDownloader(cacheDir, 'batch');
-  let downloaded = 0;
-  let failed = 0;
-  await Promise.all(
-    missing.map((tile) =>
-      downloader.enqueue(style, tile).then((result) => {
-        if (result.status === 'downloaded') downloaded++;
-        else if (result.status === 'failed') failed++;
-        onTile(result.status);
-      }),
-    ),
-  );
-  return { downloaded, failed, total: tiles.length };
+  /** Cancels the pre-warm: queued and in-flight downloads are dropped. */
+  signal?: AbortSignal;
 }
 
-export interface TileFetcher {
-  /** Fetches one tile into the cache (or its placeholder); returns the file to serve. */
+export interface PrefetchOptions extends WarmOptions {
+  cacheDir: string;
+}
+
+export interface TileTraffic {
+  /** Fetches one tile the player needs now, ahead of the pre-warm. */
   ensure(style: Style, tile: TileCoord): Promise<string>;
+  /** Streams one plan's tiles; onTile fires once per settled tile. */
+  stream(options: WarmOptions): Promise<PrefetchStats>;
 }
 
-// On-demand fetching for the app's live restyle. The queue keeps the polite
-// 2.0 req/s even when Leaflet bursts in with a whole viewport of tiles, and
-// concurrent requests for the same tile share one download.
-export function createTileFetcher(cacheDir: string): TileFetcher {
-  const downloader = createTileDownloader(cacheDir, 'live');
+// The app's tile traffic on one polite queue: on-demand tiles jump ahead of
+// the background pre-warm, and both stay inside the same 2.0 req/s budget.
+export function createTileTraffic(cacheDir: string): TileTraffic {
+  const downloader = createDownloader(cacheDir, createPlaceholderSource());
   return {
     ensure(style, tile): Promise<string> {
-      return downloader.enqueue(style, tile).then((result) => result.file);
+      return downloader.enqueue(style, tile, { priority: 'now' }).then((result) => result.file);
+    },
+    stream(options): Promise<PrefetchStats> {
+      const { style, tiles, log = () => {}, onTile = () => {}, signal } = options;
+      const missing: TileCoord[] = [];
+      for (const tile of tiles) {
+        if (fs.existsSync(tilePaths(cacheDir, style, tile).file)) onTile('cached');
+        else missing.push(tile);
+      }
+      if (missing.length === 0) {
+        return Promise.resolve({ downloaded: 0, failed: 0, total: tiles.length });
+      }
+      log(`tiles: ${tiles.length} needed, ${missing.length} to download (${style})`);
+
+      let downloaded = 0;
+      let failed = 0;
+      return Promise.all(
+        missing.map((tile) =>
+          downloader.enqueue(style, tile, { priority: 'background', signal }).then((result) => {
+            if (result.status === 'downloaded') downloaded++;
+            else if (result.status === 'failed') failed++;
+            onTile(result.status);
+          }),
+        ),
+      ).then(() => ({ downloaded, failed, total: tiles.length }));
     },
   };
+}
+
+// Polite bulk fetching for the pipeline: 2 concurrent workers, 2.0 req/s. It
+// settles once per tile (cached, downloaded or failed) so callers can track
+// the pre-warm's running progress, and rejects with 'tile download canceled'
+// when a signal aborts it.
+export function prefetchTiles(options: PrefetchOptions): Promise<PrefetchStats> {
+  return createTileTraffic(options.cacheDir).stream(options);
 }

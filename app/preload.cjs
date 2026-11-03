@@ -9,7 +9,7 @@ function subscribe(channel, adapt) {
 }
 
 contextBridge.exposeInMainWorld('neo2flightpath', {
-  pickRecording: () => ipcRenderer.invoke('neo2flightpath:pick'),
+  pickRecording: (request) => ipcRenderer.invoke('neo2flightpath:pick', request),
   getSession: () => ipcRenderer.invoke('neo2flightpath:session'),
   getSettings: () => ipcRenderer.invoke('neo2flightpath:settings'),
   pickExportOutput: () => ipcRenderer.invoke('neo2flightpath:export:pick-output'),
@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('neo2flightpath', {
   onExportDone: (cb) => subscribe('neo2flightpath:export:done', cb),
   onPreparing: (cb) => subscribe('neo2flightpath:preparing', () => cb()),
   onPrepareProgress: (cb) => subscribe('neo2flightpath:preparing:progress', cb),
+  onWarmProgress: (cb) => subscribe('neo2flightpath:warm:progress', cb),
+  retargetWarm: (request) => ipcRenderer.invoke('neo2flightpath:warm:retarget', request),
   onUpdateReady: (cb) => subscribe('neo2flightpath:update:ready', () => cb()),
   onUpdateRestartFailed: (cb) =>
     subscribe('neo2flightpath:update:restart-failed', (message) => cb(message)),
