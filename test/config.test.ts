@@ -320,6 +320,8 @@ describe('parseSettingsPatch', () => {
     ['a non-object', null],
     ['an array', [complete]],
     ['an unknown key', { ...complete, bogus: 1 }],
+    ['a known config key outside the panel', { ...complete, outDir: 'x' }],
+    ['a machine-owned key', { ...complete, tileCache: 'D:\\cache' }],
     ['a missing key', { style: 'topo', view: 'follow', zoom: 0, zoomOut: 1, hud: 'none', introSec: 2 }],
     ['an invalid enum', { ...complete, style: 'neon' }],
     ['a string number', { ...complete, zoom: '16' }],

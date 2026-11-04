@@ -396,6 +396,13 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
     throw new Error(`invalid settings in ${origin}`);
   }
   const flat = { ...(raw as Record<string, unknown>) };
+  // A known config key outside the panel (a machine-owned value) must never
+  // ride along; the vocabulary's normalizers only reject unknown keys.
+  for (const key of Object.keys(flat)) {
+    if (!(SETTINGS_KEYS as readonly string[]).includes(key)) {
+      throw new Error(`unknown settings key ${key} in ${origin}`);
+    }
+  }
   if (flat.hud !== undefined && flat.hud !== null && typeof flat.hud !== 'string') {
     flat.hud = formatHud(parseHudObject(flat.hud, `${origin}: hud`));
   }
