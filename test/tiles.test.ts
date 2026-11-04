@@ -8,12 +8,24 @@ import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   cleanupTmpDirs();
 });
 
 function okFetch() {
   return vi.fn(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+}
+
+async function rejected(promise: Promise<unknown>): Promise<Error> {
+  const error: unknown = await promise.then(
+    () => null,
+    (e: unknown) => e,
+  );
+  if (!(error instanceof Error)) {
+    throw new Error(`expected an Error rejection, got ${String(error)}`);
+  }
+  return error;
 }
 
 // The tile a recorded request was for, however the source orders its
@@ -430,5 +442,69 @@ describe('prefetchTiles', () => {
     expect(stats).toEqual({ downloaded: 0, failed: 0, total: 1 });
     expect(onTile).toHaveBeenCalledTimes(1);
     expect(onTile).toHaveBeenCalledWith('cached');
+  });
+});
+
+describe('cache write failures', () => {
+  describe.for([
+    {
+      name: 'the cache directory cannot be created',
+      breakCache: (dir: string): void => {
+        fs.writeFileSync(path.join(dir, 'esri-imagery'), 'not a directory');
+      },
+    },
+    {
+      name: 'the tile file cannot be written',
+      breakCache: (): void => {
+        vi.spyOn(fs, 'writeFileSync').mockImplementationOnce(() => {
+          throw new Error('ENOSPC: no space left on device, write');
+        });
+      },
+    },
+  ])('$name', ({ breakCache }) => {
+    it('fails the tile job with the cache error instead of retrying the download', async () => {
+      const dir = tmpDir();
+      breakCache(dir);
+      const fetchStub = okFetch();
+      vi.stubGlobal('fetch', fetchStub);
+      const cachePath = path.join(dir, 'esri-imagery', '1', '2', '3.png');
+
+      const error = await rejected(createTileTraffic(dir).ensure('satellite', { z: 1, x: 2, y: 3 }));
+
+      expect(error.message).toMatch(/^cache write failed: /);
+      expect(error.message).toContain(cachePath);
+      expect(error.cause).toBeInstanceOf(Error);
+      expect(fetchStub).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces the cache error through prefetchTiles', async () => {
+      const dir = tmpDir();
+      breakCache(dir);
+      const fetchStub = okFetch();
+      vi.stubGlobal('fetch', fetchStub);
+
+      const error = await rejected(
+        prefetchTiles({ style: 'satellite', tiles: [T0], cacheDir: dir }),
+      );
+
+      expect(error.message).toMatch(/^cache write failed: /);
+      expect(fetchStub).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('fails the tile job with a cache error when the placeholder cannot be written either', async () => {
+    const dir = tmpDir();
+    const fetchStub = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const placeholder = path.join(dir, 'esri-imagery', '1', '2', '3.placeholder.png');
+    fs.mkdirSync(placeholder, { recursive: true });
+
+    const error = await rejected(createTileTraffic(dir).ensure('satellite', { z: 1, x: 2, y: 3 }));
+
+    expect(error.message).toMatch(/^cache write failed: /);
+    expect(error.message).toContain(placeholder);
+    expect(fetchStub).toHaveBeenCalledTimes(2);
   });
 });
