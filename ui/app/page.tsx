@@ -65,6 +65,20 @@ export default function Page() {
     };
   }, []);
 
+  // Every panel change persists so the next launch restores the look.
+  const handleSettingsChange = useCallback((next: RenderConfig) => {
+    setSettings(next);
+    try {
+      void appBridge()
+        .saveSettings(settingsPatchOf(next))
+        .catch(() => {
+          // A refused write keeps the look; the next change tries again.
+        });
+    } catch {
+      // Outside the app shell there is no backend to persist settings.
+    }
+  }, []);
+
   // The backend reports preparation only after the picker returned a valid file,
   // so the busy status never covers the native dialog; its progress events then
   // drive the loading bar while preparation runs.
@@ -212,7 +226,7 @@ export default function Page() {
           key={loaded.id}
           session={loaded.value}
           settings={settings}
-          onSettingsChange={setSettings}
+          onSettingsChange={handleSettingsChange}
           onOpen={handlePick}
           onHelp={openHelp}
           dialogs={sharedDialogs}

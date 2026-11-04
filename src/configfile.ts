@@ -4,9 +4,9 @@
 // one. The vocabulary itself stays pure in src/config.ts.
 
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
+import { userDataDir } from './apppaths.js';
 import {
   CONFIG_FILE_NAME,
   DEFAULT_CONFIG,
@@ -20,8 +20,7 @@ import type { ConfigOverrides, RenderConfig } from './config.js';
 export function defaultTileCache(): string {
   const override = process.env['NEO2_FLIGHTPATH_TILE_CACHE'];
   if (override) return path.resolve(override);
-  const base = process.env['LOCALAPPDATA'] ?? path.join(os.homedir(), '.cache');
-  return path.join(base, 'neo2-flightpath', 'tiles');
+  return path.join(userDataDir(), 'tiles');
 }
 
 export function discoverConfigFile(startDir: string): string | null {
