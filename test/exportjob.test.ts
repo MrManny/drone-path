@@ -9,7 +9,7 @@ import { createExportRunner } from '../src/exportjob.js';
 import type { ExportOutcome, RunExportJob } from '../src/exportjob.js';
 import type { PipelineDeps, RecordingSummary } from '../src/run.js';
 import { createTileTraffic } from '../src/tiles.js';
-import type { PrefetchOptions, PrefetchStats } from '../src/tiles.js';
+import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
 import { cleanupTmpDirs, stubDeps, tmpDir } from './fixtures.js';
 
 afterEach(() => {
@@ -338,7 +338,7 @@ describe('export runner: the default run honors injected deps', () => {
     const cacheDir = tmpDir();
     const out = path.join(tmpDir(), 'flight_map.mp4');
     const prefetchTiles = vi.fn(
-      async ({ tiles }: PrefetchOptions): Promise<PrefetchStats> => ({
+      async ({ tiles }: WarmOptions): Promise<PrefetchStats> => ({
         downloaded: tiles.length,
         failed: 0,
         total: tiles.length,
@@ -360,7 +360,8 @@ describe('export runner: the default run honors injected deps', () => {
     expect(outcome.status).toBe('ok');
     expect(prefetchTiles).toHaveBeenCalledTimes(1);
     const warm = prefetchTiles.mock.calls[0][0];
-    expect(warm.cacheDir).toBe(cacheDir);
+    // The seam carries no cache name at all: the provider owns its directory.
+    expect(warm).not.toHaveProperty('cacheDir');
     expect(warm.tiles.length).toBeGreaterThan(0);
   });
 

@@ -16,9 +16,8 @@ import { displayedTiles, planView } from './plan.js';
 import type { TileCoord } from './plan.js';
 import type { SceneData } from './renderer/scene.js';
 import { prepareSession, recordingPageOpts } from './run.js';
-import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
+import type { LogFn, PipelineDeps, PrepareProgressFn, TileWarmFn } from './run.js';
 import { createTileTraffic } from './tiles.js';
-import type { prefetchTiles } from './tiles.js';
 
 export interface PageVideo {
   /** Media URL the <video> element loads, e.g. "app://bundle/media/video". */
@@ -179,8 +178,9 @@ export interface AppSessionOptions {
   /**
    * Streams one plan's tiles into the cache behind the player; the same
    * queue warms the gate in preparation, so every lane shares one budget.
+   * The queue owns its cache directory: no caller names a different one.
    */
-  streamTiles?: typeof prefetchTiles;
+  streamTiles?: TileWarmFn;
   /** Running count of the background pre-warm, for the player's hint. */
   onWarmProgress?: (progress: WarmProgress) => void;
 }
@@ -216,13 +216,12 @@ interface WarmRun {
 // ticks instead of strobing, and a plan that is already warm never flashes a
 // hint at all.
 function createWarmStream(options: {
-  cacheDir: string;
   log: LogFn;
-  streamTiles: typeof prefetchTiles;
+  streamTiles: TileWarmFn;
   onProgress: (progress: WarmProgress) => void;
   plan: (request: WarmRequest) => TileCoord[];
 }): WarmHandle {
-  const { cacheDir, log, streamTiles, onProgress, plan } = options;
+  const { log, streamTiles, onProgress, plan } = options;
   let run: WarmRun | null = null;
   let emitScheduled = false;
 
@@ -259,7 +258,6 @@ function createWarmStream(options: {
       void streamTiles({
         style: request.settings.style,
         tiles,
-        cacheDir,
         log,
         signal: started.controller.signal,
         onTile: () => {
@@ -291,7 +289,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
   // the gate pre-warm, the warm stream and the player's on-demand fetches
   // must all share it, or lanes interleave below REQUEST_INTERVAL_MS.
   const sharedTraffic = createTileTraffic(config.tileCache);
-  const streamTiles: typeof prefetchTiles =
+  const streamTiles: TileWarmFn =
     options.streamTiles ?? ((req) => sharedTraffic.stream(req));
   const onWarmProgress = options.onWarmProgress ?? ((): void => {});
   let session: UiSession | null = null;
@@ -302,7 +300,6 @@ export function createAppSession(options: AppSessionOptions): AppSession {
   // zoom and the frame are the very planning inputs the renderer's layout
   // uses, so the hint's counts always describe the tiles on screen.
   const warm = createWarmStream({
-    cacheDir: config.tileCache,
     log,
     streamTiles,
     onProgress: onWarmProgress,

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -17,6 +18,7 @@ import {
   runBatch,
 } from '../src/run.js';
 import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/run.js';
+import { tilePaths } from '../src/tilecache.js';
 import { loadTelemetry } from '../src/telemetry.js';
 import { START_PREPARE_PROGRESS } from '../ui/lib/pickstate.js';
 import {
@@ -352,13 +354,14 @@ describe('prepareSession tile gate', () => {
 });
 
 describe('prepareSession deps overrides', () => {
-  it('runs the real prefetch when only the other deps are overridden', async () => {
+  it('runs the real prefetch into the run cache when only other deps are overridden', async () => {
     vi.useFakeTimers();
     const stubs = stubDeps();
     const fetchStub = vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 }));
     vi.stubGlobal('fetch', fetchStub);
+    const config = testConfig();
 
-    const pending = prepareSession(VIDEO, testConfig(), () => {}, {
+    const pending = prepareSession(VIDEO, config, () => {}, {
       deps: { probeVideo: stubs.probeVideo, loadTelemetry: stubs.loadTelemetry },
     });
     await vi.advanceTimersByTimeAsync(60000);
@@ -367,7 +370,34 @@ describe('prepareSession deps overrides', () => {
     expect(fetchStub).toHaveBeenCalledTimes(prep.tileStats.total);
     expect(prep.tileStats.total).toBeGreaterThan(0);
     expect(prep.tileStats.downloaded).toBe(prep.tileStats.total);
+    // The seam names no cache; the default warm binds the run's own cache.
+    const first = prep.overview.tiles[0];
+    expect(fs.existsSync(tilePaths(config.tileCache, config.style, first).file)).toBe(true);
   });
+
+  it.for([undefined, null])(
+    'ignores a %s prefetch override and runs the real warm',
+    async (nullish) => {
+      vi.useFakeTimers();
+      const stubs = stubDeps();
+      const fetchStub = vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 }));
+      vi.stubGlobal('fetch', fetchStub);
+
+      const pending = prepareSession(VIDEO, testConfig(), () => {}, {
+        deps: {
+          probeVideo: stubs.probeVideo,
+          loadTelemetry: stubs.loadTelemetry,
+          // The cast mirrors untyped shell code, which can legally send null.
+          prefetchTiles: nullish as unknown as PipelineDeps['prefetchTiles'],
+        },
+      });
+      await vi.advanceTimersByTimeAsync(60000);
+      const prep = await pending;
+
+      expect(prep.tileStats.total).toBeGreaterThan(0);
+      expect(fetchStub).toHaveBeenCalledTimes(prep.tileStats.total);
+    },
+  );
 });
 
 describe('processRecording span tree', () => {

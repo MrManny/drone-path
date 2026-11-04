@@ -16,7 +16,7 @@ import type { RenderConfig, SettingsPatch } from '../src/config.js';
 import { displayedTiles, planView } from '../src/plan.js';
 import type { PipelineDeps, PrepareProgress } from '../src/run.js';
 import { createTileTraffic } from '../src/tiles.js';
-import type { PrefetchOptions, PrefetchStats, TileStatus } from '../src/tiles.js';
+import type { PrefetchStats, TileStatus, WarmOptions } from '../src/tiles.js';
 import {
   cleanupTmpDirs,
   probeFixture,
@@ -381,15 +381,15 @@ describe('createAppSession background pre-warm', () => {
   // The warm stream emits from a microtask; one timer turn sees them all.
   const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-  function warmHarness(streamTiles?: (options: PrefetchOptions) => Promise<PrefetchStats>) {
-    const calls: PrefetchOptions[] = [];
+  function warmHarness(streamTiles?: (options: WarmOptions) => Promise<PrefetchStats>) {
+    const calls: WarmOptions[] = [];
     const progress: WarmProgress[] = [];
     const logs: string[] = [];
-    const pending: { options: PrefetchOptions; resolve: (stats: PrefetchStats) => void }[] = [];
+    const pending: { options: WarmOptions; resolve: (stats: PrefetchStats) => void }[] = [];
     const stream =
       streamTiles ??
       vi.fn(
-        (options: PrefetchOptions) =>
+        (options: WarmOptions) =>
           new Promise<PrefetchStats>((resolve) => {
             pending.push({ options, resolve });
           }),
@@ -553,7 +553,7 @@ describe('createAppSession shared tile queue', () => {
       { z: 1, x: 0, y: 3 },
     ];
     const prepare: PrepareUiSession = async (_file, _config, _log, _onProgress, _frame, deps) => {
-      await deps?.prefetchTiles?.({ style: 'satellite', tiles: gateTiles, cacheDir: dir });
+      await deps?.prefetchTiles?.({ style: 'satellite', tiles: gateTiles });
       return STUB_SESSION;
     };
     const session = createAppSession({
@@ -582,9 +582,8 @@ describe('createAppSession shared tile queue', () => {
     }
   });
 
-  it('warms into the session cache even when a lane names another directory', async () => {
+  it('writes into the queue-owned cache: the seam cannot name another', async () => {
     const dir = tmpDir();
-    const other = tmpDir();
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 })),
@@ -593,11 +592,11 @@ describe('createAppSession shared tile queue', () => {
       await deps?.prefetchTiles?.({
         style: 'satellite',
         tiles: [{ z: 1, x: 0, y: 0 }],
-        cacheDir: other,
       });
       return SESSION;
     };
-    // No streamTiles: the session's own queue serves warm and preparation.
+    // No streamTiles: the session's own queue serves warm and preparation,
+    // and its own cache directory is the only one that exists to write to.
     const session = createAppSession({
       config: { tileCache: dir } as RenderConfig,
       pickFile: async () => mp4(),
@@ -606,14 +605,13 @@ describe('createAppSession shared tile queue', () => {
 
     expect(await session.pick(REQUEST)).toEqual({ ok: true });
     expect(fs.existsSync(path.join(dir, 'esri-imagery', '1', '0', '0.png'))).toBe(true);
-    expect(fs.existsSync(path.join(other, 'esri-imagery', '1', '0', '0.png'))).toBe(false);
   });
 });
 
 describe('prepareUiSession', () => {
   it('warms the gate tiles through the injected deps', async () => {
     const prefetchTiles = vi.fn(
-      async ({ tiles }: PrefetchOptions): Promise<PrefetchStats> => ({
+      async ({ tiles }: WarmOptions): Promise<PrefetchStats> => ({
         downloaded: tiles.length,
         failed: 0,
         total: tiles.length,
@@ -633,7 +631,8 @@ describe('prepareUiSession', () => {
     expect(prefetchTiles).toHaveBeenCalledTimes(1);
     const warm = prefetchTiles.mock.calls[0][0];
     expect(warm.style).toBe(config.style);
-    expect(warm.cacheDir).toBe(config.tileCache);
+    // The seam carries no cache name at all: the provider owns its directory.
+    expect(warm).not.toHaveProperty('cacheDir');
     expect(warm.tiles.length).toBeGreaterThan(0);
     expect(ui.bbox).toEqual(telemetryFixture().bbox);
     expect(ui.video.frames).toBe(probeFixture().frames);
