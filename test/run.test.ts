@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SpanStatusCode } from '@opentelemetry/api';
 
 import { DEFAULT_CONFIG } from '../src/config.js';
@@ -114,7 +114,11 @@ const PROBE = probeFixture();
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-afterEach(cleanupTmpDirs);
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  cleanupTmpDirs();
+});
 
 describe('prepareSession', () => {
   it('carries the effective canvas through and lets the planner decimate once', async () => {
@@ -344,6 +348,25 @@ describe('prepareSession tile gate', () => {
     const { deps, warmed } = warmRecorder();
     const prep = await prepareSession(VIDEO, testConfig(), () => {}, { deps });
     expect(warmed[0]).toEqual(prep.overview.tiles);
+  });
+});
+
+describe('prepareSession deps overrides', () => {
+  it('runs the real prefetch when only the other deps are overridden', async () => {
+    vi.useFakeTimers();
+    const stubs = stubDeps();
+    const fetchStub = vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 }));
+    vi.stubGlobal('fetch', fetchStub);
+
+    const pending = prepareSession(VIDEO, testConfig(), () => {}, {
+      deps: { probeVideo: stubs.probeVideo, loadTelemetry: stubs.loadTelemetry },
+    });
+    await vi.advanceTimersByTimeAsync(60000);
+    const prep = await pending;
+
+    expect(fetchStub).toHaveBeenCalledTimes(prep.tileStats.total);
+    expect(prep.tileStats.total).toBeGreaterThan(0);
+    expect(prep.tileStats.downloaded).toBe(prep.tileStats.total);
   });
 });
 

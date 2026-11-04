@@ -16,8 +16,9 @@ import { displayedTiles, planView } from './plan.js';
 import type { TileCoord } from './plan.js';
 import type { SceneData } from './renderer/scene.js';
 import { prepareSession, recordingPageOpts } from './run.js';
-import type { LogFn, PrepareProgressFn } from './run.js';
-import { prefetchTiles } from './tiles.js';
+import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
+import { createTileTraffic } from './tiles.js';
+import type { prefetchTiles } from './tiles.js';
 
 export interface PageVideo {
   /** Media URL the <video> element loads, e.g. "app://bundle/media/video". */
@@ -128,6 +129,8 @@ export type PrepareUiSession = (
   log: LogFn,
   onProgress: PrepareProgressFn | undefined,
   frame: { width: number; height: number },
+  /** I/O overrides, so the gate pre-warm shares the app's tile queue. */
+  deps?: Partial<PipelineDeps>,
 ) => Promise<UiSession>;
 
 // The shared pipeline preparation plus the scene data the UI drives. The app
@@ -140,11 +143,13 @@ export const prepareUiSession: PrepareUiSession = async (
   log,
   onProgress,
   frame,
+  deps,
 ) => {
   const prep = await prepareSession(videoPath, config, log, {
     onProgress,
     tileWait: 'gate',
     frameSize: frame,
+    deps,
   });
   return {
     scene: buildSceneData(recordingPageOpts(prep, config), TILE_BASE),
@@ -171,7 +176,10 @@ export interface AppSessionOptions {
   onPreparing?: (videoPath: string) => void;
   /** Loading progress of the preparation, for progress displays. */
   onPrepareProgress?: PrepareProgressFn;
-  /** Streams one plan's tiles into the cache behind the player. */
+  /**
+   * Streams one plan's tiles into the cache behind the player; the same
+   * queue warms the gate in preparation, so every lane shares one budget.
+   */
   streamTiles?: typeof prefetchTiles;
   /** Running count of the background pre-warm, for the player's hint. */
   onWarmProgress?: (progress: WarmProgress) => void;
@@ -279,7 +287,12 @@ export function createAppSession(options: AppSessionOptions): AppSession {
   const log = options.log ?? ((): void => {});
   const onPreparing = options.onPreparing ?? ((): void => {});
   const onPrepareProgress = options.onPrepareProgress ?? ((): void => {});
-  const streamTiles = options.streamTiles ?? prefetchTiles;
+  // One queue per session owns the tile cache and the polite request budget:
+  // the gate pre-warm, the warm stream and the player's on-demand fetches
+  // must all share it, or lanes interleave below REQUEST_INTERVAL_MS.
+  const sharedTraffic = createTileTraffic(config.tileCache);
+  const streamTiles: typeof prefetchTiles =
+    options.streamTiles ?? ((req) => sharedTraffic.stream(req));
   const onWarmProgress = options.onWarmProgress ?? ((): void => {});
   let session: UiSession | null = null;
   let videoPath: string | null = null;
@@ -317,13 +330,16 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         warm.cancel();
         onPreparing(resolved);
         // The renderer's current look prepares the recording: what the player
-        // shows and what the gate warms must be the same plan.
+        // shows and what the gate warms must be the same plan, warmed through
+        // the session's tile queue so the gate pre-warm cannot spend a second
+        // request budget alongside the player's.
         session = await prepare(
           resolved,
           { ...config, ...request.settings },
           log,
           onPrepareProgress,
           request.frame,
+          { prefetchTiles: streamTiles },
         );
         videoPath = resolved;
         log(`loaded: ${resolved}`);

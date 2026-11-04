@@ -243,8 +243,15 @@ const realDeps: PipelineDeps = {
   outputMatchesSource,
 };
 
+// A caller overrides only the dep its composition owns (the app shares its
+// tile queue with every lane); everything omitted stays the real I/O shell.
+function resolveDeps(overrides: Partial<PipelineDeps> | undefined): PipelineDeps {
+  return overrides ? { ...realDeps, ...overrides } : realDeps;
+}
+
 export interface PipelineOptions {
-  deps?: PipelineDeps;
+  /** Overrides over the real I/O shell; omitted fields run the real ones. */
+  deps?: Partial<PipelineDeps>;
   trace?: TraceContext;
   /** Source-frame segment to render; omit for the full recording. */
   range?: FrameRange;
@@ -506,7 +513,7 @@ export async function prepareSession(
     log,
     tracer: options.trace?.tracer ?? NOOP_TRACER,
     parent: options.trace?.parent,
-    deps: options.deps ?? realDeps,
+    deps: resolveDeps(options.deps),
     report: createPrepareReporter(options.onProgress),
     tileWait: options.tileWait ?? 'all',
     frameSize: options.frameSize,
@@ -679,7 +686,7 @@ export async function processRecording(
 ): Promise<RecordingSummary> {
   const t0 = Date.now();
   const tracer = options.trace?.tracer ?? NOOP_TRACER;
-  const deps = options.deps ?? realDeps;
+  const deps = resolveDeps(options.deps);
   if (options.signal?.aborted) throw new Error('render canceled');
 
   return stage(
@@ -692,6 +699,7 @@ export async function processRecording(
     async (root) => {
       const prep = await prepareSession(videoPath, config, log, {
         ...options,
+        deps,
         trace: { tracer, parent: root },
       });
       root.setAttributes({
@@ -730,7 +738,7 @@ export async function runBatch(
   options: PipelineOptions = {},
 ): Promise<BatchResult> {
   const result: BatchResult = { ok: 0, skipped: 0, failed: 0 };
-  const deps = options.deps ?? realDeps;
+  const deps = resolveDeps(options.deps);
 
   // Collision-free outputs up front: two same-basename recordings must not
   // silently overwrite each other in a shared --out-dir.

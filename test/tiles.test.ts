@@ -351,6 +351,49 @@ describe('createTileTraffic stream', () => {
   });
 });
 
+// Concurrent lanes (the app's gate pre-warm beside its warm stream, or an
+// export beside the live player) must share the one queue's budget.
+describe.for([
+  { label: 'two warm streams', streams: 2, ensures: 0 },
+  { label: 'two warm streams beside on-demand fetches', streams: 2, ensures: 2 },
+])('createTileTraffic lanes: $label', ({ streams, ensures }) => {
+  it('never starts two requests closer than 500 ms', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const starts: number[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        starts.push(Date.now());
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }),
+    );
+    const traffic = createTileTraffic(dir);
+    const lanes: Promise<unknown>[] = [];
+    for (let lane = 0; lane < streams; lane++) {
+      lanes.push(
+        traffic.stream({
+          style: 'satellite',
+          tiles: [
+            { z: 3, x: lane, y: 0 },
+            { z: 3, x: lane, y: 1 },
+          ],
+        }),
+      );
+    }
+    for (let lane = 0; lane < ensures; lane++) {
+      lanes.push(traffic.ensure('satellite', { z: 3, x: 9, y: lane }));
+    }
+    await vi.advanceTimersByTimeAsync(5000);
+    await Promise.all(lanes);
+
+    expect(starts).toHaveLength(streams * 2 + ensures);
+    for (let i = 1; i < starts.length; i++) {
+      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
+    }
+  });
+});
+
 describe('prefetchTiles', () => {
   it('downloads missing tiles and marks failures with placeholders', async () => {
     const dir = tmpDir();
