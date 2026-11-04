@@ -420,6 +420,15 @@ describe.for([
 // early (444 ms gaps in the wild). late[k] is how late request k+1's wake
 // lands past its target; the stall of request k's fetch starves that wake.
 // Real timers with a spun stall model the jitter class faithfully.
+
+// Date.now() floors to whole milliseconds at two points a microtask apart -
+// the gate's release stamp and the test's fetch-time stamp - so a pair spaced
+// exactly 500 ms apart can measure 1 ms short when a millisecond boundary
+// falls between those reads. The tolerance covers that measurement
+// granularity; a real squeeze still fails it (the stale-slot bug measured
+// 444 ms gaps).
+const START_GAP_TOLERANCE_MS = 5;
+
 describe.for<{ label: string; late: number[] }>([
   { label: 'punctual wakes', late: [0, 0, 0, 0] },
   { label: 'one +100 ms late wake', late: [100, 0, 0, 0] },
@@ -450,7 +459,9 @@ describe.for<{ label: string; late: number[] }>([
     for (let i = 1; i < starts.length; i++) {
       // The gate's own interval, plus the lateness this wake suffered: the
       // start after a late one must not squeeze into the late one's interval.
-      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500 + late[i - 1]);
+      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(
+        500 + late[i - 1] - START_GAP_TOLERANCE_MS,
+      );
     }
   }, 20000);
 });
