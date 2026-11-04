@@ -33,12 +33,25 @@ const FETCH_TIMEOUT_MS = 20000;
 type RequestGate = () => Promise<void>;
 
 function createRequestGate(): RequestGate {
-  let nextSlotAt = 0;
-  return async () => {
-    const now = Date.now();
-    const startAt = Math.max(now, nextSlotAt);
-    nextSlotAt = startAt + REQUEST_INTERVAL_MS;
-    if (startAt > now) await sleep(startAt - now);
+  // Waiters release in arrival order - the queue's priorities decide who
+  // acquires first - and the stamp lands at the actual release with every
+  // turn re-checking after sleeping: a late event-loop wake can never
+  // squeeze the next start inside the previous release's interval.
+  let nextFreeAt = 0;
+  let tail: Promise<void> = Promise.resolve();
+  return () => {
+    const turn = tail.then(async () => {
+      for (;;) {
+        const now = Date.now();
+        if (now >= nextFreeAt) {
+          nextFreeAt = now + REQUEST_INTERVAL_MS;
+          return;
+        }
+        await sleep(nextFreeAt - now);
+      }
+    });
+    tail = turn.catch(() => {});
+    return turn;
   };
 }
 
