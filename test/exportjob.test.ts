@@ -1,16 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ExportRequest } from '../src/config.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { createExportRunner } from '../src/exportjob.js';
 import type { ExportOutcome, RunExportJob } from '../src/exportjob.js';
-import type { RecordingSummary } from '../src/run.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import type { PipelineDeps, RecordingSummary } from '../src/run.js';
+import { createTileTraffic } from '../src/tiles.js';
+import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
+import { cleanupTmpDirs, stubDeps, tmpDir } from './fixtures.js';
 
-afterEach(cleanupTmpDirs);
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  cleanupTmpDirs();
+});
 
 const SOURCE = path.join(tmpDir(), 'flight.mp4');
 
@@ -21,6 +27,13 @@ function summaryFor(out: string): RecordingSummary {
 function requestFor(outPath: string, range: ExportRequest['range'] = null): ExportRequest {
   return { outPath, config: { ...DEFAULT_CONFIG, tileCache: tmpDir() }, range };
 }
+
+// The render stub must leave the working file behind: the runner's swap is
+// the very thing that turns a finished render into the destination.
+const writesOutput: PipelineDeps['renderVideo'] = async ({ outPath }) => {
+  fs.writeFileSync(outPath, 'rendered');
+  return { profile: { evalMs: 1, captureMs: 2, emitMs: 3 } };
+};
 
 // Resolves when the runner reports; the job itself is driven by the test.
 function harness(run: RunExportJob) {
@@ -316,6 +329,110 @@ describe('export runner: completion safety', () => {
       expect(runner.running()).toBe(false);
     } finally {
       process.off('unhandledRejection', onRejection);
+    }
+  });
+});
+
+describe('export runner: the default run honors injected deps', () => {
+  it('warms the tiles through the injected prefetch', async () => {
+    const cacheDir = tmpDir();
+    const out = path.join(tmpDir(), 'flight_map.mp4');
+    const prefetchTiles = vi.fn(
+      async ({ tiles }: WarmOptions): Promise<PrefetchStats> => ({
+        downloaded: tiles.length,
+        failed: 0,
+        total: tiles.length,
+      }),
+    );
+
+    const outcome = await new Promise<ExportOutcome>((resolve) => {
+      const runner = createExportRunner({
+        deps: stubDeps({ prefetchTiles, renderVideo: writesOutput }),
+        onDone: resolve,
+      });
+      runner.start(SOURCE, {
+        outPath: out,
+        config: { ...DEFAULT_CONFIG, tileCache: cacheDir },
+        range: null,
+      });
+    });
+
+    expect(outcome.status).toBe('ok');
+    expect(prefetchTiles).toHaveBeenCalledTimes(1);
+    const warm = prefetchTiles.mock.calls[0][0];
+    // The seam carries no cache name at all: the provider owns its directory.
+    expect(warm).not.toHaveProperty('cacheDir');
+    expect(warm.tiles.length).toBeGreaterThan(0);
+  });
+
+  it('fails the export when the tile warm fails', async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'flight_map.mp4');
+    const prefetchTiles = vi.fn(async (): Promise<PrefetchStats> => {
+      throw new Error('cache unwritable');
+    });
+
+    const outcome = await new Promise<ExportOutcome>((resolve) => {
+      const runner = createExportRunner({
+        deps: stubDeps({ prefetchTiles }),
+        onDone: resolve,
+      });
+      runner.start(SOURCE, {
+        outPath: out,
+        config: { ...DEFAULT_CONFIG, tileCache: tmpDir() },
+        range: null,
+      });
+    });
+
+    expect(outcome).toEqual({ status: 'error', error: 'cache unwritable' });
+    expect(fs.existsSync(out)).toBe(false);
+    expect(fs.readdirSync(dir).filter((name) => name.includes('.partial'))).toEqual([]);
+  });
+
+  it('keeps the export warm and the app warm inside one 500 ms budget', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const cacheDir = tmpDir();
+    const starts: number[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        starts.push(Date.now());
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }),
+    );
+    // The app composition: the export's warm joins the app's tile queue.
+    const traffic = createTileTraffic(cacheDir);
+    const outcome = new Promise<ExportOutcome>((resolve) => {
+      const runner = createExportRunner({
+        deps: stubDeps({
+          prefetchTiles: (options) => traffic.stream(options),
+          renderVideo: writesOutput,
+        }),
+        onDone: resolve,
+      });
+      runner.start(SOURCE, {
+        outPath: path.join(dir, 'flight_map.mp4'),
+        config: { ...DEFAULT_CONFIG, tileCache: cacheDir },
+        range: null,
+      });
+    });
+    const warm = traffic.stream({
+      style: 'satellite',
+      tiles: [
+        { z: 1, x: 0, y: 0 },
+        { z: 1, x: 0, y: 1 },
+      ],
+    });
+    await vi.advanceTimersByTimeAsync(600000);
+    const [result] = await Promise.all([outcome, warm]);
+
+    expect(result.status).toBe('ok');
+    const downloaded = result.status === 'ok' ? (result.summary.tilesDownloaded ?? 0) : 0;
+    expect(downloaded).toBeGreaterThan(0);
+    expect(starts).toHaveLength(2 + downloaded);
+    for (let i = 1; i < starts.length; i++) {
+      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
     }
   });
 });

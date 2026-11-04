@@ -11,7 +11,7 @@ import { errorMessage } from './errors.js';
 import { samePath, uniquePath } from './paths.js';
 import type { CaptureProgress } from './render.js';
 import { processRecording } from './run.js';
-import type { LogFn, RecordingSummary } from './run.js';
+import type { LogFn, PipelineDeps, RecordingSummary } from './run.js';
 
 export type ExportOutcome =
   | { status: 'ok'; summary: RecordingSummary }
@@ -28,13 +28,17 @@ export type RunExportJob = (
 ) => Promise<RecordingSummary>;
 
 // The pipeline is called exactly like the CLI calls it: one job, the
-// snapshot's config, the frozen range.
-const runViaPipeline: RunExportJob = (videoPath, request, log, workingPath, signal, onCapture) =>
-  processRecording(videoPath, request.config, log, workingPath, {
-    range: request.range ?? undefined,
-    signal,
-    onCapture,
-  });
+// snapshot's config, the frozen range. The deps let an in-app export warm
+// through the app's shared tile queue instead of a budget of its own.
+const runViaPipeline =
+  (deps: Partial<PipelineDeps> | undefined): RunExportJob =>
+  (videoPath, request, log, workingPath, signal, onCapture) =>
+    processRecording(videoPath, request.config, log, workingPath, {
+      range: request.range ?? undefined,
+      signal,
+      onCapture,
+      deps,
+    });
 
 export interface ExportRunnerOptions {
   log?: LogFn;
@@ -42,6 +46,8 @@ export interface ExportRunnerOptions {
   /** Typed capture progress, forwarded to progress displays. */
   onCapture?: (progress: CaptureProgress) => void;
   run?: RunExportJob;
+  /** I/O overrides for the default pipeline run; ignored by a custom run. */
+  deps?: Partial<PipelineDeps>;
 }
 
 export interface ExportRunner {
@@ -88,7 +94,7 @@ function swapIntoPlace(working: string, outPath: string): void {
 
 export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
   const log = options.log ?? ((): void => {});
-  const run = options.run ?? runViaPipeline;
+  const run = options.run ?? runViaPipeline(options.deps);
   let job: { abort: () => void } | null = null;
 
   async function execute(

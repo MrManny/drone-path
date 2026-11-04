@@ -1,9 +1,10 @@
 // The polite tile download policy in one home: every request start - retries
 // included - is spaced REQUEST_INTERVAL_MS apart (2.0 req/s) and at most
 // DOWNLOAD_WORKERS downloads run at once, whichever entry point drives them.
-// createTileTraffic (the app: on-demand tiles and the background pre-warm on
-// one queue) and prefetchTiles (the pipeline's bulk pre-warm) are thin
-// wrappers whose priorities decide ordering and sharing.
+// createTileTraffic (the app: the gate pre-warm, the background pre-warm,
+// on-demand tiles and exports on one queue) and prefetchTiles (the CLI's
+// bulk pre-warm, its own queue as it runs alone) are thin wrappers whose
+// priorities decide ordering and sharing.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,12 +34,25 @@ const FETCH_TIMEOUT_MS = 20000;
 type RequestGate = () => Promise<void>;
 
 function createRequestGate(): RequestGate {
-  let nextSlotAt = 0;
-  return async () => {
-    const now = Date.now();
-    const startAt = Math.max(now, nextSlotAt);
-    nextSlotAt = startAt + REQUEST_INTERVAL_MS;
-    if (startAt > now) await sleep(startAt - now);
+  // Waiters release in arrival order - the queue's priorities decide who
+  // acquires first - and the stamp lands at the actual release with every
+  // turn re-checking after sleeping: a late event-loop wake can never
+  // squeeze the next start inside the previous release's interval.
+  let nextFreeAt = 0;
+  let tail: Promise<void> = Promise.resolve();
+  return () => {
+    const turn = tail.then(async () => {
+      for (;;) {
+        const now = Date.now();
+        if (now >= nextFreeAt) {
+          nextFreeAt = now + REQUEST_INTERVAL_MS;
+          return;
+        }
+        await sleep(nextFreeAt - now);
+      }
+    });
+    tail = turn.catch(() => {});
+    return turn;
   };
 }
 

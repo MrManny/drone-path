@@ -43,6 +43,15 @@ const T2 = { z: 1, x: 0, y: 2 };
 const T3 = { z: 1, x: 0, y: 3 };
 const T4 = { z: 1, x: 0, y: 4 };
 
+// Busy-wait: only thread starvation can make a timer wake late, and fake
+// timers cannot model that (a clock jump shifts pending deadlines along).
+function stall(ms: number): void {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    // spin: the event loop stays blocked for the whole `ms`
+  }
+}
+
 describe('createTileTraffic ensure', () => {
   it('downloads a missing tile into the cache and returns it', async () => {
     const dir = tmpDir();
@@ -361,6 +370,89 @@ describe('createTileTraffic stream', () => {
     await expect(pivoted).resolves.toEqual({ downloaded: 3, failed: 0, total: 3 });
     await warmFails;
   });
+});
+
+// Concurrent lanes (the app's gate pre-warm beside its warm stream, or an
+// export beside the live player) must share the one queue's budget.
+describe.for([
+  { label: 'two warm streams', streams: 2, ensures: 0 },
+  { label: 'two warm streams beside on-demand fetches', streams: 2, ensures: 2 },
+])('createTileTraffic lanes: $label', ({ streams, ensures }) => {
+  it('never starts two requests closer than 500 ms', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const starts: number[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        starts.push(Date.now());
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }),
+    );
+    const traffic = createTileTraffic(dir);
+    const lanes: Promise<unknown>[] = [];
+    for (let lane = 0; lane < streams; lane++) {
+      lanes.push(
+        traffic.stream({
+          style: 'satellite',
+          tiles: [
+            { z: 3, x: lane, y: 0 },
+            { z: 3, x: lane, y: 1 },
+          ],
+        }),
+      );
+    }
+    for (let lane = 0; lane < ensures; lane++) {
+      lanes.push(traffic.ensure('satellite', { z: 3, x: 9, y: lane }));
+    }
+    await vi.advanceTimersByTimeAsync(5000);
+    await Promise.all(lanes);
+
+    expect(starts).toHaveLength(streams * 2 + ensures);
+    for (let i = 1; i < starts.length; i++) {
+      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
+    }
+  });
+});
+
+// A wake can land late when the event loop stalls, and the start after a
+// late one is the threatened pair: a stale reserved slot used to start it
+// early (444 ms gaps in the wild). late[k] is how late request k+1's wake
+// lands past its target; the stall of request k's fetch starves that wake.
+// Real timers with a spun stall model the jitter class faithfully.
+describe.for<{ label: string; late: number[] }>([
+  { label: 'punctual wakes', late: [0, 0, 0, 0] },
+  { label: 'one +100 ms late wake', late: [100, 0, 0, 0] },
+  { label: 'the observed +572 ms late wake', late: [572, 0, 0, 0] },
+  { label: 'a burst of uneven late wakes', late: [100, 0, 572, 137] },
+])('createTileTraffic late wakes: $label', ({ late }) => {
+  it('keeps every actual request start 500 ms after the previous one', async () => {
+    const dir = tmpDir();
+    const starts: number[] = [];
+    const stalls = late.map((l) => (l > 0 ? 500 + l : 0));
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        starts.push(Date.now());
+        stall(stalls[call++] ?? 0);
+        return new Response(new Uint8Array([1]), { status: 200 });
+      }),
+    );
+    const traffic = createTileTraffic(dir);
+
+    const jobs = Array.from({ length: late.length + 1 }, (_l, i) =>
+      traffic.ensure('satellite', { z: 4, x: 0, y: i }),
+    );
+    await Promise.all(jobs);
+
+    expect(starts).toHaveLength(late.length + 1);
+    for (let i = 1; i < starts.length; i++) {
+      // The gate's own interval, plus the lateness this wake suffered: the
+      // start after a late one must not squeeze into the late one's interval.
+      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500 + late[i - 1]);
+    }
+  }, 20000);
 });
 
 describe('prefetchTiles', () => {

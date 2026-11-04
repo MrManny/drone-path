@@ -16,7 +16,7 @@ import type {
   TelemetrySource,
 } from './telemetry-math.js';
 import { prefetchTiles } from './tiles.js';
-import type { PrefetchStats } from './tiles.js';
+import type { PrefetchStats, WarmOptions } from './tiles.js';
 import { gateTiles, displayedTiles, planIntroOutroFrames, planView } from './plan.js';
 import type { IntroOutroFrames, Overview, TileCoord } from './plan.js';
 import { buildPageHtml, planPageOpts } from './page.js';
@@ -223,28 +223,54 @@ async function renderWithOutputCleanup(
   }
 }
 
+// The warm seam at the I/O boundary: providers own their cache directory
+// (WarmOptions names none), so no caller can route a lane into a cache its
+// queue does not serve.
+export type TileWarmFn = (options: WarmOptions) => Promise<PrefetchStats>;
+
 // The pipeline's I/O shell, injectable so tests can drive the span tree
 // without ffprobe, network or a browser.
 export interface PipelineDeps {
   probeVideo: typeof probeVideo;
   loadTelemetry: typeof loadTelemetry;
-  prefetchTiles: typeof prefetchTiles;
+  prefetchTiles: TileWarmFn;
   renderVideo: typeof renderVideo;
   verifyOutput: typeof verifyOutput;
   outputMatchesSource: typeof outputMatchesSource;
 }
 
-const realDeps: PipelineDeps = {
+const realDeps: Omit<PipelineDeps, 'prefetchTiles'> = {
   probeVideo,
   loadTelemetry,
-  prefetchTiles,
   renderVideo,
   verifyOutput,
   outputMatchesSource,
 };
 
+// A caller overrides only the dep its composition owns (the app shares its
+// tile queue with every lane); nullish overrides - possible from untyped
+// shell code - count as omitted, so no real dep is ever dropped. The bulk
+// warm carries no cacheDir (providers own their cache), so the default
+// binds the run's own cache here, where the run's config is in hand.
+function resolveDeps(
+  overrides: Partial<PipelineDeps> | undefined,
+  tileCache: string,
+): PipelineDeps {
+  return {
+    probeVideo: overrides?.probeVideo ?? realDeps.probeVideo,
+    loadTelemetry: overrides?.loadTelemetry ?? realDeps.loadTelemetry,
+    prefetchTiles:
+      overrides?.prefetchTiles ??
+      ((options) => prefetchTiles({ ...options, cacheDir: tileCache })),
+    renderVideo: overrides?.renderVideo ?? realDeps.renderVideo,
+    verifyOutput: overrides?.verifyOutput ?? realDeps.verifyOutput,
+    outputMatchesSource: overrides?.outputMatchesSource ?? realDeps.outputMatchesSource,
+  };
+}
+
 export interface PipelineOptions {
-  deps?: PipelineDeps;
+  /** Overrides over the real I/O shell; omitted or nullish fields run real. */
+  deps?: Partial<PipelineDeps>;
   trace?: TraceContext;
   /** Source-frame segment to render; omit for the full recording. */
   range?: FrameRange;
@@ -471,7 +497,6 @@ async function tileWarmStage(
     const stats = await deps.prefetchTiles({
       style: config.style,
       tiles,
-      cacheDir: config.tileCache,
       log,
       onTile: () => {
         report.tileSettled();
@@ -506,7 +531,7 @@ export async function prepareSession(
     log,
     tracer: options.trace?.tracer ?? NOOP_TRACER,
     parent: options.trace?.parent,
-    deps: options.deps ?? realDeps,
+    deps: resolveDeps(options.deps, config.tileCache),
     report: createPrepareReporter(options.onProgress),
     tileWait: options.tileWait ?? 'all',
     frameSize: options.frameSize,
@@ -679,7 +704,7 @@ export async function processRecording(
 ): Promise<RecordingSummary> {
   const t0 = Date.now();
   const tracer = options.trace?.tracer ?? NOOP_TRACER;
-  const deps = options.deps ?? realDeps;
+  const deps = resolveDeps(options.deps, config.tileCache);
   if (options.signal?.aborted) throw new Error('render canceled');
 
   return stage(
@@ -692,6 +717,7 @@ export async function processRecording(
     async (root) => {
       const prep = await prepareSession(videoPath, config, log, {
         ...options,
+        deps,
         trace: { tracer, parent: root },
       });
       root.setAttributes({
@@ -730,7 +756,7 @@ export async function runBatch(
   options: PipelineOptions = {},
 ): Promise<BatchResult> {
   const result: BatchResult = { ok: 0, skipped: 0, failed: 0 };
-  const deps = options.deps ?? realDeps;
+  const deps = resolveDeps(options.deps, config.tileCache);
 
   // Collision-free outputs up front: two same-basename recordings must not
   // silently overwrite each other in a shared --out-dir.

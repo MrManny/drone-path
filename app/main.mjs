@@ -64,6 +64,8 @@ function createShellState() {
     config: null,
     appState: emptyAppState(),
     tileTraffic: null,
+    // The one tile prefetch entry point every in-process lane drives.
+    tilePrefetch: null,
     exportRunner: null,
     // The update controller, or null when this build cannot self-update.
     updates: null,
@@ -210,9 +212,11 @@ async function initServices(state) {
   const resolved = resolveConfig({});
   state.appState = readAppState(appStateFile());
   state.config = applyAppState(resolved.config, state.appState);
-  // One polite tile queue for the whole app: on-demand tiles the player
-  // needs right now jump ahead of the background pre-warm.
+  // One polite tile queue for the whole app: the gate pre-warm, the
+  // background pre-warm, on-demand tiles and exports all share its request
+  // budget, and on-demand tiles the player needs right now jump the queue.
   state.tileTraffic = createTileTraffic(state.config.tileCache);
+  state.tilePrefetch = (options) => state.tileTraffic.stream(options);
   state.session = createAppSession({
     config: state.config,
     pickFile: () => pickRecording(state),
@@ -220,7 +224,7 @@ async function initServices(state) {
     onPreparing: () => sendToWindow(state, 'neo2flightpath:preparing'),
     onPrepareProgress: (progress) =>
       sendToWindow(state, 'neo2flightpath:preparing:progress', progress),
-    streamTiles: (options) => state.tileTraffic.stream(options),
+    streamTiles: state.tilePrefetch,
     onWarmProgress: (progress) => sendToWindow(state, 'neo2flightpath:warm:progress', progress),
   });
 }
@@ -234,6 +238,8 @@ function initExportRunner(state) {
     onCapture: (progress) =>
       sendToWindow(state, 'neo2flightpath:export:capture', progress),
     onDone: (outcome) => handleExportDone(state, outcome),
+    // An export warms tiles next to the live app: same queue, same budget.
+    deps: { prefetchTiles: state.tilePrefetch },
   });
 }
 
