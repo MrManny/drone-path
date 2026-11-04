@@ -80,6 +80,11 @@ dialogs). Two solutions:
    `--open <path>` (or an environment variable) to `app/main.mjs` so `pickFile`
    skips the dialog when a path is supplied. Ideal for CI-style smoke tests.
 
+The stub can also be re-armed during a run: have it read a driver-swapped
+global (for example `globalThis.__pickVideo`) at call time, and one app session
+can open several recordings in sequence — useful for scenarios where a second
+recording is prepared while the first session is still live.
+
 ## Fallback: raw CDP
 
 If the app is already running (or the Playwright Electron driver misbehaves),
@@ -88,6 +93,33 @@ with `chromium.connectOverCDP('http://127.0.0.1:9223')` from the same
 `playwright-core`. Same page-driving capabilities, slightly less convenient
 for main-process access. The IPC trust check accepts both `app://bundle/...`
 frames and the dev URL, so the preload bridge works in either mode.
+
+## Instrumenting request traffic and timing
+
+For timing evidence (for example tile request-rate checks), wrap
+`globalThis.fetch` in the main process via `app.evaluate`: record `Date.now()`
+and the URL for the requests under study and resolve a tiny local response (a
+base64 PNG is enough for tile images) instead of touching the network. The
+app's request gate sits in front of `fetch`, so the recorded call times *are*
+the request-start times; passing every other URL through to the real fetch
+keeps the rest of the app behaving normally. Push phase markers into the same
+timeline to label driver stages and write the raw JSON out for offline
+analysis.
+
+Timing assertions around such runs need the right clock model. Fake timers
+cannot produce late wakes: a `vi.setSystemTime` jump shifts pending timer
+deadlines along with it, and nothing models thread starvation. To reproduce
+the jitter class that bites in production (a busy event loop delaying a
+scheduled wake), drive the scenario on real timers and stall with a spun
+busy-wait (`while (Date.now() < until) {}`) inside the intercepted request,
+then assert *lower bounds* — every start at least the gate interval after the
+previous one, plus whatever lateness its wake suffered — rather than exact
+values. Observed starts from a slot- or release-based gate otherwise show
+millisecond-level jitter around the nominal interval (single pairs can dip a
+millisecond or two below it), so judge rate budgets by the sustained rate and
+by the absence of cross-lane interleave, not by one pair of timestamps. Runs
+plan-sized at 2 requests/s take tens of seconds per lane: give the driver
+generous timeouts and prefer measuring the timeline over wall-clock guesses.
 
 ## Operational notes
 
@@ -101,6 +133,22 @@ frames and the dev URL, so the preload bridge works in either mode.
   electron`); a killed `npm`/`pwsh` wrapper can orphan `electron.exe`.
 - **Dev vs. prod:** dev mode (`--dev-url`) is best while iterating (hot
   reload); production mode (`ui/out`) is deterministic and is what users run.
+- **Missing electron binary:** `node_modules/electron` can exist without
+  `dist/electron.exe` — the binary download is a postinstall step some
+  environments skip, and `npm install` then reports success. Run
+  `node install.js` inside the electron package to fetch it; the download cache
+  in `%LOCALAPPDATA%\electron\Cache` makes repeat installs fast, and one
+  extracted runtime drives any checkout or worktree through `executablePath`
+  plus a `cwd` of the target.
+- **`app.evaluate` argument position:** the callback receives the electron
+  module object as its *first* parameter and the caller's argument as the
+  second — `app.evaluate(({ dialog }, arg) => ...)`. A single-parameter
+  callback silently receives the electron module (a circular structure), which
+  surfaces later as `Received an instance of Object` or "Converting circular
+  structure to JSON". `page.evaluate(fn, arg)` follows the normal Playwright
+  convention and takes no electron module.
+- **Main-process logs from the driver:** `app.process().stderr.on('data', ...)`
+  captures the `[neo2flightpath]` lines for assertions.
 - **Prerequisite check before launch:** `where.exe ffmpeg` and
   `where.exe ffprobe`; without both the app dies at startup behind a native
   error box.
@@ -125,6 +173,9 @@ frames and the dev URL, so the preload bridge works in either mode.
 - **PowerShell exit codes:** the app logs progress to stderr. Piping a driver
   through `2>&1` in a PowerShell background job can make a successful run
   report `[exit code: 1]`; trust the driver's own output and exit status.
+- **Long inline scripts:** a multi-line `node -e` string passed through
+  PowerShell can come out mangled and fail silently; write the script to a
+  scratch file and run that instead.
 - Expect a **visible window** on the desktop: Electron has no true headless
   mode on Windows, which is convenient for supervision.
 - CDP and Playwright traffic is plain TCP loopback and unaffected by the
