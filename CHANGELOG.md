@@ -1,5 +1,28 @@
 # neo2-flightpath
 
+## 0.5.0
+
+- **New:** The player opens as soon as the map tiles around the drone at
+  the first frame are warm; the remaining tiles the map can show keep
+  loading into the cache behind a small "Warming tiles…" hint, and
+  changing the map style, zoom or view moves the loading onto the new
+  plan.
+- **New:** The settings panel's look — map style, view, zoom, intro/outro
+  and HUD chips — is remembered between launches, and the Open dialog
+  starts in the folder the last recording was opened from. A fresh
+  install, or a state file the app cannot read, starts at the documented
+  defaults.
+- **New:** Help now opens a full offline user manual inside the app —
+  how playback, settings and export fit together, keyboard shortcuts and
+  a CLI/config reference — from the landing card and the control bar.
+- **Fixed:** All tile downloads share one polite queue, so the combined
+  request rate stays inside the 2-per-second tile budget even when
+  several loading lanes run at once.
+- **Fixed:** Tile cache write failures (a full disk, an unwritable
+  cache, a cache path that is not a directory) now fail the affected
+  tile with an error naming the cache instead of silently degrading to a
+  placeholder.
+
 ## 0.4.0
 
 - **New:** The desktop app now updates itself from GitHub Releases:
