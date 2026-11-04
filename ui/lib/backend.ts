@@ -3,7 +3,7 @@
 // native dialog or the pipeline.
 
 import type { PickResult, UiSession, WarmProgress, WarmRequest } from '../../src/appsession.js';
-import type { ExportRequest, RenderConfig } from '../../src/config.js';
+import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { PrepareProgress } from '../../src/run.js';
@@ -34,6 +34,8 @@ export interface AppBridge {
   pickRecording(request: WarmRequest): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
   getSettings(): Promise<RenderConfig>;
+  /** Persist the panel's look so the next launch restores it. */
+  saveSettings(patch: SettingsPatch): Promise<ExportAck>;
   pickExportOutput(): Promise<PickOutputResult>;
   startExport(request: ExportRequest): Promise<ExportAck>;
   cancelExport(): Promise<ExportAck>;

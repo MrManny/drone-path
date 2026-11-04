@@ -12,9 +12,16 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
 
 import { resolveAppAsset } from '../dist/appassets.js';
-import { APP_ORIGIN, uiExportRoot } from '../dist/apppaths.js';
+import { APP_ORIGIN, appStateFile, uiExportRoot } from '../dist/apppaths.js';
+import {
+  applyAppState,
+  emptyAppState,
+  readAppState,
+  rememberOpenedFile,
+  writeAppState,
+} from '../dist/appstate.js';
 import { createAppSession, parseWarmRequest } from '../dist/appsession.js';
-import { parseExportRequest } from '../dist/config.js';
+import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
 import { resolveConfig } from '../dist/configfile.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
 import { createExportRunner } from '../dist/exportjob.js';
@@ -55,6 +62,7 @@ function createShellState() {
     win: null,
     session: null,
     config: null,
+    appState: emptyAppState(),
     tileTraffic: null,
     // The one tile prefetch entry point every in-process lane drives.
     tilePrefetch: null,
@@ -76,11 +84,30 @@ async function pickRecording(state) {
     title: 'Choose a drone recording',
     filters: [{ name: 'DJI recordings', extensions: ['mp4'] }],
     properties: ['openFile'],
+    // Back where the last recording came from, when that folder still exists.
+    defaultPath: rememberedOpenDir(state) ?? undefined,
   };
   const result = state.win
     ? await dialog.showOpenDialog(state.win, options)
     : await dialog.showOpenDialog(options);
-  return result.canceled ? null : result.filePaths[0];
+  const picked = result.canceled ? null : result.filePaths[0];
+  if (picked) rememberPicked(state, picked);
+  return picked;
+}
+
+function rememberedOpenDir(state) {
+  const dir = state.appState.lastOpenDir;
+  return dir && fs.existsSync(dir) ? dir : undefined;
+}
+
+function rememberPicked(state, filePath) {
+  state.appState = rememberOpenedFile(state.appState, filePath);
+  try {
+    writeAppState(appStateFile(), state.appState);
+  } catch (e) {
+    // The pick and the look still apply when the state file cannot be written.
+    log(`app state not saved: ${errorMessage(e)}`);
+  }
 }
 
 function fail(error) {
@@ -183,7 +210,8 @@ function exportOutputOf(state, payload) {
 async function initServices(state) {
   await requireTools();
   const resolved = resolveConfig({});
-  state.config = resolved.config;
+  state.appState = readAppState(appStateFile());
+  state.config = applyAppState(resolved.config, state.appState);
   // One polite tile queue for the whole app: the gate pre-warm, the
   // background pre-warm, on-demand tiles and exports all share its request
   // budget, and on-demand tiles the player needs right now jump the queue.
@@ -231,6 +259,24 @@ function registerIpcHandlers(state) {
   ipcMain.handle('neo2flightpath:settings', (event) => {
     assertTrusted(event);
     return state.config;
+  });
+  ipcMain.handle('neo2flightpath:settings:save', (event, raw) => {
+    assertTrusted(event);
+    let settings;
+    try {
+      settings = parseSettingsPatch(raw, 'settings');
+    } catch (e) {
+      return { ok: false, error: errorMessage(e) };
+    }
+    state.appState = { ...state.appState, settings };
+    state.config = applyAppState(state.config, state.appState);
+    try {
+      writeAppState(appStateFile(), state.appState);
+    } catch (e) {
+      // The look still applies when the state file cannot be written.
+      log(`app state not saved: ${errorMessage(e)}`);
+    }
+    return { ok: true };
   });
   ipcMain.handle('neo2flightpath:warm:retarget', (event, raw) => {
     assertTrusted(event);

@@ -63,7 +63,8 @@ For reviewing flights without the terminal, grab the packaged desktop app
 The app shows the footage and the map overlay in a swappable
 picture-in-picture layout on one shared timeline scrubber;
 [the manual](docs/user/desktop-app.md) walks through loading a recording,
-reviewing a flight, looping a passage, and exporting.
+reviewing a flight, looping a passage, and exporting. The look settings carry
+over between launches.
 
 ![Desktop app: drone footage with the map overlay in picture-in-picture](docs/images/app-main-window.jpg)
 

@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { Style } from './config.js';
+import { errorMessage } from './errors.js';
 import type { TileCoord } from './plan.js';
 import { solidPng } from './png.js';
 import { tilePaths } from './tilecache.js';
@@ -73,12 +74,14 @@ function canceled(signal: AbortSignal): Error {
   return new Error('tile download canceled', { cause: signal.reason });
 }
 
+// The network half of one tile: its body after a successful attempt, null
+// when the attempts run out. The download retry is for network problems
+// only; cache writes live in writeCacheFile and fail fast.
 async function downloadTile(
   url: string,
-  cachePath: string,
   acquire: RequestGate,
   signal?: AbortSignal,
-): Promise<boolean> {
+): Promise<Buffer | null> {
   for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt++) {
     await acquire();
     try {
@@ -88,17 +91,25 @@ async function downloadTile(
           ? AbortSignal.any([AbortSignal.timeout(FETCH_TIMEOUT_MS), signal])
           : AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
-      if (res.ok) {
-        fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-        fs.writeFileSync(cachePath, Buffer.from(await res.arrayBuffer()));
-        return true;
-      }
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
     } catch {
       if (signal?.aborted) throw canceled(signal);
       await sleep(RETRY_DELAY_MS);
     }
   }
-  return false;
+  return null;
+}
+
+// An fs failure while writing the cache is the cache's fault, not the
+// network's: it fails the tile's job instead of being retried as a download,
+// and names the cache so the log and Open errors read it as a cache failure.
+function writeCacheFile(cachePath: string, data: Buffer): void {
+  try {
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, data);
+  } catch (e) {
+    throw new Error(`cache write failed: ${cachePath}: ${errorMessage(e)}`, { cause: e });
+  }
 }
 
 // Placeholder PNGs are pure derivations of the tile source's background
@@ -141,11 +152,12 @@ async function fetchTileToCache(
 ): Promise<TileFetchResult> {
   const paths = tilePaths(ctx.cacheDir, style, tile);
   if (fs.existsSync(paths.file)) return { file: paths.file, status: 'cached' };
-  if (await downloadTile(tileUrl(style, tile), paths.file, ctx.acquire, signal)) {
+  const body = await downloadTile(tileUrl(style, tile), ctx.acquire, signal);
+  if (body) {
+    writeCacheFile(paths.file, body);
     return { file: paths.file, status: 'downloaded' };
   }
-  fs.mkdirSync(path.dirname(paths.placeholder), { recursive: true });
-  fs.writeFileSync(paths.placeholder, ctx.placeholderPng(style));
+  writeCacheFile(paths.placeholder, ctx.placeholderPng(style));
   return { file: paths.placeholder, status: 'failed' };
 }
 

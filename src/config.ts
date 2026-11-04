@@ -374,6 +374,49 @@ export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   };
 }
 
+// The panel's keys in the vocabulary's table order: the persisted state's
+// shape and its serialization order in one home.
+export const SETTINGS_KEYS = [
+  'style',
+  'view',
+  'zoom',
+  'zoomOut',
+  'hud',
+  'introSec',
+  'outroSec',
+] as const;
+
+// The panel-values boundary (the settings save IPC, the persisted state
+// file): the seven keys arrive complete and vocabulary-valid, so no layer
+// downstream can hold a value the pipeline would reject. The HUD spec travels
+// as its object form over IPC and as its CLI string in JSON files; both run
+// through the vocabulary's own normalizers.
+export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error(`invalid settings in ${origin}`);
+  }
+  const flat = { ...(raw as Record<string, unknown>) };
+  // A known config key outside the panel (a machine-owned value) must never
+  // ride along; the vocabulary's normalizers only reject unknown keys.
+  for (const key of Object.keys(flat)) {
+    if (!(SETTINGS_KEYS as readonly string[]).includes(key)) {
+      throw new Error(`unknown settings key ${key} in ${origin}`);
+    }
+  }
+  if (flat.hud !== undefined && flat.hud !== null && typeof flat.hud !== 'string') {
+    flat.hud = formatHud(parseHudObject(flat.hud, `${origin}: hud`));
+  }
+  const patch = normalizeOverrides(flat, origin);
+  for (const key of SETTINGS_KEYS) {
+    if (patch[key] === undefined) {
+      throw new Error(`missing settings key ${key} in ${origin}`);
+    }
+  }
+  const settings = patch as SettingsPatch;
+  validateRenderConfig({ ...DEFAULT_CONFIG, ...settings, hud: { ...settings.hud } });
+  return settings;
+}
+
 // The smallest canvas the renderer and the app's dimension fields accept, in
 // one home so the CLI, the pipeline and the export modal cannot disagree.
 export const MIN_DIMENSION = 64;

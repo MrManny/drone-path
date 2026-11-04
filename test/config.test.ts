@@ -10,6 +10,7 @@ import {
   parseExportRequest,
   parseFrameRange,
   parseHud,
+  parseSettingsPatch,
   resolveHudSpec,
   validateRenderConfig,
 } from '../src/config.js';
@@ -293,5 +294,42 @@ describe('export request boundary', () => {
       base,
     );
     expect(request.config).toMatchObject({ style: 'topo', width: 1024, height: 576 });
+  });
+});
+
+describe('parseSettingsPatch', () => {
+  const complete = {
+    style: 'topo',
+    view: 'overview',
+    zoom: 16,
+    zoomOut: 2,
+    hud: { heading: true, alt: false, speed: true },
+    introSec: 1.5,
+    outroSec: 0,
+  };
+
+  it('accepts the object HUD form the renderer sends', () => {
+    expect(parseSettingsPatch(complete, 'test')).toEqual(complete);
+  });
+
+  it('accepts the CLI-string HUD form JSON files use', () => {
+    expect(parseSettingsPatch({ ...complete, hud: 'heading,speed' }, 'test')).toEqual(complete);
+  });
+
+  it.each([
+    ['a non-object', null],
+    ['an array', [complete]],
+    ['an unknown key', { ...complete, bogus: 1 }],
+    ['a known config key outside the panel', { ...complete, outDir: 'x' }],
+    ['a machine-owned key', { ...complete, tileCache: 'D:\\cache' }],
+    ['a missing key', { style: 'topo', view: 'follow', zoom: 0, zoomOut: 1, hud: 'none', introSec: 2 }],
+    ['an invalid enum', { ...complete, style: 'neon' }],
+    ['a string number', { ...complete, zoom: '16' }],
+    ['a malformed hud object', { ...complete, hud: { heading: 'yes' } }],
+    ['an unknown hud component', { ...complete, hud: 'heading,bogus' }],
+    ['a look value the pipeline would reject', { ...complete, zoom: -1 }],
+    ['a mistyped flag', { ...complete, outroSec: '2' }],
+  ])('rejects %s', (_label, raw) => {
+    expect(() => parseSettingsPatch(raw, 'test')).toThrow();
   });
 });

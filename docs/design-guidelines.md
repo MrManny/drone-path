@@ -147,7 +147,7 @@ Spacing values are literals on this scale; use nothing else:
 
 ### 8.5 Dialogs
 
-- **Anatomy:** overlay `.settings-overlay`; panel `.settings-panel` (`role="dialog"`, `aria-label` "Settings", "Export" or "Update"); header `.settings-header` (18px title and the header close); body; footer `.dialog-actions` (right-aligned, wrapping, 8px gap, 16px top margin), export and the update prompt. Settings has no footer and applies changes on change.
+- **Anatomy:** overlay `.settings-overlay`; panel `.settings-panel` (`role="dialog"`, `aria-label` "Settings", "Export" or "Update"); header `.settings-header` (18px title and the header close); body; footer `.dialog-actions` (right-aligned, wrapping, 8px gap, 16px top margin), export and the update prompt. Settings has no footer and applies changes on change; every change is stored and the next launch restores the look (a fresh install, or state the app cannot read, starts at the documented defaults).
 - **Position and size:** the top edge sits 56px (`--dialog-top`) below the window top in every phase. The panel is `min(440px, 100%)` wide, padded 24px, at most `100vh − 80px` high, and scrolls inside.
 - **Header close** (`DialogClose`): always present, labeled "Close" with a glyph. While closing would interrupt work it is disabled, and its `title` gives the reason: "Export is running. Cancel it to close."
 - **Footer by phase** (export):

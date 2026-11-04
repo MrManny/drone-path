@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('neo2flightpath', {
   pickRecording: (request) => ipcRenderer.invoke('neo2flightpath:pick', request),
   getSession: () => ipcRenderer.invoke('neo2flightpath:session'),
   getSettings: () => ipcRenderer.invoke('neo2flightpath:settings'),
+  saveSettings: (patch) => ipcRenderer.invoke('neo2flightpath:settings:save', patch),
   pickExportOutput: () => ipcRenderer.invoke('neo2flightpath:export:pick-output'),
   startExport: (request) => ipcRenderer.invoke('neo2flightpath:export:start', request),
   cancelExport: () => ipcRenderer.invoke('neo2flightpath:export:cancel'),
