@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PickResult, UiSession, WarmProgress } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
+import type { RenderConfig } from '../../src/config.js';
 import type { PrepareProgress } from '../../src/run.js';
 import type { Scene } from '../../src/renderer/scene.js';
 import Page from '../../ui/app/page.js';
@@ -71,6 +72,7 @@ function installBridge() {
   } = {};
   const bridge = {
     getSettings: vi.fn(async () => DEFAULT_CONFIG),
+    saveSettings: vi.fn(async () => ({ ok: true })),
     getSession: vi.fn(async () => SESSION),
     pickRecording: vi.fn(
       () =>
@@ -308,6 +310,39 @@ describe('background tile pre-warm hint', () => {
       expect.objectContaining({
         settings: expect.objectContaining({ style: 'topo' }),
         frame: expect.objectContaining({ width: expect.any(Number) }),
+      }),
+    );
+  });
+});
+
+describe('settings persistence', () => {
+  async function openPlayerWith(settings: RenderConfig) {
+    const harness = installBridge();
+    harness.bridge.getSettings.mockResolvedValue(settings);
+    fireEvent.click(await openLanding());
+    harness.prepare();
+    await harness.settle({ ok: true });
+    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    return harness;
+  }
+
+  it('seeds the settings panel from the persisted look', async () => {
+    await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
+    expect(screen.getByLabelText<HTMLSelectElement>('View').value).toBe('overview');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('15');
+  });
+
+  it('persists every panel change through the backend', async () => {
+    const harness = await openPlayerWith(DEFAULT_CONFIG);
+    expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
+    expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        style: 'topo',
+        hud: { heading: true, alt: false, speed: false },
       }),
     );
   });

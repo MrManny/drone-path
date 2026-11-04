@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## Loading a recording
 
-Launch the app and pick a drone video. The player opens as soon as the map tiles around the drone at the first frame are warm; the remaining tiles the map can show keep loading in the background while a small "Warming tiles…" hint over the player counts them, and playback is ready right away. Changing the map style, zoom or view in [Settings](#settings) starts loading the tiles for the new view instead.
+Launch the app and pick a drone video; the **Open…** dialog starts in the folder the last recording was opened from. The player opens as soon as the map tiles around the drone at the first frame are warm; the remaining tiles the map can show keep loading in the background while a small "Warming tiles…" hint over the player counts them, and playback is ready right away. Changing the map style, zoom or view in [Settings](#settings) starts loading the tiles for the new view instead.
 
 ![Desktop app start screen before a recording is loaded](../images/app-landing.jpg)
 
@@ -38,7 +38,7 @@ The **Export…** button in the control bar renders the recording with the look 
 
 ## Settings
 
-The **Settings** panel controls the look of the render: map style (satellite or topographic), view mode (follow keeps the drone centered with the map sliding under it; overview shows the whole track at once), zoom and zoom-out levels, the intro and outro zoom transitions, and the HUD chips (heading, altitude and speed — altitude and speed are off by default).
+The **Settings** panel controls the look of the render: map style (satellite or topographic), view mode (follow keeps the drone centered with the map sliding under it; overview shows the whole track at once), zoom and zoom-out levels, the intro and outro zoom transitions, and the HUD chips (heading, altitude and speed — altitude and speed are off by default). The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults.
 
 ## Updates
 
