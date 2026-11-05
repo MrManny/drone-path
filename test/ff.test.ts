@@ -3,6 +3,7 @@ import type * as childProcessModule from 'node:child_process';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { requireTools } from '../src/ff.js';
+import type { FfToolPaths } from '../src/fftools.js';
 
 const mocks = vi.hoisted(() => ({ execFile: vi.fn() }));
 
@@ -11,12 +12,14 @@ vi.mock('node:child_process', async (importOriginal) => ({
   execFile: mocks.execFile,
 }));
 
+const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+
 beforeEach(() => {
   mocks.execFile.mockReset();
 });
 
 describe('requireTools', () => {
-  it('resolves when both tools respond', async () => {
+  it('resolves when both tools respond, probing the resolved paths', async () => {
     mocks.execFile.mockImplementation(
       (
         _tool: string,
@@ -25,24 +28,33 @@ describe('requireTools', () => {
         cb: (e: null, result: { stdout: string; stderr: string }) => void,
       ) => cb(null, { stdout: 'ok', stderr: '' }),
     );
-    await expect(requireTools()).resolves.toBeUndefined();
+    await expect(requireTools(tools)).resolves.toBeUndefined();
+    expect(mocks.execFile.mock.calls.map((c) => c[0])).toEqual([
+      '/opt/ff/ffmpeg',
+      '/opt/ff/ffprobe',
+    ]);
   });
 
-  it.each(['ffmpeg', 'ffprobe'])('keeps the %s failure as the cause', async (tool) => {
-    const failure = new Error(`spawn ${tool} ENOENT`);
-    mocks.execFile.mockImplementation(
-      (
-        running: string,
-        _args: string[],
-        _opts: unknown,
-        cb: (e: Error | null, result?: unknown) => void,
-      ) => (running === tool ? cb(failure) : cb(null, { stdout: 'ok', stderr: '' })),
-    );
-    const err = await requireTools().then(
-      () => null,
-      (e: unknown) => e as Error,
-    );
-    expect(err?.message).toContain(`${tool} is required but was not found on PATH`);
-    expect(err?.cause).toBe(failure);
-  });
+  it.each(['ffmpeg', 'ffprobe'] as const)(
+    'keeps the %s failure as the cause',
+    async (tool) => {
+      const failure = new Error(`spawn ${tool} ENOENT`);
+      mocks.execFile.mockImplementation(
+        (
+          running: string,
+          _args: string[],
+          _opts: unknown,
+          cb: (e: Error | null, result?: unknown) => void,
+        ) =>
+          running === tools[tool] ? cb(failure) : cb(null, { stdout: 'ok', stderr: '' }),
+      );
+      const err = await requireTools(tools).then(
+        () => null,
+        (e: unknown) => e as Error,
+      );
+      expect(err?.message).toContain(`${tool} is required but could not be run`);
+      expect(err?.message).toContain('--ffmpeg/--ffprobe');
+      expect(err?.cause).toBe(failure);
+    },
+  );
 });

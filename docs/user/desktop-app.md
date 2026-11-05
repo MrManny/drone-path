@@ -50,4 +50,4 @@ The **Help** button on the start screen and in the control bar opens this manual
 
 ## Notes
 
-The app embeds Chromium and needs no system browser, but it does need **ffmpeg + ffprobe** on `PATH` like the CLI. Map tiles need internet on the first run and are cached like CLI tiles (see [Tiles and attribution](tiles-and-attribution.md)). One recording at a time — batch rendering stays a CLI concern.
+The app embeds Chromium and needs no system browser; ffmpeg and ffprobe are bundled too (a config file's `ffmpeg`/`ffprobe` keys work like the CLI's flags, and `PATH` remains a fallback). Map tiles need internet on the first run and are cached like CLI tiles (see [Tiles and attribution](tiles-and-attribution.md)). One recording at a time — batch rendering stays a CLI concern.

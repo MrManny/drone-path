@@ -8,6 +8,7 @@ import { resolveConfig } from './configfile.js';
 import type { ConfigOverrides, RenderConfig } from './config.js';
 import { collectRecordings } from './inputs.js';
 import { requireTools } from './ff.js';
+import { resolveFfTools } from './fftools.js';
 import { runBatch } from './run.js';
 import type { LogFn, RecordingSummary } from './run.js';
 import { createTracing } from './tracing.js';
@@ -139,7 +140,8 @@ async function runPipeline(
   log: LogFn,
 ): Promise<void> {
   const { inputs, config, configPath } = invocation;
-  await requireTools();
+  const tools = resolveFfTools(config);
+  await requireTools(tools);
   const videos = collectRecordings(inputs, { recurse: config.recurse });
   if (config.outDir) fs.mkdirSync(config.outDir, { recursive: true });
   log(
@@ -156,6 +158,7 @@ async function runPipeline(
 
   const result = await runBatch(videos, config, log, emit, {
     trace: { tracer: tracing.tracer },
+    tools,
   });
   log(`done: ${result.ok} ok, ${result.skipped} skipped, ${result.failed} failed`);
   if (result.failed > 0) process.exitCode = 1;

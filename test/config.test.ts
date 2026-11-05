@@ -281,11 +281,17 @@ describe('export request boundary', () => {
     const request = parseExportRequest(
       {
         outPath: '/exports/a.mp4',
-        config: { tileCache: '/attacker', browser: '/evil.exe', workers: 64, outDir: '/elsewhere' },
+        config: {
+          tileCache: '/attacker', browser: '/evil.exe', workers: 64, outDir: '/elsewhere',
+          ffmpeg: '/evil/ffmpeg', ffprobe: '/evil/ffprobe',
+        },
       },
       base,
     );
-    expect(request.config).toMatchObject({ tileCache: '/main/cache', browser: null, workers: 4, outDir: '/recs' });
+    expect(request.config).toMatchObject({
+      tileCache: '/main/cache', browser: null, workers: 4, outDir: '/recs',
+      ffmpeg: null, ffprobe: null,
+    });
   });
 
   it('still applies renderer-owned look and dimension settings', () => {
@@ -336,6 +342,7 @@ describe('parseSettingsPatch', () => {
     ['an unknown key', { ...complete, bogus: 1 }],
     ['a known config key outside the panel', { ...complete, outDir: 'x' }],
     ['a machine-owned key', { ...complete, tileCache: 'D:\\cache' }],
+    ['a tool override key', { ...complete, ffmpeg: 'D:\\ff\\ffmpeg.exe' }],
     ['a missing key', { style: 'topo', view: 'follow', zoom: 0, zoomOut: 1, hud: 'none', introSec: 2 }],
     ['an invalid enum', { ...complete, style: 'neon' }],
     ['an unknown codec', { ...complete, codec: 'av1' }],

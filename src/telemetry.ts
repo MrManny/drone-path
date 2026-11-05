@@ -5,12 +5,14 @@
 
 import { parseSrt } from './srt.js';
 import { parseCamMeta } from './cammeta.js';
+import type { FfToolPaths } from './fftools.js';
 import { findSrtSidecar } from './inputs.js';
 import { buildTelemetry } from './telemetry-math.js';
 import type { Telemetry, TelemetrySamples } from './telemetry-math.js';
 
 // The .SRT sidecar takes precedence over the embedded CAM-meta stream.
 async function loadSamples(
+  tools: FfToolPaths,
   videoPath: string,
   durationSec: number,
 ): Promise<TelemetrySamples> {
@@ -32,7 +34,7 @@ async function loadSamples(
     };
   }
 
-  const cam = await parseCamMeta(videoPath, durationSec);
+  const cam = await parseCamMeta(videoPath, durationSec, tools);
   if (!cam || cam.samples.length === 0) {
     throw new Error(
       'no telemetry found: no .SRT sidecar and no GPS pairs in the CAM meta stream',
@@ -43,8 +45,13 @@ async function loadSamples(
 
 export async function loadTelemetry(
   videoPath: string,
-  { frames, fpsValue, durationSec }: { frames: number; fpsValue: number; durationSec: number },
+  {
+    frames,
+    fpsValue,
+    durationSec,
+    tools,
+  }: { frames: number; fpsValue: number; durationSec: number; tools: FfToolPaths },
 ): Promise<Telemetry> {
-  const loaded = await loadSamples(videoPath, durationSec);
+  const loaded = await loadSamples(tools, videoPath, durationSec);
   return buildTelemetry(loaded, { frames, fpsValue });
 }

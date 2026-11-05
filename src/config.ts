@@ -39,6 +39,9 @@ export interface RenderConfig {
   /** Empty = the per-user cache directory; resolveConfig fills it in. */
   tileCache: string;
   browser: string | null;
+  /** Tool overrides; null = the embedded binary, then PATH. */
+  ffmpeg: string | null;
+  ffprobe: string | null;
   skipExisting: boolean;
   recurse: boolean;
   json: boolean;
@@ -292,6 +295,18 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
     cli: { flags: '--browser <path>', help: 'Chromium/Chrome/Edge executable (default: system Chrome/Edge)' },
     default: null,
     normalize: (v, name) => ({ browser: asNullableString(v, name) }),
+  },
+  {
+    key: 'ffmpeg',
+    cli: { flags: '--ffmpeg <path>', help: 'ffmpeg executable (default: embedded binary, then PATH)' },
+    default: null,
+    normalize: (v, name) => ({ ffmpeg: asNullableString(v, name) }),
+  },
+  {
+    key: 'ffprobe',
+    cli: { flags: '--ffprobe <path>', help: 'ffprobe executable (default: embedded binary, then PATH)' },
+    default: null,
+    normalize: (v, name) => ({ ffprobe: asNullableString(v, name) }),
   },
   {
     key: 'skipExisting',
@@ -549,7 +564,7 @@ function parseHudObject(value: unknown, name: string): HudSpec {
 // resolved values stay authoritative, so a snapshot cannot redirect the tile
 // cache, the browser, the worker count or the CLI-only switches.
 const MAIN_OWNED_KEYS = [
-  'outDir', 'outSuffix', 'tileCache', 'browser', 'workers', 'capture',
+  'outDir', 'outSuffix', 'tileCache', 'browser', 'ffmpeg', 'ffprobe', 'workers', 'capture',
   'skipExisting', 'recurse', 'json', 'quiet',
 ] as const;
 

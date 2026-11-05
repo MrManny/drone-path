@@ -27,6 +27,8 @@ table in the terminal.
 | `preset` | `--preset <name>` | `medium` | encoding speed (choices: medium, veryfast) |
 | `tileCache` | `--tile-cache <dir>` | — | tile cache directory (default: per-user cache dir) |
 | `browser` | `--browser <path>` | — | Chromium/Chrome/Edge executable (default: system Chrome/Edge) |
+| `ffmpeg` | `--ffmpeg <path>` | — | ffmpeg executable (default: embedded binary, then PATH) |
+| `ffprobe` | `--ffprobe <path>` | — | ffprobe executable (default: embedded binary, then PATH) |
 | `skipExisting` | `--skip-existing` | off | skip recordings whose output already exists and matches the source |
 | `recurse` | `--recurse` | off | scan input folders recursively |
 | `json` | `--json` | off | print one NDJSON summary line per recording on stdout |

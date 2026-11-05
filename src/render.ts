@@ -13,6 +13,7 @@ import { MIME } from './assets.js';
 import { errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
 import type { Capture, Codec, EncodeSettings, Preset, Quality, Style } from './config.js';
+import type { FfToolPaths } from './fftools.js';
 import { NOOP_TRACER, stage } from './tracing.js';
 import type { Span, Tracer, TraceContext } from './tracing.js';
 
@@ -117,12 +118,17 @@ const CRF: Record<Codec, Record<Quality, number>> = {
   h265: { 'near-lossless': 20, high: 22, medium: 25, low: 30 },
 };
 
-function spawnEncoder(fpsStr: string, encode: EncodeSettings, outPath: string): Encoder {
+function spawnEncoder(
+  ffmpeg: string,
+  fpsStr: string,
+  encode: EncodeSettings,
+  outPath: string,
+): Encoder {
   // h265 gets the hvc1 sample tag: the ffmpeg-default hev1 tag is refused by
   // QuickTime and some NLEs.
   const codecArgs =
     encode.codec === 'h265' ? ['-c:v', 'libx265', '-tag:v', 'hvc1'] : ['-c:v', 'libx264'];
-  const ffmpeg = spawn('ffmpeg', [
+  const ffmpegProcess = spawn(ffmpeg, [
     '-hide_banner', '-loglevel', 'error', '-y',
     '-f', 'image2pipe', '-framerate', fpsStr, '-i', '-',
     ...codecArgs,
@@ -133,7 +139,7 @@ function spawnEncoder(fpsStr: string, encode: EncodeSettings, outPath: string): 
   ], { stdio: ['pipe', 'ignore', 'pipe'] });
 
   let stderr = '';
-  ffmpeg.stderr?.on('data', (d: Buffer) => {
+  ffmpegProcess.stderr?.on('data', (d: Buffer) => {
     stderr += d.toString();
   });
 
@@ -141,19 +147,19 @@ function spawnEncoder(fpsStr: string, encode: EncodeSettings, outPath: string): 
   // encoder exits early), and a worker parked on 'drain' must wake up when it
   // dies instead of waiting forever. `closed` also resolves for late waits.
   const closed = new Promise<number | null>((resolve) => {
-    ffmpeg.once('close', (code) => resolve(code));
+    ffmpegProcess.once('close', (code) => resolve(code));
   });
   const stopped = new Promise<string>((resolve) => {
-    ffmpeg.stdin.on('error', (e: Error) => resolve(`ffmpeg stdin error: ${e.message}`));
+    ffmpegProcess.stdin.on('error', (e: Error) => resolve(`ffmpeg stdin error: ${e.message}`));
     void closed.then((code) => resolve(`ffmpeg exited with code ${code}`));
   });
 
   return {
-    stdin: ffmpeg.stdin,
+    stdin: ffmpegProcess.stdin,
     stopped,
     closed,
     stderrText: () => stderr,
-    kill: () => ffmpeg.kill(),
+    kill: () => ffmpegProcess.kill(),
   };
 }
 
@@ -227,6 +233,8 @@ export interface RenderOpts {
   outPath: string;
   log?: (msg: string) => void;
   browserPath?: string | null;
+  /** The resolved ffmpeg/ffprobe commands (src/fftools.ts). */
+  tools: FfToolPaths;
   capture: Capture;
   codec: Codec;
   quality: Quality;
@@ -267,6 +275,7 @@ interface RenderContext {
   signal: AbortSignal | undefined;
   log: (msg: string) => void;
   onCapture: ((progress: CaptureProgress) => void) | undefined;
+  tools: FfToolPaths;
 }
 
 // What the render's stages share, passed as one object so captureAndEncode
@@ -479,9 +488,9 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
   const { ctx, tracer, renderSpan, url, timing, workerCount } = env;
   const {
     fpsStr, codec, quality, preset, outPath, signal,
-    width, height, frames, frameStart, capture, log, onCapture,
+    width, height, frames, frameStart, capture, log, onCapture, tools,
   } = ctx;
-  const encoder = spawnEncoder(fpsStr, { codec, quality, preset }, outPath);
+  const encoder = spawnEncoder(tools.ffmpeg, fpsStr, { codec, quality, preset }, outPath);
   // A cancel must reach the encoder directly: a worker parked on stdin
   // backpressure would otherwise never notice the abort.
   const killOnAbort = (): void => encoder.kill();
@@ -553,6 +562,7 @@ export async function renderVideo(
   const {
     html, style, tileCache, width, height, frames, fpsStr,
     workers, outPath, log = () => {}, browserPath = null,
+    tools,
     capture = 'jpeg', codec = 'h264', quality = 'high', preset = 'medium',
     frameStart = 0, signal, trace,
     onCapture,
@@ -574,6 +584,7 @@ export async function renderVideo(
     signal,
     log,
     onCapture,
+    tools,
   };
   return stage(
     tracer,

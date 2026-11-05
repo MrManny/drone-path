@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as {
   dependencies: Record<string, string>;
+  optionalDependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 };
 const builderConfig = fs.readFileSync(path.join(root, 'electron-builder.yml'), 'utf8');
@@ -50,5 +51,36 @@ describe('the packaged desktop app can self-update', () => {
     expect(builderConfig).toContain(
       'artifactName: ${name}-${version}-${os}-${arch}-setup.${ext}',
     );
+  });
+});
+
+describe('the packaged desktop app embeds ffmpeg/ffprobe', () => {
+  it.each(['@ffmpeg-installer/ffmpeg', '@ffprobe-installer/ffprobe'])(
+    'pins %s as a patch-level optional dependency',
+    (name) => {
+      expect(pkg.optionalDependencies[name]).toMatch(/^~\d+\.\d+\.\d+$/);
+    },
+  );
+
+  it('ships the binaries as extraResources outside the asar', () => {
+    for (const [source, target] of [
+      ['node_modules/@ffmpeg-installer/win32-${arch}/ffmpeg.exe', 'to: ff/ffmpeg.exe'],
+      ['node_modules/@ffprobe-installer/win32-${arch}/ffprobe.exe', 'to: ff/ffprobe.exe'],
+      ['node_modules/@ffmpeg-installer/linux-${arch}/ffmpeg', 'to: ff/ffmpeg'],
+      ['node_modules/@ffprobe-installer/linux-${arch}/ffprobe', 'to: ff/ffprobe'],
+    ]) {
+      expect(builderConfig).toContain(source);
+      expect(builderConfig).toContain(target);
+    }
+  });
+
+  it('keeps the installer packages out of the asar file set', () => {
+    expect(builderConfig).toContain('"!node_modules/@ffmpeg-installer/**"');
+    expect(builderConfig).toContain('"!node_modules/@ffprobe-installer/**"');
+  });
+
+  it('ships the GPL license text with the binaries', () => {
+    expect(fs.existsSync(path.join(root, 'build', 'licenses', 'GPL-3.0.txt'))).toBe(true);
+    expect(builderConfig).toContain('build/licenses');
   });
 });

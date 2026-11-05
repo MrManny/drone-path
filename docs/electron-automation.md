@@ -22,8 +22,9 @@ exact flags later.
   bridged through `app/preload.cjs` as `window.neo2flightpath`. All session
   logic lives in the Electron-free state machine `src/appsession.ts`
   (`pick -> validate -> prepare`).
-- Startup hard requirements: **ffmpeg and ffprobe on PATH**. `requireTools()`
-  fails startup otherwise (a native error box appears and the app quits).
+- Startup tool check: ffmpeg and ffprobe resolve via `src/fftools.ts` (config
+  override, the embedded binaries, then PATH). `requireTools()` fails startup
+  when neither runs (a native error box appears and the app quits).
 
 ## Recommended: drive it with Playwright's Electron launcher
 
@@ -149,9 +150,9 @@ generous timeouts and prefer measuring the timeline over wall-clock guesses.
   convention and takes no electron module.
 - **Main-process logs from the driver:** `app.process().stderr.on('data', ...)`
   captures the `[neo2flightpath]` lines for assertions.
-- **Prerequisite check before launch:** `where.exe ffmpeg` and
-  `where.exe ffprobe`; without both the app dies at startup behind a native
-  error box.
+- **Prerequisite check before launch:** the bundled ffmpeg/ffprobe binaries
+  (or, absent those, `where.exe ffmpeg` and `where.exe ffprobe`); without a
+  runnable pair the app dies at startup behind a native error box.
 
 ## Notes for automated sessions under the DSH harness
 

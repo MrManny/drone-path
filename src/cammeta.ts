@@ -33,6 +33,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { ffprobeJson } from './ff.js';
+import type { FfToolPaths } from './fftools.js';
 import { gpsFix } from './geo.js';
 import type { LatLon } from './geo.js';
 import {
@@ -106,11 +107,12 @@ function emptyProductMeta(): ProductMeta {
 }
 
 export async function findCamMetaIndex(
+  tools: FfToolPaths,
   videoPath: string,
 ): Promise<number | null> {
   let probe: Record<string, unknown>;
   try {
-    probe = await ffprobeJson(videoPath, [
+    probe = await ffprobeJson(tools, videoPath, [
       '-select_streams',
       'd',
       '-show_entries',
@@ -254,12 +256,13 @@ export interface PacketInfo {
 // A probe failure is operational, not absence: it surfaces with its cause so
 // a missing or broken ffprobe is never mistaken for a stream without data.
 async function listCamMetaPackets(
+  tools: FfToolPaths,
   videoPath: string,
   streamIndex: number,
 ): Promise<PacketInfo[]> {
   let probe: Record<string, unknown>;
   try {
-    probe = await ffprobeJson(videoPath, [
+    probe = await ffprobeJson(tools, videoPath, [
       // NOTE: bare stream index - `d:N` would mean the N-th *data* stream.
       '-select_streams',
       String(streamIndex),
@@ -281,6 +284,7 @@ async function listCamMetaPackets(
 }
 
 async function dumpCamMetaStream(
+  tools: FfToolPaths,
   videoPath: string,
   streamIndex: number,
 ): Promise<Buffer> {
@@ -291,7 +295,7 @@ async function dumpCamMetaStream(
   try {
     try {
       await execFileAsync(
-        'ffmpeg',
+        tools.ffmpeg,
         [
           '-v', 'error', '-y', '-i', videoPath,
           '-map', `0:${streamIndex}`, '-c', 'copy', '-f', 'rawvideo', tmp,
@@ -374,17 +378,18 @@ function spreadSampleTimes(samples: CamSample[], durationSec: number): void {
 export async function parseCamMeta(
   videoPath: string,
   durationSec: number,
+  tools: FfToolPaths,
   opts: { keepAll?: boolean } = {},
 ): Promise<CamMetaResult | null> {
   const keepAll = opts.keepAll === true;
   // Null returns below mark a genuine absence ("no CAM meta stream"); tool
   // failures have already thrown with their cause by this point.
-  const streamIndex = await findCamMetaIndex(videoPath);
+  const streamIndex = await findCamMetaIndex(tools, videoPath);
   if (streamIndex === null) return null;
 
-  const packets = await listCamMetaPackets(videoPath, streamIndex);
+  const packets = await listCamMetaPackets(tools, videoPath, streamIndex);
 
-  const buf = await dumpCamMetaStream(videoPath, streamIndex);
+  const buf = await dumpCamMetaStream(tools, videoPath, streamIndex);
   if (buf.length === 0) return null;
 
   const sizeSum = packets.reduce(

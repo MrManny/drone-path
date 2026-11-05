@@ -5,6 +5,8 @@ import { errorMessage } from './errors.js';
 import type { Bbox, LatLon } from './geo.js';
 import { unproject } from './geo.js';
 import { outputMatchesSource, probeVideo, verifyOutput } from './ff.js';
+import { resolveFfTools } from './fftools.js';
+import type { FfToolPaths } from './fftools.js';
 import type { VideoProbe } from './ff.js';
 import { videoBaseName } from './inputs.js';
 import { pathKey, uniquePath } from './paths.js';
@@ -272,6 +274,8 @@ export interface PipelineOptions {
   /** Overrides over the real I/O shell; omitted or nullish fields run real. */
   deps?: Partial<PipelineDeps>;
   trace?: TraceContext;
+  /** Resolved tool commands; omitted resolves them from the config. */
+  tools?: FfToolPaths;
   /** Source-frame segment to render; omit for the full recording. */
   range?: FrameRange;
   /** Aborting stops the render at the next frame and cleans up the output. */
@@ -372,6 +376,7 @@ interface PrepareStageEnv {
   tracer: Tracer;
   parent: Span | undefined;
   deps: PipelineDeps;
+  tools: FfToolPaths;
   report: PrepareReporter;
   tileWait: 'all' | 'gate';
   frameSize?: { width: number; height: number };
@@ -380,10 +385,10 @@ interface PrepareStageEnv {
 async function probeStage(
   env: PrepareStageEnv,
 ): Promise<{ probe: VideoProbe; introOutro: IntroOutroFrames }> {
-  const { videoPath, config, log, tracer, parent, deps, report } = env;
+  const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
   report.begin('probe');
   const probe = await stage(tracer, 'probe', parent, {}, () =>
-    deps.probeVideo(videoPath, log),
+    deps.probeVideo(tools, videoPath, log),
   );
   log(
     `source: ${path.basename(videoPath)}  ${probe.width}x${probe.height} @ ${probe.fps.str} fps, ${probe.frames} frames`,
@@ -404,13 +409,14 @@ async function telemetryStage(
   env: PrepareStageEnv,
   probe: VideoProbe,
 ): Promise<{ tel: Telemetry; hud: HudSpec }> {
-  const { videoPath, config, log, tracer, parent, deps, report } = env;
+  const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
   report.begin('telemetry');
   const tel = await stage(tracer, 'telemetry.load', parent, {}, async (span) => {
     const loaded = await deps.loadTelemetry(videoPath, {
       frames: probe.frames,
       fpsValue: probe.fps.value,
       durationSec: probe.durationSec,
+      tools,
     });
     span.setAttributes({
       'telemetry.source': loaded.source,
@@ -532,6 +538,7 @@ export async function prepareSession(
     tracer: options.trace?.tracer ?? NOOP_TRACER,
     parent: options.trace?.parent,
     deps: resolveDeps(options.deps, config.tileCache),
+    tools: options.tools ?? resolveFfTools(config),
     report: createPrepareReporter(options.onProgress),
     tileWait: options.tileWait ?? 'all',
     frameSize: options.frameSize,
@@ -597,6 +604,7 @@ interface RenderContext extends PreparedRecording {
 interface RenderStageEnv {
   ctx: RenderContext;
   deps: PipelineDeps;
+  tools: FfToolPaths;
   options: PipelineOptions;
   tracer: Tracer;
   root: Span;
@@ -639,9 +647,9 @@ function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummar
 }
 
 async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
-  const { ctx, deps, tracer, root } = env;
+  const { ctx, deps, tools, tracer, root } = env;
   await stage(tracer, 'output.verify', root, {}, async (span) => {
-    const verify = await deps.verifyOutput(ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
+    const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
     span.setAttributes({
       'verify.frames.expected': ctx.outFrames,
       'verify.frames.actual': verify.frames,
@@ -664,7 +672,7 @@ async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
 }
 
 async function renderToOutput(env: RenderStageEnv): Promise<void> {
-  const { ctx, deps, options, tracer, root } = env;
+  const { ctx, deps, tools, options, tracer, root } = env;
   const html = buildPageHtml(recordingPageOpts(ctx, ctx.config));
   fs.mkdirSync(path.dirname(ctx.outPath), { recursive: true });
   await renderWithOutputCleanup(ctx.outPath, ctx.log, async () => {
@@ -676,6 +684,7 @@ async function renderToOutput(env: RenderStageEnv): Promise<void> {
       preset: ctx.config.preset,
       style: ctx.config.style,
       tileCache: ctx.config.tileCache,
+      tools,
       width: ctx.width,
       height: ctx.height,
       frames: ctx.outFrames,
@@ -707,6 +716,7 @@ export async function processRecording(
   const t0 = Date.now();
   const tracer = options.trace?.tracer ?? NOOP_TRACER;
   const deps = resolveDeps(options.deps, config.tileCache);
+  const tools = options.tools ?? resolveFfTools(config);
   if (options.signal?.aborted) throw new Error('render canceled');
 
   return stage(
@@ -720,6 +730,7 @@ export async function processRecording(
       const prep = await prepareSession(videoPath, config, log, {
         ...options,
         deps,
+        tools,
         trace: { tracer, parent: root },
       });
       root.setAttributes({
@@ -743,7 +754,7 @@ export async function processRecording(
         outFrames,
         frameRange: range,
       };
-      await renderToOutput({ ctx, deps, options, tracer, root });
+      await renderToOutput({ ctx, deps, tools, options, tracer, root });
       return buildOkSummary(ctx, Math.round((Date.now() - t0) / 1000));
     },
   );
@@ -759,6 +770,7 @@ export async function runBatch(
 ): Promise<BatchResult> {
   const result: BatchResult = { ok: 0, skipped: 0, failed: 0 };
   const deps = resolveDeps(options.deps, config.tileCache);
+  const tools = options.tools ?? resolveFfTools(config);
 
   // Collision-free outputs up front: two same-basename recordings must not
   // silently overwrite each other in a shared --out-dir.
@@ -774,7 +786,7 @@ export async function runBatch(
         `warning: output name collision for ${base} - writing ${path.basename(plan.out)} instead`,
       );
     }
-    if (config.skipExisting && (await deps.outputMatchesSource(video, plan.out))) {
+    if (config.skipExisting && (await deps.outputMatchesSource(tools, video, plan.out))) {
       log(`SKIP  ${plan.out}  (exists and matches the source)`);
       emit({ video, out: plan.out, status: 'skipped', elapsedSec: 0 });
       result.skipped++;
@@ -785,6 +797,7 @@ export async function runBatch(
       const summary = await processRecording(video, config, log, plan.out, {
         ...options,
         deps,
+        tools,
       });
       emit(summary);
       log(`OK  ${plan.out}  (${summary.frames} frames @ ${summary.fps}, ${summary.elapsedSec} s)`);
