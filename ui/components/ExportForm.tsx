@@ -1,21 +1,47 @@
 'use client';
 
-import type { FrameRange } from '../../src/config.js';
-import { MIN_DIMENSION, validateDimensions } from '../../src/config.js';
+import type { Codec, EncodeSettings, FrameRange, Preset, Quality } from '../../src/config.js';
+import {
+  CODEC_VALUES,
+  MIN_DIMENSION,
+  PRESET_VALUES,
+  QUALITY_VALUES,
+  validateDimensions,
+} from '../../src/config.js';
 import type { ExportEvent, ExportForm as ExportFormState } from '../lib/exportstate.js';
 import { ErrorNotice } from './ErrorNotice.js';
 import { NumberField } from './NumberField.js';
+import { SelectField } from './SelectField.js';
 
 export interface ExportFormProps {
   form: ExportFormState;
   /** The engaged loop's segment, or null while only the full recording exists. */
   segment: { range: FrameRange; label: string } | null;
   totalText: string;
+  /** Encoder choices; the page persists them on change. */
+  encode: EncodeSettings;
   error: string | null;
   dispatch: (event: ExportEvent) => void;
+  onEncoderChange: (patch: Partial<EncodeSettings>) => void;
   onClose: () => void;
   onStart: () => void;
 }
+
+// The config vocabulary holds raw values; the options show plain words.
+const CODEC_LABELS: Record<Codec, string> = {
+  h264: 'H.264',
+  h265: 'H.265',
+};
+const QUALITY_LABELS: Record<Quality, string> = {
+  'near-lossless': 'Near-lossless',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+};
+const PRESET_LABELS: Record<Preset, string> = {
+  medium: 'Balanced',
+  veryfast: 'Faster',
+};
 
 // The modal's dimensions go through the same rule the CLI and pipeline apply.
 function dimensionsValid(width: number, height: number): boolean {
@@ -31,8 +57,10 @@ export function ExportForm({
   form,
   segment,
   totalText,
+  encode,
   error,
   dispatch,
+  onEncoderChange,
   onClose,
   onStart,
 }: ExportFormProps) {
@@ -64,8 +92,10 @@ export function ExportForm({
         </fieldset>
       ) : null}
 
+      {/* The "How" legend names the pair with "What"; with no engaged loop
+          there is no pair and the lone group needs no name. */}
       <fieldset className="settings-group">
-        <legend>How</legend>
+        {segment ? <legend>How</legend> : null}
         <NumberField
           label="Width"
           value={form.width}
@@ -89,6 +119,24 @@ export function ExportForm({
             dispatch({ type: 'setHeight', height });
             return true;
           }}
+        />
+        <SelectField
+          label="Format"
+          value={encode.codec}
+          options={CODEC_VALUES.map((value) => ({ value, label: CODEC_LABELS[value] }))}
+          onValue={(codec) => onEncoderChange({ codec: codec as Codec })}
+        />
+        <SelectField
+          label="Quality"
+          value={encode.quality}
+          options={QUALITY_VALUES.map((value) => ({ value, label: QUALITY_LABELS[value] }))}
+          onValue={(quality) => onEncoderChange({ quality: quality as Quality })}
+        />
+        <SelectField
+          label="Speed"
+          value={encode.preset}
+          options={PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
+          onValue={(preset) => onEncoderChange({ preset: preset as Preset })}
         />
       </fieldset>
 

@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { MEDIA_URL, TILE_BASE } from './apppaths.js';
 import { STYLE_VALUES, VIEW_VALUES, asNumber } from './config.js';
-import type { RenderConfig, SettingsPatch, Style, View } from './config.js';
+import type { LookSettings, RenderConfig, Style, View } from './config.js';
 import { errorMessage } from './errors.js';
 import type { VideoProbe } from './ff.js';
 import type { Bbox } from './geo.js';
@@ -54,7 +54,7 @@ export interface PickResult {
 
 /** What the map shows: the look settings and the frame they fill. */
 export interface WarmRequest {
-  settings: SettingsPatch;
+  settings: LookSettings;
   /** The frame the map fills in px (the app's map pane). */
   frame: { width: number; height: number };
 }

@@ -14,7 +14,7 @@ import {
   serializeAppState,
   writeAppState,
 } from '../src/appstate.js';
-import { settingsPatchOf } from '../src/config.js';
+import { DEFAULT_CONFIG, settingsPatchOf } from '../src/config.js';
 import type { HudSpec, SettingsPatch } from '../src/config.js';
 import { cleanupTmpDirs, testConfig, tmpDir } from './fixtures.js';
 
@@ -28,6 +28,9 @@ const PATCH: SettingsPatch = {
   hud: { heading: true, alt: true, speed: true },
   introSec: 1.5,
   outroSec: 0,
+  codec: 'h265',
+  quality: 'low',
+  preset: 'veryfast',
 };
 
 function stateFixture(overrides: Partial<AppState> = {}): AppState {
@@ -45,7 +48,7 @@ const INVALID_CASES: Array<[string, unknown]> = [
   ['a non-object', 'nope'],
   ['an array', [1, 2]],
   ['a missing version', { settings: {} }],
-  ['an outdated version', { version: 2, settings: {} }],
+  ['an outdated version', { version: 3, settings: {} }],
   ['an unknown top-level key', { version: APP_STATE_VERSION, cache: 'x' }],
   [
     'an unknown settings key',
@@ -59,15 +62,13 @@ const INVALID_CASES: Array<[string, unknown]> = [
     'an invalid look constraint',
     { version: APP_STATE_VERSION, settings: { ...PATCH, zoom: -1 } },
   ],
-  ['an incomplete look', { version: APP_STATE_VERSION, settings: { style: 'topo' } }],
   ['a mistyped last-opened folder', { version: APP_STATE_VERSION, lastOpenDir: 42 }],
 ];
 
 const UNREADABLE_CASES: Array<[string, string]> = [
   ['corrupt JSON', '{oops'],
   ['a JSON scalar', '42'],
-  ['a valid JSON value with the wrong shape', '{"version":2}'],
-  ['a partial state', '{"version":1,"settings":{"style":"topo"}}'],
+  ['a valid JSON value with the wrong shape', '{"version":3}'],
 ];
 
 describe('parseAppState / serializeAppState', () => {
@@ -104,6 +105,44 @@ describe('parseAppState / serializeAppState', () => {
 
   it.each(INVALID_CASES)('rejects %s instead of trusting it', (_label, raw) => {
     expect(() => parseAppState(raw)).toThrow();
+  });
+});
+
+describe('tolerant settings reading', () => {
+  const V1_SETTINGS = {
+    style: 'topo',
+    view: 'overview',
+    zoom: 16,
+    zoomOut: 2,
+    hud: 'heading,alt,speed',
+    introSec: 1.5,
+    outroSec: 0,
+  };
+
+  it('loads a v1 state without encoder settings at the default encoder choices', () => {
+    const state = parseAppState({ version: 1, settings: V1_SETTINGS });
+    expect(state.settings).toEqual({
+      ...PATCH,
+      codec: 'h264',
+      quality: 'high',
+      preset: 'medium',
+    });
+  });
+
+  it('loads a minimal settings object with every setting at its default', () => {
+    const state = parseAppState({ version: 1, settings: {} });
+    expect(state.settings).toEqual(settingsPatchOf(DEFAULT_CONFIG));
+  });
+
+  it('still fails the state on a present-but-null value', () => {
+    expect(() =>
+      parseAppState({ version: 1, settings: { ...V1_SETTINGS, zoom: null } }),
+    ).toThrow();
+  });
+
+  it('round-trips a completed state byte-identically', () => {
+    const text = serializeAppState(parseAppState({ version: 1, settings: V1_SETTINGS }));
+    expect(serializeAppState(parseAppState(JSON.parse(text)))).toBe(text);
   });
 });
 

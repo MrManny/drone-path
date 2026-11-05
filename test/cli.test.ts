@@ -32,6 +32,9 @@ describe('parseCliArgs', () => {
       '--width', '1024',
       '--height', '512',
       '--hud', 'heading,alt,speed',
+      '--codec', 'h265',
+      '--quality', 'low',
+      '--preset', 'veryfast',
       '--skip-existing',
       '--recurse',
       '--json',
@@ -42,6 +45,9 @@ describe('parseCliArgs', () => {
     expect(cli.width).toBe(1024);
     expect(cli.height).toBe(512);
     expect(cli.hud).toEqual({ heading: true, alt: true, speed: true });
+    expect(cli.codec).toBe('h265');
+    expect(cli.quality).toBe('low');
+    expect(cli.preset).toBe('veryfast');
     expect(cli.skipExisting).toBe(true);
     expect(cli.recurse).toBe(true);
     expect(cli.json).toBe(true);
@@ -51,6 +57,9 @@ describe('parseCliArgs', () => {
   it('rejects invalid enum values', () => {
     expect(() => parseCliArgs(['x.mp4', '--style', 'nope'])).toThrow();
     expect(() => parseCliArgs(['x.mp4', '--capture', 'canvas'])).toThrow();
+    expect(() => parseCliArgs(['x.mp4', '--codec', 'av1'])).toThrow();
+    expect(() => parseCliArgs(['x.mp4', '--quality', 'ultra'])).toThrow();
+    expect(() => parseCliArgs(['x.mp4', '--preset', 'slow'])).toThrow();
   });
 
   it('rejects the removed --trail flag', () => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { DialogClose } from './DialogClose.js';
@@ -24,6 +25,16 @@ export function DialogShell({
   closeOnBackdrop = true,
   children,
 }: DialogShellProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard and screen-reader focus belong on the dialog, not on whatever
+  // opened it behind the scrim; closing hands focus back to the opener.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => opener?.focus();
+  }, []);
+
   return (
     <div
       className="settings-overlay"
@@ -32,9 +43,12 @@ export function DialogShell({
       }}
     >
       <div
+        ref={panelRef}
         className="settings-panel"
         role="dialog"
+        aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="settings-header">

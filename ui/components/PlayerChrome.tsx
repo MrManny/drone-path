@@ -69,6 +69,8 @@ export function PlayerChrome({
   } = usePlayback(video, durationSec);
   const { modalOpen, settingsOpen, exportOpen, dismissible, dispatchDialog } = dialogs;
   const [mapIsMain, setMapIsMain] = useState(false);
+  // The session's export sizes: the dialog reopens on the last committed ones.
+  const [exportSizes, setExportSizes] = useState<{ width: number; height: number } | null>(null);
   const swap = useCallback(() => setMapIsMain((v) => !v), []);
 
   // One settings -> scene mapping for the preview and the export: the same
@@ -172,6 +174,9 @@ export function PlayerChrome({
           onClose={() => dispatchDialog({ type: 'close' })}
           dismissible={dismissible}
           onRunEvent={dispatchDialog}
+          onEncoderChange={(encode) => onSettingsChange({ ...settings, ...encode })}
+          initialSizes={exportSizes}
+          onSizesChange={setExportSizes}
         />
       ) : null}
     </>

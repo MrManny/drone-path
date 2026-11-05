@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   screenshotFailAt: 0,
   screenshots: 0,
   launchFail: false,
+  spawnArgs: [] as string[][],
 }));
 
 vi.mock('node:child_process', async (importOriginal) => {
@@ -30,7 +31,8 @@ vi.mock('node:child_process', async (importOriginal) => {
   const { PassThrough } = await import('node:stream');
   return {
     ...actual,
-    spawn: () => {
+    spawn: (_cmd: string, args: string[]) => {
+      mocks.spawnArgs.push(args);
       const proc = new EventEmitter() as InstanceType<typeof EventEmitter> & {
         stdin: InstanceType<typeof PassThrough>;
         stderr: InstanceType<typeof PassThrough>;
@@ -75,6 +77,7 @@ beforeEach(() => {
   mocks.screenshotFailAt = 0;
   mocks.screenshots = 0;
   mocks.launchFail = false;
+  mocks.spawnArgs = [];
 });
 
 afterEach(cleanupTmpDirs);
@@ -91,6 +94,8 @@ function renderOpts(overrides: Partial<RenderOpts> = {}): RenderOpts {
     workers: 2,
     outPath: path.join(tmpDir(), 'out.mp4'),
     capture: 'jpeg',
+    codec: 'h264',
+    quality: 'high',
     preset: 'veryfast',
     ...overrides,
   };
@@ -151,6 +156,8 @@ describe('renderVideo span tree', () => {
     expect(render?.attributes).toMatchObject({
       'render.workers': 2,
       'render.capture.mode': 'jpeg',
+      'render.codec': 'h264',
+      'render.quality': 'high',
       'render.preset': 'veryfast',
       'render.evalMs': expect.any(Number),
       'render.captureMs': expect.any(Number),
@@ -158,6 +165,8 @@ describe('renderVideo span tree', () => {
     });
     expect(capture?.attributes['render.frames.captured']).toBe(250);
     expect(encode?.attributes).toMatchObject({
+      'render.codec': 'h264',
+      'render.quality': 'high',
       'render.preset': 'veryfast',
       'render.ffmpeg.exitCode': 0,
     });
@@ -259,6 +268,54 @@ describe('renderVideo browser launch', () => {
       'no chromium here',
       'no chromium here',
     ]);
+  });
+});
+
+describe('encoder arguments', () => {
+  const CRF_CASES = [
+    ['h264', 'near-lossless', '16'],
+    ['h264', 'high', '18'],
+    ['h264', 'medium', '21'],
+    ['h264', 'low', '26'],
+    ['h265', 'near-lossless', '20'],
+    ['h265', 'high', '22'],
+    ['h265', 'medium', '25'],
+    ['h265', 'low', '30'],
+  ] as const;
+
+  it('reproduces the pre-#44 arguments for the default h264 encoding', async () => {
+    const opts = renderOpts({ codec: 'h264', quality: 'high', preset: 'medium' });
+    await renderVideo(opts);
+    expect(mocks.spawnArgs).toEqual([
+      [
+        '-hide_banner', '-loglevel', 'error', '-y',
+        '-f', 'image2pipe', '-framerate', '30', '-i', '-',
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+        '-pix_fmt', 'yuv420p', '-r', '30',
+        '-movflags', '+faststart', opts.outPath,
+      ],
+    ]);
+  });
+
+  it.each(CRF_CASES)('maps %s quality %s to CRF %s', async (codec, quality, crf) => {
+    const opts = renderOpts({ codec, quality });
+    await renderVideo(opts);
+    const args = mocks.spawnArgs[0];
+    const crfAt = args.indexOf('-crf');
+    expect(args[crfAt + 1]).toBe(crf);
+    expect(args).toContain(codec === 'h265' ? 'libx265' : 'libx264');
+  });
+
+  it('tags h265 output hvc1 for player and NLE compatibility', async () => {
+    await renderVideo(renderOpts({ codec: 'h265' }));
+    const args = mocks.spawnArgs[0];
+    const tagAt = args.indexOf('-tag:v');
+    expect(args.slice(tagAt, tagAt + 2)).toEqual(['-tag:v', 'hvc1']);
+  });
+
+  it('keeps h264 output untagged', async () => {
+    await renderVideo(renderOpts({ codec: 'h264' }));
+    expect(mocks.spawnArgs[0]).not.toContain('-tag:v');
   });
 });
 

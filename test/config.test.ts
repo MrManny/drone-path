@@ -295,6 +295,17 @@ describe('export request boundary', () => {
     );
     expect(request.config).toMatchObject({ style: 'topo', width: 1024, height: 576 });
   });
+
+  it('still applies renderer-owned encoder settings', () => {
+    const request = parseExportRequest(
+      {
+        outPath: '/exports/a.mp4',
+        config: { codec: 'h265', quality: 'low', preset: 'veryfast' },
+      },
+      base,
+    );
+    expect(request.config).toMatchObject({ codec: 'h265', quality: 'low', preset: 'veryfast' });
+  });
 });
 
 describe('parseSettingsPatch', () => {
@@ -306,6 +317,9 @@ describe('parseSettingsPatch', () => {
     hud: { heading: true, alt: false, speed: true },
     introSec: 1.5,
     outroSec: 0,
+    codec: 'h265',
+    quality: 'low',
+    preset: 'veryfast',
   };
 
   it('accepts the object HUD form the renderer sends', () => {
@@ -324,6 +338,9 @@ describe('parseSettingsPatch', () => {
     ['a machine-owned key', { ...complete, tileCache: 'D:\\cache' }],
     ['a missing key', { style: 'topo', view: 'follow', zoom: 0, zoomOut: 1, hud: 'none', introSec: 2 }],
     ['an invalid enum', { ...complete, style: 'neon' }],
+    ['an unknown codec', { ...complete, codec: 'av1' }],
+    ['an unknown quality', { ...complete, quality: 'ultra' }],
+    ['an unknown preset', { ...complete, preset: 'slow' }],
     ['a string number', { ...complete, zoom: '16' }],
     ['a malformed hud object', { ...complete, hud: { heading: 'yes' } }],
     ['an unknown hud component', { ...complete, hud: 'heading,bogus' }],

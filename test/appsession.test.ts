@@ -12,7 +12,7 @@ import type {
   WarmProgress,
   WarmRequest,
 } from '../src/appsession.js';
-import type { RenderConfig, SettingsPatch } from '../src/config.js';
+import type { LookSettings, RenderConfig } from '../src/config.js';
 import { displayedTiles, planView } from '../src/plan.js';
 import type { PipelineDeps, PrepareProgress } from '../src/run.js';
 import { createTileTraffic } from '../src/tiles.js';
@@ -356,7 +356,7 @@ describe('createAppSession background pre-warm', () => {
     durationSec: 1,
   } as unknown as UiSession;
 
-  const SETTINGS: SettingsPatch = {
+  const SETTINGS: LookSettings = {
     style: 'satellite',
     view: 'overview',
     zoom: 0,
@@ -365,7 +365,7 @@ describe('createAppSession background pre-warm', () => {
     introSec: 0,
     outroSec: 0,
   };
-  const TOPO: SettingsPatch = { ...SETTINGS, style: 'topo' };
+  const TOPO: LookSettings = { ...SETTINGS, style: 'topo' };
   const FRAME = { width: 480, height: 270 };
   const SAT: WarmRequest = { settings: SETTINGS, frame: FRAME };
   const TOPO_PLAN: WarmRequest = { settings: TOPO, frame: FRAME };

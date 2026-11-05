@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { EncodeSettings } from '../../src/config.js';
 import type { ExportFormProps } from '../../ui/components/ExportForm.js';
 import { ExportForm } from '../../ui/components/ExportForm.js';
 import type { ExportForm as ExportFormState } from '../../ui/lib/exportstate.js';
@@ -10,22 +11,26 @@ afterEach(cleanup);
 
 const FORM: ExportFormState = { outPath: null, width: 768, height: 768, range: null };
 const SEGMENT = { range: { start: 300, end: 360 }, label: '0:10–0:12 · 61 frames' };
+const ENCODE: EncodeSettings = { codec: 'h264', quality: 'high', preset: 'medium' };
 
 function renderForm(overrides: Partial<ExportFormProps> = {}) {
   const dispatch = overrides.dispatch ?? vi.fn();
+  const onEncoderChange = overrides.onEncoderChange ?? vi.fn();
   render(
     <ExportForm
       form={FORM}
       segment={null}
       totalText="0:34"
+      encode={ENCODE}
       error={null}
       onClose={vi.fn()}
       onStart={vi.fn()}
       {...overrides}
       dispatch={dispatch}
+      onEncoderChange={onEncoderChange}
     />,
   );
-  return { dispatch };
+  return { dispatch, onEncoderChange };
 }
 
 describe('ExportForm what-to-export choice', () => {
@@ -54,6 +59,17 @@ describe('ExportForm what-to-export choice', () => {
     fireEvent.click(screen.getByRole('radio', { name: /Full recording/ }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'setRange', range: null });
   });
+
+  it('needs no group legend without a choice to make', () => {
+    renderForm();
+    expect(screen.queryByRole('group', { name: 'How' })).toBeNull();
+  });
+
+  it('names both groups when the loop offers a choice', () => {
+    renderForm({ segment: SEGMENT });
+    expect(screen.getByRole('group', { name: 'What' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'How' })).toBeTruthy();
+  });
 });
 
 describe('ExportForm dimensions', () => {
@@ -78,6 +94,29 @@ describe('ExportForm dimensions', () => {
     expect(screen.getByText('Must be at least 64 px.')).toBeTruthy();
     expect(width.getAttribute('aria-invalid')).toBe('true');
     expect(dispatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('ExportForm encoding', () => {
+  it('shows the encoder vocabulary values in plain words', () => {
+    renderForm({ encode: { codec: 'h265', quality: 'low', preset: 'veryfast' } });
+    expect(screen.getByLabelText<HTMLSelectElement>('Format').value).toBe('h265');
+    expect(screen.getByLabelText<HTMLSelectElement>('Quality').value).toBe('low');
+    expect(screen.getByLabelText<HTMLSelectElement>('Speed').value).toBe('veryfast');
+    expect(screen.getByRole('option', { name: 'H.265' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Near-lossless' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Balanced' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Faster' })).toBeTruthy();
+  });
+
+  it('reports each change back as vocabulary values', () => {
+    const { onEncoderChange } = renderForm();
+    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
+    expect(onEncoderChange).toHaveBeenLastCalledWith({ codec: 'h265' });
+    fireEvent.change(screen.getByLabelText('Quality'), { target: { value: 'near-lossless' } });
+    expect(onEncoderChange).toHaveBeenLastCalledWith({ quality: 'near-lossless' });
+    fireEvent.change(screen.getByLabelText('Speed'), { target: { value: 'veryfast' } });
+    expect(onEncoderChange).toHaveBeenLastCalledWith({ preset: 'veryfast' });
   });
 });
 

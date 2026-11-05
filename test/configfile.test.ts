@@ -51,6 +51,18 @@ describe('loadConfigFile', () => {
     fs.writeFileSync(file, '{"width": "768"}');
     expect(() => loadConfigFile(file)).toThrow(/invalid number for .*width/);
   });
+
+  it('accepts the encoder keys', () => {
+    const file = path.join(tmpDir(), 'c.json');
+    fs.writeFileSync(file, '{"codec": "h265", "quality": "low", "preset": "veryfast"}');
+    expect(loadConfigFile(file)).toEqual({ codec: 'h265', quality: 'low', preset: 'veryfast' });
+  });
+
+  it('rejects an unknown quality, naming the key', () => {
+    const file = path.join(tmpDir(), 'c.json');
+    fs.writeFileSync(file, '{"quality": "ultra"}');
+    expect(() => loadConfigFile(file)).toThrow(/invalid value for .*quality/);
+  });
 });
 
 describe('resolveConfig', () => {

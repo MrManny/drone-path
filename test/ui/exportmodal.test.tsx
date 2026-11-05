@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { ExportRequest, RenderConfig } from '../../src/config.js';
+import type { EncodeSettings, ExportRequest, RenderConfig } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { ExportOutputPayload } from '../../ui/lib/backend.js';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
@@ -81,9 +81,17 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
 function Harness({
   loop,
   onRunEvent,
+  onEncoderChange,
+  settings = SETTINGS,
+  initialSizes,
+  onSizesChange,
 }: {
   loop: LoopState;
   onRunEvent?: (event: DialogRunEvent) => void;
+  onEncoderChange?: (patch: Partial<EncodeSettings>) => void;
+  settings?: RenderConfig;
+  initialSizes?: { width: number; height: number } | null;
+  onSizesChange?: (sizes: { width: number; height: number }) => void;
 }) {
   const [dialog, dispatchDialog] = useReducer(dialogReducer, 'export-form');
   const handleRunEvent = useCallback(
@@ -97,17 +105,32 @@ function Harness({
   return (
     <ExportModal
       session={SESSION}
-      settings={SETTINGS}
+      settings={settings}
       loop={loop}
       onClose={() => dispatchDialog({ type: 'close' })}
       dismissible={canDismiss(dialog)}
       onRunEvent={handleRunEvent}
+      onEncoderChange={onEncoderChange ?? (() => {})}
+      initialSizes={initialSizes}
+      onSizesChange={onSizesChange}
     />
   );
 }
 
-function renderModal(loop: LoopState, onRunEvent?: (event: DialogRunEvent) => void) {
-  return render(<Harness loop={loop} onRunEvent={onRunEvent} />);
+function renderModal(
+  loop: LoopState,
+  onRunEvent?: (event: DialogRunEvent) => void,
+  onEncoderChange?: (patch: Partial<EncodeSettings>) => void,
+  settings?: RenderConfig,
+) {
+  return render(
+    <Harness
+      loop={loop}
+      onRunEvent={onRunEvent}
+      onEncoderChange={onEncoderChange}
+      settings={settings}
+    />,
+  );
 }
 
 async function reachPhase(phase: Phase, emitDone: (outcome: ExportOutcome) => void) {
@@ -131,6 +154,90 @@ function headerClose(): HTMLButtonElement {
   const header = screen.getByRole('dialog', { name: 'Export' }).querySelector('.settings-header') as HTMLElement;
   return within(header).getByRole<HTMLButtonElement>('button', { name: 'Close' });
 }
+
+describe('ExportModal form memory', () => {
+  it('opens on the engaged segment', () => {
+    render(<Harness loop={{ in: 300, out: 360 }} />);
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /Full recording/ }).checked).toBe(false);
+  });
+
+  it('offers no segment choice without a loop', () => {
+    render(<Harness loop={{ in: null, out: null }} />);
+    expect(screen.queryByRole('group', { name: 'What' })).toBeNull();
+  });
+
+  it('seeds the sizes from the session', () => {
+    render(<Harness loop={{ in: null, out: null }} initialSizes={{ width: 1024, height: 576 }} />);
+    expect(screen.getByLabelText<HTMLInputElement>('Width').value).toBe('1024');
+    expect(screen.getByLabelText<HTMLInputElement>('Height').value).toBe('576');
+  });
+
+  it('reports every committed size in its effective form', () => {
+    const onSizesChange = vi.fn();
+    render(<Harness loop={{ in: null, out: null }} onSizesChange={onSizesChange} />);
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '769' } });
+    expect(onSizesChange).toHaveBeenLastCalledWith({ width: 768, height: 768 });
+  });
+
+  it('exports the frames marked at confirm when the loop moved under the dialog', async () => {
+    const { bridge } = installBridge();
+    const view = render(<Harness loop={{ in: 300, out: 360 }} />);
+    view.rerender(<Harness loop={{ in: 60, out: 120 }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await waitFor(() => expect(bridge.startExport).toHaveBeenCalledTimes(1));
+    expect(bridge.startExport.mock.calls[0][0].range).toEqual({ start: 60, end: 120 });
+  });
+});
+
+describe('ExportModal encoder choices', () => {
+  it('starts the form from the persisted encoder settings', () => {
+    renderModal(
+      { in: null, out: null },
+      undefined,
+      undefined,
+      { ...SETTINGS, codec: 'h265', quality: 'low', preset: 'veryfast' },
+    );
+    expect(screen.getByLabelText<HTMLSelectElement>('Format').value).toBe('h265');
+    expect(screen.getByLabelText<HTMLSelectElement>('Quality').value).toBe('low');
+    expect(screen.getByLabelText<HTMLSelectElement>('Speed').value).toBe('veryfast');
+  });
+
+  it('reports encoder edits for the page to persist', () => {
+    const onEncoderChange = vi.fn();
+    renderModal({ in: null, out: null }, undefined, onEncoderChange);
+    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
+    expect(onEncoderChange).toHaveBeenCalledWith({ codec: 'h265' });
+  });
+
+  it('clears a form error on an encoder edit', async () => {
+    installBridge({
+      startExport: vi.fn(async () => ({ ok: false, error: 'an export is already running' })),
+    });
+    renderModal({ in: null, out: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByRole('alert');
+    fireEvent.change(screen.getByLabelText('Quality'), { target: { value: 'low' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('carries the encoder settings into the export request', async () => {
+    const { bridge } = installBridge();
+    renderModal(
+      { in: null, out: null },
+      undefined,
+      undefined,
+      { ...SETTINGS, codec: 'h265', quality: 'low', preset: 'veryfast' },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await waitFor(() => expect(bridge.startExport).toHaveBeenCalledTimes(1));
+    expect(bridge.startExport.mock.calls[0][0].config).toMatchObject({
+      codec: 'h265',
+      quality: 'low',
+      preset: 'veryfast',
+    });
+  });
+});
 
 describe('ExportModal what-to-export choice', () => {
   it('does not offer a segment choice when no loop is engaged', () => {

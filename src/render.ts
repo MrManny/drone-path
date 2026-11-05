@@ -12,7 +12,7 @@ import type { Browser, Page } from 'playwright-core';
 import { MIME } from './assets.js';
 import { errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
-import type { Capture, Preset, Style } from './config.js';
+import type { Capture, Codec, EncodeSettings, Preset, Quality, Style } from './config.js';
 import { NOOP_TRACER, stage } from './tracing.js';
 import type { Span, Tracer, TraceContext } from './tracing.js';
 
@@ -108,11 +108,26 @@ interface Encoder {
   kill(): void;
 }
 
-function spawnEncoder(fpsStr: string, preset: Preset, outPath: string): Encoder {
+// The quality level as an encoder CRF per codec (lower is better): x265's
+// CRF scale sits about five points above x264's for the same perceived
+// quality. h264 "high" is the CRF 18 that shipped before quality became
+// configurable.
+const CRF: Record<Codec, Record<Quality, number>> = {
+  h264: { 'near-lossless': 16, high: 18, medium: 21, low: 26 },
+  h265: { 'near-lossless': 20, high: 22, medium: 25, low: 30 },
+};
+
+function spawnEncoder(fpsStr: string, encode: EncodeSettings, outPath: string): Encoder {
+  // h265 gets the hvc1 sample tag: the ffmpeg-default hev1 tag is refused by
+  // QuickTime and some NLEs.
+  const codecArgs =
+    encode.codec === 'h265' ? ['-c:v', 'libx265', '-tag:v', 'hvc1'] : ['-c:v', 'libx264'];
   const ffmpeg = spawn('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y',
     '-f', 'image2pipe', '-framerate', fpsStr, '-i', '-',
-    '-c:v', 'libx264', '-preset', preset, '-crf', '18',
+    ...codecArgs,
+    '-preset', encode.preset,
+    '-crf', String(CRF[encode.codec][encode.quality]),
     '-pix_fmt', 'yuv420p', '-r', fpsStr,
     '-movflags', '+faststart', outPath,
   ], { stdio: ['pipe', 'ignore', 'pipe'] });
@@ -213,6 +228,8 @@ export interface RenderOpts {
   log?: (msg: string) => void;
   browserPath?: string | null;
   capture: Capture;
+  codec: Codec;
+  quality: Quality;
   preset: Preset;
   /** Aborting kills the encoder and stops the workers at the next frame. */
   signal?: AbortSignal;
@@ -244,6 +261,8 @@ interface RenderContext {
   fpsStr: string;
   outPath: string;
   capture: Capture;
+  codec: Codec;
+  quality: Quality;
   preset: Preset;
   signal: AbortSignal | undefined;
   log: (msg: string) => void;
@@ -459,17 +478,21 @@ export class FrameBatchRecorder {
 async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<void> {
   const { ctx, tracer, renderSpan, url, timing, workerCount } = env;
   const {
-    fpsStr, preset, outPath, signal,
+    fpsStr, codec, quality, preset, outPath, signal,
     width, height, frames, frameStart, capture, log, onCapture,
   } = ctx;
-  const encoder = spawnEncoder(fpsStr, preset, outPath);
+  const encoder = spawnEncoder(fpsStr, { codec, quality, preset }, outPath);
   // A cancel must reach the encoder directly: a worker parked on stdin
   // backpressure would otherwise never notice the abort.
   const killOnAbort = (): void => encoder.kill();
   signal?.addEventListener('abort', killOnAbort, { once: true });
   const stream = new OrderedFrameStream(encoder);
   try {
-    await stage(tracer, 'render.encode', renderSpan, { 'render.preset': preset }, async (encodeSpan) => {
+    await stage(tracer, 'render.encode', renderSpan, {
+      'render.codec': codec,
+      'render.quality': quality,
+      'render.preset': preset,
+    }, async (encodeSpan) => {
       await stage(tracer, 'render.capture', renderSpan, {}, async (captureSpan) => {
         await runWorkers(
           {
@@ -530,7 +553,8 @@ export async function renderVideo(
   const {
     html, style, tileCache, width, height, frames, fpsStr,
     workers, outPath, log = () => {}, browserPath = null,
-    capture = 'jpeg', preset = 'medium', frameStart = 0, signal, trace,
+    capture = 'jpeg', codec = 'h264', quality = 'high', preset = 'medium',
+    frameStart = 0, signal, trace,
     onCapture,
   } = opts;
 
@@ -544,6 +568,8 @@ export async function renderVideo(
     fpsStr,
     outPath,
     capture,
+    codec,
+    quality,
     preset,
     signal,
     log,
@@ -556,6 +582,8 @@ export async function renderVideo(
     {
       'render.workers': workerCount,
       'render.capture.mode': capture,
+      'render.codec': codec,
+      'render.quality': quality,
       'render.preset': preset,
     },
     async (renderSpan) => {
