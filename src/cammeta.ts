@@ -376,9 +376,9 @@ function spreadSampleTimes(samples: CamSample[], durationSec: number): void {
 // index then stays aligned to video frames; lat stays null). Default false
 // keeps only GPS-bearing frames.
 export async function parseCamMeta(
+  tools: FfToolPaths,
   videoPath: string,
   durationSec: number,
-  tools: FfToolPaths,
   opts: { keepAll?: boolean } = {},
 ): Promise<CamMetaResult | null> {
   const keepAll = opts.keepAll === true;

@@ -23,14 +23,18 @@ describe('pickFfTool', () => {
   });
 
   it.each([
-    ['ffmpeg', '/missing/ffmpeg', 'invalid --ffmpeg override: no such file: /missing/ffmpeg'],
+    [
+      'ffmpeg',
+      '/missing/ffmpeg',
+      'invalid ffmpeg override (CLI --ffmpeg or config key `ffmpeg`): no such file: /missing/ffmpeg',
+    ],
     [
       'ffprobe',
       'C:\\tools\\ffprobe.exe',
-      'invalid --ffprobe override: no such file: C:\\tools\\ffprobe.exe',
+      'invalid ffprobe override (CLI --ffprobe or config key `ffprobe`): no such file: C:\\tools\\ffprobe.exe',
     ],
   ] as const)(
-    'rejects the missing %s path override naming its flag',
+    'rejects the missing %s path override naming the override sources',
     (tool, override, message) => {
       expect(() => pickFfTool(tool, override, [], never)).toThrow(message);
     },

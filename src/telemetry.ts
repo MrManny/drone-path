@@ -34,7 +34,7 @@ async function loadSamples(
     };
   }
 
-  const cam = await parseCamMeta(videoPath, durationSec, tools);
+  const cam = await parseCamMeta(tools, videoPath, durationSec);
   if (!cam || cam.samples.length === 0) {
     throw new Error(
       'no telemetry found: no .SRT sidecar and no GPS pairs in the CAM meta stream',

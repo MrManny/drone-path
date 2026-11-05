@@ -665,6 +665,23 @@ describe('tool threading', () => {
       ['verifyOutput', tools],
     ]);
   });
+
+  it('passes the resolved tools to the skip check in runBatch', async () => {
+    const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+    const seen: FfToolPaths[] = [];
+    const deps = stubDeps({
+      outputMatchesSource: async (t) => {
+        seen.push(t);
+        return true;
+      },
+    });
+    const result = await runBatch([VIDEO], testConfig({ skipExisting: true }), () => {}, () => {}, {
+      deps,
+      tools,
+    });
+    expect(result.skipped).toBe(1);
+    expect(seen).toEqual([tools]);
+  });
 });
 
 describe('processRecording frame ranges', () => {

@@ -1,7 +1,7 @@
 // Where the ffmpeg and ffprobe executables come from at runtime: an explicit
 // override, then the embedded binaries (the packaged app's extraResources, or
-// the optional installer packages in dev/CLI installs), then PATH. Pure
-// decision core with an injectable environment so the resolution order is
+// the optional ffmpeg-ffprobe-static package in dev/CLI installs), then PATH.
+// Pure decision core with an injectable environment so the resolution order is
 // testable without touching the filesystem or spawning anything.
 
 import fs from 'node:fs';
@@ -19,11 +19,6 @@ export interface FfToolPaths {
 }
 
 export type FfOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
-
-const INSTALLER_PACKAGES: Record<FfToolName, string> = {
-  ffmpeg: '@ffmpeg-installer/ffmpeg',
-  ffprobe: '@ffprobe-installer/ffprobe',
-};
 
 interface FfToolEnv {
   exists: (file: string) => boolean;
@@ -45,7 +40,9 @@ export function pickFfTool(
 ): string {
   if (override) {
     if (isPathLike(override) && !exists(override)) {
-      throw new Error(`invalid --${tool} override: no such file: ${override}`);
+      throw new Error(
+        `invalid ${tool} override (CLI --${tool} or config key \`${tool}\`): no such file: ${override}`,
+      );
     }
     return override;
   }
@@ -64,14 +61,17 @@ function packagedCandidate(tool: FfToolName): string | null {
   return resourcesPath ? path.join(resourcesPath, 'ff', exeName(tool)) : null;
 }
 
-// The optional installer packages may be absent (unsupported platform,
-// --omit=optional) and must never crash module loading: resolve them lazily.
+// The optional ffmpeg-ffprobe-static package may be absent (unsupported
+// platform, --omit=optional, a failed install download) and must never crash
+// module loading: resolve it lazily.
 function devCandidate(tool: FfToolName): string | null {
   try {
-    const mod = createRequire(import.meta.url)(INSTALLER_PACKAGES[tool]) as {
-      path?: unknown;
+    const mod = createRequire(import.meta.url)('ffmpeg-ffprobe-static') as {
+      ffmpegPath?: unknown;
+      ffprobePath?: unknown;
     };
-    return typeof mod.path === 'string' ? mod.path : null;
+    const candidate = tool === 'ffmpeg' ? mod.ffmpegPath : mod.ffprobePath;
+    return typeof candidate === 'string' ? candidate : null;
   } catch {
     return null;
   }
