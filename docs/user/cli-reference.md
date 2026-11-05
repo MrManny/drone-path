@@ -22,7 +22,9 @@ table in the terminal.
 | `hud` | `--hud <list>` | `heading` | comma list of heading,alt,speed - or none (alt hides when unavailable) |
 | `workers` | `--workers <n>` | `4` | parallel browser pages |
 | `capture` | `--capture <mode>` | `jpeg` | frame capture mode (canvas is parked) (choices: jpeg, png) |
-| `preset` | `--preset <name>` | `medium` | x264 preset (choices: medium, veryfast) |
+| `codec` | `--codec <name>` | `h264` | video codec (mp4 container) (choices: h264, h265) |
+| `quality` | `--quality <level>` | `high` | encoding quality (choices: near-lossless, high, medium, low) |
+| `preset` | `--preset <name>` | `medium` | encoding speed (choices: medium, veryfast) |
 | `tileCache` | `--tile-cache <dir>` | — | tile cache directory (default: per-user cache dir) |
 | `browser` | `--browser <path>` | — | Chromium/Chrome/Edge executable (default: system Chrome/Edge) |
 | `skipExisting` | `--skip-existing` | off | skip recordings whose output already exists and matches the source |

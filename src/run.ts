@@ -671,6 +671,8 @@ async function renderToOutput(env: RenderStageEnv): Promise<void> {
     await deps.renderVideo({
       html,
       capture: ctx.config.capture,
+      codec: ctx.config.codec,
+      quality: ctx.config.quality,
       preset: ctx.config.preset,
       style: ctx.config.style,
       tileCache: ctx.config.tileCache,

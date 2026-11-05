@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { SETTINGS_KEYS, formatHud, parseSettingsPatch } from './config.js';
+import { DEFAULT_CONFIG, SETTINGS_KEYS, formatHud, parseSettingsPatch } from './config.js';
 import type { RenderConfig, SettingsPatch } from './config.js';
 
 export const APP_STATE_VERSION = 1;
@@ -22,9 +22,22 @@ export function emptyAppState(): AppState {
   return { settings: null, lastOpenDir: null };
 }
 
-// The state falls back as a whole: a file that is not exactly this version's
-// shape is outdated or corrupt, and keeping parts of it would restore a look
-// the user never chose.
+// Older settings objects read tolerantly: a key their writer did not know
+// starts at its documented default, so an upgrade keeps the look the user
+// chose. A present-but-mistyped value (null included) stays the parser's
+// business and fails the state.
+function fillMissingSettings(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
+  const filled = { ...(raw as Record<string, unknown>) };
+  for (const key of SETTINGS_KEYS) {
+    if (!(key in filled)) filled[key] = DEFAULT_CONFIG[key];
+  }
+  return filled;
+}
+
+// The state falls back as a whole: a file whose shape this build cannot read
+// is outdated or corrupt, and keeping parts of it would restore a look the
+// user never chose.
 export function parseAppState(raw: unknown): AppState {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new Error('invalid app state');
@@ -41,7 +54,7 @@ export function parseAppState(raw: unknown): AppState {
   const settings =
     r.settings === undefined || r.settings === null
       ? null
-      : parseSettingsPatch(r.settings, 'app state');
+      : parseSettingsPatch(fillMissingSettings(r.settings), 'app state');
   let lastOpenDir: string | null = null;
   if (r.lastOpenDir !== undefined && r.lastOpenDir !== null) {
     if (typeof r.lastOpenDir !== 'string') {

@@ -60,10 +60,14 @@ export type ExportEvent =
   | { type: 'clearError' }
   | { type: 'finish'; outcome: ExportOutcome };
 
-export function initialExportState(width: number, height: number): ExportState {
+export function initialExportState(
+  width: number,
+  height: number,
+  range: FrameRange | null = null,
+): ExportState {
   return {
     phase: 'form',
-    form: { outPath: null, ...normalizeDimensions(width, height), range: null },
+    form: { outPath: null, ...normalizeDimensions(width, height), range },
     request: null,
     messages: [],
     capture: null,

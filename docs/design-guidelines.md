@@ -143,11 +143,11 @@ Spacing values are literals on this scale; use nothing else:
 - **Number field** (`NumberField`): 96px wide, tabular numerals, `min` and `step` props (step 1; 0.5 for Intro and Outro). A valid value applies at once. A value that is not finite, is below `min`, or fails the owner's check is rejected: the typed text stays, `aria-invalid="true"` is set, the border turns `--danger` with a 1px inset ring, `aria-describedby` points at the message, and the message replaces the hint: "Must be {rule}." Rules in use: "0 or more", "at least 64 px". On blur the typed text is dropped and the last valid value shows.
 - **Export dimensions** (Width and Height in the export "How" group): the commit applies the pipeline's own rule (`normalizeDimensions`, `src/config.ts`), so the field always shows the effective even size (each rounded down, minimum 64) the export renders — typing 769 and blurring shows 768. Rejected input (below the minimum, non-finite) behaves as in the Number field rule above.
 - **Select** (`SelectField`): a native `select` styled as a field (`appearance: none`, 32px right padding, chevron as background image). Options show plain labels; the raw vocabulary value is what applies.
-- **Groups:** `fieldset.settings-group` with a 13px `legend` in `--text-3`: "HUD chips"; "What" and "How" in export.
+- **Groups:** `fieldset.settings-group` with a 13px `legend` in `--text-3`: "HUD chips"; "What" and "How" in export, where the "How" legend appears only beside "What" — a lone group carries no legend.
 
 ### 8.5 Dialogs
 
-- **Anatomy:** overlay `.settings-overlay`; panel `.settings-panel` (`role="dialog"`, `aria-label` "Settings", "Export" or "Update"); header `.settings-header` (18px title and the header close); body; footer `.dialog-actions` (right-aligned, wrapping, 8px gap, 16px top margin), export and the update prompt. Settings has no footer and applies changes on change; every change is stored and the next launch restores the look (a fresh install, or state the app cannot read, starts at the documented defaults).
+- **Anatomy:** overlay `.settings-overlay`; panel `.settings-panel` (`role="dialog"`, `aria-label` "Settings", "Export" or "Update"); header `.settings-header` (18px title and the header close); body; footer `.dialog-actions` (right-aligned, wrapping, 8px gap, 16px top margin), export and the update prompt. Settings has no footer and applies changes on change; every change is stored and the next launch restores the look (a fresh install, or state the app cannot read, starts at the documented defaults). The export form's encoder choices (Format, Quality, Speed) apply and store the same way.
 - **Position and size:** the top edge sits 56px (`--dialog-top`) below the window top in every phase. The panel is `min(440px, 100%)` wide, padded 24px, at most `100vh − 80px` high, and scrolls inside.
 - **Header close** (`DialogClose`): always present, labeled "Close" with a glyph. While closing would interrupt work it is disabled, and its `title` gives the reason: "Export is running. Cancel it to close."
 - **Footer by phase** (export):
@@ -160,6 +160,7 @@ Spacing values are literals on this scale; use nothing else:
 | Canceled | Close | Info |
 | Error | Close | Danger; ends "The destination file was left untouched." |
 
+- **Export form memory:** the form opens on the In–Out segment when a loop is engaged, and remembers the output size for the session (a new recording starts from the resolved size).
 - **Escape and backdrop:** Settings closes on Escape, backdrop click or header Close at any time. Export closes on them only when not running; while running they are ignored. One rule drives all three, from the dialog visibility state (`ui/lib/dialogstate.ts`): the export modal reports its job's start and finish there, and the header close and backdrop read the dismissal rule back.
 - **Lock while busy:** during an export the header close is disabled, and closing the window asks "An export is in progress" (native prompt, `app/main.mjs`). Cancel export is the only way out.
 - **Update prompt:** titled "Update"; its message is the info notice under the title, and its footer carries Later and Restart now (primary). Escape, the backdrop and the header close all mean Later. When the restart starts every dismissal locks too: the primary reads "Restarting…" and the header close is disabled with "The app is restarting." If the restart cannot start, the prompt unlocks and offers Restart now again. The prompt appears at most once per session and only over a quiet UI: never over another dialog or a running export.
@@ -208,7 +209,7 @@ Spacing values are literals on this scale; use nothing else:
 | Warm hint | Warming tiles… 12/48 (running tile count over the tiles the map displays) |
 | Export dialog | Start export, Cancel, Cancel export / Canceling…, Reveal in folder, Open video, Close; progress "Rendering N%" / "Preparing…" |
 | Export "What" | Full recording (0:34); In–Out segment (0:10–0:12 · 121 frames) — shown only when a loop is set |
-| Export "How" | Width, Height; hint "px"; message "Must be at least 64 px." |
+| Export "How" | Width, Height; hint "px"; message "Must be at least 64 px."; Format (H.264, H.265), Quality (Near-lossless, High, Medium, Low), Speed (Balanced, Faster) |
 | Settings | Map style (Satellite, Topographic), View (Follow, Overview), Zoom, Zoom-out, Intro (s), Outro (s); HUD chips: Heading arrow, Altitude (ALT), Speed (SPD) |
 | Update dialog | Update (title); Restart now, Later / "Restarting…"; message "A new version is ready to install. Restart now to finish updating, or keep working and the update installs when you quit." |
 | Notices | Dismiss; "Technical details" |
@@ -240,9 +241,9 @@ Spacing values are literals on this scale; use nothing else:
 
 ## 13. Accessibility
 
-- **Focus:** `:focus-visible` shows a 2px `--focus` (white) outline, offset 2px, on buttons, inputs (including toggles and the timeline), selects and summaries. Mouse clicks do not show it.
+- **Focus:** `:focus-visible` shows a 2px `--focus` (white) outline, offset 2px, on buttons, inputs (including toggles and the timeline), selects and summaries. Mouse clicks do not show it. Opening a dialog moves focus to its panel (`tabIndex={-1}`); closing returns it to the opener.
 - **Contrast:** every text token meets 4.5:1 on each surface where it is used; the accent, focus ring and state fills meet 3:1 (section 3).
-- **Names:** icon-plus-label buttons have visible text; Settings and Close also set `aria-label`; loop buttons set `aria-label` and a `title` with the key; the timeline slider has `aria-label` "Playback position"; dialogs have `role="dialog"` and an `aria-label`; the progress bar has `role="progressbar"` and a label; fields use `label` with `htmlFor`; groups use `fieldset` and `legend`; speed segments use `aria-pressed` in a group labeled "Playback speed".
+- **Names:** icon-plus-label buttons have visible text; Settings and Close also set `aria-label`; loop buttons set `aria-label` and a `title` with the key; the timeline slider has `aria-label` "Playback position"; dialogs have `role="dialog"` and an `aria-label`; the progress bar has `role="progressbar"` and a label; fields use `label` with `htmlFor`; groups use `fieldset` and `legend` (a lone export group carries none, §8.4); speed segments use `aria-pressed` in a group labeled "Playback speed".
 - **Disabled reasons:** the visible label when it states the reason ("Preparing…", "Warming tiles…", "Canceling…") or a `title`: the header close during an export ("Export is running. Cancel it to close."), the altitude toggle, and Clear without a loop ("No loop to clear.").
 - **Keyboard** (`ui/lib/hotkeys.ts`, `ui/hooks/usePlayerHotkeys.ts`): Space or K play and pause; 1–4 set speed; Home and End seek; I and O set loop points; S swaps the views; Left and Right step one frame; Shift with Left or Right jumps one second; Ctrl+O opens a recording; Escape closes the open dialog, or clears the loop when none is open, and does nothing while an export runs. Shortcuts are off in text fields, selects and text areas, and while a dialog is open (only Escape gets through). Space is also off over a focused button, link or disclosure, which it activates instead. Only the arrow keys repeat when held.
 - **Motion:** reduced motion removes all transitions; video and map never animate (section 6).

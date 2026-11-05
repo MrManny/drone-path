@@ -3,7 +3,7 @@
 import { useEffect, useReducer } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import type { ExportRequest, FrameRange, RenderConfig } from '../../src/config.js';
+import type { EncodeSettings, ExportRequest, FrameRange, RenderConfig } from '../../src/config.js';
 import { errorMessage } from '../../src/errors.js';
 import type { AppBridge, ExportAck } from '../lib/backend.js';
 import { appBridge } from '../lib/backend.js';
@@ -29,6 +29,12 @@ export interface ExportModalProps {
   dismissible: boolean;
   /** Feeds the dialog state machine the job's lifecycle. */
   onRunEvent: (event: DialogRunEvent) => void;
+  /** Encoder edits persist through the page's settings change. */
+  onEncoderChange: (patch: Partial<EncodeSettings>) => void;
+  /** The session's last committed sizes; the form reopens on them. */
+  initialSizes?: { width: number; height: number } | null;
+  /** Reported from an effect; must be a stable callback (a state setter). */
+  onSizesChange?: (sizes: { width: number; height: number }) => void;
 }
 
 export function ExportModal({
@@ -38,14 +44,26 @@ export function ExportModal({
   onClose,
   dismissible,
   onRunEvent,
+  onEncoderChange,
+  initialSizes = null,
+  onSizesChange,
 }: ExportModalProps) {
   const { video, durationSec } = session;
-  const [state, dispatch] = useReducer(
-    exportReducer,
-    initialExportState(settings.width, settings.height),
-  );
   const loopPoints = engagedLoop(loop);
+  // The form opens on the engaged segment and the session's last sizes: the
+  // close-reopen retry keeps the choices that matter.
+  const [state, dispatch] = useReducer(exportReducer, undefined, () =>
+    initialExportState(
+      initialSizes?.width ?? settings.width,
+      initialSizes?.height ?? settings.height,
+      loopPoints ? { start: loopPoints.in, end: loopPoints.out } : null,
+    ),
+  );
   const busy = state.phase === 'running';
+
+  useEffect(() => {
+    onSizesChange?.({ width: state.form.width, height: state.form.height });
+  }, [state.form.width, state.form.height, onSizesChange]);
 
   useEffect(() => {
     if (busy) onRunEvent({ type: 'exportStarted' });
@@ -119,13 +137,13 @@ export function ExportModal({
   };
 
   // The snapshot is frozen here: the job runs this request however the
-  // preview settings move afterwards. A segment only exists while its loop is
-  // engaged; a stale choice never exports frames the user can no longer see
-  // marked.
+  // preview settings move afterwards. The segment export follows the frames
+  // marked at confirm (the label the user reads), never a stale range; a
+  // choice made without a marked segment exports the full recording.
   const buildRequest = (outPath: string): ExportRequest => ({
     outPath,
     config: { ...settings, width: form.width, height: form.height },
-    range: segment ? form.range : null,
+    range: segment && form.range ? segment.range : null,
   });
 
   const startJob = async (request: ExportRequest): Promise<void> => {
@@ -160,6 +178,12 @@ export function ExportModal({
     void runBridgeAction(call, (error) => ({ type: 'failed', error }), 'action failed');
   };
 
+  // Like every form edit, an encoder change clears a stale error.
+  const changeEncoder = (patch: Partial<EncodeSettings>): void => {
+    dispatch({ type: 'clearError' });
+    onEncoderChange(patch);
+  };
+
   return (
     <DialogShell
       title="Export"
@@ -172,8 +196,10 @@ export function ExportModal({
           form={form}
           segment={segment}
           totalText={totalText}
+          encode={{ codec: settings.codec, quality: settings.quality, preset: settings.preset }}
           error={error}
           dispatch={dispatch}
+          onEncoderChange={changeEncoder}
           onClose={onClose}
           onStart={() => void chooseAndExport()}
         />

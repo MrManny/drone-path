@@ -101,6 +101,26 @@ afterEach(() => {
   cleanup();
 });
 
+describe('PlayerChrome export form memory', () => {
+  it('remembers the segment seed and the sizes across dialog opens', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const scrub = screen.getByRole('slider', { name: 'Playback position' });
+    fireEvent.change(scrub, { target: { value: '10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set loop in' }));
+    fireEvent.change(scrub, { target: { value: '60' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Set loop out' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '1024' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
+    expect(screen.getByLabelText<HTMLInputElement>('Width').value).toBe('1024');
+  });
+});
+
 describe('PlayerChrome', () => {
   it('opens help through the control bar', () => {
     const onHelp = vi.fn();

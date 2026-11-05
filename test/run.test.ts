@@ -610,6 +610,27 @@ describe('runBatch tracing', () => {
   });
 });
 
+describe('processRecording encoder settings', () => {
+  it('passes the encoder choices through to the render', async () => {
+    let encode: { codec: string; quality: string; preset: string } | null = null;
+    const deps = stubDeps({
+      renderVideo: async (opts) => {
+        encode = { codec: opts.codec, quality: opts.quality, preset: opts.preset };
+        return { profile: { evalMs: 0, captureMs: 0, emitMs: 0 } };
+      },
+    });
+    const out = path.join(tmpDir(), 'encoded.mp4');
+    await processRecording(
+      VIDEO,
+      testConfig({ codec: 'h265', quality: 'low', preset: 'veryfast' }),
+      () => {},
+      out,
+      { deps },
+    );
+    expect(encode).toEqual({ codec: 'h265', quality: 'low', preset: 'veryfast' });
+  });
+});
+
 describe('processRecording frame ranges', () => {
   function rangeDeps() {
     const calls: { render?: { frames: number; frameStart?: number }; verify?: number } = {};

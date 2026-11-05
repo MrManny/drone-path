@@ -1,12 +1,14 @@
-// The option vocabulary: the option types (Style, View, Capture, Preset,
-// HudSpec), their defaults and the parsing/normalizing rules. Feature modules
-// import them from here, and this module stays free of I/O so the app UI can
-// share the vocabulary in its browser bundle. File discovery and the
-// precedence of the config layers live in src/configfile.ts.
+// The option vocabulary: the option types (Style, View, Capture, Codec,
+// Quality, Preset, HudSpec), their defaults and the parsing/normalizing rules.
+// Feature modules import them from here, and this module stays free of I/O so
+// the app UI can share the vocabulary in its browser bundle. File discovery
+// and the precedence of the config layers live in src/configfile.ts.
 
 export type Style = 'satellite' | 'topo';
 export type View = 'follow' | 'overview';
 export type Capture = 'jpeg' | 'png';
+export type Codec = 'h264' | 'h265';
+export type Quality = 'near-lossless' | 'high' | 'medium' | 'low';
 export type Preset = 'medium' | 'veryfast';
 
 export interface HudSpec {
@@ -31,6 +33,8 @@ export interface RenderConfig {
   hud: HudSpec;
   workers: number;
   capture: Capture;
+  codec: Codec;
+  quality: Quality;
   preset: Preset;
   /** Empty = the per-user cache directory; resolveConfig fills it in. */
   tileCache: string;
@@ -55,7 +59,9 @@ export const CONFIG_FILE_OPTION = {
 export const STYLE_VALUES: readonly Style[] = ['satellite', 'topo'];
 export const VIEW_VALUES: readonly View[] = ['follow', 'overview'];
 const CAPTURE_VALUES: Capture[] = ['jpeg', 'png'];
-const PRESET_VALUES: Preset[] = ['medium', 'veryfast'];
+export const CODEC_VALUES: readonly Codec[] = ['h264', 'h265'];
+export const QUALITY_VALUES: readonly Quality[] = ['near-lossless', 'high', 'medium', 'low'];
+export const PRESET_VALUES: readonly Preset[] = ['medium', 'veryfast'];
 
 // The normalizer column of the option key table: validation and conversion for
 // one key, taking the raw value and an error-context name.
@@ -258,8 +264,20 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
     normalize: (v, name) => ({ capture: asEnum(v, name, CAPTURE_VALUES) }),
   },
   {
+    key: 'codec',
+    cli: { flags: '--codec <name>', help: 'video codec (mp4 container)', choices: CODEC_VALUES },
+    default: 'h264',
+    normalize: (v, name) => ({ codec: asEnum(v, name, CODEC_VALUES) }),
+  },
+  {
+    key: 'quality',
+    cli: { flags: '--quality <level>', help: 'encoding quality', choices: QUALITY_VALUES },
+    default: 'high',
+    normalize: (v, name) => ({ quality: asEnum(v, name, QUALITY_VALUES) }),
+  },
+  {
     key: 'preset',
-    cli: { flags: '--preset <name>', help: 'x264 preset', choices: PRESET_VALUES },
+    cli: { flags: '--preset <name>', help: 'encoding speed', choices: PRESET_VALUES },
     default: 'medium',
     normalize: (v, name) => ({ preset: asEnum(v, name, PRESET_VALUES) }),
   },
@@ -356,11 +374,17 @@ export function effectiveZoomOut(config: Pick<RenderConfig, 'zoom' | 'zoomOut'>)
   return config.zoom > 0 ? 0 : config.zoomOut;
 }
 
-/** The look settings the settings panel owns. */
-export type SettingsPatch = Pick<
+/** The encoder knobs the export modal owns and the renderer applies. */
+export type EncodeSettings = Pick<RenderConfig, 'codec' | 'quality' | 'preset'>;
+
+/** The look settings: what the map shows. */
+export type LookSettings = Pick<
   RenderConfig,
   'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec'
 >;
+
+/** The persisted settings: the look the settings panel owns and the encoder choices the export modal owns. */
+export type SettingsPatch = LookSettings & EncodeSettings;
 
 export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   return {
@@ -371,10 +395,13 @@ export function settingsPatchOf(config: RenderConfig): SettingsPatch {
     hud: config.hud,
     introSec: config.introSec,
     outroSec: config.outroSec,
+    codec: config.codec,
+    quality: config.quality,
+    preset: config.preset,
   };
 }
 
-// The panel's keys in the vocabulary's table order: the persisted state's
+// The persisted keys in the vocabulary's table order: the persisted state's
 // shape and its serialization order in one home.
 export const SETTINGS_KEYS = [
   'style',
@@ -384,10 +411,13 @@ export const SETTINGS_KEYS = [
   'hud',
   'introSec',
   'outroSec',
+  'codec',
+  'quality',
+  'preset',
 ] as const;
 
-// The panel-values boundary (the settings save IPC, the persisted state
-// file): the seven keys arrive complete and vocabulary-valid, so no layer
+// The settings-values boundary (the settings save IPC, the persisted state
+// file): the keys arrive complete and vocabulary-valid, so no layer
 // downstream can hold a value the pipeline would reject. The HUD spec travels
 // as its object form over IPC and as its CLI string in JSON files; both run
 // through the vocabulary's own normalizers.
@@ -396,8 +426,8 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
     throw new Error(`invalid settings in ${origin}`);
   }
   const flat = { ...(raw as Record<string, unknown>) };
-  // A known config key outside the panel (a machine-owned value) must never
-  // ride along; the vocabulary's normalizers only reject unknown keys.
+  // A known config key outside the persisted set (a machine-owned value) must
+  // never ride along; the vocabulary's normalizers only reject unknown keys.
   for (const key of Object.keys(flat)) {
     if (!(SETTINGS_KEYS as readonly string[]).includes(key)) {
       throw new Error(`unknown settings key ${key} in ${origin}`);
@@ -519,7 +549,7 @@ function parseHudObject(value: unknown, name: string): HudSpec {
 // resolved values stay authoritative, so a snapshot cannot redirect the tile
 // cache, the browser, the worker count or the CLI-only switches.
 const MAIN_OWNED_KEYS = [
-  'outDir', 'outSuffix', 'tileCache', 'browser', 'workers', 'capture', 'preset',
+  'outDir', 'outSuffix', 'tileCache', 'browser', 'workers', 'capture',
   'skipExisting', 'recurse', 'json', 'quiet',
 ] as const;
 

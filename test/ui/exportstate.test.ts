@@ -32,6 +32,11 @@ describe('export form', () => {
     expect(state.phase).toBe('form');
   });
 
+  it('starts on the seeded segment when one is given', () => {
+    const state = initialExportState(768, 768, { start: 4, end: 9 });
+    expect(state.form.range).toEqual({ start: 4, end: 9 });
+  });
+
   it('records the chosen destination, dimensions and range', () => {
     let state = initialExportState(768, 768);
     state = exportReducer(state, { type: 'choose', path: '/exports/b.mp4' });

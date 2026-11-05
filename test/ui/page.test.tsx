@@ -346,6 +346,16 @@ describe('settings persistence', () => {
       }),
     );
   });
+
+  it('persists an encoder change from the export modal through the backend', async () => {
+    const harness = await openPlayerWith(DEFAULT_CONFIG);
+    expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
+    expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ codec: 'h265' }),
+    );
+  });
 });
 
 describe('update prompt', () => {

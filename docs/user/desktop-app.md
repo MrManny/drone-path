@@ -30,11 +30,11 @@ Press `I` to mark the loop in point and `O` the out point; the passage between t
 
 ## Export
 
-The **Export…** button in the control bar renders the recording with the look you see in the preview. Choose *Full recording* or the *In–Out segment* (set the loop points with `I` / `O` first), set the output size, press **Start export**, and pick the destination file.
+The **Export…** button in the control bar renders the recording with the look you see in the preview. Choose *Full recording* or the *In–Out segment* (set the loop points with `I` / `O` first; once a loop is set the segment comes preselected), set the output size and the encoding — format (H.264 or H.265), quality (*Near-lossless* down to *Low*) and speed — press **Start export**, and pick the destination file. The app remembers the encoding choices between launches like the look settings, and the output size while the recording is open.
 
-![The export dialog with output size and segment choice](../images/app-export-dialog.jpg)
+![The export dialog with segment choice, output size and encoding](../images/app-export-dialog.jpg)
 
-*The Export dialog: render the full recording or just the In–Out segment.*
+*The Export dialog: render the full recording or just the In–Out segment, at the size and encoding you pick.*
 
 ## Settings
 
