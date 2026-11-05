@@ -7,6 +7,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { FrameBatchRecorder, renderVideo } from '../src/render.js';
 import type { CaptureProgress, RenderOpts } from '../src/render.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
+import type { FfToolPaths } from '../src/fftools.js';
 import { captureFraction, exportReducer, initialExportState } from '../ui/lib/exportstate.js';
 import {
   byName,
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   screenshotFailAt: 0,
   screenshots: 0,
   launchFail: false,
+  spawnCmds: [] as string[],
   spawnArgs: [] as string[][],
 }));
 
@@ -31,7 +33,8 @@ vi.mock('node:child_process', async (importOriginal) => {
   const { PassThrough } = await import('node:stream');
   return {
     ...actual,
-    spawn: (_cmd: string, args: string[]) => {
+    spawn: (cmd: string, args: string[]) => {
+      mocks.spawnCmds.push(cmd);
       mocks.spawnArgs.push(args);
       const proc = new EventEmitter() as InstanceType<typeof EventEmitter> & {
         stdin: InstanceType<typeof PassThrough>;
@@ -77,10 +80,13 @@ beforeEach(() => {
   mocks.screenshotFailAt = 0;
   mocks.screenshots = 0;
   mocks.launchFail = false;
+  mocks.spawnCmds = [];
   mocks.spawnArgs = [];
 });
 
 afterEach(cleanupTmpDirs);
+
+const TOOLS: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
 
 function renderOpts(overrides: Partial<RenderOpts> = {}): RenderOpts {
   return {
@@ -93,6 +99,7 @@ function renderOpts(overrides: Partial<RenderOpts> = {}): RenderOpts {
     fpsStr: '30',
     workers: 2,
     outPath: path.join(tmpDir(), 'out.mp4'),
+    tools: TOOLS,
     capture: 'jpeg',
     codec: 'h264',
     quality: 'high',
@@ -286,6 +293,7 @@ describe('encoder arguments', () => {
   it('reproduces the pre-#44 arguments for the default h264 encoding', async () => {
     const opts = renderOpts({ codec: 'h264', quality: 'high', preset: 'medium' });
     await renderVideo(opts);
+    expect(mocks.spawnCmds).toEqual([TOOLS.ffmpeg]);
     expect(mocks.spawnArgs).toEqual([
       [
         '-hide_banner', '-loglevel', 'error', '-y',

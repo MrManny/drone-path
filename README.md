@@ -37,7 +37,9 @@ npx neo2-flightpath "my-flight.mp4" --style topo --hud heading,alt,speed
 
 Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder
 and the name are configurable. This needs Node.js 24 or newer and
-**ffmpeg + ffprobe** on `PATH`; all requirements and install options are in
+ffmpeg/ffprobe — bundled with the desktop app and the npm package,
+overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback; all
+requirements and install options are in
 [Getting started](docs/user/getting-started.md).
 
 ## Documentation

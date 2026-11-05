@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decodePacketSamples } from '../src/cammeta.js';
 import type { PacketInfo } from '../src/cammeta.js';
 import type * as ffModule from '../src/ff.js';
+import type { FfToolPaths } from '../src/fftools.js';
 import { parseSrtText } from '../src/srt.js';
 import { loadTelemetry } from '../src/telemetry.js';
 import {
@@ -22,6 +23,8 @@ import {
 // mock both seams so absence and tool failures stay distinguishable and the
 // tests stay offline.
 const mocks = vi.hoisted(() => ({ ffprobeJson: vi.fn(), execFile: vi.fn() }));
+
+const TOOLS: FfToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
 
 vi.mock('../src/ff.js', async (importOriginal) => ({
   ...(await importOriginal<typeof ffModule>()),
@@ -50,6 +53,7 @@ describe('loadTelemetry (SRT source)', () => {
       frames: 3,
       fpsValue: 30,
       durationSec: 0.1,
+      tools: TOOLS,
     });
 
     expect(tel.source).toBe('srt');
@@ -84,6 +88,7 @@ describe('loadTelemetry (SRT source)', () => {
       frames: 4,
       fpsValue: 30,
       durationSec: 0.133,
+      tools: TOOLS,
     });
 
     // 4 cues: 2 fixes, 1 no-lock, 1 without any lat/lon line - the last one
@@ -99,7 +104,7 @@ describe('loadTelemetry (SRT source)', () => {
     const video = path.join(dir, 'naked.mp4');
     fs.writeFileSync(video, '');
     await expect(
-      loadTelemetry(video, { frames: 2, fpsValue: 30, durationSec: 1 }),
+      loadTelemetry(video, { frames: 2, fpsValue: 30, durationSec: 1, tools: TOOLS }),
     ).rejects.toThrow(/no telemetry found/);
   });
 
@@ -109,7 +114,7 @@ describe('loadTelemetry (SRT source)', () => {
     const dir = tmpDir();
     const video = path.join(dir, 'unreadable.mp4');
     fs.writeFileSync(video, '');
-    const err = await loadTelemetry(video, { frames: 2, fpsValue: 30, durationSec: 1 }).then(
+    const err = await loadTelemetry(video, { frames: 2, fpsValue: 30, durationSec: 1, tools: TOOLS }).then(
       () => null,
       (e: unknown) => e as Error,
     );
@@ -223,6 +228,7 @@ describe('cross-source fix classification', () => {
       frames: 3,
       fpsValue: 30,
       durationSec: 0.1,
+      tools: TOOLS,
     });
     expect(tel.fixCount).toBe(3);
     expect(tel.noLock).toBe(0);

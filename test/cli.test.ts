@@ -132,6 +132,15 @@ describe('parseCliArgs', () => {
     expect(cli).toEqual({});
   });
 
+  it('collects the tool overrides when given', () => {
+    expect(parseCliArgs(['clip.mp4', '--ffmpeg', 'D:\\ff\\ffmpeg.exe']).cli).toEqual({
+      ffmpeg: 'D:\\ff\\ffmpeg.exe',
+    });
+    expect(
+      parseCliArgs(['clip.mp4', '--ffmpeg', 'my-ffmpeg', '--ffprobe', 'my-ffprobe']).cli,
+    ).toEqual({ ffmpeg: 'my-ffmpeg', ffprobe: 'my-ffprobe' });
+  });
+
   it('names the offending flag when a value does not fit its option', () => {
     expect(() => parseCliArgs(['x.mp4', '--width', 'wide'])).toThrow(/--width/);
     expect(() => parseCliArgs(['x.mp4', '--workers', 'many'])).toThrow(/--workers/);

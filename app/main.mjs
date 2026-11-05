@@ -26,6 +26,7 @@ import { resolveConfig } from '../dist/configfile.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
 import { createExportRunner } from '../dist/exportjob.js';
 import { requireTools } from '../dist/ff.js';
+import { resolveFfTools } from '../dist/fftools.js';
 import { rangePlan } from '../dist/range.js';
 import { outputPathFor } from '../dist/run.js';
 import { createTileTraffic } from '../dist/tiles.js';
@@ -208,10 +209,10 @@ function exportOutputOf(state, payload) {
 // The backing services behind the window: tool check, config, tile cache and
 // the recording session.
 async function initServices(state) {
-  await requireTools();
   const resolved = resolveConfig({});
   state.appState = readAppState(appStateFile());
   state.config = applyAppState(resolved.config, state.appState);
+  await requireTools(resolveFfTools(state.config));
   // One polite tile queue for the whole app: the gate pre-warm, the
   // background pre-warm, on-demand tiles and exports all share its request
   // budget, and on-demand tiles the player needs right now jump the queue.

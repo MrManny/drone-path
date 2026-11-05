@@ -129,12 +129,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['app/**/*.cjs'],
+    files: ['app/**/*.cjs', 'build/**/*.cjs'],
     languageOptions: {
-      globals: { require: 'readonly' },
+      globals: { require: 'readonly', module: 'readonly', __dirname: 'readonly' },
     },
     rules: {
-      // Sandboxed preload scripts cannot use ESM.
+      // CJS by necessity: sandboxed preload scripts cannot use ESM, and
+      // electron-builder loads afterPack hooks via require.
       '@typescript-eslint/no-require-imports': 'off',
     },
   },

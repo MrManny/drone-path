@@ -1,7 +1,10 @@
-// ffmpeg and ffprobe are expected on PATH (never bundled).
+// ffmpeg and ffprobe invocation: the resolved tool paths come from
+// src/fftools.ts (override, embedded binary, then PATH).
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+
+import type { FfToolPaths } from './fftools.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,30 +31,33 @@ export interface VerifyResult {
 }
 
 const INSTALL_HINT =
-  'install ffmpeg (includes ffprobe) and make sure both are on PATH, e.g. ' +
-  '"winget install Gyan.FFmpeg" (Windows), "brew install ffmpeg" (macOS) or ' +
-  '"apt install ffmpeg" (Linux)';
+  'point --ffmpeg/--ffprobe at your executables, or install ffmpeg (includes ' +
+  'ffprobe) and make sure both are on PATH, e.g. "winget install Gyan.FFmpeg" ' +
+  '(Windows), "brew install ffmpeg" (macOS) or "apt install ffmpeg" (Linux)';
 
 const FFPROBE_MAX_BUFFER = 64 * 1024 * 1024;
 
-export async function requireTools(): Promise<void> {
-  for (const tool of ['ffmpeg', 'ffprobe']) {
+export async function requireTools(tools: FfToolPaths): Promise<void> {
+  for (const tool of ['ffmpeg', 'ffprobe'] as const) {
+    const command = tools[tool];
     try {
-      await execFileAsync(tool, ['-version'], { maxBuffer: 1 << 20 });
+      await execFileAsync(command, ['-version'], { maxBuffer: 1 << 20 });
     } catch (e) {
-      throw new Error(`${tool} is required but was not found on PATH - ${INSTALL_HINT}`, {
-        cause: e,
-      });
+      throw new Error(
+        `${tool} is required but could not be run (${command}) - ${INSTALL_HINT}`,
+        { cause: e },
+      );
     }
   }
 }
 
 export async function ffprobeJson(
+  tools: FfToolPaths,
   videoPath: string,
   args: string[],
 ): Promise<Record<string, unknown>> {
   const { stdout } = await execFileAsync(
-    'ffprobe',
+    tools.ffprobe,
     ['-v', 'error', ...args, videoPath],
     { maxBuffer: FFPROBE_MAX_BUFFER },
   );
@@ -103,10 +109,11 @@ function firstStream(j: Record<string, unknown>): ProbeStream {
 }
 
 export async function probeVideo(
+  tools: FfToolPaths,
   videoPath: string,
   log: (msg: string) => void = () => {},
 ): Promise<VideoProbe> {
-  const j = await ffprobeJson(videoPath, [
+  const j = await ffprobeJson(tools, videoPath, [
     '-select_streams', 'v:0',
     '-show_entries',
     'stream=r_frame_rate,avg_frame_rate,nb_frames,width,height:format=duration',
@@ -144,11 +151,12 @@ export async function probeVideo(
 }
 
 export async function verifyOutput(
+  tools: FfToolPaths,
   outPath: string,
   frames: number,
   fpsValue: number,
 ): Promise<VerifyResult> {
-  const j = await ffprobeJson(outPath, [
+  const j = await ffprobeJson(tools, outPath, [
     '-select_streams', 'v:0',
     '-show_entries', 'stream=nb_frames,r_frame_rate',
     '-of', 'json',
@@ -167,9 +175,9 @@ export async function verifyOutput(
   };
 }
 
-async function probeRateFrames(file: string): Promise<string> {
+async function probeRateFrames(ffprobe: string, file: string): Promise<string> {
   const { stdout } = await execFileAsync(
-    'ffprobe',
+    ffprobe,
     [
       '-v', 'error', '-select_streams', 'v:0',
       '-show_entries', 'stream=avg_frame_rate,nb_frames',
@@ -182,12 +190,13 @@ async function probeRateFrames(file: string): Promise<string> {
 
 // Missing or unreadable outputs count as a mismatch, not an error.
 export async function outputMatchesSource(
+  tools: FfToolPaths,
   src: string,
   out: string,
 ): Promise<boolean> {
   try {
-    const [srcRate, srcFrames] = (await probeRateFrames(src)).split(',');
-    const [outRate, outFrames] = (await probeRateFrames(out)).split(',');
+    const [srcRate, srcFrames] = (await probeRateFrames(tools.ffprobe, src)).split(',');
+    const [outRate, outFrames] = (await probeRateFrames(tools.ffprobe, out)).split(',');
     return Number(outFrames) > 0 && srcRate === outRate && srcFrames === outFrames;
   } catch {
     return false;

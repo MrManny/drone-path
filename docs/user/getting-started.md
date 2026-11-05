@@ -15,7 +15,7 @@ Run it straight from npm with `npx neo2-flightpath`, or straight from GitHub wit
 ## Requirements
 
 - **Node.js >= 24**
-- **ffmpeg + ffprobe** on `PATH` (telemetry extraction and video encoding): `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
+- **ffmpeg + ffprobe** for telemetry extraction and video encoding: bundled with the desktop app and the npm package, overridable with `--ffmpeg <path>` / `--ffprobe <path>`, and looked up on `PATH` as a fallback. Installing (including a first `npx neo2-flightpath` run) downloads the ffmpeg/ffprobe binaries in a postinstall step (~250 MB for both tools); with `--omit=optional` or offline installs the `PATH` fallback applies: `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
 - **Google Chrome or Microsoft Edge** for rendering from the CLI. The desktop app embeds Chromium and needs no system browser. With neither browser installed, `npx playwright install chromium` works too, and any Chromium executable can be forced with `--browser <path>`.
 - **Internet on the first run**: map tiles are fetched and then cached permanently (see [Tiles and attribution](tiles-and-attribution.md)).
 

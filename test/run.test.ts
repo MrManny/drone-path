@@ -18,6 +18,7 @@ import {
   runBatch,
 } from '../src/run.js';
 import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/run.js';
+import type { FfToolPaths } from '../src/fftools.js';
 import { tilePaths } from '../src/tilecache.js';
 import { loadTelemetry } from '../src/telemetry.js';
 import { START_PREPARE_PROGRESS } from '../ui/lib/pickstate.js';
@@ -554,7 +555,7 @@ describe('runBatch tracing', () => {
   it('continues after a failure and still exports the remaining recordings', async () => {
     const harness = await tracingHarness();
     const deps = stubDeps({
-      probeVideo: async (videoPath: string) => {
+      probeVideo: async (_tools, videoPath) => {
         if (videoPath.endsWith('broken.mp4')) throw new Error('no telemetry in file');
         return PROBE;
       },
@@ -631,6 +632,58 @@ describe('processRecording encoder settings', () => {
   });
 });
 
+describe('tool threading', () => {
+  it('passes the resolved tools to every tool-using dep', async () => {
+    const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+    const seen: [string, FfToolPaths][] = [];
+    const deps = stubDeps({
+      probeVideo: async (t) => {
+        seen.push(['probeVideo', t]);
+        return PROBE;
+      },
+      loadTelemetry: async (_video, spec) => {
+        seen.push(['loadTelemetry', spec.tools]);
+        return telemetryFixture();
+      },
+      renderVideo: async (opts) => {
+        seen.push(['renderVideo', opts.tools]);
+        return { profile: { evalMs: 0, captureMs: 0, emitMs: 0 } };
+      },
+      verifyOutput: async (t) => {
+        seen.push(['verifyOutput', t]);
+        return { frames: PROBE.frames, fps: PROBE.fps.str, ok: true };
+      },
+    });
+    await processRecording(VIDEO, testConfig(), () => {}, path.join(tmpDir(), 'out.mp4'), {
+      deps,
+      tools,
+    });
+    expect(seen).toEqual([
+      ['probeVideo', tools],
+      ['loadTelemetry', tools],
+      ['renderVideo', tools],
+      ['verifyOutput', tools],
+    ]);
+  });
+
+  it('passes the resolved tools to the skip check in runBatch', async () => {
+    const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+    const seen: FfToolPaths[] = [];
+    const deps = stubDeps({
+      outputMatchesSource: async (t) => {
+        seen.push(t);
+        return true;
+      },
+    });
+    const result = await runBatch([VIDEO], testConfig({ skipExisting: true }), () => {}, () => {}, {
+      deps,
+      tools,
+    });
+    expect(result.skipped).toBe(1);
+    expect(seen).toEqual([tools]);
+  });
+});
+
 describe('processRecording frame ranges', () => {
   function rangeDeps() {
     const calls: { render?: { frames: number; frameStart?: number }; verify?: number } = {};
@@ -640,7 +693,7 @@ describe('processRecording frame ranges', () => {
         calls.render = { frames: opts.frames, frameStart: opts.frameStart };
         return { profile: { evalMs: 0, captureMs: 0, emitMs: 0 } };
       },
-      verifyOutput: async (_out, expected) => {
+      verifyOutput: async (_tools, _outPath, expected) => {
         calls.verify = expected;
         return { frames: expected, fps: '30', ok: true };
       },

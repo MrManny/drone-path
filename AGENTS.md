@@ -22,7 +22,8 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
   new dependencies **must not** have high or critical security issues on
   Snyk. Check `https://security.snyk.io/package/npm/<package_name>`.
 - Unit tests need nothing beyond Node — no ffmpeg, browser or network. Real
-  render runs need ffmpeg + ffprobe on PATH and Chrome/Edge.
+  render runs need Chrome/Edge plus ffmpeg/ffprobe: the embedded binaries, a
+  `--ffmpeg`/`--ffprobe` override, or on PATH.
 
 ## Testing
 

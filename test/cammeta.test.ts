@@ -10,6 +10,9 @@ import {
 } from '../src/cammeta.js';
 import type { PacketInfo } from '../src/cammeta.js';
 import type * as ffModule from '../src/ff.js';
+import type { FfToolPaths } from '../src/fftools.js';
+
+const TOOLS: FfToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
 
 const mocks = vi.hoisted(() => ({
   ffprobeJson: vi.fn(),
@@ -301,13 +304,13 @@ describe('parseCamMeta failure surfacing', () => {
 
   it('returns null when the video has no CAM meta stream', async () => {
     mocks.ffprobeJson.mockResolvedValue({ streams: [] });
-    await expect(parseCamMeta(VIDEO, 1)).resolves.toBeNull();
+    await expect(parseCamMeta(TOOLS, VIDEO, 1)).resolves.toBeNull();
   });
 
   it('rethrows ffprobe stream probing failures with their cause', async () => {
     const failure = new Error('spawn ffprobe ENOENT');
     mocks.ffprobeJson.mockRejectedValue(failure);
-    const err = await parseCamMeta(VIDEO, 1).then(
+    const err = await parseCamMeta(TOOLS, VIDEO, 1).then(
       () => null,
       (e: unknown) => e as Error,
     );
@@ -320,7 +323,7 @@ describe('parseCamMeta failure surfacing', () => {
     mocks.ffprobeJson
       .mockResolvedValueOnce({ streams: [{ index: 3, tags: { handler_name: 'CAM meta' } }] })
       .mockRejectedValueOnce(failure);
-    const err = await parseCamMeta(VIDEO, 1).then(
+    const err = await parseCamMeta(TOOLS, VIDEO, 1).then(
       () => null,
       (e: unknown) => e as Error,
     );
@@ -329,6 +332,8 @@ describe('parseCamMeta failure surfacing', () => {
   });
 
   it('rethrows ffmpeg dump failures with their cause', async () => {
+    // Distinctive paths: a hardcoded 'ffmpeg' inside cammeta must not survive.
+    const tools = { ffmpeg: '/resolved/ffmpeg', ffprobe: '/resolved/ffprobe' };
     const failure = new Error('spawn ffmpeg ENOENT');
     mocks.ffprobeJson
       .mockResolvedValueOnce({ streams: [{ index: 3, tags: { handler_name: 'CAM meta' } }] })
@@ -337,10 +342,11 @@ describe('parseCamMeta failure surfacing', () => {
       (_cmd: string, _args: string[], _opts: unknown, cb: (e: Error | null) => void) =>
         cb(failure),
     );
-    const err = await parseCamMeta(VIDEO, 1).then(
+    const err = await parseCamMeta(tools, VIDEO, 1).then(
       () => null,
       (e: unknown) => e as Error,
     );
+    expect(mocks.execFile.mock.calls[0][0]).toBe('/resolved/ffmpeg');
     expect(err?.message).toBe('ffmpeg failed while dumping the cam meta stream');
     expect(err?.cause).toBe(failure);
   });
