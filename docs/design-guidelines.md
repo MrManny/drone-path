@@ -86,7 +86,7 @@ Spacing values are literals on this scale; use nothing else:
 
 ## 6. Shape, elevation and motion
 
-- **Radii:** `--radius-control` 8px (buttons, fields, select, notices, dismiss); `--radius-panel` 12px (landing card, dialog panel, map card); `--radius-pill` 999px (segmented groups and segments, progress track and fill, the Synced pill). Literals: 4px checkboxes and the loop band, 50% radios (§8.2).
+- **Radii:** `--radius-control` 8px (buttons, fields, select, notices, dismiss); `--radius-panel` 12px (landing card, dialog panel, map card); `--radius-pill` 999px (segmented groups and segments, progress track and fill). Literals: 4px checkboxes and the loop band, 50% radios (§8.2).
 - **Borders:** 1 px. `--hairline` for decorative separators; `--hairline-strong` for controls, dialogs and the map card; `--hairline-hover` on hover. Notice borders are the tone at 40%.
 - **Shadows:** `--shadow-float` `0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35)` (landing card, dialog panel, player notices, the map appearance popover and the overlay map card). No other drop shadows.
 - **Inset rings:** a 1 px inset ring marks two states only: the loop band (`--loop`) and an invalid field (`--danger`).
@@ -203,8 +203,8 @@ Spacing values are literals on this scale; use nothing else:
 - **Review workspace:** one column — header bar (`--header-h`), preview area (label strip `--preview-strip-h` and the stage), transport row (`--transport-h`), timeline panel (`--timeline-h`, 140px below 720px window height) and status bar (`--status-h`). The chrome heights mirror `CHROME` in `ui/lib/layout.ts`; change the two together.
 - **Header bar:** wordmark "neo2 / flightpath", divider, the project slot ("Flight workspace", "Recording · 0:34"), spacer, then Open… and Export…. Gaps 8px; padding 0 16px.
 - **Preview area:** the label strip ("Preview" · "Video + map"; the "Paused at 0:10" / "Playing at 0:10" state tag) over the stage.
-- **Stage, split (default):** the video pane (flex, `object-fit: contain`, black letterbox) beside the map card rail — `clamp(280px, 28%, 372px)` wide, 16px padding and gap: the "Flight map" header with the "Satellite · Overview" look summary and the Synced pill, the map host (fills), the "Current position" readout and the shared-playhead note. Below 720px window height the card drops the readout and the note so the map host keeps room for the HUD chips and the attribution.
-- **Stage, overlay:** the map becomes a square corner card on the footage — `clamp(180px, 36%, 242px)`, 18px from the right and bottom edges — with the "Map · synced" tag; the card's header, readout and note hide. Swap view (or S) exchanges the two layouts; the map island stays mounted across the swap.
+- **Stage, split (default):** the video pane (flex, `object-fit: contain`, black letterbox) beside the map card rail — `clamp(280px, 28%, 372px)` wide, 16px padding and gap: the "Flight map" header with the "Satellite · Overview" look summary, the map host (fills), the "Current position" readout and the shared-playhead note. Below 720px window height the card drops the readout and the note so the map host keeps room for the HUD chips and the attribution.
+- **Stage, overlay:** the map becomes a square corner card on the footage — `clamp(180px, 36%, 242px)`, 18px from the right and bottom edges — with the "Map" tag; the card's header, readout and note hide. Swap view (or S) exchanges the two layouts; the map island stays mounted across the swap.
 - **Transport row:** Jump to start, Play/Pause and Jump to end at the left, a divider, the position readout; "Playback speed" with the segment group at the right.
 - **Timeline panel:** the header ("Timeline" · "Playback & loop points"; Set in, Set out, Clear and the loop readout), the time ruler (ticks from `timelineTicks`, §12), and the video track: the filmstrip (decorative) as one continuous, borderless, square-cornered strip spanning the panel below the ruler — no track-label column — with the loop band with draggable ends (pointer only; the keyboard path is I/O, Esc and the buttons), the playhead and the range slider "Playback position" over the track. The ruler shares the strip's exact span, so its ticks line up with the band and the playhead. The map's telemetry is not a timeline lane.
 - **Status bar:** readiness, "SRT telemetry loaded" (only with telemetry) and the duration at the left; the icon-only Map settings, Swap and Help at the right.
@@ -222,7 +222,7 @@ Spacing values are literals on this scale; use nothing else:
 |---|---|
 | Landing | Open…, Preparing…, Help |
 | Workspace header | Flight workspace; Recording · 0:34; Open…, Export… |
-| Preview strip and map card | Preview · Video + map; Paused at 0:10 / Playing at 0:10; Flight map; Satellite · Overview; Synced; Map · synced; Current position 0:10 / 0:34; "Map and video share the same playhead." |
+| Preview strip and map card | Preview · Video + map; Paused at 0:10 / Playing at 0:10; Flight map; Satellite · Overview; Map; Current position 0:10 / 0:34; "Map and video share the same playhead." |
 | Transport | Play / Pause / Warming tiles…, Jump to start, Jump to end (`aria-label`; `title` "Jump to start (Home)" / "Jump to end (End)"), Playback speed (1×, 2×, 3×, 4×) |
 | Timeline | Timeline · Playback & loop points; Set in, Set out, Clear (`aria-label` "Set loop in", "Set loop out", "Clear loop"); loop 0:10–0:12 |
 | Status bar | Ready / Preparing…, SRT telemetry loaded, 0:34 duration, Map settings, Swap, Help (icon-only; `title` "Swap (S)") |

@@ -36,11 +36,10 @@ export function MapCard({
           <h2 className="map-card-title">Flight map</h2>
           <p className="map-card-look">{lookSummary(settings)}</p>
         </div>
-        <span className="sync-pill">Synced</span>
       </div>
       <div className="map-host-wrap">
         <MapIsland data={data} onScene={onScene} />
-        <div className="map-overlay-tag">Map · synced</div>
+        <div className="map-overlay-tag">Map</div>
       </div>
       <div className="map-card-foot">
         <span>Current position</span>

@@ -48,7 +48,6 @@ describe('MapCard', () => {
     renderCard('split');
     expect(screen.getByRole('heading', { name: 'Flight map' })).toBeTruthy();
     expect(screen.getByText('Satellite · Overview')).toBeTruthy();
-    expect(screen.getByText('Synced')).toBeTruthy();
   });
 
   it('shows the shared playhead position and note', () => {
@@ -60,7 +59,13 @@ describe('MapCard', () => {
 
   it('renders the map tag for the overlay layout', () => {
     renderCard('overlay');
-    expect(screen.getByText('Map · synced')).toBeTruthy();
+    expect(screen.getByText('Map')).toBeTruthy();
+  });
+
+  it.for(['split', 'overlay'] as const)('carries no synced wording in the %s layout', (layout) => {
+    renderCard(layout);
+    expect(screen.queryByText('Synced')).toBeNull();
+    expect(screen.queryByText('Map · synced')).toBeNull();
   });
 
   it('switches layout classes without remounting the map island', () => {

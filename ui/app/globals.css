@@ -420,14 +420,6 @@ button.primary {
   font-size: 13px;
   color: var(--text-3);
 }
-.sync-pill {
-  flex: none;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text-2);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-}
 .map-host-wrap {
   position: relative;
   flex: 1 1 auto;
