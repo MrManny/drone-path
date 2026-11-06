@@ -33,8 +33,8 @@ export function LandingPanel({ state, onPick, onHelp, onDismiss }: LandingPanelP
       </div>
       <OpenNotice state={state} onDismiss={onDismiss} />
       <p className="hint">
-        Requires ffmpeg/ffprobe on PATH. An .SRT sidecar next to the video is
-        picked up automatically.
+        ffmpeg/ffprobe are bundled; an .SRT sidecar next to the video is picked
+        up automatically.
       </p>
     </main>
   );

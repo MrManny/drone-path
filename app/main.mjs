@@ -402,7 +402,7 @@ function createWindow(state) {
     minWidth: 1024,
     minHeight: 600,
     // Match --page in ui/app/globals.css so startup shows one background.
-    backgroundColor: '#0b1017',
+    backgroundColor: '#232323',
     autoHideMenuBar: true,
     // The loaded page's <title> takes over after load (ui/app/layout.tsx).
     title: 'Neo2 Flightpath',

@@ -1,11 +1,11 @@
 # Design guidelines: neo2-flightpath desktop UI
 
-Standing reference for the Electron desktop UI. Read before changing anything under `ui/`; AGENTS.md points here. This file is the source of truth for token names, patterns, states and copy; for exact values the code is authoritative (`ui/app/globals.css` for tokens and styles, `ui/components/`, `ui/icons/`, `ui/lib/`). Update this file in the same pull request as any UI change.
+Standing reference for the Electron desktop UI. Read before changing anything under `ui/`; AGENTS.md points here. This file is the source of truth for token names, patterns, states and copy; for exact values the code is authoritative (`ui/app/globals.css` for tokens and styles, `ui/components/`, `ui/icons/`, `ui/lib/`) and wins on conflict with this file. Section 3 documents the agreed palette values. Update this file in the same pull request as any UI change.
 
 ## 1. Purpose, scope and status
 
 - **Scope:** the app UI: landing, player (video, map overlay, control bar), settings, export and update dialogs, the help overlay, icons, copy and error text. Native OS dialogs in `app/main.mjs` are not styled here; their wording follows section 10.
-- **Out of scope:** the frames and map overlay rendered by `src/renderer/` (its palette included) and CLI output.
+- **Out of scope:** the frames and map overlay rendered by `src/renderer/` and CLI output — except the flight-trail color, which follows the app palette everywhere (section 3).
 - **Tokens:** live only in the `:root` block of `ui/app/globals.css`, named by role. Components consume tokens through classes; inline styles are limited to runtime geometry (`pipStyle()`, loop band and progress widths, the map host's `isolation`).
 - **Status:** dark theme only.
 
@@ -26,32 +26,36 @@ Standing reference for the Electron desktop UI. Read before changing anything un
 
 ### 2.3 Look and feel
 
-- **Direction:** dark desktop UI: layered neutral surfaces (`--page` to `--surface-4`), 1 px hairline borders, one cyan accent (`--accent`), a violet loop color (`--loop`), 8 px and 12 px radii with pills, the Segoe UI Variable stack, icon plus label for landing and bar actions, 140 ms motion.
+- **Direction:** dark desktop UI: layered neutral surfaces (`--page` to `--surface-4`), 1 px hairline borders, one warm coral accent (`--accent`), a sand loop color (`--loop`), 8 px and 12 px radii with pills, the Segoe UI Variable stack, icon plus label for landing and bar actions, 140 ms motion.
 - **Dark only:** `color-scheme: dark` on `html` and `body`. There is no light theme.
 - **Avoid:** neon glow, decorative gradients, background textures, skeuomorphic bevels, and highlights that are not states. Inset rings mark only the loop band and invalid fields (section 6).
 
 ## 3. Color
 
-Color tokens live in the `:root` block of `ui/app/globals.css` (section 1):
+Color tokens live in the `:root` block of `ui/app/globals.css` (section 1). The palette is Palette D variant 1 (#147); the values below are the agreed reference:
 
-| Token(s) | Role |
-|---|---|
-| `--page` | Page background |
-| `--surface-1` … `--surface-4` | Surface ladder: cards → controls → hover fill → pressed fill |
-| `--bar` | Control bar over the footage |
-| `--scrim` | Dialog backdrop |
-| `--hairline` / `--hairline-strong` / `--hairline-hover` | Decorative separators / control, dialog and PIP borders / hover borders |
-| `--text` / `--text-2` / `--text-3` | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
-| `--accent` (hover `--accent-hover`, pressed `--accent-press`) | Primary fill, selected speed, checked toggle, played timeline range, progress fill |
-| `--accent-ink` | Text and check mark on accent |
-| `--focus` | Focus outline |
-| `--danger` / `--warning` / `--info` | Invalid fields and danger notices / warning and info notices only |
-| `--loop` / `--loop-text` | Loop band and ring / loop readout |
+| Token(s) | Value | Role |
+|---|---|---|
+| `--page` | `#232323` | Page background |
+| `--surface-1` … `--surface-4` | `#2e2e2e`, `#363636`, `#454545`, `#525252` | Surface ladder: cards → controls → hover fill → pressed fill |
+| `--bar` | `rgba(35, 35, 35, 0.94)` | Control bar over the footage |
+| `--scrim` | `rgba(10, 10, 10, 0.6)` | Dialog backdrop |
+| `--hairline` / `--hairline-strong` / `--hairline-hover` | `#e8e8e8` at 12% / 24% / 42% | Decorative separators / control, dialog and PIP borders / hover borders |
+| `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 68% | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
+| `--accent` (hover `--accent-hover`, pressed `--accent-press`) | `#e87f54` (`#f0a967`, `#c96640`) | Primary fill, selected speed, checked toggle, played timeline range, progress fill, flight trail |
+| `--accent-ink` | `#2b1207` | Text and check mark on accent |
+| `--accent-text` | `#f0a967` | Accent-colored text and icons on surfaces (links, current page) |
+| `--focus` | `#e8e8e8` | Focus outline |
+| `--danger` / `--danger-text` | `#df5441` / `#f37d75` | Invalid fields and danger notices / field messages |
+| `--warning` / `--info` | `#f0a967` / `#7fa3c4` | Warning and info notices only |
+| `--loop` / `--loop-text` | `#ecc9a8` / `#f4e2d2` | Loop band and ring / loop readout |
 
-- **Accent** marks the primary action, the selected speed segment, a checked toggle, the played part of the timeline and the progress fills. It never marks loops, warnings or decoration. **Loop** colors mark only the loop band, its ring and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields and field messages.
+- **Accent** marks the primary action, the selected speed segment, a checked toggle, the played part of the timeline and the progress fills. It never marks loops, warnings or decoration. **Loop** colors mark only the loop band, its ring and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
+- **The flight trail is the accent, everywhere:** the app's map island and every rendered frame share one trail color — `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent` and derives the trail glow; change the two together.
+- **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
-- **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt.
-- `--tone` is a local property set by `.notice-info`, `.notice-warning` and `.notice-danger`. Literal colors outside `:root`: `#000` (video and PIP backgrounds), `#b9c6d6` (select chevron).
+- **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on `--surface-1` and `--surface-2`.
+- `--tone` is a local property set by `.notice-info`, `.notice-warning` and `.notice-danger`. Literal colors outside `:root`: `#000` (video and PIP backgrounds), `#b8b8b8` (select chevron).
 
 ## 4. Typography
 

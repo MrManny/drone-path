@@ -46,7 +46,7 @@ export function sceneCss(
     z-index: 1200; pointer-events: none;
   }
   .chip {
-    background: rgba(14,19,28,0.58);
+    background: rgba(14,19,28,0.9);
     backdrop-filter: blur(${Math.round(14 * scale)}px) saturate(1.25);
     -webkit-backdrop-filter: blur(${Math.round(14 * scale)}px) saturate(1.25);
     color: #ffffff;
@@ -119,6 +119,11 @@ ${hudMarkup(hud)}
 <div id="attr">${attribution}</div>
 <div id="scalebar"><span id="scaletext"></span><div id="scaleline"></div></div>
 </div>`;
+}
+
+/** Attribution links are on-screen credits, not controls: keyboard skips them. */
+export function quietAttributionLinks(attr: HTMLElement): void {
+  for (const a of attr.querySelectorAll('a')) a.setAttribute('tabindex', '-1');
 }
 
 export function droneMarkerMarkup(coreColor: string): string {

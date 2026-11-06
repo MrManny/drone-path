@@ -7,8 +7,8 @@ import { TILE_SOURCES } from '../../src/renderer/tilesources.js';
 
 describe('sceneCss', () => {
   it.for([
-    { style: 'satellite', want: ['saturate(1.06) contrast(1.03)', '#0b0e14', '#41f0ff'] },
-    { style: 'topo', want: ['none', '#eae5da', '#e63946'] },
+    { style: 'satellite', want: ['saturate(1.06) contrast(1.03)', '#0b0e14', '#e87f54'] },
+    { style: 'topo', want: ['none', '#eae5da', '#e87f54'] },
   ] as const)('renders the $style look', ({ style, want }) => {
     const css = sceneCss(TILE_SOURCES[style], themeFor(style), 768, 768, 1);
     for (const fragment of want) expect(css).toContain(fragment);
