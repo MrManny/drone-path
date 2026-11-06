@@ -1,6 +1,6 @@
 # Design guidelines: neo2-flightpath desktop UI
 
-Standing reference for the Electron desktop UI. Read before changing anything under `ui/`; AGENTS.md points here. This file is the source of truth for token names, patterns, states and copy; for exact values the code is authoritative (`ui/app/globals.css` for tokens and styles, `ui/components/`, `ui/icons/`, `ui/lib/`). Section 3 documents the agreed palette values. Update this file in the same pull request as any UI change.
+Standing reference for the Electron desktop UI. Read before changing anything under `ui/`; AGENTS.md points here. This file is the source of truth for token names, patterns, states and copy; for exact values the code is authoritative (`ui/app/globals.css` for tokens and styles, `ui/components/`, `ui/icons/`, `ui/lib/`) and wins on conflict with this file. Section 3 documents the agreed palette values. Update this file in the same pull request as any UI change.
 
 ## 1. Purpose, scope and status
 
@@ -41,20 +41,20 @@ Color tokens live in the `:root` block of `ui/app/globals.css` (section 1). The 
 | `--bar` | `rgba(35, 35, 35, 0.94)` | Control bar over the footage |
 | `--scrim` | `rgba(10, 10, 10, 0.6)` | Dialog backdrop |
 | `--hairline` / `--hairline-strong` / `--hairline-hover` | `#e8e8e8` at 12% / 24% / 42% | Decorative separators / control, dialog and PIP borders / hover borders |
-| `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 55% | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
+| `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 68% | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
 | `--accent` (hover `--accent-hover`, pressed `--accent-press`) | `#e87f54` (`#f0a967`, `#c96640`) | Primary fill, selected speed, checked toggle, played timeline range, progress fill, flight trail |
 | `--accent-ink` | `#2b1207` | Text and check mark on accent |
 | `--accent-text` | `#f0a967` | Accent-colored text and icons on surfaces (links, current page) |
 | `--focus` | `#e8e8e8` | Focus outline |
-| `--danger` / `--danger-text` | `#df5441` / `#f37d75` | Invalid fields and danger notices / field messages and error text |
+| `--danger` / `--danger-text` | `#df5441` / `#f37d75` | Invalid fields and danger notices / field messages |
 | `--warning` / `--info` | `#f0a967` / `#7fa3c4` | Warning and info notices only |
 | `--loop` / `--loop-text` | `#ecc9a8` / `#f4e2d2` | Loop band and ring / loop readout |
 
-- **Accent** marks the primary action, the selected speed segment, a checked toggle, the played part of the timeline and the progress fills. It never marks loops, warnings or decoration. **Loop** colors mark only the loop band, its ring and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages and error text.
-- **The flight trail is the accent, everywhere:** the app's map island and every rendered frame share one trail color — `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent`; change both together.
+- **Accent** marks the primary action, the selected speed segment, a checked toggle, the played part of the timeline and the progress fills. It never marks loops, warnings or decoration. **Loop** colors mark only the loop band, its ring and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
+- **The flight trail is the accent, everywhere:** the app's map island and every rendered frame share one trail color — `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent` and derives the trail glow; change the two together.
 - **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
-- **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on mid surfaces.
+- **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on `--surface-1` and `--surface-2`.
 - `--tone` is a local property set by `.notice-info`, `.notice-warning` and `.notice-danger`. Literal colors outside `:root`: `#000` (video and PIP backgrounds), `#b8b8b8` (select chevron).
 
 ## 4. Typography
