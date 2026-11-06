@@ -4,17 +4,16 @@
 // "export-form" covers every dismissable phase of the export dialog (form,
 // done, canceled, error); a running job pins it as "export-running".
 // "update-prompt" is the auto-update restart prompt; it only opens over a
-// quiet UI and is dismissable like settings.
+// quiet UI and is dismissable like help. The map appearance popover is not a
+// dialog and lives outside this machine.
 export type DialogState =
   | 'closed'
-  | 'settings'
   | 'help'
   | 'export-form'
   | 'export-running'
   | 'update-prompt';
 
 export type DialogEvent =
-  | { type: 'openSettings' }
   | { type: 'openHelp' }
   | { type: 'openExport' }
   | { type: 'exportStarted' }
@@ -27,8 +26,6 @@ export type DialogRunEvent = Extract<DialogEvent, { type: 'exportStarted' | 'exp
 
 export function dialogReducer(state: DialogState, event: DialogEvent): DialogState {
   switch (event.type) {
-    case 'openSettings':
-      return state === 'export-running' || state === 'update-prompt' ? state : 'settings';
     case 'openHelp':
       return state === 'export-running' || state === 'update-prompt' ? state : 'help';
     case 'openExport':

@@ -10,6 +10,7 @@ import {
   frameFromMediaTime,
   framesForSeconds,
   timeAt,
+  timelineTicks,
 } from '../../ui/lib/frametime.js';
 
 describe('frameFromMediaTime', () => {
@@ -135,5 +136,31 @@ describe('formatLoopReadout', () => {
     { name: 'no points reads empty', loop: { in: null, out: null }, fps: 30, want: '' },
   ])('$name', ({ loop, fps, want }) => {
     expect(formatLoopReadout(loop, fps)).toBe(want);
+  });
+});
+
+describe('timelineTicks', () => {
+  it.for([
+    { name: 'no duration', duration: 0, want: [] },
+    { name: 'a sub-second clip', duration: 0.5, want: [0, 1] },
+    { name: 'a three-second clip', duration: 3, want: [0, 1, 2, 3] },
+    { name: 'a clip just past a step', duration: 2.4, want: [0, 1, 2] },
+    { name: 'a minute of footage', duration: 60, want: [0, 10, 20, 30, 40, 50, 60] },
+    { name: 'the two-minute recording', duration: 118, want: [0, 20, 40, 60, 80, 100, 118] },
+    {
+      name: 'a long recording keeps few ticks',
+      duration: 3600,
+      want: [0, 600, 1200, 1800, 2400, 3000, 3600],
+    },
+  ])('$name', ({ duration, want }) => {
+    expect(timelineTicks(duration)).toEqual(want);
+  });
+
+  it('always starts at 0 and ends at the duration', () => {
+    for (const duration of [1.7, 9, 33, 75, 200, 1500, 7200]) {
+      const ticks = timelineTicks(duration);
+      expect(ticks[0]).toBe(0);
+      expect(ticks[ticks.length - 1]).toBe(Math.round(duration));
+    }
   });
 });

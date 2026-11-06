@@ -1,9 +1,9 @@
 'use client';
 
-// Playback wiring: the frame driver's lifecycle, the imperative scrubber and
-// time-text updates (they change every presented frame and must not re-render
-// the tree), and the transport controls. The pure frame math stays in
-// frametime.ts and loop.ts.
+// Playback wiring: the frame driver's lifecycle, the imperative scrubber,
+// playhead and time-text updates (they change every presented frame and must
+// not re-render the tree), and the transport controls. The pure frame math
+// stays in frametime.ts and loop.ts.
 
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageVideo } from '../../src/appsession.js';
 import type { Scene } from '../../src/renderer/scene.js';
 import { createFrameDriver } from '../lib/framedriver.js';
-import { clampFrame, formatTimeReadout } from '../lib/frametime.js';
+import { clampFrame, formatTime, formatTimeReadout, timeAt } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { engagedLoop } from '../lib/loop.js';
 
@@ -25,6 +25,8 @@ export interface Playback {
   setSpeed: (rate: 1 | 2 | 3 | 4) => void;
   loop: LoopState;
   setLoopPoint: (which: 'in' | 'out') => void;
+  /** Sets a loop point to an explicit frame, e.g. from a dragged handle. */
+  setLoopFrame: (which: 'in' | 'out', frame: number) => void;
   clearLoop: () => void;
   scrubTo: (i: number) => void;
   stepBy: (deltaFrames: number) => void;
@@ -32,13 +34,23 @@ export interface Playback {
   handleScene: (scene: Scene) => void;
   videoRef: RefObject<HTMLVideoElement | null>;
   scrubRef: RefObject<HTMLInputElement | null>;
+  /** The transport's "position / duration" readout. */
   timeRef: RefObject<HTMLSpanElement | null>;
+  /** The map card's "Current position" readout, same text as timeRef. */
+  positionRef: RefObject<HTMLSpanElement | null>;
+  /** The preview strip's position word ("0:10"), inside its state tag. */
+  statusTimeRef: RefObject<HTMLSpanElement | null>;
+  /** The timeline playhead marker, moved imperatively like the scrubber. */
+  playheadRef: RefObject<HTMLDivElement | null>;
 }
 
 export function usePlayback(video: PageVideo, durationSec: number): Playback {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
+  const positionRef = useRef<HTMLSpanElement>(null);
+  const statusTimeRef = useRef<HTMLSpanElement>(null);
+  const playheadRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<Scene | null>(null);
   // The head frame: committed or queued, so rapid steps never stack onto a
   // stale index before the driver's next tick.
@@ -71,10 +83,18 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
       onIndex: (i) => {
         latestIndexRef.current = i;
         if (scrubRef.current) scrubRef.current.value = String(i);
-        // Imperative like the scrubber: the time text changes every presented
-        // frame and must not re-render the component tree at playback rate.
-        if (timeRef.current) {
-          timeRef.current.textContent = formatTimeReadout(i, video.fps, durationSec);
+        // Imperative like the scrubber: the readouts and the playhead change
+        // every presented frame and must not re-render the tree at playback
+        // rate.
+        const readout = formatTimeReadout(i, video.fps, durationSec);
+        if (timeRef.current) timeRef.current.textContent = readout;
+        if (positionRef.current) positionRef.current.textContent = readout;
+        if (statusTimeRef.current) {
+          statusTimeRef.current.textContent = formatTime(timeAt(i, video.fps));
+        }
+        if (playheadRef.current) {
+          const pct = video.frames > 1 ? (i / (video.frames - 1)) * 100 : 0;
+          playheadRef.current.style.left = `${pct}%`;
         }
       },
     });
@@ -133,6 +153,13 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     setLoop((prev) => ({ ...prev, [which]: latestIndexRef.current }));
   }, []);
 
+  const setLoopFrame = useCallback(
+    (which: 'in' | 'out', frame: number) => {
+      setLoop((prev) => ({ ...prev, [which]: clampFrame(frame, video.frames) }));
+    },
+    [video.frames],
+  );
+
   const clearLoop = useCallback(() => setLoop(NO_LOOP), []);
 
   return {
@@ -143,6 +170,7 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     setSpeed,
     loop,
     setLoopPoint,
+    setLoopFrame,
     clearLoop,
     scrubTo,
     stepBy,
@@ -151,5 +179,8 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     videoRef,
     scrubRef,
     timeRef,
+    positionRef,
+    statusTimeRef,
+    playheadRef,
   };
 }

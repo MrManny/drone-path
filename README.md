@@ -62,16 +62,16 @@ For reviewing flights without the terminal, grab the packaged desktop app
 [GitHub Releases](https://github.com/MrManny/neo2-flightpath/releases), or run
 `npm run build && npm run app` from a checkout.
 
-The app shows the footage and the map overlay in a swappable
-picture-in-picture layout on one shared timeline scrubber;
+The app shows the footage and the synchronized flight map side by side —
+swappable to a map overlay — on one shared timeline;
 [the manual](docs/user/desktop-app.md) walks through loading a recording,
 reviewing a flight, looping a passage, and exporting. The look settings carry
 over between launches.
 
-![Desktop app: drone footage with the map overlay in picture-in-picture](docs/images/app-main-window.jpg)
+![Desktop app: drone footage beside the synchronized flight map](docs/images/app-main-window.jpg)
 
-*The desktop app playing a recording: footage and map overlay in picture-in-picture,
-with the flight trail, drone position and HUD chips on one shared timeline scrubber.*
+*The desktop app playing a recording: footage beside the synchronized flight map,
+with the flight trail, drone position and HUD chips on one shared timeline.*
 
 ## Feature requests
 

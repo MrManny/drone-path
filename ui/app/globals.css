@@ -30,10 +30,13 @@
   --radius-panel: 12px;
   --radius-pill: 999px;
   --control-h: 36px;
-  --bar-h: 64px;
+  --header-h: 56px;
+  --preview-strip-h: 40px;
+  --transport-h: 48px;
+  --timeline-h: 200px;
+  --status-h: 32px;
   --dialog-top: 56px;
   --shadow-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-pip: 0 12px 32px rgba(0, 0, 0, 0.5);
   --disabled-opacity: 0.45;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --motion: 140ms;
@@ -260,32 +263,120 @@ button.primary {
   margin-top: 0;
 }
 
-/* Player stage: the map and the video share it; the picture-in-picture pane
-   floats above the main pane with a hairline and a soft shadow. */
+/* The review workspace: header, preview, transport, timeline and status bar
+   stacked in one column. The fixed chrome heights mirror CHROME in
+   ui/lib/layout.ts; change the two together. */
+.workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Header bar: brand, project identity and the app's actions. */
+.workspace-header {
+  flex: none;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
+}
+.brand {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.brand-light {
+  font-weight: 400;
+  color: var(--text-2);
+}
+.header-divider {
+  flex: none;
+  height: 24px;
+  margin: 0 8px;
+  border-left: 1px solid var(--hairline);
+}
+.header-project {
+  min-width: 0;
+}
+.header-project strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.header-project small {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.header-spacer {
+  flex: 1 1 auto;
+}
+
+/* Preview area: the label strip and the stage with the footage and the map. */
+.preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.preview-strip {
+  flex: none;
+  height: var(--preview-strip-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px;
+}
+.preview-strip-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.preview-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.preview-note {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.preview-state {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* The stage: the video pane beside the flight map card (split), or with the
+   map as a square corner card on the footage (overlay). The map island host
+   isolates Leaflet's own z-indexes inside its own box. */
 .stage {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: var(--bar-h);
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  box-sizing: border-box;
   overflow: hidden;
 }
-.pane {
-  position: absolute;
+.pane-video {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-}
-.pane-main {
-  inset: 0;
-}
-.pane-pip {
-  right: 16px;
-  bottom: 16px;
-  border-radius: var(--radius-panel);
   background: #000;
   border: 1px solid var(--hairline-strong);
-  box-shadow: var(--shadow-pip);
+  border-radius: var(--radius-panel);
 }
-.pane video {
+.pane-video video {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -297,6 +388,98 @@ button.primary {
 .scene-host {
   position: absolute;
   inset: 0;
+}
+.map-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+}
+.map-card-split {
+  flex: none;
+  width: clamp(280px, 28%, 372px);
+  padding: 16px;
+}
+.map-card-head {
+  flex: none;
+  height: 40px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.map-card-title {
+  margin: 0;
+  font-size: 16px;
+}
+.map-card-look {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.map-host-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.map-overlay-tag {
+  display: none;
+}
+.map-card-foot {
+  flex: none;
+  height: 20px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.map-card-foot .readout {
+  font-size: 12px;
+}
+.map-card-note {
+  flex: none;
+  margin: 0;
+  height: 20px;
+  font-size: 12px;
+  color: var(--text-3);
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* Overlay layout: the card chrome hides and a map tag appears over the map. */
+.map-card-overlay {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  height: clamp(180px, 36%, 242px);
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border-color: var(--hairline-strong);
+  box-shadow: var(--shadow-float);
+  z-index: 2;
+}
+.map-card-overlay .map-card-head,
+.map-card-overlay .map-card-foot,
+.map-card-overlay .map-card-note {
+  display: none;
+}
+.map-card-overlay .map-overlay-tag {
+  display: block;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bar);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
 }
 .player-notices {
   position: absolute;
@@ -334,38 +517,69 @@ button.primary {
   box-shadow: var(--shadow-float);
 }
 
-/* Control bar: left, centered transport and right view controls on one row.
-   At 1440px and below it becomes two rows (see the media query at the end). */
-.controls {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--bar-h);
+/* Transport row: skip, play and the position readout at the left; playback
+   speed at the right. The timeline panel owns the scrubber and the loop. */
+.transport {
+  flex: none;
+  height: var(--transport-h);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 0 16px;
   box-sizing: border-box;
   background: var(--bar);
   border-top: 1px solid var(--hairline);
-  color: var(--text);
 }
-.controls-left,
-.controls-center,
-.controls-right {
+.transport-group {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.controls-left,
-.controls-right {
+.transport-step {
+  padding: 0 8px;
+}
+.transport-divider {
   flex: none;
+  height: 24px;
+  margin: 0 8px;
+  border-left: 1px solid var(--hairline);
 }
-.controls-center {
-  flex: 1 1 auto;
+.transport-label {
+  font-size: 13px;
+  color: var(--text-2);
 }
+
+/* Segmented controls: playback speed and the view choice share the pill. */
+.segmented {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+}
+.segmented button.segment {
+  min-height: 30px;
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+.segmented button.segment:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.segmented button.segment[aria-pressed='true'] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  font-weight: 600;
+}
+.segmented button.segment[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
 .readout {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -375,56 +589,225 @@ button.primary {
 .readout.loop-readout {
   color: var(--loop-text);
 }
-.scrubber {
-  position: relative;
-  flex: 1 1 auto;
+
+/* Timeline panel: loop actions and readout in the header, a time ruler, and
+   the video track as one continuous borderless strip — filmstrip, the loop
+   band with draggable ends, the playhead, and the range slider (the
+   keyboard-accessible scrub control) over it all. The ruler shares the
+   strip's exact span so its ticks stay aligned with the band and playhead.
+   The panel is a flush surface — full window width, square, meeting the
+   status bar — because the workspace rows carry no margins: the CHROME
+   heights in ui/lib/layout.ts account for the whole window height. */
+.timeline {
+  flex: none;
+  height: var(--timeline-h);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  background: var(--surface-1);
+  overflow: hidden;
+}
+.timeline-header {
+  height: 40px;
   display: flex;
   align-items: center;
-  min-width: 120px;
-  width: clamp(120px, 28vw, 420px);
+  justify-content: space-between;
+  gap: 8px;
 }
-.scrubber input[type='range'] {
-  flex: 1;
+.timeline-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.timeline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.timeline-actions .loop-readout {
+  margin-left: 8px;
+}
+.ruler {
+  position: relative;
+  flex: none;
+  height: 20px;
+}
+.ruler-tick {
+  position: absolute;
+  top: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.filmstrip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  opacity: 0.65;
+}
+.film-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.film-cell img {
+  display: block;
   width: 100%;
-  margin: 0;
-  accent-color: var(--accent);
+  height: 100%;
+  object-fit: cover;
 }
 .loop-band {
   position: absolute;
-  top: 50%;
-  height: 8px;
-  transform: translateY(-50%);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--loop) 45%, transparent);
-  box-shadow: inset 0 0 0 1px var(--loop);
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--loop) 20%, transparent);
+  border: 2px solid var(--loop);
+  border-radius: 4px;
   pointer-events: none;
 }
-.speed-group {
-  display: inline-flex;
-  flex: none;
-  gap: 2px;
-  padding: 2px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
+.loop-handle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: var(--loop-text);
+  cursor: ew-resize;
+  pointer-events: auto;
 }
-.speed-group button.speed {
-  min-height: 30px;
-  padding: 0 8px;
+.loop-handle-in {
+  left: -2px;
+}
+.loop-handle-out {
+  right: -2px;
+}
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.track input[type='range'] {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.track input[type='range']::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+.track input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+}
+.track input[type='range']::-moz-range-thumb {
+  width: 1px;
+  height: 100%;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-pill);
 }
-.speed-group button.speed:hover:not(:disabled) {
-  background: var(--surface-3);
+
+/* Status bar: readiness, telemetry and duration at the left, Help at the
+   right. Its small Help button follows the notice-dismiss size. */
+.status-bar {
+  flex: none;
+  height: var(--status-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 12px;
+  color: var(--text-3);
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
 }
-.speed-group button.speed[aria-pressed='true'] {
-  color: var(--accent-ink);
-  background: var(--accent);
-  font-weight: 600;
+.status-item {
+  white-space: nowrap;
 }
-.speed-group button.speed[aria-pressed='true']:hover:not(:disabled) {
-  background: var(--accent-hover);
+.status-bar button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* The map appearance popover: a non-modal panel anchored above the footer's
+   Map settings button, below dialogs in the stacking order. */
+.map-popover {
+  position: fixed;
+  bottom: calc(var(--status-h) + 8px);
+  right: 16px;
+  z-index: 1500;
+  width: min(360px, calc(100% - 32px));
+  max-height: calc(100vh - var(--status-h) - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+}
+/* Narrow panel: rows wrap instead of scrolling sideways. */
+.map-popover .settings-row {
+  flex-wrap: wrap;
+}
+.map-popover .settings-row .hint {
+  white-space: normal;
+}
+.map-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.map-popover-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.map-appearance-desc {
+  margin: 0 0 8px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.popover-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+.popover-note span {
+  font-size: 13px;
+  color: var(--text-3);
 }
 
 /* Dialogs share one anchor: the top edge stays fixed as the phase changes. */
@@ -747,27 +1130,15 @@ input[type='radio']:disabled {
   color: var(--text-3);
 }
 
-/* At 1440px and below the bar cannot hold one row without overlaps: the view
-   and settings controls move to a row of their own above the transport row. */
-@media (max-width: 1440px) {
+/* The timeline shrinks on short windows so the stage keeps room; the map
+   card drops its readout and note so the map host keeps a usable height for
+   the HUD chips and the attribution. Mirrored in ui/lib/layout.ts. */
+@media (max-height: 720px) {
   :root {
-    --bar-h: 96px;
+    --timeline-h: 140px;
   }
-  .controls {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-content: center;
-    row-gap: 8px;
-    padding: 8px 16px;
-  }
-  .controls-left {
-    order: 1;
-  }
-  .controls-right {
-    order: 2;
-  }
-  .controls-center {
-    order: 3;
-    flex-basis: 100%;
+  .map-card-foot,
+  .map-card-note {
+    display: none;
   }
 }

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
@@ -121,8 +122,33 @@ describe('PlayerChrome export form memory', () => {
   });
 });
 
-describe('PlayerChrome', () => {
-  it('opens help through the control bar', () => {
+describe('PlayerChrome workspace structure', () => {
+  it('keeps the header, transport, timeline and status bar actions reachable', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    // Header
+    expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Export…' })).toBeTruthy();
+    // Transport
+    expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Play|Warming tiles/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
+    // The transport and the map card share one position readout text.
+    expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(2);
+    expect(screen.getByRole('group', { name: 'Playback speed' })).toBeTruthy();
+    // Timeline
+    expect(screen.getByRole('button', { name: 'Set loop in' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set loop out' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
+    // Status bar
+    expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
+    expect(screen.getByText('0:03 duration')).toBeTruthy();
+    expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
+  });
+
+  it('opens help from the status bar', () => {
     const onHelp = vi.fn();
     render(
       <Chrome
@@ -147,36 +173,23 @@ describe('PlayerChrome', () => {
     });
   });
 
-  it('renders the video and the swap control', () => {
+  it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Swap view' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
+    const card = document.querySelector('.map-card') as HTMLElement;
+    expect(card.className).toContain('map-card-split');
+    expect(card.className).not.toContain('map-card-overlay');
   });
 
-  it('groups the bar into left Open, centered transport, and right view controls', () => {
+  it('shows the playback state and position in the preview strip', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const controls = document.querySelector('.controls') as HTMLElement;
-    const left = controls.querySelector('.controls-left') as HTMLElement;
-    const center = controls.querySelector('.controls-center') as HTMLElement;
-    const right = controls.querySelector('.controls-right') as HTMLElement;
-
-    expect(within(left).getAllByRole('button')).toHaveLength(1);
-    expect(within(left).getByRole('button', { name: 'Open…' })).toBeTruthy();
-
-    expect(within(center).getByRole('button', { name: /Play|Warming tiles/ })).toBeTruthy();
-    expect(within(center).getByRole('button', { name: 'Set loop in' })).toBeTruthy();
-    expect(within(center).getByRole('button', { name: 'Set loop out' })).toBeTruthy();
-    expect(within(center).getByRole('button', { name: 'Clear loop' })).toBeTruthy();
-    expect(within(center).getByRole('slider', { name: 'Playback position' })).toBeTruthy();
-    expect(within(center).getByText('0:00 / 0:03')).toBeTruthy();
-    expect(within(center).getByRole('group', { name: 'Playback speed' })).toBeTruthy();
-
-    expect(within(right).getAllByRole('button')).toHaveLength(4);
-    expect(within(right).getByRole('button', { name: 'Swap view' })).toBeTruthy();
-    expect(within(right).getByRole('button', { name: 'Export…' })).toBeTruthy();
-    expect(within(right).getByRole('button', { name: 'Settings' })).toBeTruthy();
-    expect(within(right).getByRole('button', { name: 'Help' })).toBeTruthy();
+    const state = document.querySelector('.preview-state') as HTMLElement;
+    expect(state.textContent).toBe('Paused at 0:00');
+    expect(screen.getByText('Video + map')).toBeTruthy();
+    expect(screen.getByText('Timeline')).toBeTruthy();
+    expect(screen.queryByText('Playback & loop points')).toBeNull();
   });
 
   it('collects the speed buttons in one labeled group', () => {
@@ -219,76 +232,81 @@ describe('PlayerChrome', () => {
     act(() => flushRaf());
     expect(currentTime).toBeCloseTo(30.5 / 30);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
+    // The imperative readouts follow the presented frame.
+    expect(document.querySelector('.preview-state')?.textContent).toBe('Paused at 0:01');
+    expect(screen.getAllByText('0:01 / 0:03')).toHaveLength(2);
+    expect(document.querySelector('.map-card .readout')?.textContent).toBe('0:01 / 0:03');
+  });
+});
+
+describe('PlayerChrome view swap', () => {
+  it('switches between the split panes and the overlay layout and back', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const card = document.querySelector('.map-card') as HTMLElement;
+    expect(card.className).toContain('map-card-split');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(card.className).toContain('map-card-overlay');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(card.className).toContain('map-card-split');
   });
 
-  it('swaps the picture-in-picture layout', () => {
+  it('keeps the map island mounted across the swap, so playback stays synchronized', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    expect(mapPane.className).toContain('pane-pip');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    expect(mapPane.className).toContain('pane-main');
+    const island = screen.getByTestId('map-island');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(screen.getByTestId('map-island')).toBe(island);
   });
 
-  it('opens the settings panel from the cog button', () => {
+  it('does not swap views when the map card is clicked', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    const card = document.querySelector('.map-card') as HTMLElement;
+    fireEvent.click(card);
+    expect(card.className).toContain('map-card-split');
+  });
+});
+
+describe('PlayerChrome map appearance popover', () => {
+  it('opens from the footer button and closes with Escape', async () => {
+    const user = userEvent.setup();
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Map settings' });
+    await user.click(toggle);
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    key(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('pins only the picture-in-picture pane to a sized box', () => {
+  it('closes on a second toggle press instead of flapping open', async () => {
+    const user = userEvent.setup();
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
-
-    // Map in the pip box (pipStyle-sized); the video pane must fill the stage.
-    expect(mapPane.className).toContain('pane-pip');
-    expect(mapPane.style.width).toBe('30%');
-    expect(mapPane.style.aspectRatio).toBe('16 / 9');
-    expect(videoPane.className).toContain('pane-main');
-    expect(videoPane.style.width).toBe('');
-
-    // Video in the pip box (aspect-sized, height-bound for portrait);
-    // the map becomes the main pane and must fill the stage, never a pip box.
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    expect(mapPane.className).toContain('pane-main');
-    expect(mapPane.style.width).toBe('');
-    expect(mapPane.style.aspectRatio).toBe('');
-    expect(videoPane.style.width).toBe('auto');
-    expect(videoPane.style.aspectRatio).toBe('1512 / 2688');
+    const toggle = screen.getByRole('button', { name: 'Map settings' });
+    await user.click(toggle);
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    await user.click(toggle);
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
   });
 
-  it('keeps the map pip above the footage in video view', () => {
-    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
-    expect(mapPane.className).toContain('pane-pip');
-    expect(mapPane.style.zIndex).toBe('2');
-    expect(videoPane.className).toContain('pane-main');
-    expect(videoPane.style.zIndex).toBe('');
-  });
-
-  it('keeps the drone footage pip above the map in map view', () => {
-    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    expect(videoPane.className).toContain('pane-pip');
-    expect(videoPane.style.zIndex).toBe('2');
-    expect(mapPane.className).toContain('pane-main');
-    expect(mapPane.style.zIndex).toBe('');
-  });
-
-  it('does not swap views when the map pane is clicked', () => {
-    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    fireEvent.click(mapPane);
-    expect(mapPane.className).toContain('pane-pip');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    fireEvent.click(mapPane);
-    expect(mapPane.className).toContain('pane-main');
+  it('applies settings changes from the popover', () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <Chrome
+        session={SESSION}
+        settings={SETTINGS}
+        onSettingsChange={onSettingsChange}
+        onOpen={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ style: 'topo' }),
+    );
   });
 });
 
@@ -495,14 +513,20 @@ describe('PlayerChrome keyboard shortcuts', () => {
     key(scrub, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(2);
   });
+
+  it('swaps the layout with S', async () => {
+    await renderPlayer();
+    const card = document.querySelector('.map-card') as HTMLElement;
+    key(window, { key: 's' });
+    expect(card.className).toContain('map-card-overlay');
+  });
 });
 
 describe('PlayerChrome loop region', () => {
   it('sets the loop with I and O, shows the region, and wraps playback into it', async () => {
     const fake = await renderPlayer();
     setLoopRegion(30, 60);
-    const center = document.querySelector('.controls-center') as HTMLElement;
-    expect(within(center).getByText('loop 0:01–0:02')).toBeTruthy();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
     const band = document.querySelector('.loop-band') as HTMLElement;
     expect(parseFloat(band.style.left)).toBeCloseTo((30 / 89) * 100);
     expect(parseFloat(band.style.width)).toBeCloseTo((30 / 89) * 100);
@@ -513,15 +537,15 @@ describe('PlayerChrome loop region', () => {
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
   });
 
-  it('clears the loop with Esc and closes an open modal first', async () => {
+  it('closes the popover on Esc first and clears the loop on the second', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     key(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
-    expect(screen.getByText('loop 0:01–0:02')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
     key(window, { key: 'Escape' });
-    expect(screen.queryByText('loop 0:01–0:02')).toBeNull();
+    expect(document.querySelector('.loop-readout')).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(true);
   });
 
@@ -529,7 +553,7 @@ describe('PlayerChrome loop region', () => {
     await renderPlayer();
     setLoopRegion(30, 60);
     fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));
-    expect(screen.queryByText('loop 0:01–0:02')).toBeNull();
+    expect(document.querySelector('.loop-readout')).toBeNull();
   });
 
   it('states why Clear is disabled without a loop', async () => {
@@ -545,7 +569,7 @@ describe('PlayerChrome loop region', () => {
     await renderPlayer();
     setLoopRegion(60, 30);
     expect(document.querySelector('.loop-band')).toBeNull();
-    expect(screen.getByText('loop 0:02–0:01')).toBeTruthy();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:02–0:01');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(false);
   });
 
@@ -562,10 +586,10 @@ describe('PlayerChrome loop region', () => {
 });
 
 describe('PlayerChrome shortcut guard rails', () => {
-  it('keeps player keys inert while the settings modal is open', async () => {
+  it('keeps player keys inert while a dialog is open', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
     key(window, { key: ' ' });
     key(window, { key: '2' });
     key(window, { key: 'ArrowRight' });
@@ -576,27 +600,36 @@ describe('PlayerChrome shortcut guard rails', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it('keeps player keys inert while typing in a settings field', async () => {
+  it('keeps player keys inert while typing in a popover field', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     const field = document.querySelector('input[type="number"]') as HTMLInputElement;
     key(field, { key: '3' });
     key(field, { key: ' ' });
-    key(field, { key: 'o', ctrlKey: true });
     expect(fake.state.playbackRate).toBe(1);
     expect(fake.play).not.toHaveBeenCalled();
     expect(onOpen).not.toHaveBeenCalled();
+    // Ctrl+O stays available while typing, as everywhere else.
+    key(field, { key: 'o', ctrlKey: true });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps player keys live while the popover is open', async () => {
+    const fake = await renderPlayer();
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    key(window, { key: ' ' });
+    expect(fake.play).toHaveBeenCalledTimes(1);
   });
 
   it('leaves Esc on an open select dropdown to the select', async () => {
     await renderPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     const select = document.querySelector('select') as HTMLSelectElement;
     key(select, { key: 'Escape' });
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     key(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
   });
 });
 
@@ -623,7 +656,7 @@ describe('PlayerChrome open notice', () => {
       />,
     );
     expect(screen.getByRole('alert').textContent).toContain('"win.ini" is not a readable .mp4 recording.');
-    expect(document.querySelector('.controls')).not.toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });

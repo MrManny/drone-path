@@ -88,6 +88,10 @@ describe.for([
     raw: 'could not determine the frame rate of the video',
     text: "This video's frame rate could not be read.",
   },
+  {
+    raw: 'no telemetry found: no .SRT sidecar and no GPS pairs in the CAM meta stream',
+    text: 'This recording has no flight telemetry. Add its .SRT sidecar or choose a recording with GPS data.',
+  },
 ])('app message "$raw"', ({ raw, text }) => {
   it('rewrites it and keeps the original as technical details', () => {
     expect(describeError(raw)).toEqual({ text, technical: raw });

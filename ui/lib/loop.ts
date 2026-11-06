@@ -28,3 +28,29 @@ export function engagedLoop(state: LoopState): LoopPoints | null {
 export function hasLoop(state: LoopState): boolean {
   return state.in !== null || state.out !== null;
 }
+
+/**
+ * The frame a dragged loop handle may land on: clamped to the frame range
+ * and kept strictly inside the other point when one is set, so a drag can
+ * never disorder or empty an engaged loop.
+ */
+export function clampHandleFrame(
+  which: 'in' | 'out',
+  frame: number,
+  state: LoopState,
+  maxFrame: number,
+): number {
+  const lo = which === 'out' && state.in !== null ? state.in + 1 : 0;
+  const hi = which === 'in' && state.out !== null ? state.out - 1 : maxFrame;
+  return Math.max(0, Math.min(maxFrame, Math.max(lo, Math.min(hi, frame))));
+}
+
+/** The frame at a pointer position over a track of the given rect. */
+export function frameAtPointer(
+  clientX: number,
+  rect: { left: number; width: number },
+  maxFrame: number,
+): number {
+  const ratio = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+  return Math.max(0, Math.min(maxFrame, Math.round(ratio * maxFrame)));
+}

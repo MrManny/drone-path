@@ -8,6 +8,8 @@ import { MarkInIcon } from '../../ui/icons/MarkInIcon.js';
 import { MarkOutIcon } from '../../ui/icons/MarkOutIcon.js';
 import { PauseIcon } from '../../ui/icons/PauseIcon.js';
 import { PlayIcon } from '../../ui/icons/PlayIcon.js';
+import { SkipBackIcon } from '../../ui/icons/SkipBackIcon.js';
+import { SkipForwardIcon } from '../../ui/icons/SkipForwardIcon.js';
 import { SwapIcon } from '../../ui/icons/SwapIcon.js';
 
 afterEach(cleanup);
@@ -20,6 +22,8 @@ describe.each([
   { name: 'ExportIcon', Icon: ExportIcon },
   { name: 'MarkInIcon', Icon: MarkInIcon },
   { name: 'MarkOutIcon', Icon: MarkOutIcon },
+  { name: 'SkipBackIcon', Icon: SkipBackIcon },
+  { name: 'SkipForwardIcon', Icon: SkipForwardIcon },
 ])('$name', ({ Icon }) => {
   it('draws in the shared line style and stays hidden from assistive technology', () => {
     const { container } = render(<Icon />);

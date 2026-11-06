@@ -22,7 +22,6 @@ describe('useDialogs', () => {
     const { result } = mountDialogs();
     expect(result.current).toEqual({
       modalOpen: false,
-      settingsOpen: false,
       helpOpen: false,
       exportOpen: false,
       updateOpen: false,
@@ -31,20 +30,10 @@ describe('useDialogs', () => {
     });
   });
 
-  it('opens the settings dialog', () => {
-    const { result, send } = mountDialogs();
-    send({ type: 'openSettings' });
-    expect(result.current.modalOpen).toBe(true);
-    expect(result.current.settingsOpen).toBe(true);
-    expect(result.current.exportOpen).toBe(false);
-    expect(result.current.dismissible).toBe(true);
-  });
-
   it('opens the export dialog', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openExport' });
     expect(result.current.modalOpen).toBe(true);
-    expect(result.current.settingsOpen).toBe(false);
     expect(result.current.exportOpen).toBe(true);
     expect(result.current.dismissible).toBe(true);
   });
@@ -77,14 +66,6 @@ describe('useDialogs', () => {
     expect(result.current.modalOpen).toBe(false);
   });
 
-  it('closes an open dialog', () => {
-    const { result, send } = mountDialogs();
-    send({ type: 'openSettings' });
-    send({ type: 'close' });
-    expect(result.current.modalOpen).toBe(false);
-    expect(result.current.settingsOpen).toBe(false);
-  });
-
   it('opens the help overlay as a dismissable modal', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openHelp' });
@@ -93,20 +74,20 @@ describe('useDialogs', () => {
     expect(result.current.dismissible).toBe(true);
   });
 
+  it('closes an open dialog', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openHelp' });
+    send({ type: 'close' });
+    expect(result.current.modalOpen).toBe(false);
+    expect(result.current.helpOpen).toBe(false);
+  });
+
   it('keeps the help overlay when the update prompt wants to open', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openHelp' });
     send({ type: 'updateReady' });
     expect(result.current.helpOpen).toBe(true);
     expect(result.current.updateOpen).toBe(false);
-  });
-
-  it('closes the help overlay', () => {
-    const { result, send } = mountDialogs();
-    send({ type: 'openHelp' });
-    send({ type: 'close' });
-    expect(result.current.modalOpen).toBe(false);
-    expect(result.current.helpOpen).toBe(false);
   });
 
   it('opens the update prompt as a dismissable modal', () => {
@@ -120,7 +101,7 @@ describe('useDialogs', () => {
   it('keeps the update prompt when other dialogs ask to open', () => {
     const { result, send } = mountDialogs();
     send({ type: 'updateReady' });
-    send({ type: 'openSettings' });
+    send({ type: 'openHelp' });
     expect(result.current.updateOpen).toBe(true);
     send({ type: 'openExport' });
     expect(result.current.updateOpen).toBe(true);
