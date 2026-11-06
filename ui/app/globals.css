@@ -468,7 +468,7 @@ button.primary {
   position: absolute;
   right: 18px;
   bottom: 18px;
-  height: clamp(160px, 30%, 242px);
+  height: clamp(180px, 36%, 242px);
   aspect-ratio: 1;
   padding: 0;
   overflow: hidden;
@@ -1170,12 +1170,17 @@ input[type='radio']:disabled {
 }
 
 /* The timeline shrinks on short windows so the stage keeps room; the map
-   frame math mirrors this in ui/lib/layout.ts. */
+   card drops its readout and note so the map host keeps a usable height for
+   the HUD chips and the attribution. Mirrored in ui/lib/layout.ts. */
 @media (max-height: 720px) {
   :root {
     --timeline-h: 140px;
   }
   .track-row {
     height: 44px;
+  }
+  .map-card-foot,
+  .map-card-note {
+    display: none;
   }
 }

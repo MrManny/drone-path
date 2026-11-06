@@ -30,10 +30,13 @@ export const STAGE_PAD = 32;
 export const RAIL_PAD = 34;
 /** Header, position readout, note, paddings and gaps the rail adds around the map. */
 export const RAIL_CHROME = 170;
+/** Compact: the readout and the note drop, leaving only the header chrome. */
+export const RAIL_CHROME_COMPACT = 114;
 
-/** The overlay layout's square map box: clamp(160px, 30% of the stage, 242px). */
-export const OVERLAY_MIN = 160;
+/** The overlay layout's square map box: clamp(180px, 36% of the stage, 242px). */
+export const OVERLAY_MIN = 180;
 export const OVERLAY_MAX = 242;
+export const OVERLAY_SCALE = 0.36;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -58,12 +61,13 @@ export function mapFrameSize(
 ): { width: number; height: number } {
   const height = stageHeight(innerHeight);
   if (layout === 'overlay') {
-    const side = Math.round(clamp(height * 0.3, OVERLAY_MIN, OVERLAY_MAX));
+    const side = Math.round(clamp(height * OVERLAY_SCALE, OVERLAY_MIN, OVERLAY_MAX));
     return { width: side, height: side };
   }
   const rail = clamp(Math.round((innerWidth - STAGE_PAD) * 0.28), RAIL_MIN, RAIL_MAX);
+  const chrome = innerHeight <= COMPACT_HEIGHT ? RAIL_CHROME_COMPACT : RAIL_CHROME;
   return {
     width: rail - RAIL_PAD,
-    height: Math.max(96, height - RAIL_CHROME),
+    height: Math.max(96, height - chrome),
   };
 }

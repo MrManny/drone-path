@@ -30,11 +30,11 @@ describe('mapFrameSize', () => {
       want: { width: 338, height: 404 },
     },
     {
-      name: 'split at the window minimum',
+      name: 'split at the window minimum drops the card readout and note',
       innerWidth: 1024,
       innerHeight: 600,
       layout: 'split' as const,
-      want: { width: 246, height: 114 },
+      want: { width: 246, height: 170 },
     },
     {
       name: 'split between the rail bounds',
@@ -48,14 +48,14 @@ describe('mapFrameSize', () => {
       innerWidth: 1600,
       innerHeight: 950,
       layout: 'overlay' as const,
-      want: { width: 172, height: 172 },
+      want: { width: 207, height: 207 },
     },
     {
       name: 'overlay clamps to the minimum box',
       innerWidth: 1024,
       innerHeight: 600,
       layout: 'overlay' as const,
-      want: { width: 160, height: 160 },
+      want: { width: 180, height: 180 },
     },
     {
       name: 'overlay clamps to the maximum box',
