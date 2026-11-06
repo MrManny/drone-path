@@ -1,21 +1,23 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { DialogClose } from './DialogClose.js';
 
 export interface PopoverProps {
   /** The popover's name, on its header and its accessible name. */
   label: string;
+  /** The toggle button; its clicks close through the toggle, not the outside rule. */
+  triggerRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
   children: ReactNode;
 }
 
-// A non-modal popover: no scrim and no focus trap — player shortcuts stay
-// live while it is open — but it takes focus on open, closes on Escape (the
-// player routes Escape here), an outside click, or its Close button.
-export function Popover({ label, onClose, children }: PopoverProps) {
+// A non-modal popover: no scrim and no focus trap, so player shortcuts stay
+// live while it is open; Escape reaches it through the player's overlay
+// routing.
+export function Popover({ label, triggerRef, onClose, children }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,11 +26,15 @@ export function Popover({ label, onClose, children }: PopoverProps) {
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent): void => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      // Closing on the trigger's press would reopen it on the click that
+      // follows; the toggle handles those presses.
+      if (triggerRef?.current?.contains(target)) return;
+      if (panelRef.current && !panelRef.current.contains(target)) onClose();
     };
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
-  }, [onClose]);
+  }, [onClose, triggerRef]);
 
   return (
     <div className="map-popover" role="dialog" aria-label={label} tabIndex={-1} ref={panelRef}>

@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { UiSession, WarmProgress, WarmRequest } from '../../src/appsession.js';
-import { hasAltitude, settingsPatchOf } from '../../src/config.js';
+import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
-import type { PickState } from '../lib/pickstate.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
+import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
+import { useWarmRetarget } from '../hooks/useWarmRetarget.js';
 import type { StageLayout } from '../lib/layout.js';
-import { mapFrameSize } from '../lib/layout.js';
-import { ExportModal } from './ExportModal.js';
+import { closeOverlayTarget } from '../lib/overlayrouting.js';
+import type { PickState } from '../lib/pickstate.js';
+import { ExportHost } from './ExportHost.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
 import { Popover } from './Popover.js';
@@ -42,9 +44,6 @@ export interface PlayerChromeProps {
 
 const IDLE_OPEN: PickState = { kind: 'idle' };
 
-// The synchronized video-and-map review workspace: header, preview area with
-// the two stage layouts, transport, timeline and status bar, with the map
-// appearance popover beside the app's dialogs.
 export function PlayerChrome({
   session,
   settings,
@@ -84,22 +83,21 @@ export function PlayerChrome({
   // video and map panes. Swap view flips to the overlay layout, where the map
   // is a corner card over the footage for immersive review.
   const [layout, setLayout] = useState<StageLayout>('split');
-  const [mapAppearanceOpen, setMapAppearanceOpen] = useState(false);
-  const appearanceButtonRef = useRef<HTMLButtonElement>(null);
-  // The session's export sizes: the dialog reopens on the last committed ones.
-  const [exportSizes, setExportSizes] = useState<{ width: number; height: number } | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
-  const closeMapAppearance = useCallback(() => {
-    setMapAppearanceOpen(false);
-    appearanceButtonRef.current?.focus();
-  }, []);
+  const {
+    open: mapAppearanceOpen,
+    toggle: toggleMapAppearance,
+    close: closeMapAppearance,
+    triggerRef: appearanceButtonRef,
+  } = useMapAppearance();
 
-  // Escape closes the popover while it is open and clears the loop otherwise;
-  // dialogs keep their own rule through the dialog machine.
+  // Escape closes the topmost overlay: a dialog above the popover above the
+  // loop clear; dialogs keep their own rule through the dialog machine.
   const closeOverlay = useCallback(() => {
-    if (mapAppearanceOpen) closeMapAppearance();
-    else dispatchDialog({ type: 'close' });
-  }, [mapAppearanceOpen, closeMapAppearance, dispatchDialog]);
+    const target = closeOverlayTarget({ modalOpen, popoverOpen: mapAppearanceOpen });
+    if (target === 'modal') dispatchDialog({ type: 'close' });
+    else if (target === 'popover') closeMapAppearance();
+  }, [modalOpen, mapAppearanceOpen, dispatchDialog, closeMapAppearance]);
 
   // One settings -> scene mapping for the preview and the export: the same
   // pure planners the pipeline runs.
@@ -114,19 +112,7 @@ export function PlayerChrome({
     [preparedScene, settings, video.fps, video.frames, tileBase, bbox],
   );
 
-  // The background pre-warm follows the map on screen: it pivots when
-  // settings, the stage layout or the window size change what the map displays.
-  useEffect(() => {
-    if (!onWarmRetarget) return;
-    const retarget = (): void =>
-      onWarmRetarget({
-        settings: settingsPatchOf(settings),
-        frame: mapFrameSize(window.innerWidth, window.innerHeight, layout),
-      });
-    retarget();
-    window.addEventListener('resize', retarget);
-    return () => window.removeEventListener('resize', retarget);
-  }, [onWarmRetarget, settings, layout]);
+  useWarmRetarget(onWarmRetarget, settings, layout);
 
   const dispatch = usePlayerHotkeys(
     {
@@ -159,9 +145,7 @@ export function PlayerChrome({
         opening={opening}
         onOpen={onOpen}
         onExport={() => dispatchDialog({ type: 'openExport' })}
-        onMapAppearance={() =>
-          mapAppearanceOpen ? closeMapAppearance() : setMapAppearanceOpen(true)
-        }
+        onMapAppearance={toggleMapAppearance}
         mapAppearanceOpen={mapAppearanceOpen}
         appearanceButtonRef={appearanceButtonRef}
       />
@@ -216,7 +200,7 @@ export function PlayerChrome({
         onHelp={onHelp}
       />
       {mapAppearanceOpen ? (
-        <Popover label="Map appearance" onClose={closeMapAppearance}>
+        <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
           <SettingsPanel
             config={settings}
             hasAltitude={hasAltitude(preparedScene.alt)}
@@ -224,19 +208,16 @@ export function PlayerChrome({
           />
         </Popover>
       ) : null}
-      {exportOpen ? (
-        <ExportModal
-          session={session}
-          settings={settings}
-          loop={loop}
-          onClose={() => dispatchDialog({ type: 'close' })}
-          dismissible={dismissible}
-          onRunEvent={dispatchDialog}
-          onEncoderChange={(encode) => onSettingsChange({ ...settings, ...encode })}
-          initialSizes={exportSizes}
-          onSizesChange={setExportSizes}
-        />
-      ) : null}
+      <ExportHost
+        session={session}
+        settings={settings}
+        loop={loop}
+        open={exportOpen}
+        dismissible={dismissible}
+        onClose={() => dispatchDialog({ type: 'close' })}
+        onRunEvent={dispatchDialog}
+        onSettingsChange={onSettingsChange}
+      />
     </div>
   );
 }

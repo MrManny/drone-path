@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
@@ -264,16 +265,29 @@ describe('PlayerChrome view swap', () => {
 });
 
 describe('PlayerChrome map appearance popover', () => {
-  it('opens from the header button and closes with Escape', () => {
+  it('opens from the header button and closes with Escape', async () => {
+    const user = userEvent.setup();
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     const toggle = screen.getByRole('button', { name: 'Map appearance' });
-    fireEvent.click(toggle);
+    await user.click(toggle);
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes on a second toggle press instead of flapping open', async () => {
+    const user = userEvent.setup();
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const toggle = screen.getByRole('button', { name: 'Map appearance' });
+    await user.click(toggle);
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    await user.click(toggle);
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
   });
 
   it('applies settings changes from the popover', () => {

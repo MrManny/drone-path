@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { createRef } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -39,6 +40,21 @@ describe('Popover', () => {
     const { onClose } = renderPopover();
     const panel = screen.getByRole('dialog', { name: 'Map appearance' });
     fireEvent.mouseDown(panel);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.mouseDown(document.body);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves presses on the trigger to the toggle instead of closing twice', () => {
+    const onClose = vi.fn();
+    const triggerRef = createRef<HTMLButtonElement>();
+    render(<button ref={triggerRef}>Map appearance</button>);
+    render(
+      <Popover label="Map appearance" triggerRef={triggerRef} onClose={onClose}>
+        <p>content</p>
+      </Popover>,
+    );
+    fireEvent.mouseDown(triggerRef.current as HTMLElement);
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.mouseDown(document.body);
     expect(onClose).toHaveBeenCalledTimes(1);
