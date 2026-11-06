@@ -10,7 +10,6 @@ import { clampHandleFrame, engagedLoop, frameAtPointer, hasLoop } from '../lib/l
 import { CloseIcon } from '../icons/CloseIcon.js';
 import { MarkInIcon } from '../icons/MarkInIcon.js';
 import { MarkOutIcon } from '../icons/MarkOutIcon.js';
-import { PlayIcon } from '../icons/PlayIcon.js';
 import { Filmstrip } from './Filmstrip.js';
 
 export interface TimelinePanelProps {
@@ -129,49 +128,39 @@ export function TimelinePanel({
           );
         })}
       </div>
-      <div className="track-row">
-        <div className="track-label">
-          <span className="track-chip">
-            <PlayIcon />
-          </span>
-          <div className="track-names">
-            <strong>Video</strong>
+      <div className="track" ref={trackRef}>
+        <Filmstrip src={src} frames={frames} fps={fps} />
+        {loopPoints ? (
+          <div
+            className="loop-band"
+            style={{
+              left: `${bandPct(loopPoints.in)}%`,
+              width: `${bandPct(loopPoints.out) - bandPct(loopPoints.in)}%`,
+            }}
+          >
+            <span
+              className="loop-handle loop-handle-in"
+              title="Loop in (I)"
+              onPointerDown={() => startDrag('in')}
+            />
+            <span
+              className="loop-handle loop-handle-out"
+              title="Loop out (O)"
+              onPointerDown={() => startDrag('out')}
+            />
           </div>
-        </div>
-        <div className="track" ref={trackRef}>
-          <Filmstrip src={src} frames={frames} fps={fps} />
-          {loopPoints ? (
-            <div
-              className="loop-band"
-              style={{
-                left: `${bandPct(loopPoints.in)}%`,
-                width: `${bandPct(loopPoints.out) - bandPct(loopPoints.in)}%`,
-              }}
-            >
-              <span
-                className="loop-handle loop-handle-in"
-                title="Loop in (I)"
-                onPointerDown={() => startDrag('in')}
-              />
-              <span
-                className="loop-handle loop-handle-out"
-                title="Loop out (O)"
-                onPointerDown={() => startDrag('out')}
-              />
-            </div>
-          ) : null}
-          <div className="playhead" ref={playheadRef} />
-          <input
-            ref={scrubRef}
-            type="range"
-            aria-label="Playback position"
-            min={0}
-            max={maxFrame}
-            step={1}
-            defaultValue={0}
-            onChange={(e) => scrubTo(Number(e.target.value))}
-          />
-        </div>
+        ) : null}
+        <div className="playhead" ref={playheadRef} />
+        <input
+          ref={scrubRef}
+          type="range"
+          aria-label="Playback position"
+          min={0}
+          max={maxFrame}
+          step={1}
+          defaultValue={0}
+          onChange={(e) => scrubTo(Number(e.target.value))}
+        />
       </div>
     </section>
   );

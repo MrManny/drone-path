@@ -604,14 +604,17 @@ button.primary {
 }
 
 /* Timeline panel: loop actions and readout in the header, a time ruler, and
-   the video track — filmstrip, the loop band with draggable ends, the
-   playhead, and the range slider (the keyboard-accessible scrub control)
-   over it all. */
+   the video track as one continuous borderless strip — filmstrip, the loop
+   band with draggable ends, the playhead, and the range slider (the
+   keyboard-accessible scrub control) over it all. The ruler shares the
+   strip's exact span so its ticks stay aligned with the band and playhead. */
 .timeline {
   flex: none;
   height: var(--timeline-h);
   margin: 0 16px 16px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   padding: 12px 16px;
   background: var(--surface-1);
   border: 1px solid var(--hairline);
@@ -641,8 +644,8 @@ button.primary {
 }
 .ruler {
   position: relative;
+  flex: none;
   height: 20px;
-  margin-left: 168px;
 }
 .ruler-tick {
   position: absolute;
@@ -652,42 +655,13 @@ button.primary {
   color: var(--text-3);
   white-space: nowrap;
 }
-.track-row {
-  display: flex;
-  align-items: stretch;
-  height: 76px;
-  gap: 8px;
-}
-.track-label {
-  flex: none;
-  width: 160px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.track-chip {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  color: var(--text-2);
-  background: var(--surface-2);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-control);
-}
-.track-names strong {
-  font-size: 13px;
-  font-weight: 600;
-}
 .track {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
   background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
 }
 .filmstrip {
   position: absolute;
@@ -1175,9 +1149,6 @@ input[type='radio']:disabled {
 @media (max-height: 720px) {
   :root {
     --timeline-h: 140px;
-  }
-  .track-row {
-    height: 44px;
   }
   .map-card-foot,
   .map-card-note {

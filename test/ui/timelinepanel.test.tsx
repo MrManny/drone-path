@@ -115,6 +115,16 @@ describe('TimelinePanel ruler', () => {
 });
 
 describe('TimelinePanel track', () => {
+  it('runs the filmstrip as one continuous strip with no track-label column', () => {
+    renderPanel();
+    expect(document.querySelector('.track-label')).toBeNull();
+    expect(document.querySelector('.track-row')).toBeNull();
+    const track = document.querySelector('.track') as HTMLElement;
+    expect(track.parentElement?.className).toBe('timeline');
+    expect(track.querySelector('[data-testid="filmstrip"]')).toBeTruthy();
+    expect(track.querySelector('input[type="range"]')).toBeTruthy();
+  });
+
   it('renders the filmstrip slot and the accessible scrubber', () => {
     renderPanel();
     expect(screen.getByTestId('filmstrip')).toBeTruthy();
