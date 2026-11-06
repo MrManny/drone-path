@@ -1,7 +1,7 @@
 'use client';
 
-import { STYLE_VALUES, VIEW_VALUES } from '../../src/config.js';
-import type { RenderConfig, Style } from '../../src/config.js';
+import { STYLE_VALUES } from '../../src/config.js';
+import type { RenderConfig, Style, View } from '../../src/config.js';
 import { patchConfig, setHudChip, STYLE_LABELS, VIEW_LABELS } from '../lib/settings.js';
 import { Notice } from './Notice.js';
 import { NumberField } from './NumberField.js';
@@ -20,9 +20,14 @@ const HUD_CHIPS: Array<{ chip: 'heading' | 'alt' | 'speed'; label: string }> = [
   { chip: 'speed', label: 'Speed (SPD)' },
 ];
 
-// The map appearance popover's content: how the flight path appears in the
-// preview and the map export. Every change applies at once and is stored
-// like the rest of the look settings.
+// Presentation order only; the vocabulary in src/config.ts keeps its order.
+const VIEW_CHOICES: ReadonlyArray<{ value: View; label: string }> = [
+  { value: 'overview', label: VIEW_LABELS.overview },
+  { value: 'follow', label: VIEW_LABELS.follow },
+];
+
+// Every change applies at once and is stored like the rest of the look
+// settings.
 export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelProps) {
   const apply = (patch: Parameters<typeof patchConfig>[1]): boolean => {
     const next = patchConfig(config, patch);
@@ -48,7 +53,7 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
         <div className="settings-row">
           <span className="settings-label">View</span>
           <div className="segmented" role="group" aria-label="View">
-            {VIEW_VALUES.map((value) => (
+            {VIEW_CHOICES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
@@ -56,7 +61,7 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
                 aria-pressed={config.view === value}
                 onClick={() => apply({ view: value })}
               >
-                {VIEW_LABELS[value]}
+                {label}
               </button>
             ))}
           </div>

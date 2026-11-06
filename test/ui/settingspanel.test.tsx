@@ -52,8 +52,8 @@ describe('SettingsPanel', () => {
     ]);
     const view = screen.getByRole('group', { name: 'View' });
     expect(within(view).getAllByRole('button').map((b) => b.textContent)).toEqual([
-      'Follow',
       'Overview',
+      'Follow',
     ]);
   });
 
