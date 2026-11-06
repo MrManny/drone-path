@@ -28,6 +28,7 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
   canvas.height = THUMB_HEIGHT;
   const ctx = canvas.getContext('2d');
   let disposed = false;
+  const pending = new Set<() => void>();
 
   const ready = new Promise<void>((resolve) => {
     if (video.readyState >= 2) {
@@ -38,19 +39,36 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
     video.addEventListener('error', () => resolve(), { once: true });
   });
 
+  // A seek can also die mid-flight (media error, emptied source), so every
+  // way out settles the grab — with success only for a real 'seeked'.
+  // dispose() settles the waits directly because aborting a seek fires no
+  // event the sampler can rely on.
+  function seekTo(time: number): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const finish = (seeked: boolean): void => {
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onFail);
+        video.removeEventListener('emptied', onFail);
+        pending.delete(abort);
+        resolve(seeked);
+      };
+      const onSeeked = (): void => finish(true);
+      const onFail = (): void => finish(false);
+      const abort = (): void => finish(false);
+      pending.add(abort);
+      video.addEventListener('seeked', onSeeked);
+      video.addEventListener('error', onFail);
+      video.addEventListener('emptied', onFail);
+      video.currentTime = time;
+    });
+  }
+
   return {
     async grab(frameIndex: number): Promise<string | null> {
       await ready;
       if (disposed || ctx === null || !(fps > 0) || video.readyState < 2) return null;
-      await new Promise<void>((resolve) => {
-        const done = (): void => {
-          video.removeEventListener('seeked', done);
-          resolve();
-        };
-        video.addEventListener('seeked', done);
-        video.currentTime = (frameIndex + 0.5) / fps;
-      });
-      if (disposed) return null;
+      const seeked = await seekTo((frameIndex + 0.5) / fps);
+      if (!seeked || disposed) return null;
       ctx.drawImage(video, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
       return new Promise<string | null>((resolve) => {
         canvas.toBlob((blob) => {
@@ -60,6 +78,7 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
     },
     dispose() {
       disposed = true;
+      for (const abort of [...pending]) abort();
       video.removeAttribute('src');
     },
   };
