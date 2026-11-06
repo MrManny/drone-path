@@ -594,18 +594,18 @@ button.primary {
    the video track as one continuous borderless strip — filmstrip, the loop
    band with draggable ends, the playhead, and the range slider (the
    keyboard-accessible scrub control) over it all. The ruler shares the
-   strip's exact span so its ticks stay aligned with the band and playhead. */
+   strip's exact span so its ticks stay aligned with the band and playhead.
+   The panel is a flush surface — full window width, square, meeting the
+   status bar — because the workspace rows carry no margins: the CHROME
+   heights in ui/lib/layout.ts account for the whole window height. */
 .timeline {
   flex: none;
   height: var(--timeline-h);
-  margin: 0 16px 16px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   padding: 12px 16px;
   background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-panel);
   overflow: hidden;
 }
 .timeline-header {

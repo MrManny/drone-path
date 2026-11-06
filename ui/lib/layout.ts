@@ -7,7 +7,8 @@
 /** The review workspace's two stage layouts. */
 export type StageLayout = 'split' | 'overlay';
 
-/** Fixed chrome heights above and below the stage (globals.css). */
+/** Fixed chrome heights above and below the stage (globals.css); the rows sit
+ * flush (no margins), so these heights cover the whole window. */
 export const CHROME = {
   headerH: 56,
   previewStripH: 40,
