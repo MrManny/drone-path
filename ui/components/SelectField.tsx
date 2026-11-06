@@ -6,12 +6,13 @@ export interface SelectFieldProps {
   label: string;
   value: string;
   options: ReadonlyArray<{ value: string; label: string }>;
+  hint?: string;
   onValue: (value: string) => void;
 }
 
 // The settings row shape around a native select: options show plain words
 // while the raw vocabulary value is what applies.
-export function SelectField({ label, value, options, onValue }: SelectFieldProps) {
+export function SelectField({ label, value, options, hint, onValue }: SelectFieldProps) {
   const id = useId();
   return (
     <div className="settings-row">
@@ -25,6 +26,7 @@ export function SelectField({ label, value, options, onValue }: SelectFieldProps
           </option>
         ))}
       </select>
+      {hint ? <span className="hint">{hint}</span> : null}
     </div>
   );
 }

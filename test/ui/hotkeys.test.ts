@@ -6,6 +6,7 @@ import type { HotkeyContext, HotkeySession } from '../../ui/lib/hotkeys.js';
 
 const PLAYING = { modalOpen: false };
 const MODAL = { modalOpen: true };
+const POPOVER: HotkeyContext = { modalOpen: false, popoverOpen: true };
 
 const input = { tagName: 'INPUT' };
 const select = { tagName: 'SELECT' };
@@ -29,7 +30,7 @@ function mapSequence(
 interface Case {
   name: string;
   event: HotkeyEvent;
-  ctx?: { modalOpen: boolean };
+  ctx?: HotkeyContext;
   want: HotkeyAction | null;
 }
 
@@ -76,6 +77,30 @@ describe('mapKey', () => {
     { name: 'Ctrl+O works while typing', event: { key: 'o', ctrlKey: true, target: input }, want: { type: 'openRecording' } },
     { name: 'Esc clears the loop', event: { key: 'Escape' }, want: { type: 'clearLoop' } },
     { name: 'Esc closes an open overlay', event: { key: 'Escape' }, ctx: MODAL, want: { type: 'closeOverlay' } },
+    {
+      name: 'Esc closes the map appearance popover instead of clearing the loop',
+      event: { key: 'Escape' },
+      ctx: POPOVER,
+      want: { type: 'closeOverlay' },
+    },
+    {
+      name: 'Esc from a popover field closes the popover',
+      event: { key: 'Escape', target: input },
+      ctx: POPOVER,
+      want: { type: 'closeOverlay' },
+    },
+    {
+      name: 'Space stays live while the popover is open',
+      event: { key: ' ' },
+      ctx: POPOVER,
+      want: { type: 'togglePlay' },
+    },
+    {
+      name: 'loop keys stay live while the popover is open',
+      event: { key: 'i' },
+      ctx: POPOVER,
+      want: { type: 'setLoopIn' },
+    },
     {
       name: 'Esc from a text field still acts',
       event: { key: 'Escape', target: input },

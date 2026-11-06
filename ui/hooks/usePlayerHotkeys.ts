@@ -26,6 +26,8 @@ export interface PlayerActionHandlers {
 export interface PlayerActionContext {
   /** A modal overlay is open: only Escape reaches the dialog logic. */
   modalOpen: boolean;
+  /** The map appearance popover is open: Escape closes it instead of the loop. */
+  popoverOpen: boolean;
   fps: number;
   frames: number;
 }
@@ -84,7 +86,11 @@ export function usePlayerHotkeys(
   const sessionRef = useRef<HotkeySession>(INITIAL_SESSION);
   useLayoutEffect(() => {
     hotkeyHandlerRef.current = (e: KeyboardEvent): void => {
-      const { action, session } = mapKey(e, { modalOpen: ctx.modalOpen }, sessionRef.current);
+      const { action, session } = mapKey(
+        e,
+        { modalOpen: ctx.modalOpen, popoverOpen: ctx.popoverOpen },
+        sessionRef.current,
+      );
       sessionRef.current = session;
       if (action === null) return;
       // No page scroll on Space, no double toggle on a focused button.

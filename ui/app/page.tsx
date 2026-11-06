@@ -15,7 +15,7 @@ import type { DialogEvent } from '../lib/dialogstate.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
-import { mapFrameSize } from '../lib/pipstyle.js';
+import { mapFrameSize } from '../lib/layout.js';
 import { shouldPrompt, updateReducer } from '../lib/updatestate.js';
 
 interface LoadedSession {
@@ -182,7 +182,7 @@ export default function Page() {
           pickRecording: () =>
             appBridge().pickRecording({
               settings: settingsPatchOf(settings),
-              frame: mapFrameSize(window.innerWidth, window.innerHeight, false),
+              frame: mapFrameSize(window.innerWidth, window.innerHeight, 'split'),
             }),
           getSession: () => appBridge().getSession(),
         },

@@ -211,7 +211,7 @@ describe('Open flow on the landing', () => {
     fireEvent.click(await openLanding());
     harness.prepare();
     await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.workspace')).not.toBeNull());
   });
 
   it('ignores a second Open while the first pick is still running', async () => {
@@ -259,16 +259,16 @@ describe('Open flow over the player', () => {
     fireEvent.click(await openLanding());
     harness.prepare();
     await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.workspace')).not.toBeNull());
 
     fireEvent.click(screen.getByRole('button', { name: 'Open…' }));
     await harness.settle({ ok: false, error: 'not a readable .mp4 file: C:\\Windows\\win.ini' });
     expect(screen.getByRole('alert').textContent).toContain('"win.ini" is not a readable .mp4 recording.');
-    expect(document.querySelector('.controls')).not.toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(document.querySelector('.controls')).not.toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
   });
 });
 
@@ -278,7 +278,7 @@ describe('background tile pre-warm hint', () => {
     fireEvent.click(await openLanding());
     harness.prepare();
     await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.workspace')).not.toBeNull());
     return harness;
   }
 
@@ -303,7 +303,7 @@ describe('background tile pre-warm hint', () => {
 
   it('pivots the pre-warm when the settings re-plan the map', async () => {
     const harness = await openPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.retargetWarm).toHaveBeenCalledTimes(2);
     expect(harness.bridge.retargetWarm).toHaveBeenLastCalledWith(
@@ -322,22 +322,24 @@ describe('settings persistence', () => {
     fireEvent.click(await openLanding());
     harness.prepare();
     await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.workspace')).not.toBeNull());
     return harness;
   }
 
-  it('seeds the settings panel from the persisted look', async () => {
+  it('seeds the map appearance popover from the persisted look', async () => {
     await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
-    expect(screen.getByLabelText<HTMLSelectElement>('View').value).toBe('overview');
+    expect(
+      screen.getByRole('button', { name: 'Overview' }).getAttribute('aria-pressed'),
+    ).toBe('true');
     expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('15');
   });
 
   it('persists every panel change through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -372,9 +374,9 @@ describe('update prompt', () => {
     fireEvent.click(await openLanding());
     harness.prepare();
     await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector('.workspace')).not.toBeNull());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
     harness.updateReady();
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
 

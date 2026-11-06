@@ -11,7 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const CTX = { modalOpen: false, fps: 30, frames: 90 };
+const CTX = { modalOpen: false, popoverOpen: false, fps: 30, frames: 90 };
 
 function fakeHandlers(): PlayerActionHandlers {
   return {
@@ -163,6 +163,23 @@ describe('usePlayerHotkeys key subscription', () => {
     pressKeyOn(select, { key: 'Escape' });
     expect(handlers.closeOverlay).toHaveBeenCalledTimes(1);
     select.remove();
+  });
+
+  it('routes Escape to closeOverlay while the map appearance popover is open', () => {
+    const handlers = fakeHandlers();
+    mountHotkeys(handlers, { ...CTX, popoverOpen: true });
+    pressKey({ key: 'Escape' });
+    expect(handlers.closeOverlay).toHaveBeenCalledTimes(1);
+    expect(handlers.clearLoop).not.toHaveBeenCalled();
+  });
+
+  it('keeps player keys live while the map appearance popover is open', () => {
+    const handlers = fakeHandlers();
+    mountHotkeys(handlers, { ...CTX, popoverOpen: true });
+    pressKey({ key: ' ' });
+    pressKey({ key: 'o', ctrlKey: true });
+    expect(handlers.togglePlay).toHaveBeenCalledTimes(1);
+    expect(handlers.openRecording).toHaveBeenCalledTimes(1);
   });
 
   it('subscribes once and still acts on the latest handlers (#62)', () => {

@@ -1,22 +1,29 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { UiSession, WarmProgress, WarmRequest } from '../../src/appsession.js';
-import { hasAltitude, settingsPatchOf } from '../../src/config.js';
+import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
-import type { PickState } from '../lib/pickstate.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
+import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
-import { mapFrameSize } from '../lib/pipstyle.js';
-import { ControlBar } from './ControlBar.js';
-import { ExportModal } from './ExportModal.js';
+import { useWarmRetarget } from '../hooks/useWarmRetarget.js';
+import type { StageLayout } from '../lib/layout.js';
+import { closeOverlayTarget } from '../lib/overlayrouting.js';
+import type { PickState } from '../lib/pickstate.js';
+import { ExportHost } from './ExportHost.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
+import { Popover } from './Popover.js';
 import { SettingsPanel } from './SettingsPanel.js';
+import { StatusBar } from './StatusBar.js';
+import { TimelinePanel } from './TimelinePanel.js';
+import { TransportBar } from './TransportBar.js';
 import { WarmHint } from './WarmHint.js';
+import { WorkspaceHeader } from './WorkspaceHeader.js';
 
 export interface PlayerChromeProps {
   session: UiSession;
@@ -58,6 +65,7 @@ export function PlayerChrome({
     setSpeed,
     loop,
     setLoopPoint,
+    setLoopFrame,
     clearLoop,
     scrubTo,
     stepBy,
@@ -66,12 +74,30 @@ export function PlayerChrome({
     videoRef,
     scrubRef,
     timeRef,
+    positionRef,
+    statusTimeRef,
+    playheadRef,
   } = usePlayback(video, durationSec);
-  const { modalOpen, settingsOpen, exportOpen, dismissible, dispatchDialog } = dialogs;
-  const [mapIsMain, setMapIsMain] = useState(false);
-  // The session's export sizes: the dialog reopens on the last committed ones.
-  const [exportSizes, setExportSizes] = useState<{ width: number; height: number } | null>(null);
-  const swap = useCallback(() => setMapIsMain((v) => !v), []);
+  const { modalOpen, exportOpen, dismissible, dispatchDialog } = dialogs;
+  // Side-by-side panes are the default: dedicated, simultaneously visible
+  // video and map panes. Swap view flips to the overlay layout, where the map
+  // is a corner card over the footage for immersive review.
+  const [layout, setLayout] = useState<StageLayout>('split');
+  const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
+  const {
+    open: mapAppearanceOpen,
+    toggle: toggleMapAppearance,
+    close: closeMapAppearance,
+    triggerRef: appearanceButtonRef,
+  } = useMapAppearance();
+
+  // Escape closes the topmost overlay: a dialog above the popover above the
+  // loop clear; dialogs keep their own rule through the dialog machine.
+  const closeOverlay = useCallback(() => {
+    const target = closeOverlayTarget({ modalOpen, popoverOpen: mapAppearanceOpen });
+    if (target === 'modal') dispatchDialog({ type: 'close' });
+    else if (target === 'popover') closeMapAppearance();
+  }, [modalOpen, mapAppearanceOpen, dispatchDialog, closeMapAppearance]);
 
   // One settings -> scene mapping for the preview and the export: the same
   // pure planners the pipeline runs.
@@ -86,19 +112,7 @@ export function PlayerChrome({
     [preparedScene, settings, video.fps, video.frames, tileBase, bbox],
   );
 
-  // The background pre-warm follows the map on screen: it pivots when
-  // settings, the view swap or the window size change what the map displays.
-  useEffect(() => {
-    if (!onWarmRetarget) return;
-    const retarget = (): void =>
-      onWarmRetarget({
-        settings: settingsPatchOf(settings),
-        frame: mapFrameSize(window.innerWidth, window.innerHeight, mapIsMain),
-      });
-    retarget();
-    window.addEventListener('resize', retarget);
-    return () => window.removeEventListener('resize', retarget);
-  }, [onWarmRetarget, settings, mapIsMain]);
+  useWarmRetarget(onWarmRetarget, settings, layout);
 
   const dispatch = usePlayerHotkeys(
     {
@@ -110,9 +124,9 @@ export function PlayerChrome({
       clearLoop,
       swap,
       openRecording: onOpen,
-      closeOverlay: () => dispatchDialog({ type: 'close' }),
+      closeOverlay,
     },
-    { modalOpen, fps: video.fps, frames: video.frames },
+    { modalOpen, popoverOpen: mapAppearanceOpen, fps: video.fps, frames: video.frames },
   );
 
   const maxFrame = Math.max(0, video.frames - 1);
@@ -124,11 +138,22 @@ export function PlayerChrome({
   const warmHint = warm ? <WarmHint progress={warm} /> : null;
 
   return (
-    <>
+    <div className="workspace">
+      <WorkspaceHeader
+        durationSec={durationSec}
+        opening={opening}
+        onOpen={onOpen}
+        onExport={() => dispatchDialog({ type: 'openExport' })}
+      />
       <PlayerStage
         video={video}
         sceneData={sceneData}
-        mapIsMain={mapIsMain}
+        settings={settings}
+        durationSec={durationSec}
+        layout={layout}
+        playing={playing}
+        statusTimeRef={statusTimeRef}
+        positionRef={positionRef}
         videoRef={videoRef}
         onScene={handleScene}
         onPlayState={setPlaying}
@@ -141,44 +166,57 @@ export function PlayerChrome({
           ) : null
         }
       />
-      <ControlBar
+      <TransportBar
         dispatch={dispatch}
-        opening={opening}
         ready={ready}
         playing={playing}
         speed={speed}
-        loop={loop}
         fps={video.fps}
+        durationSec={durationSec}
+        timeRef={timeRef}
+      />
+      <TimelinePanel
+        dispatch={dispatch}
+        loop={loop}
+        setLoopFrame={setLoopFrame}
+        fps={video.fps}
+        frames={video.frames}
         durationSec={durationSec}
         maxFrame={maxFrame}
         scrubTo={scrubTo}
         scrubRef={scrubRef}
-        timeRef={timeRef}
-        onExport={() => dispatchDialog({ type: 'openExport' })}
-        onSettings={() => dispatchDialog({ type: 'openSettings' })}
+        playheadRef={playheadRef}
+        src={video.src}
+      />
+      <StatusBar
+        ready={ready}
+        hasTelemetry={preparedScene.lat.length > 0}
+        durationSec={durationSec}
+        onMapSettings={toggleMapAppearance}
+        mapSettingsOpen={mapAppearanceOpen}
+        settingsButtonRef={appearanceButtonRef}
+        onSwap={swap}
         onHelp={onHelp}
       />
-      {settingsOpen ? (
-        <SettingsPanel
-          config={settings}
-          hasAltitude={hasAltitude(preparedScene.alt)}
-          onChange={onSettingsChange}
-          onClose={() => dispatchDialog({ type: 'close' })}
-        />
+      {mapAppearanceOpen ? (
+        <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
+          <SettingsPanel
+            config={settings}
+            hasAltitude={hasAltitude(preparedScene.alt)}
+            onChange={onSettingsChange}
+          />
+        </Popover>
       ) : null}
-      {exportOpen ? (
-        <ExportModal
-          session={session}
-          settings={settings}
-          loop={loop}
-          onClose={() => dispatchDialog({ type: 'close' })}
-          dismissible={dismissible}
-          onRunEvent={dispatchDialog}
-          onEncoderChange={(encode) => onSettingsChange({ ...settings, ...encode })}
-          initialSizes={exportSizes}
-          onSizesChange={setExportSizes}
-        />
-      ) : null}
-    </>
+      <ExportHost
+        session={session}
+        settings={settings}
+        loop={loop}
+        open={exportOpen}
+        dismissible={dismissible}
+        onClose={() => dispatchDialog({ type: 'close' })}
+        onRunEvent={dispatchDialog}
+        onSettingsChange={onSettingsChange}
+      />
+    </div>
   );
 }
