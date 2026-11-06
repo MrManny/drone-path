@@ -29,8 +29,6 @@ export interface PlayerStageProps {
   notice: ReactNode;
 }
 
-// The preview area: its label strip and the stage that holds the footage and
-// the synchronized flight map in the selected layout.
 export function PlayerStage({
   video,
   sceneData,

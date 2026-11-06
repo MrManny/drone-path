@@ -18,11 +18,9 @@ export interface MapCardProps {
   positionRef: RefObject<HTMLSpanElement | null>;
 }
 
-// The map's chrome card in both stage layouts: a sidebar card beside the
-// footage (split) or a corner overlay on it (overlay). The card structure
-// never changes between layouts — only CSS shows or hides the layout-specific
-// parts — so the map island below it stays mounted and synchronized across a
-// view swap.
+// The card structure never changes between the two layouts — only CSS shows
+// or hides the layout-specific parts — so the map island below it stays
+// mounted and synchronized across a view swap.
 export function MapCard({
   data,
   onScene,

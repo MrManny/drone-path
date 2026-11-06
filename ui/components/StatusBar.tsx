@@ -12,8 +12,6 @@ export interface StatusBarProps {
   onHelp: () => void;
 }
 
-// The workspace's bottom status bar: readiness, telemetry and duration at
-// the left, Help at the right.
 export function StatusBar({ ready, hasTelemetry, durationSec, onHelp }: StatusBarProps) {
   return (
     <footer className="status-bar">

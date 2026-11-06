@@ -6,7 +6,7 @@ import type { RefObject } from 'react';
 import { formatLoopReadout, formatTime, timelineTicks } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 import type { LoopState } from '../lib/loop.js';
-import { clampHandleFrame, engagedLoop, hasLoop } from '../lib/loop.js';
+import { clampHandleFrame, engagedLoop, frameAtPointer, hasLoop } from '../lib/loop.js';
 import { CloseIcon } from '../icons/CloseIcon.js';
 import { MarkInIcon } from '../icons/MarkInIcon.js';
 import { MarkOutIcon } from '../icons/MarkOutIcon.js';
@@ -31,10 +31,8 @@ export interface TimelinePanelProps {
   src: string;
 }
 
-// The timeline panel: loop actions and readout in the header, a time ruler,
-// and the video track — filmstrip thumbnails, the loop band with draggable
-// ends, the playhead, and the native range slider over it all (the slider is
-// the keyboard-accessible scrub control; its thumb is the playhead).
+// The range slider stretched over the track is the keyboard-accessible scrub
+// control; the filmstrip, band and playhead under it are its visual track.
 export function TimelinePanel({
   dispatch,
   loop,
@@ -54,22 +52,25 @@ export function TimelinePanel({
   const loopReadout = formatLoopReadout(loop, fps);
   const clearable = hasLoop(loop);
 
-  const dragHandle = (which: 'in' | 'out') =>
-    (): void => {
-      const track = trackRef.current;
-      if (!track) return;
-      const move = (ev: PointerEvent): void => {
-        const rect = track.getBoundingClientRect();
-        const ratio = rect.width > 0 ? (ev.clientX - rect.left) / rect.width : 0;
-        setLoopFrame(which, clampHandleFrame(which, Math.round(ratio * maxFrame), loop, maxFrame));
-      };
-      const up = (): void => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
+  // The handles drag with the pointer only: the arrow keys belong to the
+  // global frame-step shortcuts, so the keyboard path to move loop points is
+  // I/O and the Set in/Set out buttons.
+  const startDrag = (which: 'in' | 'out'): void => {
+    const track = trackRef.current;
+    if (!track) return;
+    const move = (ev: PointerEvent): void => {
+      const frame = frameAtPointer(ev.clientX, track.getBoundingClientRect(), maxFrame);
+      setLoopFrame(which, clampHandleFrame(which, frame, loop, maxFrame));
     };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
 
   return (
     <section className="timeline">
@@ -150,12 +151,12 @@ export function TimelinePanel({
               <span
                 className="loop-handle loop-handle-in"
                 title="Loop in (I)"
-                onPointerDown={dragHandle('in')}
+                onPointerDown={() => startDrag('in')}
               />
               <span
                 className="loop-handle loop-handle-out"
                 title="Loop out (O)"
-                onPointerDown={dragHandle('out')}
+                onPointerDown={() => startDrag('out')}
               />
             </div>
           ) : null}

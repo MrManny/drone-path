@@ -22,8 +22,6 @@ export interface TransportBarProps {
   timeRef: RefObject<HTMLSpanElement | null>;
 }
 
-// The transport row under the stage: skip-to-start/end and play at the left,
-// the position readout beside them, playback speed at the right.
 export function TransportBar({
   dispatch,
   ready,

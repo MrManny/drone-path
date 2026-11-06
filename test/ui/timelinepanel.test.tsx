@@ -174,4 +174,19 @@ describe('TimelinePanel track', () => {
     expect(setLoopFrame).toHaveBeenLastCalledWith('out', 31);
     pointer('pointerup', window);
   });
+
+  it('stops dragging on pointercancel, not just on release', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: 30, out: 60 } });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    const handle = document.querySelector('.loop-handle-in') as HTMLElement;
+    pointer('pointerdown', handle);
+    pointer('pointermove', window, { clientX: 20 });
+    expect(setLoopFrame).toHaveBeenCalledTimes(1);
+    pointer('pointercancel', window);
+    pointer('pointermove', window, { clientX: 40 });
+    expect(setLoopFrame).toHaveBeenCalledTimes(1);
+  });
 });
