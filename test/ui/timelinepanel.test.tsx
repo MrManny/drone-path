@@ -61,6 +61,12 @@ function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): 
 }
 
 describe('TimelinePanel header', () => {
+  it('titles the panel without a loop-points note', () => {
+    renderPanel();
+    expect(screen.getByText('Timeline')).toBeTruthy();
+    expect(screen.queryByText('Playback & loop points')).toBeNull();
+  });
+
   it('dispatches the loop actions from labeled buttons', () => {
     const { dispatch } = renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Set loop in' }));

@@ -188,7 +188,8 @@ describe('PlayerChrome workspace structure', () => {
     const state = document.querySelector('.preview-state') as HTMLElement;
     expect(state.textContent).toBe('Paused at 0:00');
     expect(screen.getByText('Video + map')).toBeTruthy();
-    expect(screen.getByText('Playback & loop points')).toBeTruthy();
+    expect(screen.getByText('Timeline')).toBeTruthy();
+    expect(screen.queryByText('Playback & loop points')).toBeNull();
   });
 
   it('collects the speed buttons in one labeled group', () => {

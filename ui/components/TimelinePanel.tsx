@@ -76,7 +76,6 @@ export function TimelinePanel({
       <div className="timeline-header">
         <div className="timeline-heading">
           <span className="preview-title">Timeline</span>
-          <span className="preview-note">Playback &amp; loop points</span>
         </div>
         <div className="timeline-actions">
           <button
