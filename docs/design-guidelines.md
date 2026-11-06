@@ -6,7 +6,7 @@ Standing reference for the Electron desktop UI. Read before changing anything un
 
 - **Scope:** the app UI: landing, player (header, preview with video and flight map, transport, timeline, status bar), the map appearance popover, export and update dialogs, the help overlay, icons, copy and error text. Native OS dialogs in `app/main.mjs` are not styled here; their wording follows section 10.
 - **Out of scope:** the frames and map overlay rendered by `src/renderer/` and CLI output — except the flight-trail color, which follows the app palette everywhere (section 3).
-- **Tokens:** live only in the `:root` block of `ui/app/globals.css`, named by role. Components consume tokens through classes; inline styles are limited to runtime geometry (`pipStyle()`, loop band and progress widths, the map host's `isolation`).
+- **Tokens:** live only in the `:root` block of `ui/app/globals.css`, named by role. Components consume tokens through classes; inline styles are limited to runtime geometry (loop band and ruler tick positions, the playhead's `left`, the progress fill width, the map host's `isolation`).
 - **Status:** dark theme only.
 
 ## 2. Principles and look and feel
