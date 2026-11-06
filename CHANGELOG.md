@@ -1,5 +1,20 @@
 # neo2-flightpath
 
+## 0.6.0
+
+- **New:** Renders and exports no longer need a local ffmpeg install:
+  static ffmpeg and ffprobe 7.1.0 binaries ship with the desktop app and
+  the npm package. `--ffmpeg <path>` and `--ffprobe <path>` override
+  them, PATH remains a fallback, and installing downloads both tools in
+  a postinstall step (~250 MB).
+- **New:** The export dialog and the CLI now configure the encoder:
+  video codec (H.264 or H.265), quality (near-lossless down to low) and
+  encoding speed. The defaults reproduce the previous output exactly.
+- **New:** The export dialog opens on the In–Out segment when a loop is
+  set and keeps the output size for the session.
+- **Fixed:** Dialogs now manage keyboard focus: opening a dialog moves
+  focus onto it, closing hands it back to the control that opened it.
+
 ## 0.5.0
 
 - **New:** The player opens as soon as the map tiles around the drone at
