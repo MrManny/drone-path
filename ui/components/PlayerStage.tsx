@@ -7,7 +7,6 @@ import type { RenderConfig } from '../../src/config.js';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
 import { formatTimeReadout } from '../lib/frametime.js';
-import { SwapIcon } from '../icons/SwapIcon.js';
 import { MapCard } from './MapCard.js';
 
 export interface PlayerStageProps {
@@ -24,7 +23,6 @@ export interface PlayerStageProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   onScene: (scene: Scene) => void;
   onPlayState: (playing: boolean) => void;
-  onSwap: () => void;
   /** The open-flow notices and the warm hint, centered over the stage. */
   notice: ReactNode;
 }
@@ -41,7 +39,6 @@ export function PlayerStage({
   videoRef,
   onScene,
   onPlayState,
-  onSwap,
   notice,
 }: PlayerStageProps) {
   return (
@@ -56,10 +53,6 @@ export function PlayerStage({
             {playing ? 'Playing at ' : 'Paused at '}
             <span ref={statusTimeRef}>0:00</span>
           </span>
-          <button type="button" onClick={onSwap}>
-            <SwapIcon />
-            Swap view
-          </button>
         </div>
       </div>
       <div className={`stage stage-${layout}`}>

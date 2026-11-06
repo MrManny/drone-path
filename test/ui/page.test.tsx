@@ -303,7 +303,7 @@ describe('background tile pre-warm hint', () => {
 
   it('pivots the pre-warm when the settings re-plan the map', async () => {
     const harness = await openPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.retargetWarm).toHaveBeenCalledTimes(2);
     expect(harness.bridge.retargetWarm).toHaveBeenLastCalledWith(
@@ -328,7 +328,7 @@ describe('settings persistence', () => {
 
   it('seeds the map appearance popover from the persisted look', async () => {
     await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
     expect(
       screen.getByRole('button', { name: 'Overview' }).getAttribute('aria-pressed'),
@@ -339,7 +339,7 @@ describe('settings persistence', () => {
   it('persists every panel change through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({

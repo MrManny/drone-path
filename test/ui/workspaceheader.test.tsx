@@ -9,7 +9,6 @@ afterEach(cleanup);
 function renderHeader(overrides: Partial<Parameters<typeof WorkspaceHeader>[0]> = {}) {
   const onOpen = vi.fn();
   const onExport = vi.fn();
-  const onMapAppearance = vi.fn();
   render(
     <WorkspaceHeader
       durationSec={3}
@@ -17,12 +16,10 @@ function renderHeader(overrides: Partial<Parameters<typeof WorkspaceHeader>[0]> 
       opening={false}
       onOpen={onOpen}
       onExport={onExport}
-      onMapAppearance={onMapAppearance}
-      mapAppearanceOpen={false}
       {...overrides}
     />,
   );
-  return { onOpen, onExport, onMapAppearance };
+  return { onOpen, onExport };
 }
 
 describe('WorkspaceHeader', () => {
@@ -43,45 +40,15 @@ describe('WorkspaceHeader', () => {
   });
 
   it('dispatches the header actions', () => {
-    const { onOpen, onExport, onMapAppearance } = renderHeader();
+    const { onOpen, onExport } = renderHeader();
     fireEvent.click(screen.getByRole('button', { name: 'Open…' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onExport).toHaveBeenCalledTimes(1);
-    expect(onMapAppearance).toHaveBeenCalledTimes(1);
   });
 
   it('holds Open while the Open flow prepares', () => {
     renderHeader({ opening: true });
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(true);
-  });
-
-  it('marks the map appearance toggle state', () => {
-    const { rerender } = render(
-      <WorkspaceHeader
-        durationSec={3}
-        ready
-        opening={false}
-        onOpen={() => {}}
-        onExport={() => {}}
-        onMapAppearance={() => {}}
-        mapAppearanceOpen={false}
-      />,
-    );
-    const toggle = screen.getByRole('button', { name: 'Map appearance' });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    rerender(
-      <WorkspaceHeader
-        durationSec={3}
-        ready
-        opening={false}
-        onOpen={() => {}}
-        onExport={() => {}}
-        onMapAppearance={() => {}}
-        mapAppearanceOpen
-      />,
-    );
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
   });
 });

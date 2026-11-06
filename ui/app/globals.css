@@ -767,15 +767,15 @@ button.primary {
   font-size: 12px;
 }
 
-/* The map appearance popover: a non-modal panel under the header's settings
-   button, below dialogs in the stacking order. */
+/* The map appearance popover: a non-modal panel anchored above the footer's
+   Map settings button, below dialogs in the stacking order. */
 .map-popover {
   position: fixed;
-  top: var(--header-h);
+  bottom: calc(var(--status-h) + 8px);
   right: 16px;
   z-index: 1500;
   width: min(360px, calc(100% - 32px));
-  max-height: calc(100vh - var(--header-h) - 24px);
+  max-height: calc(100vh - var(--status-h) - 24px);
   overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;

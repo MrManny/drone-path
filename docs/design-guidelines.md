@@ -26,7 +26,7 @@ Standing reference for the Electron desktop UI. Read before changing anything un
 
 ### 2.3 Look and feel
 
-- **Direction:** dark desktop UI: layered neutral surfaces (`--page` to `--surface-4`), 1 px hairline borders, one warm coral accent (`--accent`), a sand loop color (`--loop`), 8 px and 12 px radii with pills, the Segoe UI Variable stack, icon plus label for landing, header and bar actions (the two transport skips are the icon-only exceptions, §7), 140 ms motion.
+- **Direction:** dark desktop UI: layered neutral surfaces (`--page` to `--surface-4`), 1 px hairline borders, one warm coral accent (`--accent`), a sand loop color (`--loop`), 8 px and 12 px radii with pills, the Segoe UI Variable stack, icon plus label for landing, header and transport actions (the transport skips and the footer's Map settings, Swap and Help are the icon-only exceptions, §7), 140 ms motion.
 - **Dark only:** `color-scheme: dark` on `html` and `body`. There is no light theme.
 - **Avoid:** neon glow, decorative gradients, background textures, skeuomorphic bevels, and highlights that are not states. Inset rings mark only the loop band and invalid fields (section 6).
 
@@ -102,7 +102,7 @@ Spacing values are literals on this scale; use nothing else:
 - **Style:** 24-unit grid (`viewBox="0 0 24 24"`), stroke only (`fill="none"`, `stroke="currentColor"`), stroke width 2, round caps and joins, `aria-hidden="true"`. Tests pin these attributes (`test/ui/lineicons.test.tsx`, `closeicon.test.tsx`, `settingsicon.test.tsx`).
 - **Size:** every glyph carries `width="16"`; `button svg` in `ui/app/globals.css` pins the rendered size at 16px.
 - **Color:** `currentColor` — the button's text color (`--text`, or `--accent-ink` on the primary and pressed segments).
-- **Icon plus label** on landing, header and bar actions. Dialog footer buttons, segments ("1×", "Overview") and the timeline use no glyph. The two icon-only transport buttons (Jump to start, Jump to end) carry `aria-label` and `title`.
+- **Icon plus label** on landing, header and transport actions. Dialog footer buttons, segments ("1×", "Overview") and the timeline use no glyph. The icon-only buttons — the two transport skips (Jump to start, Jump to end) and the footer's Map settings, Swap and Help — carry `aria-label` and `title`.
 - **Inventory:** vendored Lucide: `CloseIcon` ("x"), `SettingsIcon` ("settings"). Drawn for this app in the Lucide grid and stroke style: `PlayIcon`, `PauseIcon`, `FolderOpenIcon`, `SwapIcon`, `ExportIcon`, `MarkInIcon`, `MarkOutIcon`, `SkipBackIcon`, `SkipForwardIcon`.
 
 ## 8. Components and states
@@ -113,12 +113,12 @@ Spacing values are literals on this scale; use nothing else:
 
 | Variant | Selector | Difference from the recipe | Used for |
 |---|---|---|---|
-| Default | `button` | None | Open…, Export…, Map appearance, Swap view, Help, Set in, Set out, Clear, Jump to start, Jump to end, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss |
+| Default | `button` | None | Open…, Export…, Map settings, Swap, Help, Set in, Set out, Clear, Jump to start, Jump to end, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss (icon-only where §7 says so) |
 | Primary, landing | `button.primary` | Accent fill, `--accent-ink` text, 600, transparent border, 44px high, 0 24px padding, 16px text | Open… on the landing |
 | Primary, dialog | `button.dialog-primary` | Accent fill, `--accent-ink` text, 600, transparent border; default size | Start export; Restart now |
 | Segment | `.segmented button.segment` | Transparent fill, no border, 30px high, 0 8px padding, pill | 1×, 2×, 3×, 4×; Overview, Follow |
 | Dismiss | `.notice-dismiss` | 28px high, 0 8px padding | Dismiss in notices |
-| Status bar | `.status-bar button` | 28px high, 0 8px padding, 12px text | Help |
+| Status bar | `.status-bar button` | 28px high, 0 8px padding | Map settings, Swap, Help (icon-only, §7) |
 
 - **States:** hover lightens (`--surface-3` fill and `--hairline-hover` border; `--accent-hover` fill on primaries; `--surface-3` on segments), pressed darkens (`--surface-4` fill, `--accent-press` on primaries) and shifts 1px down (segments only shift), `:focus-visible` shows a 2px `--focus` outline at 2px offset, and disabled drops to `--disabled-opacity` 0.45 with the default cursor and no hover or pressed change.
 
@@ -192,40 +192,40 @@ Spacing values are literals on this scale; use nothing else:
 
 ### 8.8 Map appearance popover
 
-- A non-modal popover under the header's Map appearance button (`aria-expanded`): `.map-popover` (`role="dialog"`, `aria-label` "Map appearance", 16px padding, `min(360px, 100%)` wide, scrolls inside, z-index 1500 under dialogs). No scrim and no focus trap; player shortcuts stay live while it is open.
+- A non-modal popover anchored above the footer's Map settings button (`aria-expanded`): `.map-popover` (`role="dialog"`, `aria-label` "Map appearance", 16px padding, `min(360px, 100%)` wide, scrolls inside, z-index 1500 under dialogs). No scrim and no focus trap; player shortcuts stay live while it is open.
 - **Anatomy:** the header (18px title and the `DialogClose` "Close"), the description line ("Customize how your flight path appears in the preview and map export."), the Map group (Map style, View, Zoom, Zoom-out, Intro (s), Outro (s)), the HUD chips group with the no-altitude warning notice (§8.2/§8.3), and the "Map-only export" note ("Export renders the map, not the source video.").
-- **Behavior:** every change applies at once and is stored like the rest of the look settings. The popover opens focused and returns focus to the Map appearance button when it closes. Escape, a click outside or Close dismiss it; Escape reaches it before the loop shortcut (section 13). The open state is session-only. This panel replaces the former Settings dialog; its fields keep the field recipes of §8.4.
+- **Behavior:** every change applies at once and is stored like the rest of the look settings. The popover opens focused and returns focus to the Map settings button when it closes. Escape, a click outside or Close dismiss it; Escape reaches it before the loop shortcut (section 13). The open state is session-only. This panel replaces the former Settings dialog; its fields keep the field recipes of §8.4.
 
 ## 9. Layout and responsiveness
 
 - **Window:** default 1600×950; minimum 1024×600 (`app/main.mjs`).
 - **Landing:** card at most 560px wide, 32px padding, 12vh top margin, centered.
 - **Review workspace:** one column — header bar (`--header-h`), preview area (label strip `--preview-strip-h` and the stage), transport row (`--transport-h`), timeline panel (`--timeline-h`, 140px below 720px window height) and status bar (`--status-h`). The chrome heights mirror `CHROME` in `ui/lib/layout.ts`; change the two together.
-- **Header bar:** wordmark "neo2 / flightpath", divider, the project slot ("Flight workspace", "Recording · 0:34"), spacer, the readiness text, then Open…, Export… and the Map appearance toggle. Gaps 8px; padding 0 16px.
-- **Preview area:** the label strip ("Preview" · "Video + map"; the "Paused at 0:10" / "Playing at 0:10" state tag; Swap view) over the stage.
+- **Header bar:** wordmark "neo2 / flightpath", divider, the project slot ("Flight workspace", "Recording · 0:34"), spacer, the readiness text, then Open… and Export…. Gaps 8px; padding 0 16px.
+- **Preview area:** the label strip ("Preview" · "Video + map"; the "Paused at 0:10" / "Playing at 0:10" state tag) over the stage.
 - **Stage, split (default):** the video pane (flex, `object-fit: contain`, black letterbox) beside the map card rail — `clamp(280px, 28%, 372px)` wide, 16px padding and gap: the "Flight map" header with the "Satellite · Overview" look summary and the Synced pill, the map host (fills), the "Current position" readout and the shared-playhead note. Below 720px window height the card drops the readout and the note so the map host keeps room for the HUD chips and the attribution.
 - **Stage, overlay:** the map becomes a square corner card on the footage — `clamp(180px, 36%, 242px)`, 18px from the right and bottom edges — with the "Map · synced" tag; the card's header, readout and note hide. Swap view (or S) exchanges the two layouts; the map island stays mounted across the swap.
 - **Transport row:** Jump to start, Play/Pause and Jump to end at the left, a divider, the position readout; "Playback speed" with the segment group at the right.
 - **Timeline panel:** the header ("Timeline" · "Playback & loop points"; Set in, Set out, Clear and the loop readout), the time ruler (ticks from `timelineTicks`, §12), and the video track: the filmstrip (decorative) as one continuous, borderless, square-cornered strip spanning the panel below the ruler — no track-label column — with the loop band with draggable ends (pointer only; the keyboard path is I/O, Esc and the buttons), the playhead and the range slider "Playback position" over the track. The ruler shares the strip's exact span, so its ticks line up with the band and the playhead. The map's telemetry is not a timeline lane.
-- **Status bar:** readiness, "SRT telemetry loaded" (only with telemetry) and the duration at the left; Help at the right.
-- **Dialogs:** `min(440px, 100%)` wide; top offset 56px (§8.5). The map appearance popover anchors under the header (§8.8).
+- **Status bar:** readiness, "SRT telemetry loaded" (only with telemetry) and the duration at the left; the icon-only Map settings, Swap and Help at the right.
+- **Dialogs:** `min(440px, 100%)` wide; top offset 56px (§8.5). The map appearance popover anchors above the footer's Map settings button (§8.8).
 
 ## 10. Copy and labels
 
-- **Rules:** verb-first actions ("Open…", "Start export", "Cancel export", "Reveal in folder"); nouns for toggles and destinations ("Map appearance", "Swap view"); short phrases for status ("Preparing…", "Warming tiles…", "Canceling…"). Sentence case. American English ("canceled", "Canceling…"). No exclamation marks.
+- **Rules:** verb-first actions ("Open…", "Start export", "Cancel export", "Reveal in folder"); nouns for toggles and destinations ("Map settings", "Swap"); short phrases for status ("Preparing…", "Warming tiles…", "Canceling…"). Sentence case. American English ("canceled", "Canceling…"). No exclamation marks.
 - **App title:** "Neo2 Flightpath" in the window title bar — the `metadata` title in `ui/app/layout.tsx`; `app/main.mjs` carries the same string for the pre-load frame.
-- **One name per action:** "Open…" on the landing and the player; "Export…" in the bar opens the dialog titled "Export".
+- **One name per action:** "Open…" on the landing and the player; "Export…" in the bar opens the dialog titled "Export"; the footer's Map settings opens the popover titled "Map appearance".
 - **Ellipsis:** verb-first actions that open a dialog or picker, and work in progress (section 4). **Shortcuts** go in parentheses in the `title`: "Set loop in (I)".
 - **Raw identifiers** belong under "Technical details" or in the CLI, never in main UI text.
 
 | Where | Labels |
 |---|---|
 | Landing | Open…, Preparing…, Help |
-| Workspace header | Flight workspace; Recording · 0:34; Video + telemetry ready / Warming tiles… / Preparing recording…; Open…, Export…, Map appearance |
-| Preview strip and map card | Preview · Video + map; Paused at 0:10 / Playing at 0:10; Swap view; Flight map; Satellite · Overview; Synced; Map · synced; Current position 0:10 / 0:34; "Map and video share the same playhead." |
+| Workspace header | Flight workspace; Recording · 0:34; Video + telemetry ready / Warming tiles… / Preparing recording…; Open…, Export… |
+| Preview strip and map card | Preview · Video + map; Paused at 0:10 / Playing at 0:10; Flight map; Satellite · Overview; Synced; Map · synced; Current position 0:10 / 0:34; "Map and video share the same playhead." |
 | Transport | Play / Pause / Warming tiles…, Jump to start, Jump to end (`aria-label`; `title` "Jump to start (Home)" / "Jump to end (End)"), Playback speed (1×, 2×, 3×, 4×) |
 | Timeline | Timeline · Playback & loop points; Set in, Set out, Clear (`aria-label` "Set loop in", "Set loop out", "Clear loop"); loop 0:10–0:12 |
-| Status bar | Ready / Preparing…, SRT telemetry loaded, 0:34 duration, Help |
+| Status bar | Ready / Preparing…, SRT telemetry loaded, 0:34 duration, Map settings, Swap, Help (icon-only; `title` "Swap (S)") |
 | Preparation status | Probing the recording…, Loading telemetry…, Planning the view…, Warming tiles… 12/20 (running tile count over the awaited tiles) |
 | Warm hint | Warming tiles… 12/48 (running tile count over the tiles the map displays) |
 | Export dialog | Start export, Cancel, Cancel export / Canceling…, Reveal in folder, Open video, Close; progress "Rendering N%" / "Preparing…" |
@@ -264,7 +264,7 @@ Spacing values are literals on this scale; use nothing else:
 
 - **Focus:** `:focus-visible` shows a 2px `--focus` (white) outline, offset 2px, on buttons, inputs (including toggles and the timeline), selects and summaries. Mouse clicks do not show it. Opening a dialog moves focus to its panel (`tabIndex={-1}`); closing returns it to the opener.
 - **Contrast:** every text token meets 4.5:1 on each surface where it is used; the accent, focus ring and state fills meet 3:1 (section 3).
-- **Names:** icon-plus-label buttons have visible text; Map appearance and Close also set `aria-label`; the icon-only transport buttons carry `aria-label` and `title`; loop buttons set `aria-label` and a `title` with the key; the timeline slider has `aria-label` "Playback position"; dialogs have `role="dialog"` and an `aria-label`, and so does the map appearance popover, whose toggle sets `aria-expanded`; the progress bar has `role="progressbar"` and a label; fields use `label` with `htmlFor`; groups use `fieldset` and `legend` (a lone export group carries none, §8.4); segments use `aria-pressed` in a group labeled "Playback speed" or "View".
+- **Names:** icon-plus-label buttons have visible text; Close also sets `aria-label`; the icon-only buttons (Jump to start, Jump to end, Map settings, Swap, Help) carry `aria-label` and `title`; loop buttons set `aria-label` and a `title` with the key; the timeline slider has `aria-label` "Playback position"; dialogs have `role="dialog"` and an `aria-label`, and so does the map appearance popover, whose toggle sets `aria-expanded`; the progress bar has `role="progressbar"` and a label; fields use `label` with `htmlFor`; groups use `fieldset` and `legend` (a lone export group carries none, §8.4); segments use `aria-pressed` in a group labeled "Playback speed" or "View".
 - **Disabled reasons:** the visible label when it states the reason ("Preparing…", "Warming tiles…", "Canceling…") or a `title`: the header close during an export ("Export is running. Cancel it to close."), the altitude toggle, and Clear without a loop ("No loop to clear.").
 - **Keyboard** (`ui/lib/hotkeys.ts`, `ui/hooks/usePlayerHotkeys.ts`): Space or K play and pause; 1–4 set speed; Home and End seek; I and O set loop points; S swaps the stage layouts; Left and Right step one frame; Shift with Left or Right jumps one second; Ctrl+O opens a recording; Escape closes the open dialog or the map appearance popover, or clears the loop when none is open, and does nothing while an export runs. Shortcuts are off in text fields, selects and text areas, and while a dialog is open (only Escape gets through). Space is also off over a focused button, link or disclosure, which it activates instead. Only the arrow keys repeat when held.
 - **Motion:** reduced motion removes all transitions; video and map never animate (section 6).

@@ -128,7 +128,6 @@ describe('PlayerChrome workspace structure', () => {
     // Header
     expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export…' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Map appearance' })).toBeTruthy();
     // Transport
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Play|Warming tiles/ })).toBeTruthy();
@@ -142,6 +141,8 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
     // Status bar
+    expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
     expect(screen.getByText('0:03 duration')).toBeTruthy();
     expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
@@ -174,7 +175,7 @@ describe('PlayerChrome workspace structure', () => {
 
   it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Swap view' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
     const card = document.querySelector('.map-card') as HTMLElement;
@@ -242,17 +243,17 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const card = document.querySelector('.map-card') as HTMLElement;
     expect(card.className).toContain('map-card-split');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
     expect(card.className).toContain('map-card-overlay');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
     expect(card.className).toContain('map-card-split');
   });
 
   it('keeps the map island mounted across the swap, so playback stays synchronized', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const island = screen.getByTestId('map-island');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
     expect(screen.getByTestId('map-island')).toBe(island);
   });
 
@@ -265,11 +266,11 @@ describe('PlayerChrome view swap', () => {
 });
 
 describe('PlayerChrome map appearance popover', () => {
-  it('opens from the header button and closes with Escape', async () => {
+  it('opens from the footer button and closes with Escape', async () => {
     const user = userEvent.setup();
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    const toggle = screen.getByRole('button', { name: 'Map appearance' });
+    const toggle = screen.getByRole('button', { name: 'Map settings' });
     await user.click(toggle);
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
@@ -281,7 +282,7 @@ describe('PlayerChrome map appearance popover', () => {
   it('closes on a second toggle press instead of flapping open', async () => {
     const user = userEvent.setup();
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const toggle = screen.getByRole('button', { name: 'Map appearance' });
+    const toggle = screen.getByRole('button', { name: 'Map settings' });
     await user.click(toggle);
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     await user.click(toggle);
@@ -300,7 +301,7 @@ describe('PlayerChrome map appearance popover', () => {
         onOpen={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(onSettingsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ style: 'topo' }),
@@ -538,7 +539,7 @@ describe('PlayerChrome loop region', () => {
   it('closes the popover on Esc first and clears the loop on the second', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
@@ -601,7 +602,7 @@ describe('PlayerChrome shortcut guard rails', () => {
   it('keeps player keys inert while typing in a popover field', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     const field = document.querySelector('input[type="number"]') as HTMLInputElement;
     key(field, { key: '3' });
     key(field, { key: ' ' });
@@ -615,14 +616,14 @@ describe('PlayerChrome shortcut guard rails', () => {
 
   it('keeps player keys live while the popover is open', async () => {
     const fake = await renderPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     key(window, { key: ' ' });
     expect(fake.play).toHaveBeenCalledTimes(1);
   });
 
   it('leaves Esc on an open select dropdown to the select', async () => {
     await renderPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Map appearance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     const select = document.querySelector('select') as HTMLSelectElement;
     key(select, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();

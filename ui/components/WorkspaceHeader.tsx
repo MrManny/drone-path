@@ -1,11 +1,8 @@
 'use client';
 
-import type { RefObject } from 'react';
-
 import { formatTime } from '../lib/frametime.js';
 import { FolderOpenIcon } from '../icons/FolderOpenIcon.js';
 import { ExportIcon } from '../icons/ExportIcon.js';
-import { SettingsIcon } from '../icons/SettingsIcon.js';
 
 export interface WorkspaceHeaderProps {
   /** The open recording's length, shown in the project slot. */
@@ -16,10 +13,6 @@ export interface WorkspaceHeaderProps {
   opening: boolean;
   onOpen: () => void;
   onExport: () => void;
-  onMapAppearance: () => void;
-  mapAppearanceOpen: boolean;
-  /** Focus returns here when the map appearance popover closes. */
-  appearanceButtonRef?: RefObject<HTMLButtonElement | null>;
 }
 
 export function WorkspaceHeader({
@@ -28,9 +21,6 @@ export function WorkspaceHeader({
   opening,
   onOpen,
   onExport,
-  onMapAppearance,
-  mapAppearanceOpen,
-  appearanceButtonRef,
 }: WorkspaceHeaderProps) {
   const status = opening ? 'Preparing recording…' : ready ? 'Video + telemetry ready' : 'Warming tiles…';
   return (
@@ -53,16 +43,6 @@ export function WorkspaceHeader({
       <button type="button" onClick={onExport}>
         <ExportIcon />
         Export…
-      </button>
-      <button
-        type="button"
-        ref={appearanceButtonRef}
-        aria-label="Map appearance"
-        aria-expanded={mapAppearanceOpen}
-        onClick={onMapAppearance}
-      >
-        <SettingsIcon />
-        Map appearance
       </button>
     </header>
   );

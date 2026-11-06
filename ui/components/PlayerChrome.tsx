@@ -145,9 +145,6 @@ export function PlayerChrome({
         opening={opening}
         onOpen={onOpen}
         onExport={() => dispatchDialog({ type: 'openExport' })}
-        onMapAppearance={toggleMapAppearance}
-        mapAppearanceOpen={mapAppearanceOpen}
-        appearanceButtonRef={appearanceButtonRef}
       />
       <PlayerStage
         video={video}
@@ -161,7 +158,6 @@ export function PlayerChrome({
         videoRef={videoRef}
         onScene={handleScene}
         onPlayState={setPlaying}
-        onSwap={swap}
         notice={
           openNotice || warmHint ? (
             <>
@@ -197,6 +193,10 @@ export function PlayerChrome({
         ready={ready}
         hasTelemetry={preparedScene.lat.length > 0}
         durationSec={durationSec}
+        onMapSettings={toggleMapAppearance}
+        mapSettingsOpen={mapAppearanceOpen}
+        settingsButtonRef={appearanceButtonRef}
+        onSwap={swap}
         onHelp={onHelp}
       />
       {mapAppearanceOpen ? (
