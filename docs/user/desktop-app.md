@@ -16,11 +16,11 @@ Launch the app and pick a drone video; the **Open…** dialog starts in the fold
 
 The review workspace shows the footage and the synchronized flight map at once: the video fills the preview beside a map card that names its look ("Satellite · Overview"), keeps its flight trail, drone position and HUD chips on the frame, and shares the playhead with the video. **Swap view** (or `S`) turns the map into a corner overlay on the footage when you want the full frame for the video. Play, pause and scrubbing drive both panes from one timeline, so the map and the footage never drift apart. Every playback control has a [keyboard shortcut](keyboard-shortcuts.md).
 
-![Footage and synchronized flight map side by side in the review workspace](../images/app-player-workspace.jpg)
+![Footage and synchronized flight map side by side in the review workspace](../images/app-review-split.jpg)
 
 *The review workspace: footage and the synchronized flight map side by side, with the timeline below.*
 
-![Flight map as a synchronized corner overlay on the footage](../images/app-player-overlay.jpg)
+![Flight map as a synchronized corner overlay on the footage](../images/app-review-overlay.jpg)
 
 *Swapped view: the flight map overlays the footage while both stay on the same frame.*
 
@@ -44,7 +44,7 @@ The **Export…** button in the header renders the recording with the look you s
 
 The **Map appearance** button in the header opens a small panel with the map look settings: map style (satellite or topographic), view mode (follow keeps the drone centered with the map sliding under it; overview shows the whole track at once), zoom and zoom-out levels, the intro and outro zoom transitions, and the HUD chips (heading, altitude and speed — altitude and speed are off by default). Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults.
 
-![The map appearance panel with map style, view, zoom and HUD chips](../images/app-map-appearance.jpg)
+![The map appearance panel with map style, view, zoom and HUD chips](../images/app-review-map-appearance.jpg)
 
 *The map appearance panel: the map look settings live beside the workspace they affect.*
 
