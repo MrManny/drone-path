@@ -201,7 +201,7 @@ Spacing values are literals on this scale; use nothing else:
 - **Window:** default 1600×950; minimum 1024×600 (`app/main.mjs`).
 - **Landing:** card at most 560px wide, 32px padding, 12vh top margin, centered.
 - **Review workspace:** one column — header bar (`--header-h`), preview area (label strip `--preview-strip-h` and the stage), transport row (`--transport-h`), timeline panel (`--timeline-h`, 140px below 720px window height) and status bar (`--status-h`). The chrome heights mirror `CHROME` in `ui/lib/layout.ts`; change the two together.
-- **Header bar:** wordmark "neo2 / flightpath", divider, the project slot ("Flight workspace", "Recording · 0:34"), spacer, the readiness text, then Open… and Export…. Gaps 8px; padding 0 16px.
+- **Header bar:** wordmark "neo2 / flightpath", divider, the project slot ("Flight workspace", "Recording · 0:34"), spacer, then Open… and Export…. Gaps 8px; padding 0 16px.
 - **Preview area:** the label strip ("Preview" · "Video + map"; the "Paused at 0:10" / "Playing at 0:10" state tag) over the stage.
 - **Stage, split (default):** the video pane (flex, `object-fit: contain`, black letterbox) beside the map card rail — `clamp(280px, 28%, 372px)` wide, 16px padding and gap: the "Flight map" header with the "Satellite · Overview" look summary and the Synced pill, the map host (fills), the "Current position" readout and the shared-playhead note. Below 720px window height the card drops the readout and the note so the map host keeps room for the HUD chips and the attribution.
 - **Stage, overlay:** the map becomes a square corner card on the footage — `clamp(180px, 36%, 242px)`, 18px from the right and bottom edges — with the "Map · synced" tag; the card's header, readout and note hide. Swap view (or S) exchanges the two layouts; the map island stays mounted across the swap.
@@ -221,7 +221,7 @@ Spacing values are literals on this scale; use nothing else:
 | Where | Labels |
 |---|---|
 | Landing | Open…, Preparing…, Help |
-| Workspace header | Flight workspace; Recording · 0:34; Video + telemetry ready / Warming tiles… / Preparing recording…; Open…, Export… |
+| Workspace header | Flight workspace; Recording · 0:34; Open…, Export… |
 | Preview strip and map card | Preview · Video + map; Paused at 0:10 / Playing at 0:10; Flight map; Satellite · Overview; Synced; Map · synced; Current position 0:10 / 0:34; "Map and video share the same playhead." |
 | Transport | Play / Pause / Warming tiles…, Jump to start, Jump to end (`aria-label`; `title` "Jump to start (Home)" / "Jump to end (End)"), Playback speed (1×, 2×, 3×, 4×) |
 | Timeline | Timeline · Playback & loop points; Set in, Set out, Clear (`aria-label` "Set loop in", "Set loop out", "Clear loop"); loop 0:10–0:12 |

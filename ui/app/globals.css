@@ -272,7 +272,7 @@ button.primary {
   height: 100vh;
 }
 
-/* Header bar: brand, project identity, readiness and the app's actions. */
+/* Header bar: brand, project identity and the app's actions. */
 .workspace-header {
   flex: none;
   height: var(--header-h);
@@ -315,11 +315,6 @@ button.primary {
 }
 .header-spacer {
   flex: 1 1 auto;
-}
-.header-status {
-  font-size: 13px;
-  color: var(--text-2);
-  white-space: nowrap;
 }
 
 /* Preview area: the label strip and the stage with the footage and the map. */

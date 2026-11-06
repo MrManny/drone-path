@@ -141,7 +141,6 @@ export function PlayerChrome({
     <div className="workspace">
       <WorkspaceHeader
         durationSec={durationSec}
-        ready={ready}
         opening={opening}
         onOpen={onOpen}
         onExport={() => dispatchDialog({ type: 'openExport' })}

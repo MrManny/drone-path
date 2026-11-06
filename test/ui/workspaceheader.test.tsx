@@ -12,7 +12,6 @@ function renderHeader(overrides: Partial<Parameters<typeof WorkspaceHeader>[0]> 
   render(
     <WorkspaceHeader
       durationSec={3}
-      ready
       opening={false}
       onOpen={onOpen}
       onExport={onExport}
@@ -31,12 +30,13 @@ describe('WorkspaceHeader', () => {
   });
 
   it.for([
-    { ready: true, opening: false, status: 'Video + telemetry ready' },
-    { ready: false, opening: false, status: 'Warming tiles…' },
-    { ready: false, opening: true, status: 'Preparing recording…' },
-  ])('reports $status', ({ ready, opening, status }) => {
-    renderHeader({ ready, opening });
-    expect(screen.getByText(status)).toBeTruthy();
+    { opening: false, status: 'Video + telemetry ready' },
+    { opening: false, status: 'Warming tiles…' },
+    { opening: true, status: 'Preparing recording…' },
+  ])('carries no readiness text ($status)', ({ opening, status }) => {
+    renderHeader({ opening });
+    expect(screen.queryByText(status)).toBeNull();
+    expect(document.querySelector('.header-status')).toBeNull();
   });
 
   it('dispatches the header actions', () => {
