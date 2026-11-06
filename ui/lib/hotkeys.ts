@@ -7,6 +7,8 @@
 // stepping/jumping (a repeating Space would flicker play/pause, a repeating S
 // would flicker the layout).
 
+import { closeOverlayTarget } from './overlayrouting.js';
+
 export type HotkeyAction =
   | { type: 'togglePlay' }
   | { type: 'speed'; rate: 1 | 2 | 3 | 4 }
@@ -103,9 +105,11 @@ function mapAction(
   // select's own dropdown; the next one closes like from anywhere else (#93).
   if (key === 'Escape') {
     if (tag === 'SELECT' && !selectEscaped) return null;
-    return ctx.modalOpen || ctx.popoverOpen === true
-      ? { type: 'closeOverlay' }
-      : { type: 'clearLoop' };
+    const overlay = closeOverlayTarget({
+      modalOpen: ctx.modalOpen,
+      popoverOpen: ctx.popoverOpen === true,
+    });
+    return overlay === 'none' ? { type: 'clearLoop' } : { type: 'closeOverlay' };
   }
 
   if (ctx.modalOpen) return null;
