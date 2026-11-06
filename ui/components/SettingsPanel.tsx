@@ -1,9 +1,8 @@
 'use client';
 
 import { STYLE_VALUES, VIEW_VALUES } from '../../src/config.js';
-import type { RenderConfig, Style, View } from '../../src/config.js';
-import { patchConfig, setHudChip } from '../lib/settings.js';
-import { DialogShell } from './DialogShell.js';
+import type { RenderConfig, Style } from '../../src/config.js';
+import { patchConfig, setHudChip, STYLE_LABELS, VIEW_LABELS } from '../lib/settings.js';
 import { Notice } from './Notice.js';
 import { NumberField } from './NumberField.js';
 import { SelectField } from './SelectField.js';
@@ -13,18 +12,7 @@ export interface SettingsPanelProps {
   /** False when the telemetry has no altitude: the alt chip cannot show. */
   hasAltitude: boolean;
   onChange: (config: RenderConfig) => void;
-  onClose: () => void;
 }
-
-// The config vocabulary holds raw values; the options show plain words.
-const STYLE_LABELS: Record<Style, string> = {
-  satellite: 'Satellite',
-  topo: 'Topographic',
-};
-const VIEW_LABELS: Record<View, string> = {
-  follow: 'Follow',
-  overview: 'Overview',
-};
 
 const HUD_CHIPS: Array<{ chip: 'heading' | 'alt' | 'speed'; label: string }> = [
   { chip: 'heading', label: 'Heading arrow' },
@@ -32,12 +20,10 @@ const HUD_CHIPS: Array<{ chip: 'heading' | 'alt' | 'speed'; label: string }> = [
   { chip: 'speed', label: 'Speed (SPD)' },
 ];
 
-export function SettingsPanel({
-  config,
-  hasAltitude,
-  onChange,
-  onClose,
-}: SettingsPanelProps) {
+// The map appearance popover's content: how the flight path appears in the
+// preview and the map export. Every change applies at once and is stored
+// like the rest of the look settings.
+export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelProps) {
   const apply = (patch: Parameters<typeof patchConfig>[1]): boolean => {
     const next = patchConfig(config, patch);
     if (!next) return false;
@@ -46,52 +32,69 @@ export function SettingsPanel({
   };
 
   return (
-    <DialogShell title="Settings" onClose={onClose}>
-      <SelectField
-        label="Map style"
-        value={config.style}
-        options={STYLE_VALUES.map((value) => ({ value, label: STYLE_LABELS[value] }))}
-        onValue={(style) => apply({ style: style as Style })}
-      />
-      <SelectField
-        label="View"
-        value={config.view}
-        options={VIEW_VALUES.map((value) => ({ value, label: VIEW_LABELS[value] }))}
-        onValue={(view) => apply({ view: view as View })}
-      />
-
-      <NumberField
-        label="Zoom"
-        value={config.zoom}
-        min={0}
-        rule="0 or more"
-        hint="0 = auto-fit"
-        onValue={(zoom) => apply({ zoom })}
-      />
-      <NumberField
-        label="Zoom-out"
-        value={config.zoomOut}
-        min={0}
-        rule="0 or more"
-        hint="auto-fit only"
-        onValue={(zoomOut) => apply({ zoomOut })}
-      />
-      <NumberField
-        label="Intro (s)"
-        value={config.introSec}
-        min={0}
-        rule="0 or more"
-        step={0.5}
-        onValue={(introSec) => apply({ introSec })}
-      />
-      <NumberField
-        label="Outro (s)"
-        value={config.outroSec}
-        min={0}
-        rule="0 or more"
-        step={0.5}
-        onValue={(outroSec) => apply({ outroSec })}
-      />
+    <div className="map-appearance">
+      <p className="map-appearance-desc">
+        Customize how your flight path appears in the preview and map export.
+      </p>
+      <fieldset className="settings-group">
+        <legend>Map</legend>
+        <SelectField
+          label="Map style"
+          value={config.style}
+          options={STYLE_VALUES.map((value) => ({ value, label: STYLE_LABELS[value] }))}
+          hint="Satellite imagery"
+          onValue={(style) => apply({ style: style as Style })}
+        />
+        <div className="settings-row">
+          <span className="settings-label">View</span>
+          <div className="segmented" role="group" aria-label="View">
+            {VIEW_VALUES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className="segment"
+                aria-pressed={config.view === value}
+                onClick={() => apply({ view: value })}
+              >
+                {VIEW_LABELS[value]}
+              </button>
+            ))}
+          </div>
+          <span className="hint">Camera framing</span>
+        </div>
+        <NumberField
+          label="Zoom"
+          value={config.zoom}
+          min={0}
+          rule="0 or more"
+          hint="0 = auto-fit"
+          onValue={(zoom) => apply({ zoom })}
+        />
+        <NumberField
+          label="Zoom-out"
+          value={config.zoomOut}
+          min={0}
+          rule="0 or more"
+          hint="auto-fit only"
+          onValue={(zoomOut) => apply({ zoomOut })}
+        />
+        <NumberField
+          label="Intro (s)"
+          value={config.introSec}
+          min={0}
+          rule="0 or more"
+          step={0.5}
+          onValue={(introSec) => apply({ introSec })}
+        />
+        <NumberField
+          label="Outro (s)"
+          value={config.outroSec}
+          min={0}
+          rule="0 or more"
+          step={0.5}
+          onValue={(outroSec) => apply({ outroSec })}
+        />
+      </fieldset>
 
       <fieldset className="settings-group">
         <legend>HUD chips</legend>
@@ -122,6 +125,11 @@ export function SettingsPanel({
           </Notice>
         )}
       </fieldset>
-    </DialogShell>
+
+      <div className="popover-note">
+        <strong>Map-only export</strong>
+        <span>Export renders the map, not the source video.</span>
+      </div>
+    </div>
   );
 }

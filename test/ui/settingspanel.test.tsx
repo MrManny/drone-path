@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../../src/config.js';
@@ -18,12 +18,7 @@ function renderPanel(
   onChange: (config: RenderConfig) => void = () => {},
 ) {
   return render(
-    <SettingsPanel
-      config={config}
-      hasAltitude={hasAltitude}
-      onChange={onChange}
-      onClose={() => {}}
-    />,
+    <SettingsPanel config={config} hasAltitude={hasAltitude} onChange={onChange} />,
   );
 }
 
@@ -39,11 +34,13 @@ describe('SettingsPanel', () => {
     };
     renderPanel(config, true);
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
-    expect(screen.getByLabelText<HTMLSelectElement>('View').value).toBe('overview');
     expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('13');
     expect(screen.getByLabelText<HTMLInputElement>('Zoom-out').value).toBe('2');
     expect(screen.getByLabelText<HTMLInputElement>('Intro (s)').value).toBe('1.5');
     expect(screen.getByLabelText<HTMLInputElement>('Outro (s)').value).toBe('2');
+    const view = screen.getByRole('group', { name: 'View' });
+    const overview = within(view).getByRole('button', { name: 'Overview' });
+    expect(overview.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('shows plain option labels while keeping raw values', () => {
@@ -53,27 +50,11 @@ describe('SettingsPanel', () => {
       ['satellite', 'Satellite'],
       ['topo', 'Topographic'],
     ]);
-    const view = screen.getByLabelText<HTMLSelectElement>('View');
-    expect([...view.options].map((o) => [o.value, o.textContent])).toEqual([
-      ['follow', 'Follow'],
-      ['overview', 'Overview'],
+    const view = screen.getByRole('group', { name: 'View' });
+    expect(within(view).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Follow',
+      'Overview',
     ]);
-  });
-
-  it('closes from the header Close button, which is never blocked here', () => {
-    const onClose = vi.fn();
-    render(
-      <SettingsPanel
-        config={DEFAULT_CONFIG}
-        hasAltitude
-        onChange={() => {}}
-        onClose={onClose}
-      />,
-    );
-    const close = screen.getByRole<HTMLButtonElement>('button', { name: 'Close' });
-    expect(close.disabled).toBe(false);
-    fireEvent.click(close);
-    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('emits the vocabulary values on control changes', () => {
@@ -84,6 +65,10 @@ describe('SettingsPanel', () => {
     });
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ style: 'topo' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ view: 'follow' }),
     );
     fireEvent.click(screen.getByLabelText('Speed (SPD)'));
     expect(onChange).toHaveBeenLastCalledWith(
@@ -109,14 +94,7 @@ describe('SettingsPanel', () => {
   it('keeps a rejected value visible with its message until blur, then reverts', () => {
     function Harness() {
       const [current, setCurrent] = useState(DEFAULT_CONFIG);
-      return (
-        <SettingsPanel
-          config={current}
-          hasAltitude
-          onChange={setCurrent}
-          onClose={() => {}}
-        />
-      );
+      return <SettingsPanel config={current} hasAltitude onChange={setCurrent} />;
     }
     render(<Harness />);
     const intro = screen.getByLabelText<HTMLInputElement>('Intro (s)');
@@ -149,15 +127,22 @@ describe('SettingsPanel', () => {
     const { rerender } = renderPanel(DEFAULT_CONFIG, false);
     const alt = screen.getByLabelText<HTMLInputElement>('Altitude (ALT)');
     expect(alt.disabled).toBe(true);
-    rerender(
-      <SettingsPanel
-        config={DEFAULT_CONFIG}
-        hasAltitude
-        onChange={() => {}}
-        onClose={() => {}}
-      />,
-    );
+    rerender(<SettingsPanel config={DEFAULT_CONFIG} hasAltitude onChange={() => {}} />);
     expect(alt.disabled).toBe(false);
+  });
+
+  it('labels the map style hint and the map-only export note', () => {
+    renderPanel(DEFAULT_CONFIG, true);
+    expect(screen.getByText('Satellite imagery')).toBeTruthy();
+    expect(screen.getByText('Map-only export')).toBeTruthy();
+    expect(
+      screen.getByText('Export renders the map, not the source video.'),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Customize how your flight path appears in the preview and map export.',
+      ),
+    ).toBeTruthy();
   });
 });
 

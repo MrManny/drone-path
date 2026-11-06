@@ -36,6 +36,8 @@ export interface HotkeyEvent {
 export interface HotkeyContext {
   /** A modal overlay is open: only Esc gets through. */
   modalOpen: boolean;
+  /** The map appearance popover is open: Esc closes it, not the loop. */
+  popoverOpen?: boolean;
 }
 
 /** The cross-event state a key stream threads through mapKey calls. */
@@ -101,7 +103,9 @@ function mapAction(
   // select's own dropdown; the next one closes like from anywhere else (#93).
   if (key === 'Escape') {
     if (tag === 'SELECT' && !selectEscaped) return null;
-    return ctx.modalOpen ? { type: 'closeOverlay' } : { type: 'clearLoop' };
+    return ctx.modalOpen || ctx.popoverOpen === true
+      ? { type: 'closeOverlay' }
+      : { type: 'clearLoop' };
   }
 
   if (ctx.modalOpen) return null;

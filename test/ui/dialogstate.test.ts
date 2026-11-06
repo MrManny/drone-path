@@ -3,48 +3,41 @@ import { describe, expect, it } from 'vitest';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
 import type { DialogEvent, DialogState } from '../../ui/lib/dialogstate.js';
 
-const TABLE: Array<{ when: string; from: DialogState; event: DialogEvent; to: DialogState }> = [
-  { when: 'openSettings', from: 'closed', event: { type: 'openSettings' }, to: 'settings' },
-  { when: 'openSettings', from: 'settings', event: { type: 'openSettings' }, to: 'settings' },
-  { when: 'openSettings', from: 'export-form', event: { type: 'openSettings' }, to: 'settings' },
-  { when: 'openSettings', from: 'export-running', event: { type: 'openSettings' }, to: 'export-running' },
-  { when: 'openExport', from: 'closed', event: { type: 'openExport' }, to: 'export-form' },
-  { when: 'openExport', from: 'settings', event: { type: 'openExport' }, to: 'export-form' },
-  { when: 'openExport', from: 'export-form', event: { type: 'openExport' }, to: 'export-form' },
-  { when: 'openExport', from: 'export-running', event: { type: 'openExport' }, to: 'export-running' },
-  { when: 'exportStarted', from: 'closed', event: { type: 'exportStarted' }, to: 'closed' },
-  { when: 'exportStarted', from: 'settings', event: { type: 'exportStarted' }, to: 'settings' },
-  { when: 'exportStarted', from: 'export-form', event: { type: 'exportStarted' }, to: 'export-running' },
-  { when: 'exportStarted', from: 'export-running', event: { type: 'exportStarted' }, to: 'export-running' },
-  { when: 'exportFinished', from: 'closed', event: { type: 'exportFinished' }, to: 'closed' },
-  { when: 'exportFinished', from: 'settings', event: { type: 'exportFinished' }, to: 'settings' },
-  { when: 'exportFinished', from: 'export-form', event: { type: 'exportFinished' }, to: 'export-form' },
-  { when: 'exportFinished', from: 'export-running', event: { type: 'exportFinished' }, to: 'export-form' },
-  { when: 'exportFinished', from: 'update-prompt', event: { type: 'exportFinished' }, to: 'update-prompt' },
-  { when: 'updateReady', from: 'closed', event: { type: 'updateReady' }, to: 'update-prompt' },
-  { when: 'updateReady', from: 'settings', event: { type: 'updateReady' }, to: 'settings' },
-  { when: 'updateReady', from: 'export-form', event: { type: 'updateReady' }, to: 'export-form' },
-  { when: 'updateReady', from: 'export-running', event: { type: 'updateReady' }, to: 'export-running' },
-  { when: 'updateReady', from: 'update-prompt', event: { type: 'updateReady' }, to: 'update-prompt' },
-  { when: 'openSettings', from: 'update-prompt', event: { type: 'openSettings' }, to: 'update-prompt' },
-  { when: 'openHelp', from: 'closed', event: { type: 'openHelp' }, to: 'help' },
-  { when: 'openHelp', from: 'help', event: { type: 'openHelp' }, to: 'help' },
-  { when: 'openHelp', from: 'settings', event: { type: 'openHelp' }, to: 'help' },
-  { when: 'openHelp', from: 'export-form', event: { type: 'openHelp' }, to: 'help' },
-  { when: 'openHelp', from: 'export-running', event: { type: 'openHelp' }, to: 'export-running' },
-  { when: 'openHelp', from: 'update-prompt', event: { type: 'openHelp' }, to: 'update-prompt' },
-  { when: 'openSettings', from: 'help', event: { type: 'openSettings' }, to: 'settings' },
-  { when: 'openExport', from: 'help', event: { type: 'openExport' }, to: 'export-form' },
-  { when: 'updateReady', from: 'help', event: { type: 'updateReady' }, to: 'help' },
-  { when: 'close', from: 'help', event: { type: 'close' }, to: 'closed' },
-  { when: 'openExport', from: 'update-prompt', event: { type: 'openExport' }, to: 'update-prompt' },
-  { when: 'exportStarted', from: 'update-prompt', event: { type: 'exportStarted' }, to: 'update-prompt' },
-  { when: 'close', from: 'update-prompt', event: { type: 'close' }, to: 'closed' },
-  { when: 'close', from: 'closed', event: { type: 'close' }, to: 'closed' },
-  { when: 'close', from: 'settings', event: { type: 'close' }, to: 'closed' },
-  { when: 'close', from: 'export-form', event: { type: 'close' }, to: 'closed' },
-  { when: 'close', from: 'export-running', event: { type: 'close' }, to: 'export-running' },
+const STATES: DialogState[] = ['closed', 'help', 'export-form', 'export-running', 'update-prompt'];
+
+const EVENTS: DialogEvent[] = [
+  { type: 'openHelp' },
+  { type: 'openExport' },
+  { type: 'exportStarted' },
+  { type: 'exportFinished' },
+  { type: 'updateReady' },
+  { type: 'close' },
 ];
+
+// The full transition table: one row per state and event, derived from the
+// machine's three rules (open is refused over a running export or the update
+// prompt, updateReady needs a quiet UI, close is refused while running).
+function expected(state: DialogState, event: DialogEvent): DialogState {
+  const pinned = state === 'export-running' || state === 'update-prompt';
+  switch (event.type) {
+    case 'openHelp':
+      return pinned ? state : 'help';
+    case 'openExport':
+      return pinned ? state : 'export-form';
+    case 'exportStarted':
+      return state === 'export-form' ? 'export-running' : state;
+    case 'exportFinished':
+      return state === 'export-running' ? 'export-form' : state;
+    case 'updateReady':
+      return state === 'closed' ? 'update-prompt' : state;
+    case 'close':
+      return state === 'export-running' ? state : 'closed';
+  }
+}
+
+const TABLE = STATES.flatMap((from) =>
+  EVENTS.map((event) => ({ when: event.type, from, event, to: expected(from, event) })),
+);
 
 describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) => {
   it(`lands on ${to}`, () => {
@@ -52,7 +45,7 @@ describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) =>
   });
 });
 
-describe.each<DialogState>(['closed', 'settings', 'help', 'export-form', 'update-prompt'])(
+describe.each<DialogState>(['closed', 'help', 'export-form', 'update-prompt'])(
   'canDismiss(%s)',
   (state) => {
     it('is true, so Escape, the backdrop and the close may dismiss', () => {
@@ -83,9 +76,9 @@ describe('the export run round trip', () => {
 
 describe('the update prompt round trip', () => {
   it('waits for a quiet UI and then dismisses like any dialog', () => {
-    let state: DialogState = 'settings';
+    let state: DialogState = 'help';
     state = dialogReducer(state, { type: 'updateReady' });
-    expect(state).toBe('settings');
+    expect(state).toBe('help');
     state = dialogReducer(state, { type: 'close' });
     state = dialogReducer(state, { type: 'updateReady' });
     expect(state).toBe('update-prompt');
