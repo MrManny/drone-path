@@ -96,6 +96,7 @@
     "wait-on": "~9.5.1"
   },
   "allowScripts": {
-    "electron-winstaller@5.4.0": true
+    "electron-winstaller@5.4.0": true,
+    "ffmpeg-ffprobe-static@7.1.0-rc.1": true
   }
 }
