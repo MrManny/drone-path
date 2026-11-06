@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LatLngExpr, LeafletApi, MarkerHandle, PolylineHandle, TileLayerHandle } from '../../src/renderer/leaflet.js';
 import { createScene } from '../../src/renderer/scene.js';
 import type { SceneData } from '../../src/renderer/scene.js';
+import { themeFor } from '../../src/renderer/theme.js';
 
 interface PolylineRecord {
   points: Array<[number, number]>;
@@ -360,7 +361,7 @@ describe('Scene.update', () => {
     // The new source's zoom constraints go with the layer (topo is native
     // to z17; asking it for z18+ returns placeholder tiles).
     expect(tile.options.at(-1)).toMatchObject({ maxZoom: 19, maxNativeZoom: 17 });
-    expect(document.head.textContent).toContain('rgba(232,127,84,0.26)');
+    expect(document.head.textContent).toContain(themeFor('topo').glow);
     expect(host.querySelector('#attr')?.textContent).toBe('Topo Attribution');
     expect(removals.count).toBeGreaterThan(0);
     expect(polylines.length).toBeGreaterThan(layersBefore);

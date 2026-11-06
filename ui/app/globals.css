@@ -13,7 +13,7 @@
   --hairline-hover: rgba(232, 232, 232, 0.42);
   --text: #e8e8e8;
   --text-2: rgba(232, 232, 232, 0.75);
-  --text-3: rgba(232, 232, 232, 0.55);
+  --text-3: rgba(232, 232, 232, 0.68);
   --accent: #e87f54;
   --accent-hover: #f0a967;
   --accent-press: #c96640;
@@ -45,6 +45,8 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* Contain child margins: the landing's 12vh offset must not grow the page. */
+  display: flow-root;
   background: var(--page);
   color: var(--text);
   /* Dark native widgets (select popups, scrollbars, spinners): Chromium would

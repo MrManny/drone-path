@@ -15,7 +15,7 @@
 import type { HudSpec, Style, View } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
-import { droneMarkerMarkup, el, hudMarkup, mapMarkup, sceneCss } from './dom.js';
+import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss } from './dom.js';
 import type {
   BoundsHandle,
   LatLngTuple,
@@ -197,6 +197,7 @@ class SceneState implements Scene {
       this.scale(),
     );
     this.attrEl.innerHTML = this.data.attribution;
+    quietAttributionLinks(this.attrEl);
   }
 
   // The map fills its frame at any size (headless: the export canvas; app:
