@@ -1,29 +1,31 @@
 /* Design tokens: every surface, text tone, state color, radius and motion value
    the UI uses is named here once. Components reference these names only. */
 :root {
-  --page: #0b1017;
-  --surface-1: #121a25;
-  --surface-2: #19232f;
-  --surface-3: #212c3a;
-  --surface-4: #2b3749;
-  --bar: rgba(11, 16, 23, 0.94);
-  --scrim: rgba(4, 7, 12, 0.5);
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-strong: rgba(255, 255, 255, 0.16);
-  --hairline-hover: rgba(255, 255, 255, 0.28);
-  --text: #eef3f8;
-  --text-2: rgba(238, 243, 248, 0.74);
-  --text-3: rgba(238, 243, 248, 0.6);
-  --accent: #5cd5ff;
-  --accent-hover: #8fe6ff;
-  --accent-press: #47c2ec;
-  --accent-ink: #071018;
-  --focus: #ffffff;
-  --danger: #ff7a7a;
-  --warning: #ffcb6b;
-  --info: #8ab4ff;
-  --loop: #b388ff;
-  --loop-text: #d4bcff;
+  --page: #232323;
+  --surface-1: #2e2e2e;
+  --surface-2: #363636;
+  --surface-3: #454545;
+  --surface-4: #525252;
+  --bar: rgba(35, 35, 35, 0.94);
+  --scrim: rgba(10, 10, 10, 0.6);
+  --hairline: rgba(232, 232, 232, 0.12);
+  --hairline-strong: rgba(232, 232, 232, 0.24);
+  --hairline-hover: rgba(232, 232, 232, 0.42);
+  --text: #e8e8e8;
+  --text-2: rgba(232, 232, 232, 0.75);
+  --text-3: rgba(232, 232, 232, 0.68);
+  --accent: #e87f54;
+  --accent-hover: #f0a967;
+  --accent-press: #c96640;
+  --accent-ink: #2b1207;
+  --accent-text: #f0a967;
+  --focus: #e8e8e8;
+  --danger: #df5441;
+  --danger-text: #f37d75;
+  --warning: #f0a967;
+  --info: #7fa3c4;
+  --loop: #ecc9a8;
+  --loop-text: #f4e2d2;
   --radius-control: 8px;
   --radius-panel: 12px;
   --radius-pill: 999px;
@@ -43,6 +45,8 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* Contain child margins: the landing's 12vh offset must not grow the page. */
+  display: flow-root;
   background: var(--page);
   color: var(--text);
   /* Dark native widgets (select popups, scrollbars, spinners): Chromium would
@@ -498,7 +502,7 @@ button.primary {
 .settings-row select {
   appearance: none;
   padding-right: 32px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b9c6d6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8b8b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   cursor: pointer;
@@ -510,7 +514,7 @@ button.primary {
 .field-message {
   font-size: 13px;
   white-space: nowrap;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 .settings-group {
   min-width: 0;
@@ -653,7 +657,7 @@ input[type='radio']:disabled {
   background: var(--surface-2);
 }
 .help-nav a[aria-current='page'] {
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--surface-2);
   border-color: var(--hairline-strong);
   font-weight: 600;
@@ -691,7 +695,7 @@ input[type='radio']:disabled {
   margin: 4px 0;
 }
 .help-content a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .help-content code {
   padding: 0 4px;
