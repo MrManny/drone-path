@@ -102,7 +102,7 @@ Spacing values are literals on this scale; use nothing else:
 - **Style:** 24-unit grid (`viewBox="0 0 24 24"`), stroke only (`fill="none"`, `stroke="currentColor"`), stroke width 2, round caps and joins, `aria-hidden="true"`. Tests pin these attributes (`test/ui/lineicons.test.tsx`, `closeicon.test.tsx`, `settingsicon.test.tsx`).
 - **Size:** every glyph carries `width="16"`; `button svg` in `ui/app/globals.css` pins the rendered size at 16px.
 - **Color:** `currentColor` — the button's text color (`--text`, or `--accent-ink` on the primary and pressed segments).
-- **Icon plus label** on landing, header and transport actions. Dialog footer buttons, segments ("1×", "Overview") and the timeline use no glyph. The icon-only buttons — the two transport skips (Jump to start, Jump to end) and the footer's Map settings, Swap and Help — carry `aria-label` and `title`.
+- **Icon plus label** on landing, header and transport actions. Dialog footer buttons and segments ("1×", "Overview") use no glyph. The icon-only buttons — the two transport skips (Jump to start, Jump to end), the footer's Map settings, Swap and Help, and the timeline's Set loop in, Set loop out and Clear loop — carry `aria-label` and `title`.
 - **Inventory:** vendored Lucide: `CloseIcon` ("x"), `SettingsIcon` ("settings"). Drawn for this app in the Lucide grid and stroke style: `PlayIcon`, `PauseIcon`, `FolderOpenIcon`, `SwapIcon`, `ExportIcon`, `MarkInIcon`, `MarkOutIcon`, `SkipBackIcon`, `SkipForwardIcon`.
 
 ## 8. Components and states
@@ -113,7 +113,7 @@ Spacing values are literals on this scale; use nothing else:
 
 | Variant | Selector | Difference from the recipe | Used for |
 |---|---|---|---|
-| Default | `button` | None | Open…, Export…, Map settings, Swap, Help, Set in, Set out, Clear, Jump to start, Jump to end, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss (icon-only where §7 says so) |
+| Default | `button` | None | Open…, Export…, Map settings, Swap, Help, Set loop in, Set loop out, Clear loop, Jump to start, Jump to end, Cancel, Cancel export, Reveal in folder, Open video, Close, Dismiss (icon-only where §7 says so) |
 | Primary, landing | `button.primary` | Accent fill, `--accent-ink` text, 600, transparent border, 44px high, 0 24px padding, 16px text | Open… on the landing |
 | Primary, dialog | `button.dialog-primary` | Accent fill, `--accent-ink` text, 600, transparent border; default size | Start export; Restart now |
 | Segment | `.segmented button.segment` | Transparent fill, no border, 30px high, 0 8px padding, pill | 1×, 2×, 3×, 4×; Overview, Follow |
@@ -224,7 +224,7 @@ Spacing values are literals on this scale; use nothing else:
 | Workspace header | Flight workspace; Recording · 0:34; Open…, Export… |
 | Preview strip and map card | Preview · Video + map; Paused at 0:10 / Playing at 0:10; Flight map; Satellite · Overview; Map; Current position 0:10 / 0:34; "Map and video share the same playhead." |
 | Transport | Play / Pause / Warming tiles…, Jump to start, Jump to end (`aria-label`; `title` "Jump to start (Home)" / "Jump to end (End)"), Playback speed (1×, 2×, 3×, 4×) |
-| Timeline | Timeline; Set in, Set out, Clear (`aria-label` "Set loop in", "Set loop out", "Clear loop"); loop 0:10–0:12 |
+| Timeline | Timeline; the icon-only Set loop in / Set loop out / Clear loop (`title` "Set loop in (I)" / "Set loop out (O)" / "Clear loop (Esc)"); loop 0:10–0:12 |
 | Status bar | Ready / Preparing…, SRT telemetry loaded, 0:34 duration, Map settings, Swap, Help (icon-only; `title` "Swap (S)") |
 | Preparation status | Probing the recording…, Loading telemetry…, Planning the view…, Warming tiles… 12/20 (running tile count over the awaited tiles) |
 | Warm hint | Warming tiles… 12/48 (running tile count over the tiles the map displays) |

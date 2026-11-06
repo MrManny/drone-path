@@ -85,7 +85,6 @@ export function TimelinePanel({
             onClick={() => dispatch({ type: 'setLoopIn' })}
           >
             <MarkInIcon />
-            Set in
           </button>
           <button
             type="button"
@@ -94,7 +93,6 @@ export function TimelinePanel({
             onClick={() => dispatch({ type: 'setLoopOut' })}
           >
             <MarkOutIcon />
-            Set out
           </button>
           <button
             type="button"
@@ -104,7 +102,6 @@ export function TimelinePanel({
             onClick={() => dispatch({ type: 'clearLoop' })}
           >
             <CloseIcon />
-            Clear
           </button>
           {loopReadout ? <span className="readout loop-readout">{loopReadout}</span> : null}
         </div>

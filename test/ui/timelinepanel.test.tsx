@@ -81,6 +81,17 @@ describe('TimelinePanel header', () => {
     );
   });
 
+  it.for([
+    { name: 'Set loop in', title: 'Set loop in (I)' },
+    { name: 'Set loop out', title: 'Set loop out (O)' },
+    { name: 'Clear loop', title: 'Clear loop (Esc)' },
+  ])('renders $name icon-only with its tooltip', ({ name, title }) => {
+    renderPanel({ loop: { in: 30, out: 60 } });
+    const button = screen.getByRole('button', { name });
+    expect(button.textContent).toBe('');
+    expect(button.getAttribute('title')).toBe(title);
+  });
+
   it('states why Clear is disabled without any loop point', () => {
     renderPanel();
     const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' });
