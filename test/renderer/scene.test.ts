@@ -210,7 +210,7 @@ describe('createScene', () => {
     expect(host.querySelector('#attr')?.textContent).toBe('Test Attribution');
     expect(tile.url).toBe('/tiles/satellite/{z}/{x}/{y}.png');
     expect(document.head.textContent).toContain('#map-frame');
-    expect(document.head.textContent).toContain('#41f0ff');
+    expect(document.head.textContent).toContain('#e87f54');
   });
 
   it('centers the overview view on the configured center', () => {
@@ -360,7 +360,7 @@ describe('Scene.update', () => {
     // The new source's zoom constraints go with the layer (topo is native
     // to z17; asking it for z18+ returns placeholder tiles).
     expect(tile.options.at(-1)).toMatchObject({ maxZoom: 19, maxNativeZoom: 17 });
-    expect(document.head.textContent).toContain('#e63946');
+    expect(document.head.textContent).toContain('rgba(232,127,84,0.26)');
     expect(host.querySelector('#attr')?.textContent).toBe('Topo Attribution');
     expect(removals.count).toBeGreaterThan(0);
     expect(polylines.length).toBeGreaterThan(layersBefore);

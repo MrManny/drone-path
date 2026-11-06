@@ -1,5 +1,6 @@
 // Per-style renderer colors. One mapping so the generated page and the app's
-// map island can never drift apart.
+// map island can never drift apart. The trail core is shared across styles so
+// every flight trail wears the one palette accent (#147).
 
 import type { Style } from '../config.js';
 
@@ -14,10 +15,13 @@ export interface Theme {
   vignette: number;
 }
 
+/** The flight-trail color: the palette accent, one color everywhere. */
+export const TRAIL_COLOR = '#e87f54';
+
 const THEMES: Record<Style, Theme> = {
   satellite: {
-    core: '#41f0ff',
-    glow: 'rgba(65,240,255,0.32)',
+    core: TRAIL_COLOR,
+    glow: 'rgba(232,127,84,0.32)',
     casing: 'rgba(10,14,20,0.9)',
     ghost: '#ffffff',
     ghostOpacity: 0.85,
@@ -26,8 +30,8 @@ const THEMES: Record<Style, Theme> = {
     vignette: 0.16,
   },
   topo: {
-    core: '#e63946',
-    glow: 'rgba(230,57,70,0.26)',
+    core: TRAIL_COLOR,
+    glow: 'rgba(232,127,84,0.26)',
     casing: '#ffffff',
     ghost: '#6b6252',
     ghostOpacity: 0.7,
