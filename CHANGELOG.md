@@ -1,5 +1,10 @@
 # neo2-flightpath
 
+## 0.6.1
+
+- **Fixed:** Maintenance release with updated dependencies that contain
+  security fixes.
+
 ## 0.6.0
 
 - **New:** Renders and exports no longer need a local ffmpeg install:
