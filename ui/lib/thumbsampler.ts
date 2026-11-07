@@ -14,7 +14,6 @@ export interface ThumbSampler {
 export const THUMB_WIDTH = 135;
 export const THUMB_HEIGHT = 76;
 
-/** How long a seek may stall before the grab gives up on it. */
 const SEEK_TIMEOUT_MS = 3000;
 
 /**
@@ -32,6 +31,9 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
   const ctx = canvas.getContext('2d');
   let disposed = false;
   const pending = new Set<() => void>();
+  // One seek at a time: overlapping seeks cancel each other and one
+  // 'seeked' would fan out to both grabs.
+  let queue: Promise<unknown> = Promise.resolve();
 
   const ready = new Promise<void>((resolve) => {
     if (video.readyState >= 2) {
@@ -44,17 +46,23 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
 
   // A seek can also die mid-flight (media error, emptied source), so every
   // way out settles the grab — with success only for a confirmed position:
-  // a real 'seeked', or the element already sitting within half a frame of
-  // the target, because Chromium skips such no-op seeks and never fires
-  // 'seeked'. The timeout bounds a seek whose events go missing, so one
-  // grab can never stall the sequential fill. dispose() settles the waits
-  // directly because aborting a seek fires no event the sampler can rely
-  // on.
+  // the element already sitting within half a frame of the target between
+  // seeks, or a 'seeked' that actually lands there. Chromium skips a seek
+  // to the position the element already holds and never fires 'seeked', and
+  // a superseded seek's 'seeked' lands elsewhere — waiting for either would
+  // either hang or draw the wrong frame. The timeout bounds a seek whose
+  // events go missing, so one grab can never stall the sequential fill.
+  // dispose() settles the waits directly because aborting a seek fires no
+  // event the sampler can rely on.
   function seekTo(time: number): Promise<boolean> {
-    if (Math.abs(video.currentTime - time) < 0.5 / fps) return Promise.resolve(true);
+    if (!video.seeking && video.readyState >= 2 && Math.abs(video.currentTime - time) < 0.5 / fps) {
+      return Promise.resolve(true);
+    }
     return new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => finish(false), SEEK_TIMEOUT_MS);
-      const onSeeked = (): void => finish(true);
+      const onSeeked = (): void => {
+        if (Math.abs(video.currentTime - time) < 0.5 / fps) finish(true);
+      };
       const onFail = (): void => finish(false);
       const abort = (): void => finish(false);
       pending.add(abort);
@@ -74,18 +82,30 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
     });
   }
 
-  return {
-    async grab(frameIndex: number): Promise<string | null> {
-      await ready;
-      if (disposed || ctx === null || !(fps > 0) || video.readyState < 2) return null;
-      const seeked = await seekTo((frameIndex + 0.5) / fps);
-      if (!seeked || disposed) return null;
+  async function grabFrame(frameIndex: number): Promise<string | null> {
+    await ready;
+    if (disposed || ctx === null || !(fps > 0) || video.readyState < 2) return null;
+    const seeked = await seekTo((frameIndex + 0.5) / fps);
+    if (!seeked || disposed) return null;
+    // A canvas tainted by the media throws SecurityError mid-grab; such
+    // frames are simply not drawable.
+    try {
       ctx.drawImage(video, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
-      return new Promise<string | null>((resolve) => {
+      return await new Promise<string | null>((resolve) => {
         canvas.toBlob((blob) => {
           resolve(blob === null || disposed ? null : URL.createObjectURL(blob));
         }, 'image/jpeg', 0.7);
       });
+    } catch {
+      return null;
+    }
+  }
+
+  return {
+    grab(frameIndex: number): Promise<string | null> {
+      const grabbed = queue.then(() => grabFrame(frameIndex));
+      queue = grabbed.catch(() => undefined);
+      return grabbed;
     },
     dispose() {
       disposed = true;
