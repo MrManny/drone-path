@@ -10,6 +10,8 @@ interface FakeMedia {
     preload: string;
     src: string;
     readyState: number;
+    videoWidth: number;
+    videoHeight: number;
     currentTime: number;
     seeking: boolean;
     emit: (type: string) => void;
@@ -27,7 +29,9 @@ interface FakeMedia {
 // whose canvas produces a stub blob, so the sampler runs offline with no
 // decoder and pending seeks stay observable. Like Chromium, the fake seeks
 // only to a new position and a no-op seek never fires 'seeked'.
-function fakeMedia(options: { blob?: unknown } = {}): FakeMedia {
+function fakeMedia(
+  options: { blob?: unknown; videoWidth?: number; videoHeight?: number } = {},
+): FakeMedia {
   const listeners = new Map<string, Set<() => void>>();
   const on = (type: string, fn: () => void): void => {
     const set = listeners.get(type) ?? new Set();
@@ -45,6 +49,8 @@ function fakeMedia(options: { blob?: unknown } = {}): FakeMedia {
     preload: '',
     src: '',
     readyState: 0,
+    videoWidth: options.videoWidth ?? 640,
+    videoHeight: options.videoHeight ?? 360,
     get currentTime(): number {
       return currentTime;
     },
@@ -100,7 +106,17 @@ describe('createThumbSampler', () => {
     media.video.completeSeek();
     await expect(pending).resolves.toBe('blob:thumb');
     expect(media.video.currentTime).toBeCloseTo(5.5 / 30);
-    expect(media.ctx.drawImage).toHaveBeenCalledWith(media.video, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+    expect(media.ctx.drawImage).toHaveBeenCalledWith(
+      media.video,
+      140,
+      0,
+      360,
+      360,
+      0,
+      0,
+      THUMB_WIDTH,
+      THUMB_HEIGHT,
+    );
     expect(createObjectURL).toHaveBeenCalledWith(media.blob);
     sampler.dispose();
     createObjectURL.mockRestore();
@@ -245,5 +261,57 @@ describe('createThumbSampler', () => {
     expect(media.video.src).toBe('/video');
     sampler.dispose();
     expect(media.video.src).toBe('');
+  });
+
+  it.for<{
+    name: string;
+    videoWidth: number;
+    videoHeight: number;
+    crop: [number, number, number, number];
+  }>([
+    { name: 'a wide frame', videoWidth: 640, videoHeight: 360, crop: [140, 0, 360, 360] },
+    { name: 'a tall frame', videoWidth: 360, videoHeight: 640, crop: [0, 140, 360, 360] },
+    { name: 'a square frame', videoWidth: 480, videoHeight: 480, crop: [0, 0, 480, 480] },
+    { name: 'an odd wide frame', videoWidth: 641, videoHeight: 360, crop: [140.5, 0, 360, 360] },
+    { name: 'a one-pixel frame', videoWidth: 1, videoHeight: 1, crop: [0, 0, 1, 1] },
+    { name: 'an odd tall frame', videoWidth: 3, videoHeight: 4, crop: [0, 0.5, 3, 3] },
+  ])('center-crops $name into the square canvas', async ({ videoWidth, videoHeight, crop }) => {
+    const media = fakeMedia({ videoWidth, videoHeight });
+    media.video.readyState = 2;
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:thumb');
+    const sampler = createThumbSampler('/video', 30, media.doc);
+    const pending = sampler.grab(0);
+    await settle();
+    media.video.completeSeek();
+    await expect(pending).resolves.toBe('blob:thumb');
+    expect(media.ctx.drawImage).toHaveBeenCalledWith(
+      media.video,
+      ...crop,
+      0,
+      0,
+      THUMB_WIDTH,
+      THUMB_HEIGHT,
+    );
+    sampler.dispose();
+    createObjectURL.mockRestore();
+  });
+
+  it.for([
+    { name: 'no coded size', videoWidth: 0, videoHeight: 0 },
+    { name: 'no width', videoWidth: 0, videoHeight: 360 },
+    { name: 'no height', videoWidth: 640, videoHeight: 0 },
+  ])('settles to null when the frame has $name', async ({ videoWidth, videoHeight }) => {
+    const media = fakeMedia({ videoWidth, videoHeight });
+    media.video.readyState = 2;
+    const sampler = createThumbSampler('/video', 30, media.doc);
+    await expect(sampler.grab(0)).resolves.toBeNull();
+    expect(media.ctx.drawImage).not.toHaveBeenCalled();
+    sampler.dispose();
+  });
+});
+
+describe('thumb size', () => {
+  it('keeps the canvas square', () => {
+    expect(THUMB_WIDTH).toBe(THUMB_HEIGHT);
   });
 });

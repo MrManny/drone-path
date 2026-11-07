@@ -1,8 +1,8 @@
-// DOM-side filmstrip sampling: draws frames from a hidden secondary video
-// element into a small canvas and hands back object URLs. It never touches
-// the playback element and seeks one frame at a time, so the count of seeks
-// is what costs — bounded by the track width through thumbPlan, never by the
-// recording's duration.
+// DOM-side filmstrip sampling: draws the centered square crop of each frame
+// from a hidden secondary video element into a small canvas and hands back
+// object URLs. It never touches the playback element and seeks one frame at
+// a time, so the count of seeks is what costs — bounded by the track width
+// through thumbPlan, never by the recording's duration.
 
 export interface ThumbSampler {
   /** One thumbnail for the frame index, or null when it cannot be drawn. */
@@ -11,8 +11,8 @@ export interface ThumbSampler {
   dispose(): void;
 }
 
-export const THUMB_WIDTH = 135;
-export const THUMB_HEIGHT = 76;
+export const THUMB_WIDTH = 76;
+export const THUMB_HEIGHT = THUMB_WIDTH;
 
 const SEEK_TIMEOUT_MS = 3000;
 
@@ -84,13 +84,29 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
 
   async function grabFrame(frameIndex: number): Promise<string | null> {
     await ready;
-    if (disposed || ctx === null || !(fps > 0) || video.readyState < 2) return null;
+    // Center-cropping needs the frame's coded size.
+    let side = Math.min(video.videoWidth, video.videoHeight);
+    if (disposed || ctx === null || !(fps > 0) || video.readyState < 2 || !(side > 0)) return null;
     const seeked = await seekTo((frameIndex + 0.5) / fps);
     if (!seeked || disposed) return null;
+    // The coded size can change across the seek; a stale rect would keep
+    // the previous still on the reused canvas.
+    side = Math.min(video.videoWidth, video.videoHeight);
+    if (!(side > 0)) return null;
     // A canvas tainted by the media throws SecurityError mid-grab; such
     // frames are simply not drawable.
     try {
-      ctx.drawImage(video, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+      ctx.drawImage(
+        video,
+        (video.videoWidth - side) / 2,
+        (video.videoHeight - side) / 2,
+        side,
+        side,
+        0,
+        0,
+        THUMB_WIDTH,
+        THUMB_HEIGHT,
+      );
       return await new Promise<string | null>((resolve) => {
         canvas.toBlob((blob) => {
           resolve(blob === null || disposed ? null : URL.createObjectURL(blob));

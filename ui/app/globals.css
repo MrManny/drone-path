@@ -539,13 +539,13 @@ button.primary {
 }
 
 /* Timeline panel: loop actions and readout in the header, a time ruler, and
-   the video track as one continuous borderless strip — filmstrip, the loop
-   band with draggable ends, the playhead, and the range slider (the
-   keyboard-accessible scrub control) over it all. The ruler shares the
-   strip's exact span so its ticks stay aligned with the band and playhead.
-   The panel is a flush surface — full window width, square, meeting the
-   status bar — because the workspace rows carry no margins: the CHROME
-   heights in ui/lib/layout.ts account for the whole window height. */
+   the video track — a tiled filmstrip, the loop band with draggable ends,
+   the playhead, and the range slider (the keyboard-accessible scrub
+   control) over it all. The ruler shares the track's exact span so its
+   ticks stay aligned with the band and playhead. The panel is a flush
+   surface — full window width, square, meeting the status bar — because
+   the workspace rows carry no margins: the CHROME heights in
+   ui/lib/layout.ts account for the whole window height. */
 .timeline {
   flex: none;
   height: var(--timeline-h);
@@ -598,22 +598,32 @@ button.primary {
   overflow: hidden;
   background: var(--surface-2);
 }
+/* So the strip breathes instead of reading as one packed band. */
 .filmstrip {
   position: absolute;
   inset: 0;
   display: flex;
+  gap: 8px;
+  padding: 0 8px;
   opacity: 0.65;
 }
 .film-cell {
   flex: 1 1 0;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
   overflow: hidden;
 }
 .film-cell img {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  /* A narrow cell or the compact timeline only ever scales one down. */
+  max-width: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
 }
 .loop-band {
   position: absolute;
