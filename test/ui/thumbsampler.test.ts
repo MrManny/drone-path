@@ -28,8 +28,7 @@ interface FakeMedia {
 // A document whose video seeks complete only when the test says so, and
 // whose canvas produces a stub blob, so the sampler runs offline with no
 // decoder and pending seeks stay observable. Like Chromium, the fake seeks
-// only to a new position and a no-op seek never fires 'seeked'. The frame
-// is 640x360 unless a test passes its own size.
+// only to a new position and a no-op seek never fires 'seeked'.
 function fakeMedia(
   options: { blob?: unknown; videoWidth?: number; videoHeight?: number } = {},
 ): FakeMedia {
@@ -273,6 +272,9 @@ describe('createThumbSampler', () => {
     { name: 'a wide frame', videoWidth: 640, videoHeight: 360, crop: [140, 0, 360, 360] },
     { name: 'a tall frame', videoWidth: 360, videoHeight: 640, crop: [0, 140, 360, 360] },
     { name: 'a square frame', videoWidth: 480, videoHeight: 480, crop: [0, 0, 480, 480] },
+    { name: 'an odd wide frame', videoWidth: 641, videoHeight: 360, crop: [140.5, 0, 360, 360] },
+    { name: 'a one-pixel frame', videoWidth: 1, videoHeight: 1, crop: [0, 0, 1, 1] },
+    { name: 'an odd tall frame', videoWidth: 3, videoHeight: 4, crop: [0, 0.5, 3, 3] },
   ])('center-crops $name into the square canvas', async ({ videoWidth, videoHeight, crop }) => {
     const media = fakeMedia({ videoWidth, videoHeight });
     media.video.readyState = 2;
