@@ -4,8 +4,11 @@ Source artwork and derived platform formats for the desktop app icon.
 
 ## Files
 
-- `icon-master.png` — 512x512 master (opaque RGB PNG). Replace this file to
-  rebrand, then re-derive the formats below.
+- `icon-master.png` — 512x512 RGBA master, downsampled with Lanczos from the
+  maintainer's source artwork. It carries the final branding with real
+  rounded-corner transparency (rounded-rectangle mask, corner radius 112 px =
+  22% of the side) and no textual PNG metadata — only IHDR/IDAT/IEND chunks.
+  Replace this file to rebrand, then re-derive the formats below.
 - `icons/<n>x<n>.png` — 16 to 512 resizes of the master; the Linux icon set
   (`linux.icon` in `electron-builder.yml`).
 - `icon.ico` — Windows application icon (`win.icon`), sizes 16 to 256. The
@@ -17,31 +20,19 @@ Source artwork and derived platform formats for the desktop app icon.
 
 ## Provenance
 
-`icon-master.png` is an **AI-generated stand-in** created for this project (no
-third-party assets); it will be replaced by commissioned artist artwork. The
-derived formats inherit the master's provenance and the project license (MIT).
+`icon-master.png` is the final branded artwork created for this project by the
+maintainer (no third-party assets). The derived formats inherit the master's
+provenance and the project license (MIT).
 
 ## Deriving the platform formats
 
 One-off steps, re-run when the master changes; no tool is added to the project.
-
-Resized on Windows with PowerShell and System.Drawing (any decent resampler
-works, e.g. ImageMagick `magick icon-master.png -resize 256 256x256.png`):
-
-```powershell
-Add-Type -AssemblyName System.Drawing
-$src = [System.Drawing.Image]::FromFile("$PWD\build\icon-master.png")
-foreach ($s in 16, 24, 32, 48, 64, 128, 256, 512) {
-  $bmp = [System.Drawing.Bitmap]::new($s, $s)
-  $g = [System.Drawing.Graphics]::FromImage($bmp)
-  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-  $g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
-  $g.DrawImage($src, 0, 0, $s, $s)
-  $bmp.Save("$PWD\build\icons\${s}x${s}.png", [System.Drawing.Imaging.ImageFormat]::Png)
-}
-```
+The current master was produced with Python + Pillow: the source artwork was
+re-encoded to drop its AI-tool metadata (ComfyUI workflow `tEXt` chunks), the
+full-bleed square was masked to rounded-corner alpha (radius 112 px at 512),
+and it was downsampled to 512 with Lanczos; the icon set resizes the master
+with premultiplied-alpha Lanczos. Any decent resampler works for the resizing,
+e.g. ImageMagick `magick icon-master.png -resize 256 256x256.png`.
 
 Packed with [`png-to-ico`](https://www.npmjs.com/package/png-to-ico) (MIT),
 installed temporarily under the git-ignored `.scratch/` and driven through its
@@ -58,3 +49,6 @@ const buf = await pngToIco([
 ]);
 fs.writeFileSync('build/icon.ico', buf);
 ```
+
+`png-to-ico` stores the entries as 32-bit BMP images (with an AND mask), so the
+ICO embeds no PNG data and cannot carry PNG metadata.
