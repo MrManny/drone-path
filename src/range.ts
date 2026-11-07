@@ -59,6 +59,8 @@ export function rangePlan(
   const headers: Record<string, string> = {
     'Content-Type': mime,
     'Accept-Ranges': 'bytes',
+    // A URL-keyed cache must never replay stale bytes from this live local file.
+    'Cache-Control': 'no-store',
     'Content-Length': String(range === null ? size : range.end - range.start + 1),
   };
   if (range === null) return { status: 200, headers };
