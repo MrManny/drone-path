@@ -18,6 +18,7 @@ const fakeScene = vi.hoisted((): Scene => ({
   relayout: vi.fn(),
   update: vi.fn(() => Promise.resolve()),
   ready: Promise.resolve(),
+  dispose: vi.fn(),
 }));
 
 // The real island delivers its scene asynchronously (after the Leaflet

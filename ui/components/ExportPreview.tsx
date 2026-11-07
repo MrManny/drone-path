@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import type { CSSProperties } from 'react';
+import { useMemo } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
 import type { RenderConfig } from '../../src/config.js';
-import { bootScene } from '../../src/renderer/boot.js';
-import type { Scene } from '../../src/renderer/scene.js';
 import { restyleSceneData } from '../../src/restyle.js';
+import { useSceneIsland } from '../hooks/useSceneIsland.js';
+import { restyleMeta } from '../lib/restylemeta.js';
 import 'leaflet/dist/leaflet.css';
 
 export interface ExportPreviewProps {
@@ -21,67 +22,23 @@ export interface ExportPreviewProps {
 
 // The map-only output preview: the shared scene — the very renderer the export
 // captures — planned at the output size, so the box shows exactly what the
-// rendered file contains and nothing of the source footage. The scene is
-// created after mount against this host and restyled in place, like the
-// player's map island; a ResizeObserver re-lays out whenever the box settles
-// or changes, because the pane size may still be zero at creation time.
+// rendered file contains and nothing of the source footage.
 export function ExportPreview({ session, config, size, frame }: ExportPreviewProps) {
   const { width, height } = size;
+  // Keyed on the fields the scene plan actually reads: encoder edits never
+  // re-plan the scene.
+  const { style, view, zoom, zoomOut, introSec, outroSec, hud } = config;
   const data = useMemo(
     () =>
       restyleSceneData(
         session.scene,
-        config,
-        {
-          fps: session.video.fps,
-          frames: session.video.frames,
-          tileBase: session.tileBase,
-          bbox: session.bbox,
-        },
+        { style, view, zoom, zoomOut, introSec, outroSec, hud },
+        restyleMeta(session),
         { width, height },
       ),
-    [session, config, width, height],
+    [session, style, view, zoom, zoomOut, introSec, outroSec, hud, width, height],
   );
-  const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<Scene | null>(null);
-  const dataRef = useRef(data);
-  const frameRef = useRef(frame);
-
-  // The boot effect below runs once, after the lazy Leaflet import settles;
-  // syncing the latest props here keeps it from building the scene against
-  // stale props without remounting the map.
-  useEffect(() => {
-    dataRef.current = data;
-    frameRef.current = frame;
-  });
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    let cancelled = false;
-    const observer = new ResizeObserver(() => sceneRef.current?.relayout());
-    observer.observe(host);
-    void (async () => {
-      const { default: L } = await import('leaflet');
-      if (cancelled) return;
-      const created = bootScene(host, dataRef.current, L);
-      sceneRef.current = created;
-      created.setFrame(frameRef.current);
-    })();
-    return () => {
-      cancelled = true;
-      observer.disconnect();
-      sceneRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    sceneRef.current?.update(data);
-  }, [data]);
-
-  useEffect(() => {
-    sceneRef.current?.setFrame(frame);
-  }, [frame]);
+  const hostRef = useSceneIsland({ data, frame });
 
   return (
     <div className="export-preview">
@@ -89,14 +46,17 @@ export function ExportPreview({ session, config, size, frame }: ExportPreviewPro
         <span className="preview-title">Output preview</span>
         <span className="preview-state">{`${width}×${height}`}</span>
       </div>
-      {/* The box is the output's exact shape, capped by width so the frame
-          keeps room for the form at compact window heights. */}
+      {/* The box is the output's exact shape; its width cap (resolved in
+          .export-preview-frame) keeps the frame at most 300px tall so the form
+          keeps room at compact window heights. */}
       <div
         className="export-preview-frame"
-        style={{
-          aspectRatio: `${width} / ${height}`,
-          width: `min(100%, calc(300px * ${width} / ${height}))`,
-        }}
+        style={
+          {
+            aspectRatio: `${width} / ${height}`,
+            '--export-preview-cap': `calc(300px * ${width} / ${height})`,
+          } as CSSProperties
+        }
       >
         <div className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />
       </div>

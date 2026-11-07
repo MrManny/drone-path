@@ -17,6 +17,7 @@ const fakeL = vi.hoisted((): LeafletApi => {
         y: (Array.isArray(latlng) ? latlng[1] : latlng.lng) * 1000,
       }),
       invalidateSize: () => {},
+      remove: () => {},
     }),
     tileLayer: () => ({ ...layer, on: () => {}, setUrl: () => {} }),
     latLngBounds: () => ({
@@ -130,6 +131,18 @@ describe('MapIsland', () => {
     await waitFor(() => expect(onScene).toHaveBeenCalledTimes(1));
     unmount();
     expect(observers[0]?.disconnected).toBe(true);
+  });
+
+  it('disposes the scene on unmount so its styles do not leak', async () => {
+    const onScene = vi.fn();
+    const { unmount } = render(<MapIsland data={DATA} onScene={onScene} />);
+    await waitFor(() => expect(onScene).toHaveBeenCalledTimes(1));
+    const scene = onScene.mock.calls[0][0] as Scene;
+    const dispose = vi.spyOn(scene, 'dispose');
+    const stylesBefore = document.head.querySelectorAll('style').length;
+    unmount();
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(document.head.querySelectorAll('style').length).toBe(stylesBefore - 1);
   });
 
   it('isolates the map stacking so leaflet cannot paint over the pip', () => {

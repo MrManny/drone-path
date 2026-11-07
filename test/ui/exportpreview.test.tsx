@@ -21,6 +21,7 @@ vi.mock('../../src/renderer/boot.js', () => ({
       relayout: vi.fn(),
       update: vi.fn(() => Promise.resolve()),
       ready: Promise.resolve(),
+      dispose: vi.fn(),
     } satisfies Scene;
     boot.scenes.push(scene);
     return scene;
@@ -157,10 +158,11 @@ describe('ExportPreview scene', () => {
     expect(scene().relayout).toHaveBeenCalledTimes(1);
   });
 
-  it('stops observing on unmount and ignores later resizes', async () => {
+  it('disposes the scene and stops observing on unmount', async () => {
     const { unmount } = renderPreview();
     await waitFor(() => expect(boot.calls).toHaveLength(1));
     unmount();
+    expect(scene().dispose).toHaveBeenCalledTimes(1);
     expect(observers[0].disconnected).toBe(true);
     act(() => observers[0].cb([] as never, {} as never));
     expect(scene().relayout).not.toHaveBeenCalled();
@@ -187,9 +189,7 @@ describe('ExportPreview output framing', () => {
     const { container } = renderPreview();
     const frame = container.querySelector('.export-preview-frame') as HTMLElement;
     expect(frame.style.aspectRatio).toBe('1280 / 720');
-    // The width formula caps the box at 300px tall for any output shape.
-    const px = Number.parseFloat(frame.style.width.replace('min(100%, ', ''));
-    expect(px).toBeCloseTo((300 * 1280) / 720);
+    expect(frame.style.getPropertyValue('--export-preview-cap')).toBe('calc(300px * 1280 / 720)');
   });
 
   it('renders no footage anywhere in the preview', () => {

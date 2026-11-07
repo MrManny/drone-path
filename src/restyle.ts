@@ -9,6 +9,13 @@ import type { Bbox } from './geo.js';
 import { buildSceneData, planPageOpts } from './page.js';
 import type { SceneData } from './renderer/scene.js';
 
+// The scene-relevant slice of the config: the only fields the plan reads, so
+// callers can key memoized scene data on exactly these.
+export type SceneConfig = Pick<
+  RenderConfig,
+  'style' | 'view' | 'zoom' | 'zoomOut' | 'introSec' | 'outroSec' | 'hud'
+>;
+
 export interface RestyleMeta {
   /** Frames per second and total count of the probed source. */
   fps: number;
@@ -21,7 +28,7 @@ export interface RestyleMeta {
 
 export function restyleSceneData(
   prev: SceneData,
-  config: RenderConfig,
+  config: SceneConfig,
   meta: RestyleMeta,
   // The output size to plan at: the export preview plans at the size the
   // pipeline will render, while the player keeps the prepared scene's own.

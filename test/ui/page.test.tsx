@@ -14,6 +14,7 @@ const fakeScene = vi.hoisted((): Scene => ({
   relayout: vi.fn(),
   update: vi.fn(() => Promise.resolve()),
   ready: Promise.resolve(),
+  dispose: vi.fn(),
 }));
 
 // The real island loads Leaflet after mount; the stub keeps that timing.

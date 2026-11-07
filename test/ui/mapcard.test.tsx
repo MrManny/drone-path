@@ -12,6 +12,7 @@ const fakeScene = vi.hoisted((): Scene => ({
   relayout: vi.fn(),
   update: vi.fn(() => Promise.resolve()),
   ready: Promise.resolve(),
+  dispose: vi.fn(),
 }));
 
 vi.mock('../../ui/components/MapIsland.js', () => ({

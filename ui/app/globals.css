@@ -1032,6 +1032,9 @@ input[type='radio']:disabled {
   margin-bottom: 8px;
 }
 .export-preview-frame {
+  /* The inline --export-preview-cap is the runtime width cap keeping the
+     frame at most 300px tall at any output shape. */
+  width: min(100%, var(--export-preview-cap));
   position: relative;
   overflow: hidden;
   background: #000;

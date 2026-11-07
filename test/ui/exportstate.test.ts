@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { ExportRequest } from '../../src/config.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
-import { captureFraction, exportReducer, initialExportState, previewFrame } from '../../ui/lib/exportstate.js';
+import {
+  captureFraction,
+  exportReducer,
+  initialExportState,
+  previewFrame,
+} from '../../ui/lib/exportstate.js';
 import type { ExportEvent, ExportState } from '../../ui/lib/exportstate.js';
 
 const REQUEST: ExportRequest = {
