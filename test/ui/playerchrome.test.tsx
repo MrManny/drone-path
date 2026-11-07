@@ -99,6 +99,13 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
   });
 
+  it('keeps the transport row after the stage row, so it can mirror the stage layout', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const stage = document.querySelector('.stage') as HTMLElement;
+    expect(stage.parentElement?.className).toBe('workspace');
+    expect(stage.nextElementSibling).toBe(document.querySelector('.transport'));
+  });
+
   it('opens help from the status bar', () => {
     const onHelp = vi.fn();
     render(
@@ -197,6 +204,16 @@ describe('PlayerChrome view swap', () => {
     expect(card.className).toContain('map-card-overlay');
     fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
     expect(card.className).toContain('map-card-split');
+  });
+
+  it('flips the stage layout class the transport mirrors', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const stage = document.querySelector('.stage') as HTMLElement;
+    expect(stage.className).toContain('stage-split');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(stage.className).toContain('stage-overlay');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(stage.className).toContain('stage-split');
   });
 
   it('keeps the map island mounted across the swap, so playback stays synchronized', () => {

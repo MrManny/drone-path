@@ -35,6 +35,7 @@
   --transport-h: 48px;
   --timeline-h: 200px;
   --status-h: 32px;
+  --rail-w: clamp(280px, 28%, 372px);
   --dialog-top: 56px;
   --shadow-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
   --disabled-opacity: 0.45;
@@ -371,7 +372,7 @@ button.primary {
 }
 .map-card-split {
   flex: none;
-  width: clamp(280px, 28%, 372px);
+  width: var(--rail-w);
 }
 .map-overlay-tag {
   display: none;
@@ -444,14 +445,13 @@ button.primary {
 
 /* Transport row: the time readout at the left edge, rewind / play / forward
    centered under the footage, playback speed at the right. The grid mirrors
-   the stage's columns so the cluster sits on the video pane's center, and the
-   stage's layout class owns the rail column here too. The timeline panel
-   owns the scrubber and the loop. */
+   the stage's columns so the cluster sits on the video pane's center in both
+   layouts. The timeline panel owns the scrubber and the loop. */
 .transport {
   flex: none;
   height: var(--transport-h);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(280px, 28%, 372px);
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
   align-items: center;
   gap: 16px;
   padding: 0 16px;
@@ -488,6 +488,11 @@ button.primary {
 }
 .transport-step {
   padding: 0 8px;
+}
+/* 72px = widest plausible label plus icon and gap, so toggling playback
+   never shifts the centered cluster. */
+.transport-play {
+  min-width: 72px;
 }
 .transport-label {
   font-size: 13px;

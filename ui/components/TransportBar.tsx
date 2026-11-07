@@ -46,7 +46,12 @@ export function TransportBar({
         >
           <SkipBackIcon />
         </button>
-        <button type="button" onClick={() => dispatch({ type: 'togglePlay' })} disabled={!ready}>
+        <button
+          type="button"
+          className="transport-play"
+          onClick={() => dispatch({ type: 'togglePlay' })}
+          disabled={!ready}
+        >
           {ready && playing ? <PauseIcon /> : <PlayIcon />}
           {ready ? (playing ? 'Pause' : 'Play') : 'Warming tiles…'}
         </button>
