@@ -7,6 +7,7 @@
   --surface-3: #454545;
   --surface-4: #525252;
   --bar: rgba(35, 35, 35, 0.94);
+  --glass: rgba(35, 35, 35, 0.6);
   --scrim: rgba(10, 10, 10, 0.6);
   --hairline: rgba(232, 232, 232, 0.12);
   --hairline-strong: rgba(232, 232, 232, 0.24);
@@ -422,7 +423,9 @@ button.primary {
 }
 
 /* The background pre-warm's status chip: small and centered over the stage,
-   an overlay that never takes space from the map or the video. */
+   an overlay that never takes space from the map or the video. Its glassy
+   fill (semitransparent, blurred backdrop) is one of the two blurs outside
+   plain surfaces; the dialog scrim is the other. */
 .warm-hint {
   align-self: center;
   width: max-content;
@@ -432,7 +435,8 @@ button.primary {
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  background: color-mix(in srgb, var(--info) 11%, var(--surface-1));
+  background: color-mix(in srgb, var(--info) 11%, var(--glass));
+  backdrop-filter: blur(8px);
   border: 1px solid color-mix(in srgb, var(--info) 40%, transparent);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-float);
