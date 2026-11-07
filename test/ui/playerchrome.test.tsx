@@ -96,7 +96,6 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
-    expect(screen.getByText('0:03 duration')).toBeTruthy();
     expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
   });
 
@@ -135,11 +134,11 @@ describe('PlayerChrome workspace structure', () => {
     expect(card.className).not.toContain('map-card-overlay');
   });
 
-  it('shows the playback state and position in the preview strip', () => {
+  it('shows no preview strip over the stage (#157)', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const state = document.querySelector('.preview-state') as HTMLElement;
-    expect(state.textContent).toBe('Paused at 0:00');
-    expect(screen.getByText('Video + map')).toBeTruthy();
+    expect(document.querySelector('.preview-strip')).toBeNull();
+    expect(screen.queryByText('Video + map')).toBeNull();
+    expect(screen.queryByText(/^Paused at|^Playing at/)).toBeNull();
     expect(screen.getByText('Timeline')).toBeTruthy();
     expect(screen.queryByText('Playback & loop points')).toBeNull();
   });
@@ -184,8 +183,7 @@ describe('PlayerChrome workspace structure', () => {
     act(() => flushRaf());
     expect(currentTime).toBeCloseTo(30.5 / 30);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
-    // The imperative readouts follow the presented frame.
-    expect(document.querySelector('.preview-state')?.textContent).toBe('Paused at 0:01');
+    // The imperative readout follows the presented frame.
     expect(document.querySelector('.transport .readout')?.textContent).toBe('0:01 / 0:03');
   });
 });

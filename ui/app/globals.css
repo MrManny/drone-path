@@ -31,7 +31,6 @@
   --radius-pill: 999px;
   --control-h: 36px;
   --header-h: 56px;
-  --preview-strip-h: 40px;
   --transport-h: 48px;
   --timeline-h: 200px;
   --status-h: 32px;
@@ -263,7 +262,7 @@ button.primary {
   margin-top: 0;
 }
 
-/* The review workspace: header, preview, transport, timeline and status bar
+/* The review workspace: header, stage, transport, timeline and status bar
    stacked in one column. The fixed chrome heights mirror CHROME in
    ui/lib/layout.ts; change the two together. */
 .workspace {
@@ -317,35 +316,11 @@ button.primary {
   flex: 1 1 auto;
 }
 
-/* Preview area: the label strip and the stage with the footage and the map. */
-.preview {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.preview-strip {
-  flex: none;
-  height: var(--preview-strip-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 16px;
-}
-.preview-strip-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
+/* Caption rows: the timeline heading and the export preview's caption share
+   the title and meta styles. */
 .preview-title {
   font-size: 14px;
   font-weight: 600;
-}
-.preview-note {
-  font-size: 13px;
-  color: var(--text-3);
 }
 .preview-state {
   font-size: 13px;

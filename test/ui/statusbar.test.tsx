@@ -12,9 +12,7 @@ function renderBar(overrides: Partial<Parameters<typeof StatusBar>[0]> = {}) {
   const onHelp = vi.fn();
   render(
     <StatusBar
-      ready
       hasTelemetry
-      durationSec={3}
       onMapSettings={onMapSettings}
       mapSettingsOpen={false}
       onSwap={onSwap}
@@ -26,13 +24,11 @@ function renderBar(overrides: Partial<Parameters<typeof StatusBar>[0]> = {}) {
 }
 
 describe('StatusBar', () => {
-  it.for([
-    { ready: true, want: 'Ready' },
-    { ready: false, want: 'Preparing…' },
-  ])('reads $want while ready is $ready', ({ ready, want }) => {
-    renderBar({ ready });
-    expect(screen.getByText(want)).toBeTruthy();
-    expect(screen.getByText('0:03 duration')).toBeTruthy();
+  it('carries no readiness or duration copy (#157)', () => {
+    renderBar();
+    expect(screen.queryByText('Ready')).toBeNull();
+    expect(screen.queryByText('Preparing…')).toBeNull();
+    expect(screen.queryByText(/duration/)).toBeNull();
   });
 
   it.for([

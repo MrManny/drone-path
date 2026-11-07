@@ -13,7 +13,6 @@ export type StageLayout = 'split' | 'overlay';
  * flush (no margins), so these heights cover the whole window. */
 export const CHROME = {
   headerH: 56,
-  previewStripH: 40,
   transportH: 48,
   timelineH: 200,
   /** The timeline shrinks when the window is short (max-height: 720px). */
@@ -39,10 +38,7 @@ const OVERLAY_SCALE = 0.36;
 
 export function stageHeight(innerHeight: number): number {
   const timeline = innerHeight <= COMPACT_HEIGHT ? CHROME.timelineCompactH : CHROME.timelineH;
-  return Math.max(
-    0,
-    innerHeight - CHROME.headerH - CHROME.previewStripH - CHROME.transportH - timeline - CHROME.statusH,
-  );
+  return Math.max(0, innerHeight - CHROME.headerH - CHROME.transportH - timeline - CHROME.statusH);
 }
 
 /**
