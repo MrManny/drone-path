@@ -1,6 +1,8 @@
 // Renderer markup and styling, shared verbatim by the generated page and the
-// app's map island so both look and measure identically. Element ids are the
-// renderer's DOM contract.
+// app's map islands so both look and measure identically. Element ids are the
+// renderer's DOM contract. The styles are scoped to one scene host each: the
+// app mounts two scenes at once (player island and export preview), so bare
+// selectors would let one scene's scale values restyle the other.
 
 import type { HudSpec } from '../config.js';
 import type { TileSource } from './tilesources.js';
@@ -12,21 +14,23 @@ export function sceneCss(
   width: number,
   height: number,
   scale: number,
+  scope: string,
 ): string {
+  const at = `.${scope}`;
   return `
-  html, body { margin: 0; padding: 0; overflow: hidden; background: ${src.bg}; }
-  * { animation: none !important; transition: none !important; }
-  #map-frame {
+  ${at} { margin: 0; padding: 0; overflow: hidden; background: ${src.bg}; }
+  ${at}, ${at} * { animation: none !important; transition: none !important; }
+  ${at} #map-frame {
     position: absolute; inset: 0; overflow: hidden; background: ${src.bg};
   }
-  #map { position: absolute; left: 0; top: 0; width: ${width}px; height: ${height}px; }
-  .leaflet-tile-pane { filter: ${src.tileFilter ?? 'none'}; }
-  #vignette {
+  ${at} #map { position: absolute; left: 0; top: 0; width: ${width}px; height: ${height}px; }
+  ${at} .leaflet-tile-pane { filter: ${src.tileFilter ?? 'none'}; }
+  ${at} #vignette {
     position: absolute; inset: 0; z-index: 500; pointer-events: none;
     background: radial-gradient(ellipse 78% 78% at 50% 44%,
       rgba(0,0,0,0) 52%, rgba(0,0,0,${theme.vignette}) 100%);
   }
-  .drone-wrap {
+  ${at} .drone-wrap {
     width: ${Math.round(46 * scale)}px; height: ${Math.round(46 * scale)}px;
     border-radius: 50%;
     background: ${theme.discBg};
@@ -37,15 +41,15 @@ export function sceneCss(
     display: flex; align-items: center; justify-content: center;
     box-sizing: border-box;
   }
-  .drone-arrow { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .drone-arrow svg { width: 72%; height: 72%; display: block; }
-  #hud {
+  ${at} .drone-arrow { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  ${at} .drone-arrow svg { width: 72%; height: 72%; display: block; }
+  ${at} #hud {
     position: absolute; top: ${Math.round(16 * scale)}px; left: ${Math.round(16 * scale)}px;
     display: flex; flex-direction: column; gap: ${Math.round(8 * scale)}px;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     z-index: 1200; pointer-events: none;
   }
-  .chip {
+  ${at} .chip {
     background: rgba(14,19,28,0.9);
     backdrop-filter: blur(${Math.round(14 * scale)}px) saturate(1.25);
     -webkit-backdrop-filter: blur(${Math.round(14 * scale)}px) saturate(1.25);
@@ -63,12 +67,12 @@ export function sceneCss(
       inset ${Math.max(3, Math.round(3 * scale))}px 0 0 ${theme.core},
       0 ${Math.round(6 * scale)}px ${Math.round(18 * scale)}px rgba(0,0,0,0.30);
   }
-  .chip .label {
+  ${at} .chip .label {
     font-size: 0.55em; font-weight: 700; letter-spacing: 1.2px;
     color: ${theme.core}; opacity: 0.95;
   }
-  .chip .unit { font-weight: 500; opacity: 0.72; font-size: 0.68em; }
-  #attr {
+  ${at} .chip .unit { font-weight: 500; opacity: 0.72; font-size: 0.68em; }
+  ${at} #attr {
     position: absolute; right: 0; bottom: 0; z-index: 1000; max-width: 72%;
     background: rgba(12, 14, 22, 0.62); color: rgba(255,255,255,0.78);
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -77,17 +81,17 @@ export function sceneCss(
     border-radius: ${Math.round(4 * scale)}px 0 0 0;
     pointer-events: none;
   }
-  #attr a { color: rgba(255,255,255,0.92); text-decoration: none; }
-  #scalebar {
+  ${at} #attr a { color: rgba(255,255,255,0.92); text-decoration: none; }
+  ${at} #scalebar {
     position: absolute; left: ${Math.round(10 * scale)}px; bottom: ${Math.round(8 * scale)}px;
     z-index: 1000; pointer-events: none;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
-  #scaletext {
+  ${at} #scaletext {
     display: block; color: #ffffff; font-size: ${Math.round(11 * scale)}px;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8); margin-bottom: 2px;
   }
-  #scaleline {
+  ${at} #scaleline {
     height: ${Math.max(4, Math.round(5 * scale))}px;
     border: 1px solid rgba(255,255,255,0.85); border-top: none;
     box-shadow: 0 1px 2px rgba(0,0,0,0.6);

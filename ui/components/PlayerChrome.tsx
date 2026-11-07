@@ -6,6 +6,7 @@ import type { UiSession, WarmProgress, WarmRequest } from '../../src/appsession.
 import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
+import { restyleMeta } from '../lib/restylemeta.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
@@ -56,7 +57,7 @@ export function PlayerChrome({
   warm = null,
   onWarmRetarget,
 }: PlayerChromeProps) {
-  const { scene: preparedScene, video, tileBase, bbox, durationSec } = session;
+  const { scene: preparedScene, video, durationSec } = session;
   const {
     ready,
     playing,
@@ -100,16 +101,17 @@ export function PlayerChrome({
   }, [modalOpen, mapAppearanceOpen, dispatchDialog, closeMapAppearance]);
 
   // One settings -> scene mapping for the preview and the export: the same
-  // pure planners the pipeline runs.
+  // pure planners the pipeline runs, keyed on the fields the plan reads so
+  // encoder edits never re-plan the scene.
+  const { style, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
   const sceneData = useMemo(
     () =>
-      restyleSceneData(preparedScene, settings, {
-        fps: video.fps,
-        frames: video.frames,
-        tileBase,
-        bbox,
-      }),
-    [preparedScene, settings, video.fps, video.frames, tileBase, bbox],
+      restyleSceneData(
+        preparedScene,
+        { style, view, zoom, zoomOut, introSec, outroSec, hud },
+        restyleMeta(session),
+      ),
+    [preparedScene, session, style, view, zoom, zoomOut, introSec, outroSec, hud],
   );
 
   useWarmRetarget(onWarmRetarget, settings, layout);

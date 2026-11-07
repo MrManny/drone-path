@@ -14,6 +14,7 @@ const fakeScene = vi.hoisted((): Scene => ({
   relayout: vi.fn(),
   update: vi.fn(() => Promise.resolve()),
   ready: Promise.resolve(),
+  dispose: vi.fn(),
 }));
 
 // The real island loads Leaflet after mount; the stub keeps that timing.
@@ -29,6 +30,12 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
     },
   };
 });
+
+// The export preview boots a second scene of its own; the page tests only
+// need the dialog's composition.
+vi.mock('../../ui/components/ExportPreview.js', () => ({
+  ExportPreview: () => <div data-testid="export-preview" />,
+}));
 
 const SESSION: UiSession = {
   scene: {

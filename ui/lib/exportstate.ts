@@ -23,6 +23,15 @@ export function captureFraction(capture: CaptureProgress | null): number | null 
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
 }
 
+// The frame the output preview stands on: the middle of the export selection,
+// so the visible trail growth represents the chosen range and tracks its edits
+// without animating the map.
+export function previewFrame(range: FrameRange | null, frames: number): number {
+  const start = range ? range.start : 0;
+  const end = range ? range.end : Math.max(0, frames - 1);
+  return Math.max(0, Math.min(Math.max(0, frames - 1), Math.round((start + end) / 2)));
+}
+
 export interface ExportForm {
   outPath: string | null;
   /** The effective even sizes (rounded down, minimum 64), never the raw typed text. */

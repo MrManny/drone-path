@@ -16,6 +16,7 @@ const fakeScene: Scene = {
   relayout: vi.fn(),
   update: vi.fn(() => Promise.resolve()),
   ready: Promise.resolve(),
+  dispose: vi.fn(),
 };
 
 let api: Playback;

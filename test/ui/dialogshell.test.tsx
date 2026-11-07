@@ -24,3 +24,21 @@ describe('DialogShell focus management', () => {
     opener.remove();
   });
 });
+
+describe('DialogShell panel class', () => {
+  it('keeps the panel recipe alone by default', () => {
+    render(<DialogShell title="Export" onClose={() => {}}>body</DialogShell>);
+    expect(screen.getByRole('dialog', { name: 'Export' }).className).toBe('settings-panel');
+  });
+
+  it('adds the extra class beside the panel recipe', () => {
+    render(
+      <DialogShell title="Export" onClose={() => {}} panelClass="export-panel">
+        body
+      </DialogShell>,
+    );
+    expect(screen.getByRole('dialog', { name: 'Export' }).className).toBe(
+      'settings-panel export-panel',
+    );
+  });
+});

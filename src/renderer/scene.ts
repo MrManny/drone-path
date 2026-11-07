@@ -65,6 +65,8 @@ export interface Scene {
   update(data: SceneData): Promise<void>;
   /** Resolves once the first tile pass finished (or the warm-up timeout hit). */
   ready: Promise<void>;
+  /** Tears the scene down: its styles and map must not outlive the host. */
+  dispose(): void;
 }
 
 function hudEq(a: HudSpec, b: HudSpec): boolean {
@@ -101,13 +103,21 @@ function setChipText(
   chip.textContent = value === null || value === undefined ? '--' : format(value);
 }
 
+// Per-scene style scope: the app mounts two scenes at once (the player island
+// and the export preview), and one scene's scale values must never restyle the
+// other's elements.
+let scopeCount = 0;
+
 class SceneState implements Scene {
   readonly ready: Promise<void>;
 
   private data: SceneData;
   private readonly L: LeafletApi;
   private readonly host: HTMLElement;
+  private readonly scopeClass = `scene-scope-${(scopeCount += 1)}`;
   private readonly styleEl: HTMLStyleElement;
+  private readyTimer: ReturnType<typeof setTimeout> | undefined;
+  private settleReady: () => void = () => {};
   private readonly attrEl: HTMLElement;
   private readonly mapEl: HTMLElement;
   private readonly frameEl: HTMLElement;
@@ -127,6 +137,7 @@ class SceneState implements Scene {
     this.host = host;
     this.data = firstData;
     this.L = L;
+    host.classList.add(this.scopeClass);
 
     this.styleEl = document.createElement('style');
     document.head.appendChild(this.styleEl);
@@ -168,8 +179,9 @@ class SceneState implements Scene {
 
     this.ready = new Promise<void>((resolve) => {
       const markReady = (): void => resolve();
+      this.settleReady = markReady;
       this.tiles.on('load', markReady);
-      setTimeout(markReady, 12000);
+      this.readyTimer = setTimeout(markReady, 12000);
     });
   }
 
@@ -195,6 +207,7 @@ class SceneState implements Scene {
       this.data.width,
       this.data.height,
       this.scale(),
+      this.scopeClass,
     );
     this.attrEl.innerHTML = this.data.attribution;
     quietAttributionLinks(this.attrEl);
@@ -445,6 +458,14 @@ class SceneState implements Scene {
     if (!hudEq(prev.hud, next.hud)) this.rebuildHud();
     this.layoutMap();
     return this.setFrame(this.curIdx);
+  }
+
+  dispose(): void {
+    clearTimeout(this.readyTimer);
+    this.settleReady();
+    this.map.remove();
+    this.styleEl.remove();
+    this.host.classList.remove(this.scopeClass);
   }
 }
 

@@ -38,6 +38,8 @@ export interface MapHandle {
   getCenter(): LatLng;
   project(latlng: LatLngExpr, zoom: number): Point;
   invalidateSize(): void;
+  /** Tears the map down; required so a scene can be disposed (scene.dispose). */
+  remove(): void;
 }
 
 export interface LayerHandle {

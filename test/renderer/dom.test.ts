@@ -10,20 +10,32 @@ describe('sceneCss', () => {
     { style: 'satellite', want: ['saturate(1.06) contrast(1.03)', '#0b0e14', '#e87f54'] },
     { style: 'topo', want: ['none', '#eae5da', '#e87f54'] },
   ] as const)('renders the $style look', ({ style, want }) => {
-    const css = sceneCss(TILE_SOURCES[style], themeFor(style), 768, 768, 1);
+    const css = sceneCss(TILE_SOURCES[style], themeFor(style), 768, 768, 1, 'scene-scope-1');
     for (const fragment of want) expect(css).toContain(fragment);
   });
 
   it('sizes the drone disc and HUD from the frame scale', () => {
-    const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 768, 768, 2);
+    const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 768, 768, 2, 'scene-scope-1');
     expect(css).toContain('width: 92px');
     expect(css).toContain('font-size: 42px');
   });
 
   it('keeps the map frame canvas-sized for the export', () => {
-    const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 1920, 1080, 1);
-    expect(css).toContain('#map { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }');
+    const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 1920, 1080, 1, 'scene-scope-1');
+    expect(css).toContain(
+      '.scene-scope-1 #map { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }',
+    );
     expect(css).toContain('animation: none !important');
+  });
+
+  it('scopes every rule to its scene host so two scenes cannot cross-style', () => {
+    const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 768, 768, 1, 'scene-scope-1');
+    const selectors = css
+      .split('}')
+      .map((block) => block.split('{')[0].trim())
+      .filter((selector) => selector.length > 0);
+    expect(selectors.length).toBeGreaterThan(5);
+    for (const selector of selectors) expect(selector.startsWith('.scene-scope-1')).toBe(true);
   });
 });
 
