@@ -33,7 +33,10 @@ export function TransportBar({
 }: TransportBarProps) {
   return (
     <div className="transport">
-      <div className="transport-group">
+      <span className="readout transport-time" ref={timeRef}>
+        {formatTimeReadout(0, fps, durationSec)}
+      </span>
+      <div className="transport-group transport-cluster">
         <button
           type="button"
           className="transport-step"
@@ -56,12 +59,8 @@ export function TransportBar({
         >
           <SkipForwardIcon />
         </button>
-        <div className="transport-divider" />
-        <span className="readout" ref={timeRef}>
-          {formatTimeReadout(0, fps, durationSec)}
-        </span>
       </div>
-      <div className="transport-group">
+      <div className="transport-group transport-speed">
         <span className="transport-label">Playback speed</span>
         <div className="segmented" role="group" aria-label="Playback speed">
           {([1, 2, 3, 4] as const).map((rate) => (

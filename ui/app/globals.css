@@ -442,19 +442,43 @@ button.primary {
   box-shadow: var(--shadow-float);
 }
 
-/* Transport row: skip, play and the position readout at the left; playback
-   speed at the right. The timeline panel owns the scrubber and the loop. */
+/* Transport row: the time readout at the left edge, rewind / play / forward
+   centered under the footage, playback speed at the right. The grid mirrors
+   the stage's columns so the cluster sits on the video pane's center, and the
+   stage's layout class owns the rail column here too. The timeline panel
+   owns the scrubber and the loop. */
 .transport {
   flex: none;
   height: var(--transport-h);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(280px, 28%, 372px);
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 16px;
   padding: 0 16px;
   box-sizing: border-box;
   background: var(--bar);
   border-top: 1px solid var(--hairline);
+}
+.stage-overlay ~ .transport {
+  grid-template-columns: minmax(0, 1fr);
+}
+.transport-time {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: start;
+}
+.transport-cluster {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: center;
+}
+.transport-speed {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+}
+.stage-overlay ~ .transport .transport-speed {
+  grid-column: 1;
 }
 .transport-group {
   display: flex;
@@ -464,12 +488,6 @@ button.primary {
 }
 .transport-step {
   padding: 0 8px;
-}
-.transport-divider {
-  flex: none;
-  height: 24px;
-  margin: 0 8px;
-  border-left: 1px solid var(--hairline);
 }
 .transport-label {
   font-size: 13px;
