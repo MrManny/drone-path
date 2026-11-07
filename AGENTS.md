@@ -77,7 +77,7 @@ vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 
 Before changing anything under `ui/`, read
 [docs/design-guidelines.md](docs/design-guidelines.md), the source of truth for
-UI tokens, components, copy and error text.
+UI tokens and design principles.
 
 ## Definition of done
 
