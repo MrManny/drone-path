@@ -23,7 +23,8 @@ interface FakeMedia {
 
 // A document whose video seeks complete only when the test says so, and
 // whose canvas produces a stub blob, so the sampler runs offline with no
-// decoder and pending seeks stay observable.
+// decoder and pending seeks stay observable. Like Chromium, the fake seeks
+// only to a new position and a no-op seek never fires 'seeked'.
 function fakeMedia(options: { blob?: unknown } = {}): FakeMedia {
   const listeners = new Map<string, Set<() => void>>();
   const on = (type: string, fn: () => void): void => {
@@ -35,6 +36,7 @@ function fakeMedia(options: { blob?: unknown } = {}): FakeMedia {
     listeners.get(type)?.delete(fn);
   };
   let currentTime = 0;
+  let seekPending = false;
   const video = {
     muted: false,
     preload: '',
@@ -44,12 +46,16 @@ function fakeMedia(options: { blob?: unknown } = {}): FakeMedia {
       return currentTime;
     },
     set currentTime(value: number) {
+      if (value === currentTime) return;
       currentTime = value;
+      seekPending = true;
     },
     emit: (type: string): void => {
       for (const fn of [...(listeners.get(type) ?? [])]) fn();
     },
     completeSeek: (): void => {
+      if (!seekPending) return;
+      seekPending = false;
       video.emit('seeked');
     },
     removeAttribute: (name: string): void => {
@@ -92,6 +98,40 @@ describe('createThumbSampler', () => {
     expect(createObjectURL).toHaveBeenCalledWith(media.blob);
     sampler.dispose();
     createObjectURL.mockRestore();
+  });
+
+  it('draws a grab at the element\'s current position without a seek event', async () => {
+    const media = fakeMedia();
+    media.video.readyState = 2;
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:thumb');
+    const sampler = createThumbSampler('/video', 30, media.doc);
+    const first = sampler.grab(5);
+    await settle();
+    media.video.completeSeek();
+    await expect(first).resolves.toBe('blob:thumb');
+    // The re-grab seeks to the position it already holds, so no 'seeked'
+    // will ever arrive and the grab must not wait for one.
+    await expect(sampler.grab(5)).resolves.toBe('blob:thumb');
+    expect(media.ctx.drawImage).toHaveBeenCalledTimes(2);
+    sampler.dispose();
+    createObjectURL.mockRestore();
+  });
+
+  it('settles to null when the seek event never arrives', async () => {
+    vi.useFakeTimers();
+    try {
+      const media = fakeMedia();
+      media.video.readyState = 2;
+      const sampler = createThumbSampler('/video', 30, media.doc);
+      const pending = sampler.grab(3);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.runAllTimersAsync();
+      await expect(pending).resolves.toBeNull();
+      expect(media.ctx.drawImage).not.toHaveBeenCalled();
+      sampler.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('returns null when the media never loads', async () => {

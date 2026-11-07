@@ -14,6 +14,9 @@ export interface ThumbSampler {
 export const THUMB_WIDTH = 135;
 export const THUMB_HEIGHT = 76;
 
+/** How long a seek may stall before the grab gives up on it. */
+const SEEK_TIMEOUT_MS = 3000;
+
 /**
  * The default sampler over the given document. The `doc` seam keeps the
  * media plumbing testable with fakes away from a real decoder.
@@ -40,18 +43,17 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
   });
 
   // A seek can also die mid-flight (media error, emptied source), so every
-  // way out settles the grab — with success only for a real 'seeked'.
-  // dispose() settles the waits directly because aborting a seek fires no
-  // event the sampler can rely on.
+  // way out settles the grab — with success only for a confirmed position:
+  // a real 'seeked', or the element already sitting within half a frame of
+  // the target, because Chromium skips such no-op seeks and never fires
+  // 'seeked'. The timeout bounds a seek whose events go missing, so one
+  // grab can never stall the sequential fill. dispose() settles the waits
+  // directly because aborting a seek fires no event the sampler can rely
+  // on.
   function seekTo(time: number): Promise<boolean> {
+    if (Math.abs(video.currentTime - time) < 0.5 / fps) return Promise.resolve(true);
     return new Promise<boolean>((resolve) => {
-      const finish = (seeked: boolean): void => {
-        video.removeEventListener('seeked', onSeeked);
-        video.removeEventListener('error', onFail);
-        video.removeEventListener('emptied', onFail);
-        pending.delete(abort);
-        resolve(seeked);
-      };
+      const timer = setTimeout(() => finish(false), SEEK_TIMEOUT_MS);
       const onSeeked = (): void => finish(true);
       const onFail = (): void => finish(false);
       const abort = (): void => finish(false);
@@ -60,6 +62,15 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
       video.addEventListener('error', onFail);
       video.addEventListener('emptied', onFail);
       video.currentTime = time;
+
+      function finish(seeked: boolean): void {
+        clearTimeout(timer);
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onFail);
+        video.removeEventListener('emptied', onFail);
+        pending.delete(abort);
+        resolve(seeked);
+      }
     });
   }
 
