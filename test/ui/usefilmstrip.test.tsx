@@ -97,17 +97,44 @@ describe('useFilmstrip', () => {
 
   it('grabs only the frames a wider plan adds', async () => {
     const sampler = fakeSampler();
+    setTrackWidth(320);
     render(<Harness sampler={sampler} />);
-    await waitFor(() => expect(sampler.grabbed).toHaveLength(10));
+    await waitFor(() => expect(sampler.grabbed).toHaveLength(5));
 
-    setTrackWidth(1280);
+    setTrackWidth(768);
     replan();
     const union = new Set([
-      ...thumbPlan(640, 90).frames,
-      ...thumbPlan(1280, 90).frames,
+      ...thumbPlan(320, 90).frames,
+      ...thumbPlan(768, 90).frames,
     ]);
     await waitFor(() => expect(sampler.grabbed).toHaveLength(union.size));
     expect(new Set(sampler.grabbed).size).toBe(union.size);
+  });
+
+  it('fills every planned cell once when duplicate re-plans overlap the fill', async () => {
+    const grabbed: number[] = [];
+    const resolvers: Array<(url: string | null) => void> = [];
+    const sampler: ThumbSampler = {
+      grab(frame: number) {
+        grabbed.push(frame);
+        return new Promise<string | null>((resolve) => resolvers.push(resolve));
+      },
+      dispose() {},
+    };
+    render(<Harness sampler={sampler} />);
+    // The mount race: the observer delivers the same plan again while the
+    // first fill is still grabbing, and the plan must not restart.
+    replan();
+    replan();
+    for (let i = 0; i < 10; i += 1) {
+      await waitFor(() => expect(resolvers.length).toBeGreaterThan(i));
+      resolvers[i](`blob:${grabbed[i]}`);
+    }
+    const planned = thumbPlan(640, 90).frames;
+    await waitFor(() =>
+      expect(screen.getByTestId('thumbs').textContent).toBe(planned.join(',')),
+    );
+    expect(grabbed).toEqual(planned);
   });
 
   it('disposes the sampler it created exactly once, on unmount', async () => {

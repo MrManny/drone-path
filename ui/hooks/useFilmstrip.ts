@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-import { FilmstripCache, thumbPlan } from '../lib/filmstrip.js';
+import { FilmstripCache, sameFrames, thumbPlan } from '../lib/filmstrip.js';
 import type { ThumbSampler } from '../lib/thumbsampler.js';
 import { createThumbSampler } from '../lib/thumbsampler.js';
 
@@ -46,7 +46,12 @@ export function useFilmstrip({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const replan = (): void => setCells(thumbPlan(host.clientWidth, frames).frames);
+    const replan = (): void => {
+      const planned = thumbPlan(host.clientWidth, frames).frames;
+      // Keeping the reference on equal content stops the observer's initial
+      // duplicate delivery from re-running the load effect at all.
+      setCells((prev) => (sameFrames(prev, planned) ? prev : planned));
+    };
     replan();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(replan);
