@@ -4,18 +4,17 @@ import { CHROME, COMPACT_HEIGHT, mapFrameSize, stageHeight } from '../../ui/lib/
 
 describe('stageHeight', () => {
   it.for([
-    { name: 'a typical window', innerHeight: 950, want: 950 - 376 },
-    { name: 'the compact boundary', innerHeight: COMPACT_HEIGHT, want: COMPACT_HEIGHT - 316 },
-    { name: 'just above the compact boundary', innerHeight: COMPACT_HEIGHT + 1, want: COMPACT_HEIGHT + 1 - 376 },
-    { name: 'the window minimum', innerHeight: 600, want: 600 - 316 },
+    { name: 'a typical window', innerHeight: 950, want: 950 - 336 },
+    { name: 'the compact boundary', innerHeight: COMPACT_HEIGHT, want: COMPACT_HEIGHT - 276 },
+    { name: 'just above the compact boundary', innerHeight: COMPACT_HEIGHT + 1, want: COMPACT_HEIGHT + 1 - 336 },
+    { name: 'the window minimum', innerHeight: 600, want: 600 - 276 },
     { name: 'a tiny window clamps at zero', innerHeight: 100, want: 0 },
   ])('$name', ({ innerHeight, want }) => {
     expect(stageHeight(innerHeight)).toBe(want);
   });
 
   it('accounts for every chrome height exactly once', () => {
-    const wide =
-      CHROME.headerH + CHROME.previewStripH + CHROME.transportH + CHROME.timelineH + CHROME.statusH;
+    const wide = CHROME.headerH + CHROME.transportH + CHROME.timelineH + CHROME.statusH;
     expect(stageHeight(950)).toBe(950 - wide);
   });
 });
@@ -27,28 +26,28 @@ describe('mapFrameSize', () => {
       innerWidth: 1600,
       innerHeight: 950,
       layout: 'split' as const,
-      want: { width: 338, height: 404 },
+      want: { width: 372, height: 582 },
     },
     {
-      name: 'split at the window minimum drops the card readout and note',
+      name: 'split at the window minimum clamps the rail to its floor',
       innerWidth: 1024,
       innerHeight: 600,
       layout: 'split' as const,
-      want: { width: 246, height: 170 },
+      want: { width: 280, height: 292 },
     },
     {
       name: 'split between the rail bounds',
       innerWidth: 1200,
       innerHeight: 950,
       layout: 'split' as const,
-      want: { width: 293, height: 404 },
+      want: { width: 327, height: 582 },
     },
     {
       name: 'overlay at the default window',
       innerWidth: 1600,
       innerHeight: 950,
       layout: 'overlay' as const,
-      want: { width: 207, height: 207 },
+      want: { width: 221, height: 221 },
     },
     {
       name: 'overlay clamps to the minimum box',

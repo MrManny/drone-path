@@ -9,6 +9,9 @@ const MODAL = { modalOpen: true };
 const POPOVER: HotkeyContext = { modalOpen: false, popoverOpen: true };
 
 const input = { tagName: 'INPUT' };
+const range = { tagName: 'INPUT', type: 'range' };
+const numberField = { tagName: 'INPUT', type: 'number' };
+const checkbox = { tagName: 'INPUT', type: 'checkbox' };
 const select = { tagName: 'SELECT' };
 const textarea = { tagName: 'textarea' };
 const button = { tagName: 'BUTTON' };
@@ -71,6 +74,46 @@ describe('mapKey', () => {
     { name: 'shift+I sets the loop in point', event: { key: 'I', shiftKey: true }, want: { type: 'setLoopIn' } },
     { name: 'O sets the loop out point', event: { key: 'o' }, want: { type: 'setLoopOut' } },
     { name: 'shift+O sets the loop out point', event: { key: 'O', shiftKey: true }, want: { type: 'setLoopOut' } },
+    {
+      name: 'I sets the loop in point over the timeline scrubber (#157)',
+      event: { key: 'i', target: range },
+      want: { type: 'setLoopIn' },
+    },
+    {
+      name: 'O sets the loop out point over the timeline scrubber (#157)',
+      event: { key: 'o', target: range },
+      want: { type: 'setLoopOut' },
+    },
+    {
+      name: 'Space toggles play over the timeline scrubber (#157)',
+      event: { key: ' ', target: range },
+      want: { type: 'togglePlay' },
+    },
+    {
+      name: 'digits set speed over the timeline scrubber (#157)',
+      event: { key: '2', target: range },
+      want: { type: 'speed', rate: 2 },
+    },
+    {
+      name: 'arrows step frames over the timeline scrubber (#157)',
+      event: { key: 'ArrowRight', target: range },
+      want: { type: 'step', frames: 1 },
+    },
+    {
+      name: 'shift+arrows jump over the timeline scrubber (#157)',
+      event: { key: 'ArrowLeft', shiftKey: true, target: range },
+      want: { type: 'jump', seconds: -1 },
+    },
+    {
+      name: 'Home and End seek over the timeline scrubber (#157)',
+      event: { key: 'End', target: range },
+      want: { type: 'seekEnd' },
+    },
+    {
+      name: 'S swaps the views over the timeline scrubber (#157)',
+      event: { key: 's', target: range },
+      want: { type: 'swapView' },
+    },
     { name: 'S swaps the views', event: { key: 's' }, want: { type: 'swapView' } },
     { name: 'shift+S swaps the views', event: { key: 'S', shiftKey: true }, want: { type: 'swapView' } },
     { name: 'Ctrl+O opens a recording', event: { key: 'o', ctrlKey: true }, want: { type: 'openRecording' } },
@@ -117,10 +160,13 @@ describe('mapKey', () => {
     { name: 'Ctrl+Space is not play/pause', event: { key: ' ', ctrlKey: true }, want: null },
     { name: 'Alt+O is left to the menu system', event: { key: 'o', altKey: true }, want: null },
     { name: 'Meta+O is left to the OS', event: { key: 'o', metaKey: true }, want: null },
-    { name: 'digits are inert in a number field', event: { key: '3', target: input }, want: null },
+    { name: 'digits are inert in a number field', event: { key: '3', target: numberField }, want: null },
+    { name: 'letters are inert in a text field', event: { key: 'i', target: input }, want: null },
+    { name: 'unknown input types keep their keys', event: { key: 'i', target: { tagName: 'INPUT', type: 'date' } }, want: null },
     { name: 'Space is inert in a text field', event: { key: ' ', target: textarea }, want: null },
     { name: 'letters are inert in a select', event: { key: 's', target: select }, want: null },
-    { name: 'arrows are inert in a scrubber field', event: { key: 'ArrowRight', target: input }, want: null },
+    { name: 'arrows are inert in a text field', event: { key: 'ArrowRight', target: input }, want: null },
+    { name: 'Space yields to a focused checkbox', event: { key: ' ', target: checkbox }, want: null },
     { name: 'first Esc leaves a select dropdown alone', event: { key: 'Escape', target: select }, ctx: MODAL, want: null },
     {
       name: 'first Esc leaves a select dropdown alone without modal',

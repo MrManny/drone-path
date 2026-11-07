@@ -75,8 +75,6 @@ export function PlayerChrome({
     videoRef,
     scrubRef,
     timeRef,
-    positionRef,
-    statusTimeRef,
     playheadRef,
   } = usePlayback(video, durationSec);
   const { modalOpen, exportOpen, dismissible, dispatchDialog } = dialogs;
@@ -150,12 +148,7 @@ export function PlayerChrome({
       <PlayerStage
         video={video}
         sceneData={sceneData}
-        settings={settings}
-        durationSec={durationSec}
         layout={layout}
-        playing={playing}
-        statusTimeRef={statusTimeRef}
-        positionRef={positionRef}
         videoRef={videoRef}
         onScene={handleScene}
         onPlayState={setPlaying}
@@ -191,9 +184,7 @@ export function PlayerChrome({
         src={video.src}
       />
       <StatusBar
-        ready={ready}
         hasTelemetry={session.scene.lat.length > 0}
-        durationSec={durationSec}
         onMapSettings={toggleMapAppearance}
         mapSettingsOpen={mapAppearanceOpen}
         settingsButtonRef={appearanceButtonRef}

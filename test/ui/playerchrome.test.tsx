@@ -84,8 +84,8 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Play|Warming tiles/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
-    // The transport and the map card share one position readout text.
-    expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(2);
+    // The transport carries the one position readout (#157).
+    expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'Playback speed' })).toBeTruthy();
     // Timeline
     expect(screen.getByRole('button', { name: 'Set loop in' })).toBeTruthy();
@@ -96,7 +96,6 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
-    expect(screen.getByText('0:03 duration')).toBeTruthy();
     expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
   });
 
@@ -135,11 +134,11 @@ describe('PlayerChrome workspace structure', () => {
     expect(card.className).not.toContain('map-card-overlay');
   });
 
-  it('shows the playback state and position in the preview strip', () => {
+  it('shows no preview strip over the stage (#157)', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const state = document.querySelector('.preview-state') as HTMLElement;
-    expect(state.textContent).toBe('Paused at 0:00');
-    expect(screen.getByText('Video + map')).toBeTruthy();
+    expect(document.querySelector('.preview-strip')).toBeNull();
+    expect(screen.queryByText('Video + map')).toBeNull();
+    expect(screen.queryByText(/^Paused at|^Playing at/)).toBeNull();
     expect(screen.getByText('Timeline')).toBeTruthy();
     expect(screen.queryByText('Playback & loop points')).toBeNull();
   });
@@ -184,10 +183,8 @@ describe('PlayerChrome workspace structure', () => {
     act(() => flushRaf());
     expect(currentTime).toBeCloseTo(30.5 / 30);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
-    // The imperative readouts follow the presented frame.
-    expect(document.querySelector('.preview-state')?.textContent).toBe('Paused at 0:01');
-    expect(screen.getAllByText('0:01 / 0:03')).toHaveLength(2);
-    expect(document.querySelector('.map-card .readout')?.textContent).toBe('0:01 / 0:03');
+    // The imperative readout follows the presented frame.
+    expect(document.querySelector('.transport .readout')?.textContent).toBe('0:01 / 0:03');
   });
 });
 
@@ -438,12 +435,23 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(fake.state.currentTime).toBeCloseTo(0.5 / 30);
   });
 
-  it('leaves native arrow stepping to the focused scrubber', async () => {
+  it('steps a frame with the arrows while the scrubber holds focus (#157)', async () => {
     const fake = await renderPlayer();
     const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
     const event = key(scrub, { key: 'ArrowRight' });
-    expect(event.defaultPrevented).toBe(false);
-    expect(fake.state.currentTime).toBe(0);
+    expect(event.defaultPrevented).toBe(true);
+    act(() => flushRaf());
+    expect(fake.state.currentTime).toBeCloseTo(1.5 / 30);
+  });
+
+  it('sets the loop points with I and O while the scrubber holds focus (#157)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(document.querySelector('.loop-band')).toBeNull();
+    key(scrub, { key: 'i' });
+    key(scrub, { key: 'ArrowRight' });
+    key(scrub, { key: 'o' });
+    expect(document.querySelector('.loop-band')).toBeTruthy();
   });
 
   it('leaves unclaimed keys to their default behavior', async () => {

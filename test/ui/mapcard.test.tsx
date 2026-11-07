@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { createRef } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,34 +26,22 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderCard(layout: 'split' | 'overlay', settings = { style: 'satellite' as const, view: 'overview' as const }) {
-  const positionRef = createRef<HTMLSpanElement>();
-  const view = render(
-    <MapCard
-      data={DATA}
-      onScene={() => {}}
-      layout={layout}
-      settings={settings}
-      positionReadout="0:00 / 0:03"
-      positionRef={positionRef}
-    />,
-  );
-  return { ...view, positionRef };
+function renderCard(layout: 'split' | 'overlay') {
+  return render(<MapCard data={DATA} onScene={() => {}} layout={layout} />);
 }
 
 describe('MapCard', () => {
-  it('names the map and its look in the card header', () => {
-    renderCard('split');
-    expect(screen.getByRole('heading', { name: 'Flight map' })).toBeTruthy();
-    expect(screen.getByText('Satellite · Overview')).toBeTruthy();
-  });
-
-  it('shows the shared playhead position and note', () => {
-    const { positionRef } = renderCard('split');
-    expect(screen.getByText('Current position')).toBeTruthy();
-    expect(positionRef.current?.textContent).toBe('0:00 / 0:03');
-    expect(screen.getByText('Map and video share the same playhead.')).toBeTruthy();
-  });
+  it.for(['split', 'overlay'] as const)(
+    'renders a bare map with no card copy in the %s layout (#157)',
+    (layout) => {
+      renderCard(layout);
+      expect(screen.queryByRole('heading')).toBeNull();
+      expect(screen.queryByText('Flight map')).toBeNull();
+      expect(screen.queryByText('Satellite · Overview')).toBeNull();
+      expect(screen.queryByText('Current position')).toBeNull();
+      expect(screen.queryByText('Map and video share the same playhead.')).toBeNull();
+    },
+  );
 
   it('renders the map tag for the overlay layout', () => {
     renderCard('overlay');
@@ -72,16 +59,7 @@ describe('MapCard', () => {
     const card = container.querySelector('.map-card') as HTMLElement;
     expect(card.className).toContain('map-card-split');
     const island = screen.getByTestId('map-island');
-    rerender(
-      <MapCard
-        data={DATA}
-        onScene={() => {}}
-        layout="overlay"
-        settings={{ style: 'satellite', view: 'overview' }}
-        positionReadout="0:00 / 0:03"
-        positionRef={createRef<HTMLSpanElement>()}
-      />,
-    );
+    rerender(<MapCard data={DATA} onScene={() => {}} layout="overlay" />);
     expect(card.className).toContain('map-card-overlay');
     expect(screen.getByTestId('map-island')).toBe(island);
     expect(vi.mocked(fakeScene.setFrame)).not.toHaveBeenCalled();

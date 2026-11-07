@@ -7,6 +7,7 @@
   --surface-3: #454545;
   --surface-4: #525252;
   --bar: rgba(35, 35, 35, 0.94);
+  --glass: rgba(35, 35, 35, 0.6);
   --scrim: rgba(10, 10, 10, 0.6);
   --hairline: rgba(232, 232, 232, 0.12);
   --hairline-strong: rgba(232, 232, 232, 0.24);
@@ -31,7 +32,6 @@
   --radius-pill: 999px;
   --control-h: 36px;
   --header-h: 56px;
-  --preview-strip-h: 40px;
   --transport-h: 48px;
   --timeline-h: 200px;
   --status-h: 32px;
@@ -263,7 +263,7 @@ button.primary {
   margin-top: 0;
 }
 
-/* The review workspace: header, preview, transport, timeline and status bar
+/* The review workspace: header, stage, transport, timeline and status bar
    stacked in one column. The fixed chrome heights mirror CHROME in
    ui/lib/layout.ts; change the two together. */
 .workspace {
@@ -317,35 +317,11 @@ button.primary {
   flex: 1 1 auto;
 }
 
-/* Preview area: the label strip and the stage with the footage and the map. */
-.preview {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.preview-strip {
-  flex: none;
-  height: var(--preview-strip-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 16px;
-}
-.preview-strip-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
+/* Caption rows: the timeline heading and the export preview's caption share
+   the title and meta styles. */
 .preview-title {
   font-size: 14px;
   font-weight: 600;
-}
-.preview-note {
-  font-size: 13px;
-  color: var(--text-3);
 }
 .preview-state {
   font-size: 13px;
@@ -354,9 +330,9 @@ button.primary {
   white-space: nowrap;
 }
 
-/* The stage: the video pane beside the flight map card (split), or with the
-   map as a square corner card on the footage (overlay). The map island host
-   isolates Leaflet's own z-indexes inside its own box. */
+/* The stage: the video pane beside the bare flight map rail (split), or with
+   the map as a square corner card on the footage (overlay). The map island
+   host isolates Leaflet's own z-indexes inside its own box. */
 .stage {
   position: relative;
   flex: 1 1 auto;
@@ -390,83 +366,29 @@ button.primary {
   inset: 0;
 }
 .map-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  position: relative;
   box-sizing: border-box;
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-panel);
 }
 .map-card-split {
   flex: none;
   width: clamp(280px, 28%, 372px);
-  padding: 16px;
-}
-.map-card-head {
-  flex: none;
-  height: 40px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-.map-card-title {
-  margin: 0;
-  font-size: 16px;
-}
-.map-card-look {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.map-host-wrap {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
 }
 .map-overlay-tag {
   display: none;
 }
-.map-card-foot {
-  flex: none;
-  height: 20px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-3);
-}
-.map-card-foot .readout {
-  font-size: 12px;
-}
-.map-card-note {
-  flex: none;
-  margin: 0;
-  height: 20px;
-  font-size: 12px;
-  color: var(--text-3);
-  overflow: hidden;
-  white-space: nowrap;
-}
-/* Overlay layout: the card chrome hides and a map tag appears over the map. */
+/* Overlay layout: the map becomes a floating card with a tag over it. */
 .map-card-overlay {
   position: absolute;
   right: 18px;
   bottom: 18px;
   height: clamp(180px, 36%, 242px);
   aspect-ratio: 1;
-  padding: 0;
   overflow: hidden;
-  border-color: var(--hairline-strong);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow-float);
   z-index: 2;
-}
-.map-card-overlay .map-card-head,
-.map-card-overlay .map-card-foot,
-.map-card-overlay .map-card-note {
-  display: none;
 }
 .map-card-overlay .map-overlay-tag {
   display: block;
@@ -501,7 +423,9 @@ button.primary {
 }
 
 /* The background pre-warm's status chip: small and centered over the stage,
-   an overlay that never takes space from the map or the video. */
+   an overlay that never takes space from the map or the video. Its glassy
+   fill (semitransparent, blurred backdrop) is one of the two blurs outside
+   plain surfaces; the dialog scrim is the other. */
 .warm-hint {
   align-self: center;
   width: max-content;
@@ -511,7 +435,8 @@ button.primary {
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  background: color-mix(in srgb, var(--info) 11%, var(--surface-1));
+  background: color-mix(in srgb, var(--info) 11%, var(--glass));
+  backdrop-filter: blur(8px);
   border: 1px solid color-mix(in srgb, var(--info) 40%, transparent);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-float);
@@ -1189,15 +1114,10 @@ input[type='radio']:disabled {
   color: var(--text-3);
 }
 
-/* The timeline shrinks on short windows so the stage keeps room; the map
-   card drops its readout and note so the map host keeps a usable height for
-   the HUD chips and the attribution. Mirrored in ui/lib/layout.ts. */
+/* The timeline shrinks on short windows so the stage keeps room. Mirrored in
+   ui/lib/layout.ts. */
 @media (max-height: 720px) {
   :root {
     --timeline-h: 140px;
-  }
-  .map-card-foot,
-  .map-card-note {
-    display: none;
   }
 }

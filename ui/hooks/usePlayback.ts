@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageVideo } from '../../src/appsession.js';
 import type { Scene } from '../../src/renderer/scene.js';
 import { createFrameDriver } from '../lib/framedriver.js';
-import { clampFrame, formatTime, formatTimeReadout, timeAt } from '../lib/frametime.js';
+import { clampFrame, formatTimeReadout } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { engagedLoop } from '../lib/loop.js';
 
@@ -36,10 +36,6 @@ export interface Playback {
   scrubRef: RefObject<HTMLInputElement | null>;
   /** The transport's "position / duration" readout. */
   timeRef: RefObject<HTMLSpanElement | null>;
-  /** The map card's "Current position" readout, same text as timeRef. */
-  positionRef: RefObject<HTMLSpanElement | null>;
-  /** The preview strip's position word ("0:10"), inside its state tag. */
-  statusTimeRef: RefObject<HTMLSpanElement | null>;
   /** The timeline playhead marker, moved imperatively like the scrubber. */
   playheadRef: RefObject<HTMLDivElement | null>;
 }
@@ -48,8 +44,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
-  const positionRef = useRef<HTMLSpanElement>(null);
-  const statusTimeRef = useRef<HTMLSpanElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<Scene | null>(null);
   // The head frame: committed or queued, so rapid steps never stack onto a
@@ -88,10 +82,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
         // rate.
         const readout = formatTimeReadout(i, video.fps, durationSec);
         if (timeRef.current) timeRef.current.textContent = readout;
-        if (positionRef.current) positionRef.current.textContent = readout;
-        if (statusTimeRef.current) {
-          statusTimeRef.current.textContent = formatTime(timeAt(i, video.fps));
-        }
         if (playheadRef.current) {
           const pct = video.frames > 1 ? (i / (video.frames - 1)) * 100 : 0;
           playheadRef.current.style.left = `${pct}%`;
@@ -179,8 +169,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     videoRef,
     scrubRef,
     timeRef,
-    positionRef,
-    statusTimeRef,
     playheadRef,
   };
 }
