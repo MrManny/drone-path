@@ -185,6 +185,7 @@ describe('TransportBar centering contract', () => {
     // around the transport afterwards to stay its preceding sibling.
     const stage = document.createElement('div');
     stage.className = `stage stage-${layout}`;
+    stage.innerHTML = `<div class="map-card map-card-${layout}"></div>`;
     workspace.prepend(stage);
     return workspace.querySelector('.transport') as HTMLElement;
   }
@@ -197,7 +198,9 @@ describe('TransportBar centering contract', () => {
       const cluster = transport.querySelector('.transport-cluster') as HTMLElement;
       const speed = transport.querySelector('.transport-speed') as HTMLElement;
       expect(getComputedStyle(time).justifySelf).toBe('start');
+      expect(getComputedStyle(time).gridColumn).toBe('1');
       expect(getComputedStyle(cluster).justifySelf).toBe('center');
+      expect(getComputedStyle(cluster).gridColumn).toBe('1');
       expect(getComputedStyle(speed).justifySelf).toBe('end');
     },
   );
@@ -215,6 +218,8 @@ describe('TransportBar centering contract', () => {
   it('reads the rail width from one shared token', () => {
     const transport = mountTransport('split');
     expect(getComputedStyle(transport).gridTemplateColumns).toContain('var(--rail-w)');
+    const rail = document.querySelector('.map-card-split') as HTMLElement;
+    expect(getComputedStyle(rail).width).toContain('var(--rail-w)');
     expect(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')).toMatch(
       /clamp\(280px,\s*28%,\s*372px\)/,
     );
