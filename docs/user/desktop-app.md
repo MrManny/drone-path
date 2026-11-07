@@ -54,7 +54,7 @@ Packaged builds update themselves: when a newer [release](https://github.com/MrM
 
 ## Help
 
-The **Help** button on the start screen and in the status bar opens this manual inside the app. It is bundled with the app, so it works offline.
+The **Help** icon at the top right of the start screen and in the status bar opens this manual inside the app. It is bundled with the app, so it works offline.
 
 ## Notes
 

@@ -17,6 +17,15 @@ export function LandingPanel({ state, onPick, onHelp, onDismiss }: LandingPanelP
   return (
     <main className="landing">
       <h1>neo2-flightpath</h1>
+      <button
+        type="button"
+        className="landing-help"
+        aria-label="Help"
+        title="Help"
+        onClick={onHelp}
+      >
+        <HelpIcon />
+      </button>
       <p>
         Pick a drone recording to watch its flight path on the map in sync with
         the footage.
@@ -25,10 +34,6 @@ export function LandingPanel({ state, onPick, onHelp, onDismiss }: LandingPanelP
         <button type="button" className="primary" onClick={onPick} disabled={preparing}>
           <FolderOpenIcon />
           {preparing ? 'Preparing…' : 'Open…'}
-        </button>
-        <button type="button" onClick={onHelp}>
-          <HelpIcon />
-          Help
         </button>
       </div>
       <OpenNotice state={state} onDismiss={onDismiss} />
