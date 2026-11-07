@@ -23,6 +23,7 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--page` | `#232323` | Page background |
 | `--surface-1` … `--surface-4` | `#2e2e2e`, `#363636`, `#454545`, `#525252` | Surface ladder: cards → controls → hover fill → pressed fill |
 | `--bar` | `rgba(35, 35, 35, 0.94)` | Control bar over the footage |
+| `--glass` | `rgba(35, 35, 35, 0.6)` | Glassy chip fill over the footage |
 | `--scrim` | `rgba(10, 10, 10, 0.6)` | Dialog backdrop |
 | `--hairline` / `--hairline-strong` / `--hairline-hover` | `#e8e8e8` at 12% / 24% / 42% | Decorative separators / control, dialog and map card borders / hover borders |
 | `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 68% | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
