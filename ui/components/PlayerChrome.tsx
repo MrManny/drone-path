@@ -57,7 +57,7 @@ export function PlayerChrome({
   warm = null,
   onWarmRetarget,
 }: PlayerChromeProps) {
-  const { scene: preparedScene, video, durationSec } = session;
+  const { video, durationSec } = session;
   const {
     ready,
     playing,
@@ -107,11 +107,11 @@ export function PlayerChrome({
   const sceneData = useMemo(
     () =>
       restyleSceneData(
-        preparedScene,
+        session.scene,
         { style, view, zoom, zoomOut, introSec, outroSec, hud },
         restyleMeta(session),
       ),
-    [preparedScene, session, style, view, zoom, zoomOut, introSec, outroSec, hud],
+    [session, style, view, zoom, zoomOut, introSec, outroSec, hud],
   );
 
   useWarmRetarget(onWarmRetarget, settings, layout);
@@ -192,7 +192,7 @@ export function PlayerChrome({
       />
       <StatusBar
         ready={ready}
-        hasTelemetry={preparedScene.lat.length > 0}
+        hasTelemetry={session.scene.lat.length > 0}
         durationSec={durationSec}
         onMapSettings={toggleMapAppearance}
         mapSettingsOpen={mapAppearanceOpen}
@@ -204,7 +204,7 @@ export function PlayerChrome({
         <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
           <SettingsPanel
             config={settings}
-            hasAltitude={hasAltitude(preparedScene.alt)}
+            hasAltitude={hasAltitude(session.scene.alt)}
             onChange={onSettingsChange}
           />
         </Popover>
