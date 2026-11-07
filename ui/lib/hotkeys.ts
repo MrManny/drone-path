@@ -1,11 +1,12 @@
 // Keyboard shortcut vocabulary for the review player as a pure key-to-action
 // mapping, so every shortcut and guard rail stays unit-testable away from the
-// DOM. Guard rails: shortcuts are inert while focus is in an editable control,
-// Space yields to a focused button, link or disclosure, everything except Esc
-// is inert while a modal overlay is open, a focused select keeps at most one
-// Esc per interaction for its own dropdown, and held keys auto-repeat only for
-// stepping/jumping (a repeating Space would flicker play/pause, a repeating S
-// would flicker the layout).
+// DOM. Guard rails: shortcuts are inert while focus is in a text-entry control
+// (text fields, selects, text areas) but stay live over non-text inputs like
+// the timeline scrubber, Space yields to a focused button, link, disclosure or
+// activatable input, everything except Esc is inert while a modal overlay is
+// open, a focused select keeps at most one Esc per interaction for its own
+// dropdown, and held keys auto-repeat only for stepping/jumping (a repeating
+// Space would flicker play/pause, a repeating S would flicker the layout).
 
 import { closeOverlayTarget } from './overlayrouting.js';
 
@@ -58,13 +59,47 @@ export interface HotkeyResult {
   session: HotkeySession;
 }
 
-const EDITABLE_TAGS = new Set(['INPUT', 'SELECT', 'TEXTAREA']);
+// Input types that never hold text: the player's shortcuts stay live over
+// them — the timeline scrubber is one. Unknown and missing types fall back to
+// text-entry, as in HTML.
+const NON_TEXT_INPUT_TYPES = new Set([
+  'range',
+  'checkbox',
+  'radio',
+  'button',
+  'submit',
+  'reset',
+  'file',
+  'color',
+  'image',
+]);
 // Space activates these when focused; hijacking it would steal that activation.
 const ACTIVATABLE_TAGS = new Set(['BUTTON', 'A', 'SUMMARY']);
 
 function tagNameOf(target: unknown): string {
   const tag = (target as { tagName?: unknown } | null | undefined)?.tagName;
   return typeof tag === 'string' ? tag.toUpperCase() : '';
+}
+
+function inputTypeOf(target: unknown): string {
+  const type = (target as { type?: unknown } | null | undefined)?.type;
+  return typeof type === 'string' ? type.toLowerCase() : '';
+}
+
+/** True while the target types text and must keep every key (#157). */
+function isTextEntry(target: unknown): boolean {
+  const tag = tagNameOf(target);
+  if (tag === 'SELECT' || tag === 'TEXTAREA') return true;
+  return tag === 'INPUT' && !NON_TEXT_INPUT_TYPES.has(inputTypeOf(target));
+}
+
+/** True when Space activates the target instead of toggling play/pause. */
+function activatesOnSpace(target: unknown): boolean {
+  const tag = tagNameOf(target);
+  if (ACTIVATABLE_TAGS.has(tag)) return true;
+  const type = inputTypeOf(target);
+  // The range slider activates nothing; Space belongs to the player there.
+  return tag === 'INPUT' && type !== 'range' && NON_TEXT_INPUT_TYPES.has(type);
 }
 
 /**
@@ -119,7 +154,7 @@ function mapAction(
     return event.repeat === true ? null : { type: 'openRecording' };
   }
 
-  if (EDITABLE_TAGS.has(tag)) return null;
+  if (isTextEntry(event.target)) return null;
   if (ctrl || meta || alt) return null;
 
   const directional = key === 'ArrowLeft' || key === 'ArrowRight';
@@ -128,7 +163,7 @@ function mapAction(
   switch (key) {
     case ' ':
     case 'Spacebar':
-      return ACTIVATABLE_TAGS.has(tag) ? null : { type: 'togglePlay' };
+      return activatesOnSpace(event.target) ? null : { type: 'togglePlay' };
     case 'k':
     case 'K':
       return { type: 'togglePlay' };
