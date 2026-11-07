@@ -7,26 +7,25 @@ import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import { ExportPreview } from '../../ui/components/ExportPreview.js';
+import type { FakeObserver } from './harness.js';
+import { installResizeObserverStub } from './harness.js';
 
 const boot = vi.hoisted(() => ({
   scenes: [] as Scene[],
   calls: [] as { host: HTMLElement; data: SceneData }[],
 }));
 
-vi.mock('../../src/renderer/boot.js', () => ({
-  bootScene: (host: HTMLElement, data: SceneData): Scene => {
-    boot.calls.push({ host, data });
-    const scene = {
-      setFrame: vi.fn(() => Promise.resolve()),
-      relayout: vi.fn(),
-      update: vi.fn(() => Promise.resolve()),
-      ready: Promise.resolve(),
-      dispose: vi.fn(),
-    } satisfies Scene;
-    boot.scenes.push(scene);
-    return scene;
-  },
-}));
+vi.mock('../../src/renderer/boot.js', async () => {
+  const { createFakeScene } = await import('./harness.js');
+  return {
+    bootScene: (host: HTMLElement, data: SceneData): Scene => {
+      boot.calls.push({ host, data });
+      const scene = createFakeScene();
+      boot.scenes.push(scene);
+      return scene;
+    },
+  };
+});
 
 vi.mock('leaflet', () => ({ default: {} }));
 
@@ -62,32 +61,12 @@ const SESSION: UiSession = {
 
 const CONFIG: RenderConfig = { ...DEFAULT_CONFIG, width: 768, height: 768 };
 
-interface FakeObserver {
-  cb: ResizeObserverCallback;
-  observed: boolean;
-  disconnected: boolean;
-}
-
-const observers: FakeObserver[] = [];
+let observers: FakeObserver[] = [];
 
 beforeEach(() => {
-  observers.length = 0;
+  observers = installResizeObserverStub();
   boot.calls.length = 0;
   boot.scenes.length = 0;
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      constructor(cb: ResizeObserverCallback) {
-        observers.push({ cb, observed: false, disconnected: false });
-      }
-      observe(): void {
-        observers[observers.length - 1].observed = true;
-      }
-      disconnect(): void {
-        observers[observers.length - 1].disconnected = true;
-      }
-    },
-  );
 });
 
 afterEach(() => {

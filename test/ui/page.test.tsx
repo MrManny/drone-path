@@ -2,68 +2,22 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PickResult, UiSession, WarmProgress } from '../../src/appsession.js';
+import type { PickResult, WarmProgress } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { PrepareProgress } from '../../src/run.js';
-import type { Scene } from '../../src/renderer/scene.js';
 import Page from '../../ui/app/page.js';
+import { SESSION, installRafStub } from './harness.js';
 
-const fakeScene = vi.hoisted((): Scene => ({
-  setFrame: vi.fn(() => Promise.resolve()),
-  relayout: vi.fn(),
-  update: vi.fn(() => Promise.resolve()),
-  ready: Promise.resolve(),
-  dispose: vi.fn(),
-}));
-
-// The real island loads Leaflet after mount; the stub keeps that timing.
 vi.mock('../../ui/components/MapIsland.js', async () => {
-  const { useEffect } = await import('react');
-  return {
-    MapIsland: ({ onScene }: { onScene: (scene: Scene) => void }) => {
-      useEffect(() => {
-        const t = setTimeout(() => onScene(fakeScene), 0);
-        return () => clearTimeout(t);
-      }, [onScene]);
-      return <div data-testid="map-island" />;
-    },
-  };
+  const { createFakeScene, delayedMapIslandMock } = await import('./harness.js');
+  return delayedMapIslandMock(createFakeScene());
 });
 
-// The export preview boots a second scene of its own; the page tests only
-// need the dialog's composition.
-vi.mock('../../ui/components/ExportPreview.js', () => ({
-  ExportPreview: () => <div data-testid="export-preview" />,
-}));
-
-const SESSION: UiSession = {
-  scene: {
-    style: 'satellite',
-    tileUrl: '/tiles/satellite/{z}/{x}/{y}.png',
-    view: 'overview',
-    width: 768,
-    height: 768,
-    zoom: 15,
-    center: { lat: 46.61, lon: 14.26 },
-    attribution: 'Test Attribution',
-    introN: 0,
-    outroN: 0,
-    lat: [46.61, 46.611, 46.612],
-    lon: [14.26, 14.261, 14.262],
-    alt: [10, 11, null],
-    speed: [null, 2.5, 3.1],
-    headingDeg: [0, 90, 180],
-    hud: { heading: true, alt: true, speed: true },
-    trailLat: [46.61, 46.612],
-    trailLon: [14.26, 14.262],
-    trailFrame: [0, 2],
-  },
-  video: { src: '/video', fps: 30, frames: 90, width: 1512, height: 2688 },
-  tileBase: '/tiles',
-  bbox: { minLat: 46.6, maxLat: 46.612, minLon: 14.26, maxLon: 14.262 },
-  durationSec: 3,
-};
+vi.mock('../../ui/components/ExportPreview.js', async () => {
+  const { stubExportPreviewMock } = await import('./harness.js');
+  return stubExportPreviewMock();
+});
 
 // The bridge stands in for the shell: the test decides when the native picker
 // returns, when the shell reports that a valid file is being prepared, and how
@@ -165,8 +119,7 @@ async function openLanding() {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('requestAnimationFrame', () => 1);
-  vi.stubGlobal('cancelAnimationFrame', () => {});
+  installRafStub();
 });
 
 afterEach(() => {

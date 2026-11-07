@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { LeafletApi } from '../../src/renderer/leaflet.js';
 import { MapIsland } from '../../ui/components/MapIsland.js';
+import type { FakeObserver } from './harness.js';
+import { flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
 
 const fakeL = vi.hoisted((): LeafletApi => {
   const layer = { addTo: () => {}, remove: () => {} };
@@ -56,40 +58,11 @@ const DATA: SceneData = {
   trailFrame: [0],
 };
 
-interface FakeObserver {
-  cb: ResizeObserverCallback;
-  observed: boolean;
-  disconnected: boolean;
-}
-
-const observers: FakeObserver[] = [];
-const rafQueue: Array<() => void> = [];
-
-function flushRaf(): void {
-  for (const cb of rafQueue.splice(0)) cb();
-}
+let observers: FakeObserver[] = [];
 
 beforeEach(() => {
-  observers.length = 0;
-  rafQueue.length = 0;
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      constructor(cb: ResizeObserverCallback) {
-        observers.push({ cb, observed: false, disconnected: false });
-      }
-      observe(): void {
-        observers[observers.length - 1].observed = true;
-      }
-      disconnect(): void {
-        observers[observers.length - 1].disconnected = true;
-      }
-    },
-  );
-  vi.stubGlobal('requestAnimationFrame', (cb: () => void): number => {
-    rafQueue.push(cb);
-    return rafQueue.length;
-  });
+  observers = installResizeObserverStub();
+  installRafStub();
 });
 
 afterEach(() => {

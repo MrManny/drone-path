@@ -5,23 +5,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { SceneIslandOptions } from '../../ui/hooks/useSceneIsland.js';
 import { useSceneIsland } from '../../ui/hooks/useSceneIsland.js';
+import type { FakeObserver } from './harness.js';
+import { installResizeObserverStub } from './harness.js';
 
 const boot = vi.hoisted(() => ({ scenes: [] as Scene[], calls: 0 }));
 
-vi.mock('../../src/renderer/boot.js', () => ({
-  bootScene: (): Scene => {
-    boot.calls += 1;
-    const scene = {
-      setFrame: vi.fn(() => Promise.resolve()),
-      relayout: vi.fn(),
-      update: vi.fn(() => Promise.resolve()),
-      ready: Promise.resolve(),
-      dispose: vi.fn(),
-    } satisfies Scene;
-    boot.scenes.push(scene);
-    return scene;
-  },
-}));
+vi.mock('../../src/renderer/boot.js', async () => {
+  const { createFakeScene } = await import('./harness.js');
+  return {
+    bootScene: (): Scene => {
+      boot.calls += 1;
+      const scene = createFakeScene();
+      boot.scenes.push(scene);
+      return scene;
+    },
+  };
+});
 
 vi.mock('leaflet', () => ({ default: {} }));
 
@@ -52,33 +51,16 @@ function Island({ data, frame, onScene }: SceneIslandOptions) {
   return <div ref={hostRef} />;
 }
 
-interface FakeObserver {
-  cb: ResizeObserverCallback;
-  disconnected: boolean;
-}
-
-const observers: FakeObserver[] = [];
+let observers: FakeObserver[] = [];
 
 function scene(): Scene {
   return boot.scenes[boot.scenes.length - 1];
 }
 
 beforeEach(() => {
-  observers.length = 0;
+  observers = installResizeObserverStub();
   boot.calls = 0;
   boot.scenes.length = 0;
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      constructor(cb: ResizeObserverCallback) {
-        observers.push({ cb, disconnected: false });
-      }
-      observe(): void {}
-      disconnect(): void {
-        observers[observers.length - 1].disconnected = true;
-      }
-    },
-  );
 });
 
 afterEach(() => {

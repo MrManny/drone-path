@@ -15,12 +15,10 @@ const fakeScene = vi.hoisted((): Scene => ({
   dispose: vi.fn(),
 }));
 
-vi.mock('../../ui/components/MapIsland.js', () => ({
-  MapIsland: ({ onScene }: { onScene: (scene: Scene) => void }) => {
-    onScene(fakeScene);
-    return <div data-testid="map-island" />;
-  },
-}));
+vi.mock('../../ui/components/MapIsland.js', async () => {
+  const { immediateMapIslandMock } = await import('./harness.js');
+  return immediateMapIslandMock(fakeScene);
+});
 
 const DATA = {} as SceneData;
 
