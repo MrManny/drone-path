@@ -4,6 +4,8 @@
 // literals here equal the CSS custom properties and fixed sizes of the
 // workspace frame; change the two together.
 
+import { clamp } from './clamp.js';
+
 /** The review workspace's two stage layouts. */
 export type StageLayout = 'split' | 'overlay';
 
@@ -38,10 +40,6 @@ const RAIL_CHROME_COMPACT = 114;
 const OVERLAY_MIN = 180;
 const OVERLAY_MAX = 242;
 const OVERLAY_SCALE = 0.36;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
 
 export function stageHeight(innerHeight: number): number {
   const timeline = innerHeight <= COMPACT_HEIGHT ? CHROME.timelineCompactH : CHROME.timelineH;

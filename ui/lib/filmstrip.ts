@@ -3,6 +3,8 @@
 // of footage costs the same as a minute), and the cache fills one thumb at a
 // time through an injected grabber so tests can run it offline with fakes.
 
+import { clamp } from './clamp.js';
+
 export interface ThumbPlan {
   /** How many thumbnails the track shows at its current width. */
   count: number;
@@ -29,10 +31,6 @@ export function thumbPlan(trackWidth: number, frames: number): ThumbPlan {
     picked.add(Math.round((i * (frames - 1)) / (count - 1)));
   }
   return { count, frames: [...picked].sort((a, b) => a - b) };
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 /** How the cache obtains one thumbnail; the DOM sampler implements this. */
