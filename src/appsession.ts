@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { MEDIA_URL, TILE_BASE } from './apppaths.js';
+import { TILE_BASE, mediaUrlFor } from './apppaths.js';
 import { STYLE_VALUES, VIEW_VALUES, asNumber } from './config.js';
 import type { LookSettings, RenderConfig, Style, View } from './config.js';
 import { errorMessage } from './errors.js';
@@ -20,7 +20,7 @@ import type { LogFn, PipelineDeps, PrepareProgressFn, TileWarmFn } from './run.j
 import { createTileTraffic } from './tiles.js';
 
 export interface PageVideo {
-  /** Media URL the <video> element loads, e.g. "app://bundle/media/video". */
+  /** Media URL the <video> element loads, e.g. "app://bundle/media/video?v=…". */
   src: string;
   /** Frames per second as a number; seeks snap to i / fps. */
   fps: number;
@@ -153,7 +153,7 @@ export const prepareUiSession: PrepareUiSession = async (
   return {
     scene: buildSceneData(recordingPageOpts(prep, config), TILE_BASE),
     video: {
-      src: MEDIA_URL,
+      src: mediaUrlFor(videoPath),
       fps: prep.probe.fps.value,
       frames: prep.probe.frames,
       width: prep.probe.width,

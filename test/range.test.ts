@@ -30,7 +30,12 @@ describe('rangePlan', () => {
 
   const full = {
     status: 200,
-    headers: { 'Content-Type': MIME, 'Accept-Ranges': 'bytes', 'Content-Length': '10' },
+    headers: {
+      'Content-Type': MIME,
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'no-store',
+      'Content-Length': '10',
+    },
   };
   const notSatisfiable = {
     status: 416,
@@ -42,6 +47,7 @@ describe('rangePlan', () => {
     headers: {
       'Content-Type': MIME,
       'Accept-Ranges': 'bytes',
+      'Cache-Control': 'no-store',
       'Content-Length': length,
       'Content-Range': `bytes ${start}-${end}/10`,
     },
@@ -75,5 +81,10 @@ describe('rangePlan', () => {
     expect(rangePlan(undefined, SIZE, 'application/octet-stream').headers['Content-Type']).toBe(
       'application/octet-stream',
     );
+  });
+
+  it('marks body responses as never cacheable (#160)', () => {
+    expect(rangePlan(undefined, SIZE, MIME).headers['Cache-Control']).toBe('no-store');
+    expect(rangePlan('bytes=2-5', SIZE, MIME).headers['Cache-Control']).toBe('no-store');
   });
 });
