@@ -27,14 +27,10 @@ export const COMPACT_HEIGHT = 720;
 /** The split layout's map rail: clamp(280px, 28%, 372px) of the stage. */
 const RAIL_MIN = 280;
 const RAIL_MAX = 372;
-/** The stage's own side padding: the rail's percent resolves inside it. */
+/** The stage's own padding, 16px on each edge: the rail's percent resolves
+ * inside it horizontally, and the rail runs 32px shorter than the stage
+ * vertically. */
 const STAGE_PAD = 32;
-/** Card padding and borders around the map host inside the rail. */
-const RAIL_PAD = 34;
-/** Header, position readout, note, paddings and gaps the rail adds around the map. */
-const RAIL_CHROME = 170;
-/** Compact: the readout and the note drop, leaving only the header chrome. */
-const RAIL_CHROME_COMPACT = 114;
 
 /** The overlay layout's square map box: clamp(180px, 36% of the stage, 242px). */
 const OVERLAY_MIN = 180;
@@ -51,7 +47,7 @@ export function stageHeight(innerHeight: number): number {
 
 /**
  * The frame the map fills, in px, for the given stage layout. Mirrors the
- * `.map-host` sizing rules of ui/app/globals.css.
+ * map rail's and the overlay card's sizing rules in ui/app/globals.css.
  */
 export function mapFrameSize(
   innerWidth: number,
@@ -64,9 +60,8 @@ export function mapFrameSize(
     return { width: side, height: side };
   }
   const rail = clamp(Math.round((innerWidth - STAGE_PAD) * 0.28), RAIL_MIN, RAIL_MAX);
-  const chrome = innerHeight <= COMPACT_HEIGHT ? RAIL_CHROME_COMPACT : RAIL_CHROME;
   return {
-    width: rail - RAIL_PAD,
-    height: Math.max(96, height - chrome),
+    width: rail,
+    height: Math.max(96, height - STAGE_PAD),
   };
 }

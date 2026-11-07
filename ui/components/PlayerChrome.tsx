@@ -75,7 +75,6 @@ export function PlayerChrome({
     videoRef,
     scrubRef,
     timeRef,
-    positionRef,
     statusTimeRef,
     playheadRef,
   } = usePlayback(video, durationSec);
@@ -150,12 +149,9 @@ export function PlayerChrome({
       <PlayerStage
         video={video}
         sceneData={sceneData}
-        settings={settings}
-        durationSec={durationSec}
         layout={layout}
         playing={playing}
         statusTimeRef={statusTimeRef}
-        positionRef={positionRef}
         videoRef={videoRef}
         onScene={handleScene}
         onPlayState={setPlaying}

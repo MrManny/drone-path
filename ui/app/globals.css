@@ -354,9 +354,9 @@ button.primary {
   white-space: nowrap;
 }
 
-/* The stage: the video pane beside the flight map card (split), or with the
-   map as a square corner card on the footage (overlay). The map island host
-   isolates Leaflet's own z-indexes inside its own box. */
+/* The stage: the video pane beside the bare flight map rail (split), or with
+   the map as a square corner card on the footage (overlay). The map island
+   host isolates Leaflet's own z-indexes inside its own box. */
 .stage {
   position: relative;
   flex: 1 1 auto;
@@ -390,83 +390,29 @@ button.primary {
   inset: 0;
 }
 .map-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  position: relative;
   box-sizing: border-box;
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-panel);
 }
 .map-card-split {
   flex: none;
   width: clamp(280px, 28%, 372px);
-  padding: 16px;
-}
-.map-card-head {
-  flex: none;
-  height: 40px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-.map-card-title {
-  margin: 0;
-  font-size: 16px;
-}
-.map-card-look {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.map-host-wrap {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
 }
 .map-overlay-tag {
   display: none;
 }
-.map-card-foot {
-  flex: none;
-  height: 20px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-3);
-}
-.map-card-foot .readout {
-  font-size: 12px;
-}
-.map-card-note {
-  flex: none;
-  margin: 0;
-  height: 20px;
-  font-size: 12px;
-  color: var(--text-3);
-  overflow: hidden;
-  white-space: nowrap;
-}
-/* Overlay layout: the card chrome hides and a map tag appears over the map. */
+/* Overlay layout: the map becomes a floating card with a tag over it. */
 .map-card-overlay {
   position: absolute;
   right: 18px;
   bottom: 18px;
   height: clamp(180px, 36%, 242px);
   aspect-ratio: 1;
-  padding: 0;
   overflow: hidden;
-  border-color: var(--hairline-strong);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow-float);
   z-index: 2;
-}
-.map-card-overlay .map-card-head,
-.map-card-overlay .map-card-foot,
-.map-card-overlay .map-card-note {
-  display: none;
 }
 .map-card-overlay .map-overlay-tag {
   display: block;
@@ -1189,15 +1135,10 @@ input[type='radio']:disabled {
   color: var(--text-3);
 }
 
-/* The timeline shrinks on short windows so the stage keeps room; the map
-   card drops its readout and note so the map host keeps a usable height for
-   the HUD chips and the attribution. Mirrored in ui/lib/layout.ts. */
+/* The timeline shrinks on short windows so the stage keeps room. Mirrored in
+   ui/lib/layout.ts. */
 @media (max-height: 720px) {
   :root {
     --timeline-h: 140px;
-  }
-  .map-card-foot,
-  .map-card-note {
-    display: none;
   }
 }

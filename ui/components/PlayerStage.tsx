@@ -3,23 +3,17 @@
 import type { ReactNode, RefObject } from 'react';
 
 import type { PageVideo } from '../../src/appsession.js';
-import type { RenderConfig } from '../../src/config.js';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
-import { formatTimeReadout } from '../lib/frametime.js';
 import { MapCard } from './MapCard.js';
 
 export interface PlayerStageProps {
   video: PageVideo;
   sceneData: SceneData;
-  settings: Pick<RenderConfig, 'style' | 'view'>;
-  durationSec: number;
   layout: StageLayout;
   playing: boolean;
   /** The preview strip's position word, updated imperatively. */
   statusTimeRef: RefObject<HTMLSpanElement | null>;
-  /** The map card's "Current position" readout, updated imperatively. */
-  positionRef: RefObject<HTMLSpanElement | null>;
   videoRef: RefObject<HTMLVideoElement | null>;
   onScene: (scene: Scene) => void;
   onPlayState: (playing: boolean) => void;
@@ -30,12 +24,9 @@ export interface PlayerStageProps {
 export function PlayerStage({
   video,
   sceneData,
-  settings,
-  durationSec,
   layout,
   playing,
   statusTimeRef,
-  positionRef,
   videoRef,
   onScene,
   onPlayState,
@@ -67,14 +58,7 @@ export function PlayerStage({
             onEnded={() => onPlayState(false)}
           />
         </div>
-        <MapCard
-          data={sceneData}
-          onScene={onScene}
-          layout={layout}
-          settings={settings}
-          positionReadout={formatTimeReadout(0, video.fps, durationSec)}
-          positionRef={positionRef}
-        />
+        <MapCard data={sceneData} onScene={onScene} layout={layout} />
         {notice ? <div className="player-notices">{notice}</div> : null}
       </div>
     </div>

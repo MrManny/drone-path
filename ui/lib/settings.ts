@@ -44,8 +44,3 @@ export const VIEW_LABELS: Record<View, string> = {
   follow: 'Follow',
   overview: 'Overview',
 };
-
-/** The map card's look summary, e.g. "Satellite · Overview". */
-export function lookSummary(config: Pick<RenderConfig, 'style' | 'view'>): string {
-  return `${STYLE_LABELS[config.style]} · ${VIEW_LABELS[config.view]}`;
-}
