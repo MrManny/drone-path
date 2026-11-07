@@ -128,7 +128,7 @@ describe('useFilmstrip', () => {
     replan();
     for (let i = 0; i < 10; i += 1) {
       await waitFor(() => expect(resolvers.length).toBeGreaterThan(i));
-      resolvers[i]?.(`blob:${grabbed[i]}`);
+      resolvers[i](`blob:${grabbed[i]}`);
     }
     const planned = thumbPlan(640, 90).frames;
     await waitFor(() =>

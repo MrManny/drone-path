@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   FilmstripCache,
+  sameFrames,
   TARGET_THUMBS,
   thumbPlan,
 } from '../../ui/lib/filmstrip.js';
@@ -46,6 +47,14 @@ describe('thumbPlan', () => {
     { name: 'an hour of frames costs the same as a minute', trackWidth: 640, frames: 108000, want: 10 },
   ])('$name', ({ trackWidth, frames, want }) => {
     expect(thumbPlan(trackWidth, frames).count).toBe(want);
+  });
+});
+
+describe('sameFrames', () => {
+  it('matches equal plans and rejects length or order mismatches', () => {
+    expect(sameFrames([1, 2, 3], [1, 2, 3])).toBe(true);
+    expect(sameFrames([1, 2], [1, 2, 3])).toBe(false);
+    expect(sameFrames([1, 2, 3], [1, 3, 2])).toBe(false);
   });
 });
 
@@ -98,6 +107,27 @@ describe('FilmstripCache', () => {
     expect(grab).toHaveBeenCalledTimes(4);
   });
 
+  it('keeps filling and retries after a rejected grab', async () => {
+    let failedOnce = false;
+    const grab = vi.fn(async (frame: number) => {
+      if (frame === 1 && !failedOnce) {
+        failedOnce = true;
+        throw new Error('grab exploded');
+      }
+      return `url-${frame}`;
+    });
+    const seen: number[] = [];
+    const { cache } = fakeCache(grab);
+    cache.load([1, 2], (frame) => seen.push(frame));
+    await settle();
+    expect(seen).toEqual([2]);
+    cache.load([1, 2], (frame) => seen.push(frame));
+    await settle();
+    expect(seen).toEqual([2, 2, 1]);
+    expect(cache.size).toBe(2);
+    expect(grab).toHaveBeenCalledTimes(3);
+  });
+
   it('shares one fill when the same plan loads twice', async () => {
     const resolvers: Array<(url: string | null) => void> = [];
     const grab = vi.fn(
@@ -117,6 +147,36 @@ describe('FilmstripCache', () => {
     expect(first).toEqual([1, 2, 3]);
     expect(second).toEqual([1, 2, 3]);
     expect(cache.size).toBe(3);
+  });
+
+  it('replays cached thumbs and delivers the rest to a mid-fill joiner', async () => {
+    const resolvers: Array<(url: string | null) => void> = [];
+    const { cache } = fakeCache(
+      (_frame: number) => new Promise<string | null>((resolve) => resolvers.push(resolve)),
+    );
+    const first: number[] = [];
+    const second: number[] = [];
+    cache.load([1, 2, 3], (frame) => first.push(frame));
+    await settle();
+    resolvers[0]('url-1');
+    await settle();
+    cache.load([1, 2, 3], (frame) => second.push(frame));
+    resolvers[1]('url-2');
+    await settle();
+    resolvers[2]('url-3');
+    await settle();
+    expect(first).toEqual([1, 2, 3]);
+    expect(second).toEqual([1, 2, 3]);
+    expect(cache.size).toBe(3);
+  });
+
+  it('replays a fully cached plan to a new listener', async () => {
+    const { cache } = fakeCache(async (frame) => `url-${frame}`);
+    cache.load([1, 2], () => {});
+    await settle();
+    const seen: number[] = [];
+    cache.load([1, 2], (frame) => seen.push(frame));
+    expect(seen).toEqual([1, 2]);
   });
 
   it('caches completed grabs even when their run was superseded', async () => {
