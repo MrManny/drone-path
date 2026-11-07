@@ -71,7 +71,7 @@ export function ExportForm({
       {segment ? (
         <fieldset className="settings-group">
           <legend>What</legend>
-          <label className="settings-row">
+          <label className="settings-row export-choice">
             <input
               type="radio"
               name="export-range"
@@ -80,7 +80,7 @@ export function ExportForm({
             />
             <span>Full recording ({totalText})</span>
           </label>
-          <label className="settings-row">
+          <label className="settings-row export-choice">
             <input
               type="radio"
               name="export-range"
@@ -96,48 +96,52 @@ export function ExportForm({
           there is no pair and the lone group needs no name. */}
       <fieldset className="settings-group">
         {segment ? <legend>How</legend> : null}
-        <NumberField
-          label="Width"
-          value={form.width}
-          min={MIN_DIMENSION}
-          rule={`at least ${MIN_DIMENSION} px`}
-          hint="px"
-          onValue={(width) => {
-            if (!dimensionsValid(width, form.height)) return false;
-            dispatch({ type: 'setWidth', width });
-            return true;
-          }}
-        />
-        <NumberField
-          label="Height"
-          value={form.height}
-          min={MIN_DIMENSION}
-          rule={`at least ${MIN_DIMENSION} px`}
-          hint="px"
-          onValue={(height) => {
-            if (!dimensionsValid(form.width, height)) return false;
-            dispatch({ type: 'setHeight', height });
-            return true;
-          }}
-        />
-        <SelectField
-          label="Format"
-          value={encode.codec}
-          options={CODEC_VALUES.map((value) => ({ value, label: CODEC_LABELS[value] }))}
-          onValue={(codec) => onEncoderChange({ codec: codec as Codec })}
-        />
-        <SelectField
-          label="Quality"
-          value={encode.quality}
-          options={QUALITY_VALUES.map((value) => ({ value, label: QUALITY_LABELS[value] }))}
-          onValue={(quality) => onEncoderChange({ quality: quality as Quality })}
-        />
-        <SelectField
-          label="Speed"
-          value={encode.preset}
-          options={PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
-          onValue={(preset) => onEncoderChange({ preset: preset as Preset })}
-        />
+        <div className="export-size">
+          <NumberField
+            label="Width"
+            value={form.width}
+            min={MIN_DIMENSION}
+            rule={`at least ${MIN_DIMENSION} px`}
+            hint="px"
+            onValue={(width) => {
+              if (!dimensionsValid(width, form.height)) return false;
+              dispatch({ type: 'setWidth', width });
+              return true;
+            }}
+          />
+          <NumberField
+            label="Height"
+            value={form.height}
+            min={MIN_DIMENSION}
+            rule={`at least ${MIN_DIMENSION} px`}
+            hint="px"
+            onValue={(height) => {
+              if (!dimensionsValid(form.width, height)) return false;
+              dispatch({ type: 'setHeight', height });
+              return true;
+            }}
+          />
+        </div>
+        <div className="export-encode">
+          <SelectField
+            label="Format"
+            value={encode.codec}
+            options={CODEC_VALUES.map((value) => ({ value, label: CODEC_LABELS[value] }))}
+            onValue={(codec) => onEncoderChange({ codec: codec as Codec })}
+          />
+          <SelectField
+            label="Quality"
+            value={encode.quality}
+            options={QUALITY_VALUES.map((value) => ({ value, label: QUALITY_LABELS[value] }))}
+            onValue={(quality) => onEncoderChange({ quality: quality as Quality })}
+          />
+          <SelectField
+            label="Speed"
+            value={encode.preset}
+            options={PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
+            onValue={(preset) => onEncoderChange({ preset: preset as Preset })}
+          />
+        </div>
       </fieldset>
 
       {error ? <ErrorNotice message={error} /> : null}

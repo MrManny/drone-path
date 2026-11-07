@@ -35,6 +35,12 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
   };
 });
 
+// The export preview boots a second scene of its own; the player tests only
+// need the dialog's composition.
+vi.mock('../../ui/components/ExportPreview.js', () => ({
+  ExportPreview: () => <div data-testid="export-preview" />,
+}));
+
 const SESSION: UiSession = {
   scene: {
     style: 'satellite',

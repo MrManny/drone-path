@@ -14,6 +14,27 @@ import type { DialogRunEvent } from '../../ui/lib/dialogstate.js';
 import type { LoopState } from '../../ui/lib/loop.js';
 import { ExportModal } from '../../ui/components/ExportModal.js';
 
+// The preview is its own component with a scene to boot (like MapIsland in the
+// player tests); here only what it is asked to show matters.
+vi.mock('../../ui/components/ExportPreview.js', () => ({
+  ExportPreview: ({
+    config,
+    size,
+    frame,
+  }: {
+    config: RenderConfig;
+    size: { width: number; height: number };
+    frame: number;
+  }) => (
+    <div
+      data-testid="export-preview"
+      data-codec={config.codec}
+      data-size={`${size.width}x${size.height}`}
+      data-frame={frame}
+    />
+  ),
+}));
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -545,5 +566,58 @@ describe('ExportModal rainy paths', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
     expect(await screen.findByText('the app backend went away')).toBeTruthy();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' }).disabled).toBe(false);
+  });
+});
+
+describe.each<Phase>(['form', 'running', 'done'])(
+  'ExportModal output preview in the %s phase',
+  (phase) => {
+    it('shows what the export contains', async () => {
+      const { emitDone } = installBridge();
+      await reachPhase(phase, emitDone);
+      expect(screen.getByTestId('export-preview')).toBeTruthy();
+    });
+  },
+);
+
+describe.each<Phase>(['canceled', 'error'])(
+  'ExportModal output preview in the %s phase',
+  (phase) => {
+    it('drops out so nothing implies a kept file', async () => {
+      const { emitDone } = installBridge();
+      await reachPhase(phase, emitDone);
+      expect(screen.queryByTestId('export-preview')).toBeNull();
+    });
+  },
+);
+
+describe('ExportModal output preview content', () => {
+  it('stands on the middle of the chosen range', () => {
+    render(<Harness loop={{ in: 60, out: 120 }} />);
+    const preview = screen.getByTestId('export-preview');
+    expect(preview.getAttribute('data-frame')).toBe('90');
+    fireEvent.click(screen.getByRole('radio', { name: /Full recording/ }));
+    expect(preview.getAttribute('data-frame')).toBe('150');
+  });
+
+  it('previews the committed output size', () => {
+    render(
+      <Harness loop={{ in: null, out: null }} settings={{ ...SETTINGS, width: 1024, height: 576 }} />,
+    );
+    expect(screen.getByTestId('export-preview').getAttribute('data-size')).toBe('1024x576');
+    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '769' } });
+    expect(screen.getByTestId('export-preview').getAttribute('data-size')).toBe('768x576');
+  });
+
+  it('freezes on the request look while the job runs', async () => {
+    installBridge();
+    const { rerender } = render(
+      <Harness loop={{ in: null, out: null }} settings={{ ...SETTINGS, codec: 'h264' }} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    expect(screen.getByTestId('export-preview').getAttribute('data-codec')).toBe('h264');
+    rerender(<Harness loop={{ in: null, out: null }} settings={{ ...SETTINGS, codec: 'h265' }} />);
+    expect(screen.getByTestId('export-preview').getAttribute('data-codec')).toBe('h264');
   });
 });

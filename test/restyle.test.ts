@@ -139,4 +139,17 @@ describe('restyleSceneData', () => {
     expect(next.hud.alt).toBe(false);
     expect(next.hud.speed).toBe(true);
   });
+
+  it('plans at the output size like the export pipeline renders it', async () => {
+    const config = testConfig();
+    const { meta, scene } = await pipelineScene(config);
+    const size = { width: 1280, height: 720 };
+
+    const preview = restyleSceneData(scene, { ...config, ...size }, meta, size);
+    const rendered = await pipelineScene(testConfig(size));
+
+    expect(preview).toEqual(rendered.scene);
+    expect(preview.width).toBe(1280);
+    expect(preview.height).toBe(720);
+  });
 });

@@ -1006,6 +1006,62 @@ input[type='radio']:disabled {
   white-space: nowrap;
 }
 
+/* Export: the widened panel holds the output preview beside the phase column.
+   The preview box keeps the output's exact aspect ratio (its inline runtime
+   geometry) so the frame shows the export's own crop, letterboxed in black
+   like the footage pane. */
+.export-panel {
+  width: min(720px, 100%);
+}
+.export-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.export-phase:only-child {
+  grid-column: 1 / -1;
+}
+.export-preview {
+  min-width: 0;
+}
+.export-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.export-preview-frame {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+}
+.export-preview-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.export-choice {
+  box-sizing: border-box;
+  padding: 0 16px;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+}
+.export-choice:hover {
+  border-color: var(--hairline-hover);
+}
+.export-choice + .export-choice {
+  margin-top: 8px;
+}
+.export-encode {
+  margin-top: 16px;
+}
+
 /* Help: the manual's reading surface - dialog anatomy in a wide panel, nav
    column and compiled page content beside each other. */
 .help-panel {

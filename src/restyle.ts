@@ -23,11 +23,14 @@ export function restyleSceneData(
   prev: SceneData,
   config: RenderConfig,
   meta: RestyleMeta,
+  // The output size to plan at: the export preview plans at the size the
+  // pipeline will render, while the player keeps the prepared scene's own.
+  size: { width: number; height: number } = { width: prev.width, height: prev.height },
 ): SceneData {
   const planned = planPageOpts({
     bbox: meta.bbox,
-    width: prev.width,
-    height: prev.height,
+    width: size.width,
+    height: size.height,
     config,
     source: { fps: meta.fps, frames: meta.frames },
     frames: prev,
