@@ -8,7 +8,7 @@ import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { PrepareProgress } from '../../src/run.js';
 
-export interface PickOutputResult {
+interface PickOutputResult {
   ok: boolean;
   path?: string;
   canceled?: boolean;
@@ -26,7 +26,7 @@ export interface ExportOutputPayload {
 }
 
 /** A downloaded update waits even when its event preceded the subscription. */
-export interface UpdateState {
+interface UpdateState {
   ready: boolean;
 }
 

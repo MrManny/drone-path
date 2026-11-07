@@ -23,21 +23,21 @@ export const CHROME = {
 export const COMPACT_HEIGHT = 720;
 
 /** The split layout's map rail: clamp(280px, 28%, 372px) of the stage. */
-export const RAIL_MIN = 280;
-export const RAIL_MAX = 372;
+const RAIL_MIN = 280;
+const RAIL_MAX = 372;
 /** The stage's own side padding: the rail's percent resolves inside it. */
-export const STAGE_PAD = 32;
+const STAGE_PAD = 32;
 /** Card padding and borders around the map host inside the rail. */
-export const RAIL_PAD = 34;
+const RAIL_PAD = 34;
 /** Header, position readout, note, paddings and gaps the rail adds around the map. */
-export const RAIL_CHROME = 170;
+const RAIL_CHROME = 170;
 /** Compact: the readout and the note drop, leaving only the header chrome. */
-export const RAIL_CHROME_COMPACT = 114;
+const RAIL_CHROME_COMPACT = 114;
 
 /** The overlay layout's square map box: clamp(180px, 36% of the stage, 242px). */
-export const OVERLAY_MIN = 180;
-export const OVERLAY_MAX = 242;
-export const OVERLAY_SCALE = 0.36;
+const OVERLAY_MIN = 180;
+const OVERLAY_MAX = 242;
+const OVERLAY_SCALE = 0.36;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));

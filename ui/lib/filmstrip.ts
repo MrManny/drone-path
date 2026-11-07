@@ -11,7 +11,7 @@ export interface ThumbPlan {
 }
 
 /** One thumbnail per THUMB_STRIDE px of track, bounded to a fixed range. */
-export const THUMB_STRIDE = 64;
+const THUMB_STRIDE = 64;
 export const MIN_THUMBS = 8;
 export const MAX_THUMBS = 48;
 
