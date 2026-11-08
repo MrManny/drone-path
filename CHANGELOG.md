@@ -1,5 +1,34 @@
 # neo2-flightpath
 
+## 0.7.0
+
+- **New:** The desktop player is now a synchronized video-and-map review
+  workspace: dedicated footage and flight-map panes with a swappable overlay
+  layout, a bare map sidebar with a map appearance popover, and a timeline of
+  square preview stills spread from the first frame to the last with a
+  draggable loop band and icon-only loop controls. The transport controls sit
+  centered under the footage.
+- **New:** The app opens straight into the review workspace — the landing
+  screen is gone and no tile warm-up stands between the user and the footage.
+  Before a recording is loaded the workspace shows its disabled controls with
+  an accent **Open…** call to action in the footage pane, a quiet "No
+  telemetry yet" map pane and a "No recording loaded" status bar. A picked
+  recording loads right into the player, with map tiles streaming on demand
+  (rendering and exporting still prefetch their tiles beforehand).
+- **New:** The export dialog is wider and shows a map-only output preview at
+  the export's exact size, with range, output-size and encoding choices
+  clearly separated and the familiar destination, progress, cancel, done and
+  error states beside the preview.
+- **New:** New color scheme: dark neutral surfaces with a warm coral accent,
+  sand loop state and warmer semantic tones, plus one shared accent-colored
+  flight trail in the map island and in rendered frames.
+- **New:** The app icon is the final branded artwork: a circular drone badge
+  rasterized to a metadata-free 512x512 master and re-derived for every
+  platform format (Windows ICO, Linux icon set).
+- **Fixed:** Loading a second recording now switches the footage and the
+  filmstrip to the new recording instead of replaying the previous one's bytes
+  from a URL-keyed cache.
+
 ## 0.6.1
 
 - **Fixed:** Maintenance release with updated dependencies that contain
