@@ -9,6 +9,12 @@ export const MEDIA_PATH = '/media/video';
 export const MEDIA_URL = APP_ORIGIN + MEDIA_PATH;
 export const TILE_BASE = APP_ORIGIN + '/tiles';
 
+/** The media URL for one recording: the query names the file, so a reload
+ * can never replay another recording's bytes from a URL-keyed cache. */
+export function mediaUrlFor(videoPath: string): string {
+  return `${MEDIA_URL}?v=${encodeURIComponent(videoPath)}`;
+}
+
 /** The Next.js static export (ui/out) next to the app shell directory. */
 export function uiExportRoot(shellDir: string): string {
   return path.join(shellDir, '..', 'ui', 'out');
