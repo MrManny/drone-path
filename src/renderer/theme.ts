@@ -16,7 +16,7 @@ export interface Theme {
 }
 
 /** The flight-trail color: the palette accent, one color everywhere. */
-export const TRAIL_COLOR = '#e87f54';
+const TRAIL_COLOR = '#e87f54';
 
 function trailGlow(alpha: number): string {
   const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(TRAIL_COLOR.slice(i, i + 2), 16));

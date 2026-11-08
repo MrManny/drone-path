@@ -14,7 +14,7 @@ export type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
 
 // Only the tail is ever shown, so the reducer keeps a bounded window instead
 // of copying an ever-growing log on every progress line.
-export const LOG_CAP = 50;
+const LOG_CAP = 50;
 
 // The pipeline reports capture progress as typed counts (not log text), so
 // the bar cannot drift from the emitter's wording.
