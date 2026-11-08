@@ -106,7 +106,7 @@ function emptyProductMeta(): ProductMeta {
   };
 }
 
-export async function findCamMetaIndex(
+async function findCamMetaIndex(
   tools: FfToolPaths,
   videoPath: string,
 ): Promise<number | null> {

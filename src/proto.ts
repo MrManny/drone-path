@@ -20,7 +20,7 @@ export interface ProtoField {
 
 export type ProtoFieldMap = Map<number, ProtoField[]>;
 
-export function readVarint(
+function readVarint(
   buf: Buffer,
   pos: number,
   end: number,
@@ -38,7 +38,7 @@ export function readVarint(
 }
 
 /** Interpret a 64-bit varint as a signed integer. */
-export function signedVarint(value: bigint): number {
+function signedVarint(value: bigint): number {
   return Number(BigInt.asIntN(64, value));
 }
 

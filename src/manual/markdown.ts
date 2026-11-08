@@ -27,7 +27,7 @@ function escapeAttr(value: string): string {
 }
 
 /** The readable text of inline tokens, for titles, slugs and link labels. */
-export function inlineText(tokens: readonly Token[] | undefined): string {
+function inlineText(tokens: readonly Token[] | undefined): string {
   if (!tokens) return '';
   let out = '';
   for (const token of tokens) {

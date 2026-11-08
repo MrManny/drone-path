@@ -20,12 +20,12 @@ import type { Span, Tracer, TraceContext } from './tracing.js';
 const PAGE_LOAD_TIMEOUT_MS = 60000;
 const SCREENSHOT_TIMEOUT_MS = 60000;
 
-export interface ServerHandle {
+interface ServerHandle {
   server: http.Server;
   url: string;
 }
 
-export function startServer({
+function startServer({
   html,
   style,
   tileCache,
