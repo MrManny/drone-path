@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## Loading a recording
 
-Launch the app and pick a drone video; the **Open…** dialog starts in the folder the last recording was opened from. The player opens as soon as the map tiles around the drone at the first frame are warm; the remaining tiles the map can show keep loading in the background while a small "Warming tiles…" hint over the player counts them, and playback is ready right away. Changing the map style, zoom or view in [Map appearance](#map-appearance) starts loading the tiles for the new view instead.
+Launch the app and pick a drone video; the **Open…** dialog starts in the folder the last recording was opened from. The player opens right after the recording is probed, its telemetry is loaded and the view is planned — no tile warm-up in between. The map draws the flight trail immediately and loads its tiles on demand, and playback is ready right away. Changing the map style, zoom or view in [Map appearance](#map-appearance) starts loading the tiles for the new view instead.
 
 ![Desktop app start screen before a recording is loaded](../images/app-landing.jpg)
 

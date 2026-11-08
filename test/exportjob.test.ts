@@ -389,7 +389,7 @@ describe('export runner: the default run honors injected deps', () => {
     expect(fs.readdirSync(dir).filter((name) => name.includes('.partial'))).toEqual([]);
   });
 
-  it('keeps the export warm and the app warm inside one 500 ms budget', async () => {
+  it('keeps the export prefetch and the app on-demand tiles inside one 500 ms budget', async () => {
     vi.useFakeTimers();
     const dir = tmpDir();
     const cacheDir = tmpDir();
@@ -401,7 +401,7 @@ describe('export runner: the default run honors injected deps', () => {
         return new Response(new Uint8Array([1]), { status: 200 });
       }),
     );
-    // The app composition: the export's warm joins the app's tile queue.
+    // The app composition: the export's prefetch joins the app's tile queue.
     const traffic = createTileTraffic(cacheDir);
     const outcome = new Promise<ExportOutcome>((resolve) => {
       const runner = createExportRunner({
@@ -417,15 +417,12 @@ describe('export runner: the default run honors injected deps', () => {
         range: null,
       });
     });
-    const warm = traffic.stream({
-      style: 'satellite',
-      tiles: [
-        { z: 1, x: 0, y: 0 },
-        { z: 1, x: 0, y: 1 },
-      ],
-    });
+    const onDemand = Promise.all([
+      traffic.ensure('satellite', { z: 1, x: 0, y: 0 }),
+      traffic.ensure('satellite', { z: 1, x: 0, y: 1 }),
+    ]);
     await vi.advanceTimersByTimeAsync(600000);
-    const [result] = await Promise.all([outcome, warm]);
+    const [result] = await Promise.all([outcome, onDemand]);
 
     expect(result.status).toBe('ok');
     const downloaded = result.status === 'ok' ? (result.summary.tilesDownloaded ?? 0) : 0;

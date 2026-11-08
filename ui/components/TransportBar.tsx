@@ -53,7 +53,7 @@ export function TransportBar({
           disabled={!ready}
         >
           {ready && playing ? <PauseIcon /> : <PlayIcon />}
-          {ready ? (playing ? 'Pause' : 'Play') : 'Warming tiles…'}
+          {ready && playing ? 'Pause' : 'Play'}
         </button>
         <button
           type="button"

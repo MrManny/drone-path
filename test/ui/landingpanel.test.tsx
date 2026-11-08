@@ -58,19 +58,20 @@ describe('LandingPanel', () => {
     expect(bar.getAttribute('aria-valuenow')).toBe('0');
   });
 
-  it('counts the warmed tiles during the pre-warm', () => {
+  it('shows the running stage copy and the bar position', () => {
     render(
       <LandingPanel
         state={{
           kind: 'preparing',
-          progress: { stage: 'tiles', done: 15, total: 51, tilesDone: 12, tilesTotal: 48 },
+          progress: { stage: 'plan', done: 2, total: 3 },
         }}
         onPick={() => {}} onHelp={() => {}}
       />,
     );
-    expect(screen.getByText('Warming tiles… 12/48')).toBeTruthy();
+    expect(screen.getByText('Planning the view…')).toBeTruthy();
+    expect(screen.queryByText(/Warming tiles/)).toBeNull();
     const bar = screen.getByRole('progressbar', { name: 'Preparation progress' });
-    expect(bar.getAttribute('aria-valuenow')).toBe('75');
+    expect(bar.getAttribute('aria-valuenow')).toBe('67');
   });
 
   it('reports a cancel', () => {

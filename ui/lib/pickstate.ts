@@ -8,8 +8,6 @@ export const START_PREPARE_PROGRESS: PrepareProgress = {
   stage: 'probe',
   done: 0,
   total: 3,
-  tilesDone: 0,
-  tilesTotal: 0,
 };
 
 export type PickState =

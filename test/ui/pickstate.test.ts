@@ -6,12 +6,10 @@ import type { PickState } from '../../ui/lib/pickstate.js';
 
 const PREPARING: PickState = { kind: 'preparing', progress: START_PREPARE_PROGRESS };
 
-const WARMING: PrepareProgress = {
-  stage: 'tiles',
-  done: 15,
-  total: 51,
-  tilesDone: 12,
-  tilesTotal: 48,
+const PLANNING: PrepareProgress = {
+  stage: 'plan',
+  done: 2,
+  total: 3,
 };
 
 describe('pickReducer', () => {
@@ -24,9 +22,9 @@ describe('pickReducer', () => {
   });
 
   it('follows the reported preparation progress', () => {
-    expect(pickReducer(PREPARING, { type: 'progress', progress: WARMING })).toEqual({
+    expect(pickReducer(PREPARING, { type: 'progress', progress: PLANNING })).toEqual({
       kind: 'preparing',
-      progress: WARMING,
+      progress: PLANNING,
     });
   });
 
@@ -78,7 +76,7 @@ describe.each<PickState>([
   { kind: 'error', message: 'boom' },
 ])('a progress report from $kind', (state) => {
   it('is ignored: only an open preparation tracks progress', () => {
-    expect(pickReducer(state, { type: 'progress', progress: WARMING })).toBe(state);
+    expect(pickReducer(state, { type: 'progress', progress: PLANNING })).toBe(state);
   });
 });
 
