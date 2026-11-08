@@ -55,13 +55,10 @@ export function parseAppState(raw: unknown): AppState {
     r.settings === undefined || r.settings === null
       ? null
       : parseSettingsPatch(fillMissingSettings(r.settings), 'app state');
-  let lastOpenDir: string | null = null;
-  if (r.lastOpenDir !== undefined && r.lastOpenDir !== null) {
-    if (typeof r.lastOpenDir !== 'string') {
-      throw new Error(`invalid app state: lastOpenDir: ${String(r.lastOpenDir)}`);
-    }
-    lastOpenDir = r.lastOpenDir;
+  if (r.lastOpenDir !== undefined && r.lastOpenDir !== null && typeof r.lastOpenDir !== 'string') {
+    throw new Error(`invalid app state: lastOpenDir: ${String(r.lastOpenDir)}`);
   }
+  const lastOpenDir = typeof r.lastOpenDir === 'string' ? r.lastOpenDir : null;
   return { settings, lastOpenDir };
 }
 
