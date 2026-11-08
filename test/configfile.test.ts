@@ -20,7 +20,7 @@ describe('discoverConfigFile', () => {
     const root = tmpDir();
     const nested = path.join(root, 'a', 'b');
     fs.mkdirSync(nested, { recursive: true });
-    const file = path.join(root, '.neo2flightpath.json');
+    const file = path.join(root, '.dronepath.json');
     fs.writeFileSync(file, '{}');
     expect(discoverConfigFile(nested)).toBe(file);
     expect(discoverConfigFile(os.tmpdir())).toBeNull();
@@ -68,7 +68,7 @@ describe('loadConfigFile', () => {
 describe('resolveConfig', () => {
   it('applies precedence CLI > file > defaults and resolves paths', () => {
     const root = tmpDir();
-    const file = path.join(root, '.neo2flightpath.json');
+    const file = path.join(root, '.dronepath.json');
     fs.writeFileSync(
       file,
       JSON.stringify({ width: 320, style: 'topo', outDir: 'out' }),
@@ -104,7 +104,7 @@ describe('resolveConfig', () => {
 
   it('normalizes odd dimensions to the effective even canvas', () => {
     const root = tmpDir();
-    const file = path.join(root, '.neo2flightpath.json');
+    const file = path.join(root, '.dronepath.json');
     fs.writeFileSync(file, '{}');
     const { config } = resolveConfig({
       cli: { width: 767, height: 501 },
@@ -117,7 +117,7 @@ describe('resolveConfig', () => {
 
   it('keeps hud state private to each resolved config', () => {
     const root = tmpDir();
-    const file = path.join(root, '.neo2flightpath.json');
+    const file = path.join(root, '.dronepath.json');
     fs.writeFileSync(file, '{}');
 
     const { config: first } = resolveConfig({ configPath: file, cwd: root });

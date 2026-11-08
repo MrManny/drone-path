@@ -1,6 +1,6 @@
 ---
 name: electron-automation
-description: Launch, drive and instrument the neo2-flightpath Electron app from an agent session (UI automation, screenshots, request/timing evidence). Load when verifying UI work against the desktop app or capturing evidence from it.
+description: Launch, drive and instrument the Drone Path Electron app from an agent session (UI automation, screenshots, request/timing evidence). Load when verifying UI work against the desktop app or capturing evidence from it.
 ---
 
 # Automating the Electron App
@@ -21,8 +21,8 @@ programmatically, e.g. to verify UI work or take screenshots. Re-check
   NodeNext `.js` specifiers.
 - The shell (`app/main.mjs`) is thin: one window, a privileged `app://bundle`
   scheme serving `ui/out` plus media and tiles, and three IPC handlers
-  (`neo2flightpath:pick`, `-:session`, `-:settings`) bridged through
-  `app/preload.cjs` as `window.neo2flightpath`. Session logic lives in the
+  (`dronepath:pick`, `-:session`, `-:settings`) bridged through
+  `app/preload.cjs` as `window.dronepath`. Session logic lives in the
   Electron-free state machine `src/appsession.ts` (`pick -> validate ->
   prepare`).
 - Startup tool check: ffmpeg/ffprobe resolve via `src/fftools.ts` (config
@@ -58,7 +58,7 @@ await page.waitForLoadState('networkidle');
 await page.screenshot({ path: 'shot.png' }); // visual verification
 await page.locator('...').click(); // operate the UI like a normal page
 page.on('console', (m) => console.log('renderer:', m.text()));
-const session = await page.evaluate(() => window.neo2flightpath.getSession());
+const session = await page.evaluate(() => window.dronepath.getSession());
 await app.close(); // window-all-closed quits the app
 ```
 
@@ -120,8 +120,8 @@ timeline over wall-clock guesses.
 
 ## Operational notes
 
-- **Logs:** progress and errors go to stderr as `[neo2-flightpath] <msg>` /
-  `[neo2-flightpath] ERROR: <message>`; parse these for `loaded:`
+- **Logs:** progress and errors go to stderr as `[drone-path] <msg>` /
+  `[drone-path] ERROR: <message>`; parse these for `loaded:`
   confirmations. `ELECTRON_ENABLE_LOGGING=1` adds Chromium-level logs.
   `app.process().stderr.on('data', ...)` captures the lines for assertions.
 - **Quit/kill:** closing the window quits (`window-all-closed ->
@@ -174,7 +174,7 @@ timeline over wall-clock guesses.
 ## Bottom line
 
 Launching is `npm run app` (or `_electron.launch`), operating is normal
-Playwright page automation plus the `window.neo2flightpath` bridge, and the
+Playwright page automation plus the `window.dronepath` bridge, and the
 only friction point — the native file picker — is solvable today with a
 `dialog.showOpenDialog` stub via `app.evaluate`, and cleanly later with a tiny
 `--open <path>` flag.

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Propose an improvement or new capability for neo2-flightpath
+about: Propose an improvement or new capability for Drone Path
 labels: enhancement
 ---
 

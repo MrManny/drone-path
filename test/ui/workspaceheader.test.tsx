@@ -24,7 +24,7 @@ function renderHeader(overrides: Partial<Parameters<typeof WorkspaceHeader>[0]> 
 describe('WorkspaceHeader', () => {
   it('shows the wordmark and the project identity', () => {
     renderHeader();
-    expect(document.querySelector('.brand')?.textContent).toBe('neo2 / flightpath');
+    expect(document.querySelector('.brand')?.textContent).toBe('drone / path');
     expect(screen.getByText('Flight workspace')).toBeTruthy();
     expect(screen.getByText('Recording · 0:03')).toBeTruthy();
   });

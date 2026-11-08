@@ -98,10 +98,10 @@ function main(): void {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     const result = buildManual(defaultManualPaths(root));
     process.stderr.write(
-      `[neo2-flightpath] manual: ${result.pages} page(s), ${result.images.length} image(s)\n`,
+      `[drone-path] manual: ${result.pages} page(s), ${result.images.length} image(s)\n`,
     );
   } catch (e) {
-    process.stderr.write(`[neo2-flightpath] ERROR: ${(e as Error).message}\n`);
+    process.stderr.write(`[drone-path] ERROR: ${(e as Error).message}\n`);
     process.exitCode = 1;
   }
 }

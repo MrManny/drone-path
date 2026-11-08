@@ -25,7 +25,7 @@ export function uiExportRoot(shellDir: string): string {
 // place holds everything the app keeps per user.
 export function userDataDir(): string {
   const base = process.env['LOCALAPPDATA'] ?? path.join(os.homedir(), '.cache');
-  return path.join(base, 'neo2-flightpath');
+  return path.join(base, 'drone-path');
 }
 
 /** The per-user state file the desktop app restores its settings from. */

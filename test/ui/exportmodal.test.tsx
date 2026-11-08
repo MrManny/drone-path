@@ -38,7 +38,7 @@ vi.mock('../../ui/components/ExportPreview.js', () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  delete (window as { neo2flightpath?: unknown }).neo2flightpath;
+  delete (window as { dronepath?: unknown }).dronepath;
 });
 
 const SESSION = {
@@ -85,7 +85,7 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
     }),
     ...overrides,
   };
-  (window as { neo2flightpath?: unknown }).neo2flightpath = bridge;
+  (window as { dronepath?: unknown }).dronepath = bridge;
   return {
     bridge,
     emitDone: (outcome: ExportOutcome) => {

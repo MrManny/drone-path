@@ -80,6 +80,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: neo2-flightpath-${{ env.APP_VERSION }}-${{ matrix.label }}
+          name: drone-path-${{ env.APP_VERSION }}-${{ matrix.label }}
           path: ${{ matrix.artifact }}
           if-no-files-found: error

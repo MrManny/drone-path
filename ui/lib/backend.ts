@@ -61,12 +61,12 @@ export interface AppBridge {
 
 declare global {
   interface Window {
-    neo2flightpath?: AppBridge;
+    dronepath?: AppBridge;
   }
 }
 
 export function appBridge(): AppBridge {
-  const bridge = window.neo2flightpath;
+  const bridge = window.dronepath;
   if (!bridge) throw new Error('app bridge unavailable');
   return bridge;
 }

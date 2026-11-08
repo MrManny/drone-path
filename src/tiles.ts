@@ -19,7 +19,7 @@ import { VERSION } from './version.js';
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-const USER_AGENT = `neo2-flightpath/${VERSION} (flight-path map renderer; https://github.com/MrManny/neo2-flightpath)`;
+const USER_AGENT = `drone-path/${VERSION} (flight-path map renderer; https://github.com/MrManny/neo2-flightpath)`;
 
 const DOWNLOAD_ATTEMPTS = 2;
 const DOWNLOAD_WORKERS = 2;

@@ -2,9 +2,9 @@
 
 # CLI and config reference
 
-Every `neo2-flightpath` option with its config-file key and built-in default.
+Every `drone-path` option with its config-file key and built-in default.
 In a [config file](config-file.md) every key is optional: anything omitted
-falls back to the default below. Run `npx neo2-flightpath --help` for the same
+falls back to the default below. Run `npx drone-path --help` for the same
 table in the terminal.
 
 | Config key | CLI flag | Default | Description |
@@ -33,4 +33,4 @@ table in the terminal.
 | `recurse` | `--recurse` | off | scan input folders recursively |
 | `json` | `--json` | off | print one NDJSON summary line per recording on stdout |
 | `quiet` | `-q, --quiet` | off | suppress progress output |
-| — | `--config <path>` | — | config file (default: .neo2flightpath.json discovered upward from the working directory) |
+| — | `--config <path>` | — | config file (default: .dronepath.json discovered upward from the working directory) |

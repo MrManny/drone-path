@@ -18,9 +18,9 @@ function main(): void {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     const file = path.join(root, 'docs', 'user', 'cli-reference.md');
     writeReference(file);
-    process.stderr.write(`[neo2-flightpath] manual: wrote ${path.relative(root, file)}\n`);
+    process.stderr.write(`[drone-path] manual: wrote ${path.relative(root, file)}\n`);
   } catch (e) {
-    process.stderr.write(`[neo2-flightpath] ERROR: ${(e as Error).message}\n`);
+    process.stderr.write(`[drone-path] ERROR: ${(e as Error).message}\n`);
     process.exitCode = 1;
   }
 }

@@ -16,9 +16,9 @@ import {
 } from './config.js';
 import type { ConfigOverrides, RenderConfig } from './config.js';
 
-// NEO2_FLIGHTPATH_TILE_CACHE overrides the per-user cache directory.
+// DRONEPATH_TILE_CACHE overrides the per-user cache directory.
 export function defaultTileCache(): string {
-  const override = process.env['NEO2_FLIGHTPATH_TILE_CACHE'];
+  const override = process.env['DRONEPATH_TILE_CACHE'];
   if (override) return path.resolve(override);
   return path.join(userDataDir(), 'tiles');
 }

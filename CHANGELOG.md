@@ -1,4 +1,4 @@
-# neo2-flightpath
+# drone-path
 
 ## 0.7.0
 
