@@ -51,4 +51,18 @@ describe('WorkspaceHeader', () => {
     renderHeader({ opening: true });
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(true);
   });
+
+  it('disables Export while nothing is loaded and keeps Open live', () => {
+    renderHeader({ disabled: true });
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export…' }).disabled).toBe(true);
+    const open = screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' });
+    expect(open.disabled).toBe(false);
+    expect(open.className).not.toContain('primary');
+  });
+
+  it('shows the zero-duration project slot and no state label', () => {
+    renderHeader({ durationSec: 0, disabled: true });
+    expect(screen.getByText('Recording · 0:00')).toBeTruthy();
+    expect(screen.queryByText(/No recording/)).toBeNull();
+  });
 });

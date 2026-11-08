@@ -12,6 +12,8 @@ import { SkipForwardIcon } from '../icons/SkipForwardIcon.js';
 export interface TransportBarProps {
   /** The player's action map: buttons and hotkeys drive the same actions. */
   dispatch: (action: HotkeyAction) => void;
+  /** No recording is loaded: the whole cluster and speed group are off. */
+  disabled?: boolean;
   ready: boolean;
   playing: boolean;
   speed: 1 | 2 | 3 | 4;
@@ -24,6 +26,7 @@ export interface TransportBarProps {
 
 export function TransportBar({
   dispatch,
+  disabled = false,
   ready,
   playing,
   speed,
@@ -42,6 +45,7 @@ export function TransportBar({
           className="transport-step"
           aria-label="Jump to start"
           title="Jump to start (Home)"
+          disabled={disabled}
           onClick={() => dispatch({ type: 'seekStart' })}
         >
           <SkipBackIcon />
@@ -50,7 +54,7 @@ export function TransportBar({
           type="button"
           className="transport-play"
           onClick={() => dispatch({ type: 'togglePlay' })}
-          disabled={!ready}
+          disabled={disabled || !ready}
         >
           {ready && playing ? <PauseIcon /> : <PlayIcon />}
           {ready && playing ? 'Pause' : 'Play'}
@@ -60,6 +64,7 @@ export function TransportBar({
           className="transport-step"
           aria-label="Jump to end"
           title="Jump to end (End)"
+          disabled={disabled}
           onClick={() => dispatch({ type: 'seekEnd' })}
         >
           <SkipForwardIcon />
@@ -75,6 +80,7 @@ export function TransportBar({
               className="segment"
               aria-pressed={speed === rate}
               title={`Playback speed ${rate}× (${rate})`}
+              disabled={disabled}
               onClick={() => dispatch({ type: 'speed', rate })}
             >
               {rate}×

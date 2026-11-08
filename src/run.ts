@@ -50,7 +50,9 @@ const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
 /** The loading stage a preparation is in. */
 export type PrepareStage = (typeof PREPARE_STAGE_ORDER)[number];
 
-// The loading bar advances one step per stage: 3 steps in all.
+// Loading progress: each report names the stage starting now, with `done`
+// counting the stages already finished — so the bar reads 0, 33 and 67
+// percent and never fills; the overlay disappears when the notice clears.
 export interface PrepareProgress {
   stage: PrepareStage;
   /** Completed steps: the finished stages. */
@@ -308,8 +310,8 @@ export interface PreparedRecording {
   frames: FrameArrays;
 }
 
-// Loading-bar bookkeeping: one step per stage, derived from the stage order
-// (see PrepareProgress).
+// Loading-bar bookkeeping: one report per stage as it starts, its index in
+// the stage order as the done count (see PrepareProgress).
 type PrepareReporter = (stage: PrepareStage) => void;
 
 function createPrepareReporter(

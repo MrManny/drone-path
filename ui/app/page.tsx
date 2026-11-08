@@ -5,7 +5,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
-import { LandingPanel } from '../components/LandingPanel.js';
+import { EmptyWorkspace } from '../components/EmptyWorkspace.js';
 import { HelpOverlay } from '../components/HelpOverlay.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';
 import { UpdatePrompt } from '../components/UpdatePrompt.js';
@@ -31,7 +31,7 @@ export default function Page() {
   // The one dialog machine: the player's dialogs and the update prompt share
   // it, so the prompt can never stack onto another dialog.
   const dialogs = useDialogs();
-  const { modalOpen, helpOpen, updateOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
+  const { modalOpen, helpOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
   const [updatePhase, dispatchUpdate] = useReducer(updateReducer, 'idle');
   // While the restart runs nothing may dismiss the prompt: the wrapped
   // dispatch refuses close for every caller, Escape included.
@@ -131,17 +131,6 @@ export default function Page() {
     dispatchDialog({ type: 'updateReady' });
   }, [updatePhase, modalOpen, dispatchDialog]);
 
-  // Escape dismisses the prompt and the help overlay on the landing too,
-  // where no player hotkeys run.
-  useEffect(() => {
-    if (!updateOpen && !helpOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dispatchDialog({ type: 'close' });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [updateOpen, helpOpen, dispatchDialog]);
-
   const handlePick = useCallback(() => {
     if (picking.current) return;
     picking.current = true;
@@ -200,11 +189,12 @@ export default function Page() {
           onDismissOpenState={dismissOpen}
         />
       ) : (
-        <LandingPanel
+        <EmptyWorkspace
           state={pickState}
           onPick={handlePick}
           onHelp={openHelp}
           onDismiss={dismissOpen}
+          dialogs={sharedDialogs}
         />
       )}
       {dialogs.updateOpen ? (

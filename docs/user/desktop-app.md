@@ -6,11 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## Loading a recording
 
-Launch the app and pick a drone video; the **Open…** dialog starts in the folder the last recording was opened from. The player opens right after the recording is probed, its telemetry is loaded and the view is planned — no tile warm-up in between. The map draws the flight trail immediately and loads its tiles on demand, and playback is ready right away. Changing the map style, zoom or view in [Map appearance](#map-appearance) starts loading the tiles for the new view instead.
-
-![Desktop app start screen before a recording is loaded](../images/app-landing.jpg)
-
-*The start screen: pick a recording to begin.*
+Launching the app lands in the review workspace with no recording loaded: the workspace rows are disabled, the map pane reads *No telemetry yet*, and the centered **Open…** button in the footage pane is the one action (**Open…** in the header and `Ctrl+O` do the same). Picking a drone video — the dialog starts in the folder the last recording was opened from — opens the player right after the recording is probed, its telemetry is loaded and the view is planned: no tile warm-up in between. The map draws the flight trail immediately and loads its tiles on demand, and playback is ready right away. Changing the map style, zoom or view in [Map appearance](#map-appearance) starts loading the tiles for the new view instead.
 
 ## Reviewing a flight
 
@@ -54,7 +50,7 @@ Packaged builds update themselves: when a newer [release](https://github.com/MrM
 
 ## Help
 
-The **Help** icon at the top right of the start screen and in the status bar opens this manual inside the app. It is bundled with the app, so it works offline.
+The **Help** icon in the status bar opens this manual inside the app. It is bundled with the app, so it works offline.
 
 ## Notes
 

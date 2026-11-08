@@ -17,6 +17,7 @@ afterEach(() => {
 });
 
 interface RenderOptions {
+  disabled?: boolean;
   loop?: LoopState;
   maxFrame?: number;
   frames?: number;
@@ -24,6 +25,7 @@ interface RenderOptions {
 }
 
 function renderPanel({
+  disabled = false,
   loop = { in: null, out: null },
   maxFrame = 89,
   frames = 90,
@@ -37,6 +39,7 @@ function renderPanel({
   render(
     <TimelinePanel
       dispatch={dispatch}
+      disabled={disabled}
       loop={loop}
       setLoopFrame={setLoopFrame}
       fps={30}
@@ -215,5 +218,31 @@ describe('TimelinePanel track', () => {
     pointer('pointercancel', window);
     pointer('pointermove', window, { clientX: 40 });
     expect(setLoopFrame).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TimelinePanel disabled mode', () => {
+  it('drops the filmstrip and disables the scrubber while nothing is loaded', () => {
+    renderPanel({ disabled: true });
+    expect(screen.queryByTestId('filmstrip')).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
+    ).toBe(true);
+  });
+
+  it('disables every loop control', () => {
+    renderPanel({ disabled: true, loop: { in: 30, out: 60 } });
+    for (const name of ['Set loop in', 'Set loop out', 'Clear loop']) {
+      expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
+    }
+  });
+
+  it('keeps the track, playhead and ruler holding the row geometry', () => {
+    renderPanel({ disabled: true, frames: 0, maxFrame: 0, durationSec: 0 });
+    expect(document.querySelector('.track')).toBeTruthy();
+    expect(document.querySelector('.playhead')).toBeTruthy();
+    expect(document.querySelector('.ruler')).toBeTruthy();
+    expect(document.querySelector('.loop-band')).toBeNull();
+    expect(document.querySelectorAll('.loop-handle')).toHaveLength(0);
   });
 });

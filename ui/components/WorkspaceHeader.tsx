@@ -9,11 +9,19 @@ export interface WorkspaceHeaderProps {
   durationSec: number;
   /** The Open flow is preparing: the button is disabled. */
   opening: boolean;
+  /** No recording is loaded: Export stays disabled, Open stays live. */
+  disabled?: boolean;
   onOpen: () => void;
   onExport: () => void;
 }
 
-export function WorkspaceHeader({ durationSec, opening, onOpen, onExport }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  durationSec,
+  opening,
+  disabled = false,
+  onOpen,
+  onExport,
+}: WorkspaceHeaderProps) {
   return (
     <header className="workspace-header">
       <div className="brand">
@@ -30,7 +38,7 @@ export function WorkspaceHeader({ durationSec, opening, onOpen, onExport }: Work
         <FolderOpenIcon />
         Open…
       </button>
-      <button type="button" onClick={onExport}>
+      <button type="button" onClick={onExport} disabled={disabled}>
         <ExportIcon />
         Export…
       </button>

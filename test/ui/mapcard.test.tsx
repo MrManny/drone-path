@@ -65,3 +65,24 @@ describe('MapCard', () => {
     expect(vi.mocked(fakeScene.setFrame)).not.toHaveBeenCalled();
   });
 });
+
+describe('MapCard empty variant', () => {
+  it.for(['split', 'overlay'] as const)(
+    'reads the quiet placeholder with no island in the %s layout',
+    (layout) => {
+      render(<MapCard data={null} layout={layout} />);
+      expect(screen.getByText('No telemetry yet')).toBeTruthy();
+      expect(screen.queryByTestId('map-island')).toBeNull();
+      const card = document.querySelector('.map-card') as HTMLElement;
+      expect(card.className).toBe(`map-card map-card-${layout}`);
+    },
+  );
+
+  it('mounts the island as soon as a scene exists', () => {
+    const { rerender } = render(<MapCard data={null} layout="split" />);
+    expect(screen.queryByTestId('map-island')).toBeNull();
+    rerender(<MapCard data={DATA} onScene={() => {}} layout="split" />);
+    expect(screen.getByTestId('map-island')).toBeTruthy();
+    expect(screen.queryByText('No telemetry yet')).toBeNull();
+  });
+});

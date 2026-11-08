@@ -23,7 +23,12 @@ export function sceneCss(
   ${at} #map-frame {
     position: absolute; inset: 0; overflow: hidden; background: ${src.bg};
   }
-  ${at} #map { position: absolute; left: 0; top: 0; width: ${width}px; height: ${height}px; }
+  ${at} #map {
+    position: absolute; left: 0; top: 0; width: ${width}px; height: ${height}px;
+    /* Leaflet's own container default is a light gray; the un-tiled field
+       takes the style's background so it never flashes bright (#167). */
+    background: ${src.bg};
+  }
   ${at} .leaflet-tile-pane { filter: ${src.tileFilter ?? 'none'}; }
   ${at} #vignette {
     position: absolute; inset: 0; z-index: 500; pointer-events: none;
