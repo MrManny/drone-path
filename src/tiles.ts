@@ -69,7 +69,7 @@ function tileUrl(style: Style, tile: TileCoord): string {
 
 // A canceled download is not a failed one: no placeholder is written and the
 // tile stays uncached, so a later request may fetch the real tile.
-function canceled(signal: AbortSignal): Error {
+function canceledError(signal: AbortSignal): Error {
   return new Error('tile download canceled', { cause: signal.reason });
 }
 
@@ -92,7 +92,7 @@ async function downloadTile(
       });
       if (res.ok) return Buffer.from(await res.arrayBuffer());
     } catch {
-      if (signal?.aborted) throw canceled(signal);
+      if (signal?.aborted) throw canceledError(signal);
       await sleep(RETRY_DELAY_MS);
     }
   }
@@ -206,7 +206,7 @@ function createDownloader(
       if (!job) break;
       if (job.signal?.aborted) {
         job.detach();
-        job.fail(canceled(job.signal));
+        job.fail(canceledError(job.signal));
         continue;
       }
       active++;
@@ -248,7 +248,7 @@ function createDownloader(
             if (at < 0) return;
             queue.splice(at, 1);
             job.detach();
-            reject(canceled(signal));
+            reject(canceledError(signal));
           };
           signal.addEventListener('abort', onAbort, { once: true });
           job.detach = () => signal.removeEventListener('abort', onAbort);
