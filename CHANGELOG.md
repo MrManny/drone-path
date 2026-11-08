@@ -1,5 +1,18 @@
 # drone-path
 
+## 0.8.0
+
+- **New:** The tool is now called **Drone Path**. The rename is a clean
+  break with no compatibility aliases — on upgrade, use the `drone-path`
+  command (previously `neo2-flightpath`), move the config file to
+  `.dronepath.json` (from `.neo2flightpath.json`), and rename the tile-cache
+  environment variable to `DRONEPATH_TILE_CACHE` (from
+  `NEO2_FLIGHTPATH_TILE_CACHE`). The per-user data directory moves to
+  `drone-path`, leaving the old one behind.
+- **New:** The desktop app ships as "Drone Path" under a new app identity.
+  Installed apps do not auto-update in place — uninstall the old version
+  and install the new one.
+
 ## 0.7.0
 
 - **New:** The desktop player is now a synchronized video-and-map review
