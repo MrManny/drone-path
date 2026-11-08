@@ -107,6 +107,13 @@ describe('EmptyStage', () => {
     expect(bar.getAttribute('aria-valuenow')).toBe('0');
   });
 
+  it('keeps the loading feedback in the centered stack with the CTA (#167)', () => {
+    renderStage({ kind: 'preparing', progress: START_PREPARE_PROGRESS });
+    const notice = screen.getByText('Probing the recording…').closest('.prepare-status');
+    expect(notice?.closest('.stage-empty')).not.toBeNull();
+    expect(document.querySelector('.player-notices')).toBeNull();
+  });
+
   it('shows the running stage copy and the bar position with no warm-up copy', () => {
     renderStage({ kind: 'preparing', progress: { stage: 'plan', done: 2, total: 3 } });
     expect(screen.getByText('Planning the view…')).toBeTruthy();

@@ -12,8 +12,9 @@ export interface EmptyStageProps {
 }
 
 // The stage before a recording loads: the open call to action centered in the
-// footage pane and an empty map rail. It reuses the player's stage geometry,
-// so committing a recording swaps the content without moving a single row.
+// footage pane with the Open flow's notice beside it and an empty map rail.
+// It reuses the player's stage geometry, so committing a recording swaps the
+// content without moving a single row.
 export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
   const preparing = state.kind === 'preparing';
   const notice =
@@ -28,6 +29,7 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
             <FolderOpenIcon />
             {preparing ? 'Preparing…' : 'Open…'}
           </button>
+          {notice}
           <p>
             Pick a drone recording to watch its flight path on the map in sync with
             the footage.
@@ -39,7 +41,6 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
         </div>
       </div>
       <MapCard data={null} layout="split" />
-      {notice ? <div className="player-notices">{notice}</div> : null}
     </div>
   );
 }

@@ -23,9 +23,21 @@ describe('sceneCss', () => {
   it('keeps the map frame canvas-sized for the export', () => {
     const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 1920, 1080, 1, 'scene-scope-1');
     expect(css).toContain(
-      '.scene-scope-1 #map { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }',
+      'position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;',
     );
     expect(css).toContain('animation: none !important');
+  });
+
+  it('paints the un-tiled map field in the style background (#167)', () => {
+    for (const [style, bg] of [
+      ['satellite', '#0b0e14'],
+      ['topo', '#eae5da'],
+    ] as const) {
+      const css = sceneCss(TILE_SOURCES[style], themeFor(style), 768, 768, 1, 'scene-scope-1');
+      // Bound to the #map rule: the sibling rules share the same color, and
+      // Leaflet's container default must not win on the un-tiled field.
+      expect(css).toMatch(new RegExp(`#map \\{[^}]*background: ${bg};`));
+    }
   });
 
   it('scopes every rule to its scene host so two scenes cannot cross-style', () => {

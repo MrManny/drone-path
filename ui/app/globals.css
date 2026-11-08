@@ -334,7 +334,8 @@ button.primary {
   display: block;
 }
 /* The empty stage's open call to action: the accent button centered in the
-   footage pane, the explainer copy and the hint under it as quiet text. */
+   footage pane with the Open flow's notice riding along, the explainer copy
+   and the hint under it as quiet text. */
 .stage-empty {
   position: absolute;
   inset: 0;
@@ -355,6 +356,12 @@ button.primary {
 }
 .stage-empty .hint {
   margin: 0;
+}
+/* The notice sits in the gap-spaced stack: no top margin of its own. */
+.stage-empty > .notice,
+.stage-empty > .prepare-status {
+  margin-top: 0;
+  width: min(560px, 100%);
 }
 .stage-empty .primary {
   width: 320px;
