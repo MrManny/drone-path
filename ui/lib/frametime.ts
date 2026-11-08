@@ -33,8 +33,10 @@ export function formatTime(sec: number): string {
   return Math.floor(total / 60) + ':' + ('0' + (total % 60)).slice(-2);
 }
 
+// A zero rate stands for "no recording loaded" (the empty workspace has no
+// fps yet); it reads as frame zero instead of a NaN time.
 export function timeAt(frame: number, fps: number): number {
-  return frame / fps;
+  return fps > 0 ? frame / fps : 0;
 }
 
 /** The time readout: the presented position over the recording's duration. */

@@ -15,6 +15,8 @@ import { Filmstrip } from './Filmstrip.js';
 export interface TimelinePanelProps {
   /** The player's action map: buttons and hotkeys drive the same actions. */
   dispatch: (action: HotkeyAction) => void;
+  /** No recording is loaded: no filmstrip, scrubber and loop controls off. */
+  disabled?: boolean;
   loop: LoopState;
   setLoopFrame: (which: 'in' | 'out', frame: number) => void;
   /** Raw timeline values; the panel formats its own readouts from them. */
@@ -34,6 +36,7 @@ export interface TimelinePanelProps {
 // control; the filmstrip, band and playhead under it are its visual track.
 export function TimelinePanel({
   dispatch,
+  disabled = false,
   loop,
   setLoopFrame,
   fps,
@@ -82,6 +85,7 @@ export function TimelinePanel({
             type="button"
             aria-label="Set loop in"
             title="Set loop in (I)"
+            disabled={disabled}
             onClick={() => dispatch({ type: 'setLoopIn' })}
           >
             <MarkInIcon />
@@ -90,6 +94,7 @@ export function TimelinePanel({
             type="button"
             aria-label="Set loop out"
             title="Set loop out (O)"
+            disabled={disabled}
             onClick={() => dispatch({ type: 'setLoopOut' })}
           >
             <MarkOutIcon />
@@ -98,7 +103,7 @@ export function TimelinePanel({
             type="button"
             aria-label="Clear loop"
             title={clearable ? 'Clear loop (Esc)' : 'No loop to clear.'}
-            disabled={!clearable}
+            disabled={disabled || !clearable}
             onClick={() => dispatch({ type: 'clearLoop' })}
           >
             <CloseIcon />
@@ -125,7 +130,7 @@ export function TimelinePanel({
         })}
       </div>
       <div className="track" ref={trackRef}>
-        <Filmstrip src={src} frames={frames} fps={fps} />
+        {disabled ? null : <Filmstrip src={src} frames={frames} fps={fps} />}
         {loopPoints ? (
           <div
             className="loop-band"
@@ -155,6 +160,7 @@ export function TimelinePanel({
           max={maxFrame}
           step={1}
           defaultValue={0}
+          disabled={disabled}
           onChange={(e) => scrubTo(Number(e.target.value))}
         />
       </div>

@@ -15,7 +15,7 @@ export interface NoticeProps {
 }
 
 // The one status pattern for every surface: same placement, type size and tone
-// tokens in the landing, the player and the export dialog.
+// tokens in the empty workspace, the player and the export dialog.
 export function Notice({ tone, children, details, onDismiss }: NoticeProps) {
   return (
     <div className={`notice notice-${tone}`} role={tone === 'danger' ? 'alert' : 'status'}>

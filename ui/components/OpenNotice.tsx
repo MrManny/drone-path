@@ -11,9 +11,9 @@ export interface OpenNoticeProps {
   onDismiss?: () => void;
 }
 
-// The Open flow speaks through one notice, whether it runs on the landing or
-// over the player. Idle and picking stay silent. Preparing also shows the
-// loading progress bar the stage copy describes.
+// The Open flow speaks through one notice, whether it runs on the empty
+// workspace or over the player. Idle and picking stay silent. Preparing also
+// shows the loading progress bar the stage copy describes.
 export function OpenNotice({ state, onDismiss }: OpenNoticeProps) {
   switch (state.kind) {
     case 'preparing':

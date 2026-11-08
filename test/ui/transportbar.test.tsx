@@ -225,3 +225,36 @@ describe('TransportBar centering contract', () => {
     );
   });
 });
+
+describe('TransportBar disabled mode', () => {
+  it('disables the whole cluster and speed group while nothing is loaded', () => {
+    renderBar({ disabled: true, ready: false, fps: 0, durationSec: 0 });
+    for (const name of ['Jump to start', 'Play', 'Jump to end']) {
+      expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
+    }
+    const group = screen.getByRole('group', { name: 'Playback speed' });
+    for (const button of within(group).getAllByRole<HTMLButtonElement>('button')) {
+      expect(button.disabled).toBe(true);
+    }
+  });
+
+  it('keeps the row intact with a quiet zero readout', () => {
+    const { timeRef } = renderBar({ disabled: true, ready: false, fps: 0, durationSec: 0 });
+    expect(timeRef.current?.textContent).toBe('0:00 / 0:00');
+    const regions = [...(document.querySelector('.transport') as HTMLElement).children].map(
+      (region) => region.className,
+    );
+    expect(regions).toEqual([
+      'readout transport-time',
+      'transport-group transport-cluster',
+      'transport-group transport-speed',
+    ]);
+    expect(screen.getByRole('button', { name: 'Play' }).textContent).toContain('Play');
+  });
+
+  it('still shows the Play label state rules from ready and playing', () => {
+    renderBar({ disabled: true, ready: false, playing: true });
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
+    expect(button.disabled).toBe(true);
+  });
+});

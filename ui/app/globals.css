@@ -49,7 +49,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  /* Contain child margins: the landing's 12vh offset must not grow the page. */
+  /* Contain child margins so none of them can grow the page. */
   display: flow-root;
   background: var(--page);
   color: var(--text);
@@ -171,48 +171,6 @@ button.primary {
   color: var(--text-3);
 }
 
-/* Landing: one raised card on the page surface. */
-.landing {
-  position: relative;
-  max-width: 560px;
-  margin: 12vh auto 0;
-  padding: 32px;
-  box-sizing: border-box;
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-float);
-}
-/* Icon-only help pinned to the card's top-right corner; its title names it. */
-.landing-help {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  width: var(--control-h);
-  height: var(--control-h);
-  padding: 0;
-}
-.landing h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-.landing > p:not(.hint) {
-  margin: 0 0 16px;
-  line-height: 1.5;
-  color: var(--text-2);
-}
-.landing .hint {
-  margin: 16px 0 0;
-}
-.landing-actions {
-  display: flex;
-  justify-content: center;
-}
-.landing-actions .primary {
-  width: 320px;
-  max-width: 100%;
-}
-
 /* One notice for every surface: same placement, type size and tone tokens. */
 .notice {
   display: flex;
@@ -278,8 +236,8 @@ button.primary {
 }
 
 /* The review workspace: header, stage, transport, timeline and status bar
-   stacked in one column. The fixed chrome heights mirror CHROME in
-   ui/lib/layout.ts; change the two together. */
+   stacked in one column. The fixed chrome heights below size every row but
+   the stage, which flexes into the rest of the window. */
 .workspace {
   display: flex;
   flex-direction: column;
@@ -375,6 +333,33 @@ button.primary {
   background: #000;
   display: block;
 }
+/* The empty stage's open call to action: the accent button centered in the
+   footage pane, the explainer copy and the hint under it as quiet text. */
+.stage-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+}
+.stage-empty p {
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.stage-empty .hint {
+  margin: 0;
+}
+.stage-empty .primary {
+  width: 320px;
+  max-width: 100%;
+}
 .scene-host {
   position: absolute;
   inset: 0;
@@ -386,6 +371,21 @@ button.primary {
 .map-card-split {
   flex: none;
   width: var(--rail-w);
+}
+/* The map rail before a recording loads: a quiet pane that says so. */
+.map-card-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
 }
 .map-overlay-tag {
   display: none;
@@ -537,8 +537,8 @@ button.primary {
    control) over it all. The ruler shares the track's exact span so its
    ticks stay aligned with the band and playhead. The panel is a flush
    surface — full window width, square, meeting the status bar — because
-   the workspace rows carry no margins: the CHROME heights in
-   ui/lib/layout.ts account for the whole window height. */
+   the workspace rows carry no margins: the fixed row heights account for
+   the whole window height. */
 .timeline {
   flex: none;
   height: var(--timeline-h);
@@ -1140,8 +1140,7 @@ input[type='radio']:disabled {
   color: var(--text-3);
 }
 
-/* The timeline shrinks on short windows so the stage keeps room. Mirrored in
-   ui/lib/layout.ts. */
+/* The timeline shrinks on short windows so the stage keeps room. */
 @media (max-height: 720px) {
   :root {
     --timeline-h: 140px;

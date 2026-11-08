@@ -72,4 +72,15 @@ describe('StatusBar', () => {
       ).toBe(expanded);
     },
   );
+
+  it('carries the one quiet state message and holds the map controls when disabled', () => {
+    renderBar({ disabled: true });
+    expect(screen.getByText('No recording loaded')).toBeTruthy();
+    expect(screen.queryByText('SRT telemetry loaded')).toBeNull();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Map settings' }).disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Swap' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Help' }).disabled).toBe(false);
+  });
 });

@@ -80,6 +80,11 @@ describe('timeAt', () => {
     expect(timeAt(30, 30)).toBe(1);
     expect(timeAt(15, 30)).toBe(0.5);
   });
+
+  it('reads a zero rate as frame zero (#167)', () => {
+    expect(timeAt(0, 0)).toBe(0);
+    expect(timeAt(5, 0)).toBe(0);
+  });
 });
 
 describe('formatTimeReadout', () => {
@@ -88,6 +93,7 @@ describe('formatTimeReadout', () => {
     { name: 'mid-recording', frame: 30, fps: 30, durationSec: 3, want: '0:01 / 0:03' },
     { name: 'last frame rounds up', frame: 89, fps: 30, durationSec: 3, want: '0:03 / 0:03' },
     { name: 'fractional rates', frame: 60, fps: 29.97, durationSec: 65, want: '0:02 / 1:05' },
+    { name: 'no recording loaded', frame: 0, fps: 0, durationSec: 0, want: '0:00 / 0:00' },
   ])('$name', ({ frame, fps, durationSec, want }) => {
     expect(formatTimeReadout(frame, fps, durationSec)).toBe(want);
   });
