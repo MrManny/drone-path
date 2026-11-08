@@ -365,9 +365,8 @@ describe('prepareUiSession', () => {
   });
 
   it('gives every loaded recording its own media URL (#160)', async () => {
-    const frame = { width: 480, height: 270 };
-    const uiA = await prepareUiSession('clips/flight-a.mp4', testConfig(), () => {}, undefined, frame, stubDeps());
-    const uiB = await prepareUiSession('clips/flight-b.mp4', testConfig(), () => {}, undefined, frame, stubDeps());
+    const uiA = await prepareUiSession('clips/flight-a.mp4', testConfig(), () => {}, undefined, stubDeps());
+    const uiB = await prepareUiSession('clips/flight-b.mp4', testConfig(), () => {}, undefined, stubDeps());
 
     expect(uiA.video.src).not.toBe(uiB.video.src);
     expect(new URL(uiA.video.src).pathname).toBe('/media/video');
