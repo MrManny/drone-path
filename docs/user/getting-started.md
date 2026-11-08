@@ -4,9 +4,9 @@
 
 neo2-flightpath renders flight-path map-overlay videos from DJI drone recordings (the DJI Neo 2 and similar) at exactly the source frame rate and frame count. Telemetry comes from the `.SRT` sidecar when one is available, otherwise from the embedded CAM-meta (DVTM) stream.
 
-![Desktop app: drone footage with the map overlay in picture-in-picture](../images/app-main-window.jpg)
+![Desktop app: drone footage beside the synchronized flight map](../images/app-main-window.jpg)
 
-*The desktop app playing a recording: footage and map overlay in picture-in-picture, with the flight trail, drone position and HUD chips on one shared timeline scrubber.*
+*The desktop app playing a recording: footage beside the synchronized flight map, with the flight trail, drone position and HUD chips on one shared timeline.*
 
 ## Getting it
 

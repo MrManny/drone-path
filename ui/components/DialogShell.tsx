@@ -13,6 +13,8 @@ export interface DialogShellProps {
   blockedReason?: string;
   /** Backdrop clicks dismiss only while nothing is running. */
   closeOnBackdrop?: boolean;
+  /** Extra panel class for dialogs that widen the default panel (e.g. export). */
+  panelClass?: string;
   children: ReactNode;
 }
 
@@ -23,6 +25,7 @@ export function DialogShell({
   onClose,
   blockedReason,
   closeOnBackdrop = true,
+  panelClass,
   children,
 }: DialogShellProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -44,7 +47,7 @@ export function DialogShell({
     >
       <div
         ref={panelRef}
-        className="settings-panel"
+        className={panelClass ? `settings-panel ${panelClass}` : 'settings-panel'}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -12,7 +12,6 @@ import { canDismiss, dialogReducer } from '../lib/dialogstate.js';
 export interface Dialogs {
   /** A modal overlay is open: player shortcuts are off. */
   modalOpen: boolean;
-  settingsOpen: boolean;
   helpOpen: boolean;
   exportOpen: boolean;
   updateOpen: boolean;
@@ -25,7 +24,6 @@ export function useDialogs(): Dialogs {
   const [dialog, dispatchDialog] = useReducer(dialogReducer, 'closed');
   return {
     modalOpen: dialog !== 'closed',
-    settingsOpen: dialog === 'settings',
     helpOpen: dialog === 'help',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
     updateOpen: dialog === 'update-prompt',

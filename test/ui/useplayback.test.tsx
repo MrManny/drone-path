@@ -5,18 +5,13 @@ import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PageVideo } from '../../src/appsession.js';
-import type { Scene } from '../../src/renderer/scene.js';
 import type { Playback } from '../../ui/hooks/usePlayback.js';
 import { usePlayback } from '../../ui/hooks/usePlayback.js';
+import { createFakeScene, flushRaf, installRafStub } from './harness.js';
 
 const VIDEO: PageVideo = { src: '/video', fps: 30, frames: 90, width: 1512, height: 2688 };
 
-const fakeScene: Scene = {
-  setFrame: vi.fn(() => Promise.resolve()),
-  relayout: vi.fn(),
-  update: vi.fn(() => Promise.resolve()),
-  ready: Promise.resolve(),
-};
+const fakeScene = createFakeScene();
 
 let api: Playback;
 
@@ -29,16 +24,6 @@ function Harness(): ReactElement {
       <span ref={api.timeRef} />
     </>
   );
-}
-
-const rafQueue: Array<(now: number) => void> = [];
-let rafNow = 0;
-
-function flushRaf(): void {
-  for (const cb of rafQueue.splice(0)) {
-    rafNow += 100;
-    cb(rafNow);
-  }
 }
 
 // Marks run in their own commits, like separate key presses: the mark reads
@@ -94,13 +79,7 @@ function stubPlayback(): FakePlayback {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  rafQueue.length = 0;
-  rafNow = 0;
-  vi.stubGlobal('requestAnimationFrame', (cb: (now: number) => void): number => {
-    rafQueue.push(cb);
-    return rafQueue.length;
-  });
-  vi.stubGlobal('cancelAnimationFrame', (): void => {});
+  installRafStub();
 });
 
 afterEach(() => {

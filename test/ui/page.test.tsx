@@ -1,62 +1,43 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import type { PickResult, UiSession, WarmProgress } from '../../src/appsession.js';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { PickResult } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { PrepareProgress } from '../../src/run.js';
-import type { Scene } from '../../src/renderer/scene.js';
 import Page from '../../ui/app/page.js';
+import { SESSION, installRafStub } from './harness.js';
 
-const fakeScene = vi.hoisted((): Scene => ({
-  setFrame: vi.fn(() => Promise.resolve()),
-  relayout: vi.fn(),
-  update: vi.fn(() => Promise.resolve()),
-  ready: Promise.resolve(),
-}));
-
-// The real island loads Leaflet after mount; the stub keeps that timing.
 vi.mock('../../ui/components/MapIsland.js', async () => {
-  const { useEffect } = await import('react');
-  return {
-    MapIsland: ({ onScene }: { onScene: (scene: Scene) => void }) => {
-      useEffect(() => {
-        const t = setTimeout(() => onScene(fakeScene), 0);
-        return () => clearTimeout(t);
-      }, [onScene]);
-      return <div data-testid="map-island" />;
-    },
-  };
+  const { createFakeScene, delayedMapIslandMock } = await import('./harness.js');
+  return delayedMapIslandMock(createFakeScene());
 });
 
-const SESSION: UiSession = {
-  scene: {
-    style: 'satellite',
-    tileUrl: '/tiles/satellite/{z}/{x}/{y}.png',
-    view: 'overview',
-    width: 768,
-    height: 768,
-    zoom: 15,
-    center: { lat: 46.61, lon: 14.26 },
-    attribution: 'Test Attribution',
-    introN: 0,
-    outroN: 0,
-    lat: [46.61, 46.611, 46.612],
-    lon: [14.26, 14.261, 14.262],
-    alt: [10, 11, null],
-    speed: [null, 2.5, 3.1],
-    headingDeg: [0, 90, 180],
-    hud: { heading: true, alt: true, speed: true },
-    trailLat: [46.61, 46.612],
-    trailLon: [14.26, 14.262],
-    trailFrame: [0, 2],
-  },
-  video: { src: '/video', fps: 30, frames: 90, width: 1512, height: 2688 },
-  tileBase: '/tiles',
-  bbox: { minLat: 46.6, maxLat: 46.612, minLon: 14.26, maxLon: 14.262 },
-  durationSec: 3,
-};
+vi.mock('../../ui/components/ExportPreview.js', async () => {
+  const { stubExportPreviewMock } = await import('./harness.js');
+  return stubExportPreviewMock();
+});
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+// jsdom does no layout, so the no-reflow pin compares the rows' computed
+// heights from the real stylesheet: deterministic and offline.
+let stylesheet: HTMLStyleElement;
+
+beforeAll(() => {
+  stylesheet = document.createElement('style');
+  stylesheet.textContent = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
+  document.head.append(stylesheet);
+});
+
+afterAll(() => {
+  stylesheet.remove();
+});
 
 // The bridge stands in for the shell: the test decides when the native picker
 // returns, when the shell reports that a valid file is being prepared, and how
@@ -66,7 +47,6 @@ function installBridge() {
   const listeners: {
     preparing?: () => void;
     progress?: (progress: PrepareProgress) => void;
-    warm?: (progress: WarmProgress) => void;
     updateReady?: () => void;
     restartFailed?: (message: string) => void;
   } = {};
@@ -92,13 +72,6 @@ function installBridge() {
         listeners.progress = undefined;
       };
     }),
-    onWarmProgress: vi.fn((cb: (progress: WarmProgress) => void) => {
-      listeners.warm = cb;
-      return () => {
-        listeners.warm = undefined;
-      };
-    }),
-    retargetWarm: vi.fn(async (): Promise<{ ok: boolean }> => ({ ok: true })),
     onUpdateReady: vi.fn((cb: () => void) => {
       listeners.updateReady = cb;
       return () => {
@@ -127,11 +100,6 @@ function installBridge() {
         listeners.progress?.(progress);
       });
     },
-    warm: (progress: WarmProgress) => {
-      act(() => {
-        listeners.warm?.(progress);
-      });
-    },
     updateReady: () => {
       act(() => {
         listeners.updateReady?.();
@@ -152,14 +120,45 @@ function installBridge() {
   };
 }
 
-async function openLanding() {
+// Two "Open…" buttons live on the empty workspace: the stage call to action
+// and the header button. Queries scope to their region.
+function stageCta(): HTMLButtonElement {
+  return document.querySelector<HTMLButtonElement>(
+    '.stage-empty button.primary',
+  ) as HTMLButtonElement;
+}
+
+function headerButton(name: string): HTMLButtonElement {
+  const header = document.querySelector('.workspace-header') as HTMLElement;
+  return within(header).getByRole<HTMLButtonElement>('button', { name });
+}
+
+function openWorkspace() {
   render(<Page />);
-  return screen.findByRole('button', { name: 'Open…' });
+  return stageCta();
+}
+
+const ROWS = ['.workspace-header', '.stage', '.transport', '.timeline', '.status-bar'];
+
+// The no-reflow contract: the same five rows with the same geometry before
+// and after a recording commits.
+function rowGeometry(): string[] {
+  return ROWS.map((selector) => {
+    const row = document.querySelector(selector) as HTMLElement;
+    return `${row.className} @ ${getComputedStyle(row).height}`;
+  });
+}
+
+async function commitLoaded(harness: ReturnType<typeof installBridge>) {
+  fireEvent.click(stageCta());
+  harness.prepare();
+  await harness.settle({ ok: true });
+  await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+  return harness;
 }
 
 beforeEach(() => {
-  vi.stubGlobal('requestAnimationFrame', () => 1);
-  vi.stubGlobal('cancelAnimationFrame', () => {});
+  installRafStub();
 });
 
 afterEach(() => {
@@ -168,20 +167,50 @@ afterEach(() => {
   delete (window as { neo2flightpath?: unknown }).neo2flightpath;
 });
 
-describe('Open flow on the landing', () => {
-  it('shows no busy status while the native picker is open', async () => {
+describe('the empty workspace at launch', () => {
+  it('lands in the five-row skeleton with disabled controls and one accent CTA', () => {
+    installBridge();
+    openWorkspace();
+    expect(rowGeometry().map((row) => row.split(' @ ')[0])).toEqual([
+      'workspace-header',
+      'stage stage-split',
+      'transport',
+      'timeline',
+      'status-bar',
+    ]);
+    expect(stageCta().textContent).toContain('Open…');
+    expect(document.querySelectorAll('button.primary')).toHaveLength(1);
+    expect(headerButton('Open…').disabled).toBe(false);
+    expect(headerButton('Export…').disabled).toBe(true);
+    for (const name of ['Jump to start', 'Play', 'Jump to end', '1×', '2×', '3×', '4×']) {
+      expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
+    }
+    expect(
+      screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
+    ).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Map settings' }).disabled).toBe(
+      true,
+    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Swap' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Help' }).disabled).toBe(false);
+    expect(screen.getByText('No telemetry yet')).toBeTruthy();
+    expect(screen.getByText('No recording loaded')).toBeTruthy();
+    expect(screen.getByText(/SRT sidecar/)).toBeTruthy();
+  });
+
+  it('shows no busy status while the native picker is open', () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
+    fireEvent.click(openWorkspace());
     expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(false);
+    expect(stageCta().disabled).toBe(false);
     expect(screen.queryByText(/Preparing/)).toBeNull();
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows Preparing only after the shell reports a valid file', async () => {
+  it('shows Preparing… only after the shell reports a valid file', async () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
+    fireEvent.click(openWorkspace());
     expect(screen.queryByText(/Preparing/)).toBeNull();
     harness.prepare();
     expect(screen.getByText('Probing the recording…')).toBeTruthy();
@@ -189,38 +218,88 @@ describe('Open flow on the landing', () => {
     await harness.settle({ ok: true });
   });
 
-  it('tracks the preparation progress on the loading bar', async () => {
+  it('tracks the preparation progress on the loading bar with no warm-up copy', async () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
+    fireEvent.click(openWorkspace());
     harness.prepare();
-    harness.report({ stage: 'tiles', done: 3, total: 51, tilesDone: 0, tilesTotal: 48 });
-    expect(screen.getByText('Warming tiles… 0/48')).toBeTruthy();
+    harness.report({ stage: 'telemetry', done: 1, total: 3 });
+    expect(screen.getByText('Loading telemetry…')).toBeTruthy();
+    expect(
+      screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
+    ).toBe('33');
+    harness.report({ stage: 'plan', done: 2, total: 3 });
+    expect(screen.getByText('Planning the view…')).toBeTruthy();
     expect(
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
     ).toBe('67');
-    harness.report({ stage: 'tiles', done: 15, total: 51, tilesDone: 12, tilesTotal: 48 });
-    expect(screen.getByText('Warming tiles… 12/48')).toBeTruthy();
-    expect(
-      screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
-    ).toBe('75');
+    // The open flow never shows tile warm-up copy (#167).
+    expect(screen.queryByText(/Warming tiles/)).toBeNull();
     await harness.settle({ ok: true });
   });
 
-  it('opens the player once the picked recording loads', async () => {
+  it('swaps to the player with unchanged row geometry', async () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
-    harness.prepare();
-    await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    openWorkspace();
+    const before = rowGeometry();
+    await commitLoaded(harness);
+    expect(rowGeometry()).toEqual(before);
+    expect(stageCta()).toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
   });
 
   it('ignores a second Open while the first pick is still running', async () => {
     const harness = installBridge();
-    const open = await openLanding();
+    const open = openWorkspace();
     fireEvent.click(open);
     fireEvent.click(open);
     expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
     await harness.settle({ ok: false, canceled: true });
+  });
+});
+
+describe('keyboard before a recording loads', () => {
+  it('opens the pick flow with Ctrl+O', () => {
+    const harness = installBridge();
+    openWorkspace();
+    fireEvent.keyDown(window, { key: 'o', ctrlKey: true });
+    expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it.for([
+    { name: 'Space', key: ' ' },
+    { name: 'K', key: 'k' },
+    { name: 'Left', key: 'ArrowLeft' },
+    { name: 'Right', key: 'ArrowRight' },
+    { name: 'Shift+Left', key: 'ArrowLeft', shiftKey: true },
+    { name: 'Home', key: 'Home' },
+    { name: 'End', key: 'End' },
+    { name: 'I', key: 'i' },
+    { name: 'O', key: 'o' },
+    { name: 'S', key: 's' },
+    { name: '1', key: '1' },
+    { name: '4', key: '4' },
+  ])('lets the $name playback shortcut no-op', ({ key, shiftKey }) => {
+    const harness = installBridge();
+    openWorkspace();
+    fireEvent.keyDown(window, { key, shiftKey });
+    expect(harness.bridge.pickRecording).not.toHaveBeenCalled();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
+  });
+});
+
+describe('accent discipline', () => {
+  it('wears the accent on the stage CTA alone before load and on no action after', async () => {
+    const harness = installBridge();
+    openWorkspace();
+    expect(document.querySelectorAll('button.primary')).toHaveLength(1);
+    expect(headerButton('Open…').className).not.toContain('primary');
+    await commitLoaded(harness);
+    expect(document.querySelector('.workspace button.primary')).toBeNull();
+    expect(document.querySelector('.workspace button.dialog-primary')).toBeNull();
+    expect(headerButton('Open…').className).not.toContain('primary');
+    expect(headerButton('Export…').className).not.toContain('primary');
   });
 });
 
@@ -244,74 +323,37 @@ describe.each([
     role: 'alert',
   },
 ])('when $outcome', ({ result, text, role }) => {
-  it('shows that outcome and never a busy status', async () => {
+  it('shows that outcome with the workspace intact and the CTA back in play', async () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
+    const open = openWorkspace();
+    const before = rowGeometry();
+    fireEvent.click(open);
     await harness.settle(result);
     expect(screen.getByRole(role).textContent).toContain(text);
     expect(screen.queryByText(/Preparing/)).toBeNull();
+    expect(rowGeometry()).toEqual(before);
+    expect(stageCta().disabled).toBe(false);
+    expect(stageCta().textContent).toContain('Open…');
+    expect(document.querySelectorAll('button.primary')).toHaveLength(1);
   });
 });
 
 describe('Open flow over the player', () => {
   it('keeps the recording and offers a dismissible notice when Open fails', async () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
-    harness.prepare();
-    await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    openWorkspace();
+    await commitLoaded(harness);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open…' }));
+    fireEvent.click(headerButton('Open…'));
     await harness.settle({ ok: false, error: 'not a readable .mp4 file: C:\\Windows\\win.ini' });
-    expect(screen.getByRole('alert').textContent).toContain('"win.ini" is not a readable .mp4 recording.');
-    expect(document.querySelector('.controls')).not.toBeNull();
+    expect(screen.getByRole('alert').textContent).toContain(
+      '"win.ini" is not a readable .mp4 recording.',
+    );
+    expect(document.querySelector('.workspace')).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(document.querySelector('.controls')).not.toBeNull();
-  });
-});
-
-describe('background tile pre-warm hint', () => {
-  async function openPlayer() {
-    const harness = installBridge();
-    fireEvent.click(await openLanding());
-    harness.prepare();
-    await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
-    return harness;
-  }
-
-  it('starts the pre-warm at the switch and keeps the running count', async () => {
-    const harness = await openPlayer();
-    expect(harness.bridge.retargetWarm).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('.warm-hint')).toBeNull();
-
-    harness.warm({ done: 12, total: 48 });
-    const hint = document.querySelector('.warm-hint');
-    expect(hint?.textContent).toBe('Warming tiles… 12/48');
-    expect(hint?.getAttribute('role')).toBe('status');
-  });
-
-  it('hides the hint when the last tile settles', async () => {
-    const harness = await openPlayer();
-    harness.warm({ done: 47, total: 48 });
-    expect(document.querySelector('.warm-hint')?.textContent).toBe('Warming tiles… 47/48');
-    harness.warm({ done: 48, total: 48 });
-    expect(document.querySelector('.warm-hint')).toBeNull();
-  });
-
-  it('pivots the pre-warm when the settings re-plan the map', async () => {
-    const harness = await openPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
-    expect(harness.bridge.retargetWarm).toHaveBeenCalledTimes(2);
-    expect(harness.bridge.retargetWarm).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        settings: expect.objectContaining({ style: 'topo' }),
-        frame: expect.objectContaining({ width: expect.any(Number) }),
-      }),
-    );
+    expect(document.querySelector('.workspace')).not.toBeNull();
   });
 });
 
@@ -319,25 +361,25 @@ describe('settings persistence', () => {
   async function openPlayerWith(settings: RenderConfig) {
     const harness = installBridge();
     harness.bridge.getSettings.mockResolvedValue(settings);
-    fireEvent.click(await openLanding());
-    harness.prepare();
-    await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    openWorkspace();
+    await commitLoaded(harness);
     return harness;
   }
 
-  it('seeds the settings panel from the persisted look', async () => {
+  it('seeds the map appearance popover from the persisted look', async () => {
     await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
-    expect(screen.getByLabelText<HTMLSelectElement>('View').value).toBe('overview');
+    expect(
+      screen.getByRole('button', { name: 'Overview' }).getAttribute('aria-pressed'),
+    ).toBe('true');
     expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('15');
   });
 
   it('persists every panel change through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -359,9 +401,9 @@ describe('settings persistence', () => {
 });
 
 describe('update prompt', () => {
-  it('prompts over the landing once the background download finishes', async () => {
+  it('prompts over the empty workspace once the background download finishes', async () => {
     const harness = installBridge();
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain('A new version is ready to install.');
@@ -369,12 +411,10 @@ describe('update prompt', () => {
 
   it('waits out another dialog and then prompts exactly once', async () => {
     const harness = installBridge();
-    fireEvent.click(await openLanding());
-    harness.prepare();
-    await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.controls')).not.toBeNull());
+    openWorkspace();
+    await commitLoaded(harness);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
     harness.updateReady();
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
 
@@ -389,7 +429,7 @@ describe('update prompt', () => {
 
   it('restarts into the update on request', async () => {
     const harness = installBridge();
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     expect(harness.bridge.restartToUpdate).toHaveBeenCalledTimes(1);
@@ -398,17 +438,15 @@ describe('update prompt', () => {
   it('offers the prompt again when the restart could not start', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockRejectedValueOnce(new Error('shell gone'));
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
   });
 
   it('dismisses the prompt with Escape', async () => {
     const harness = installBridge();
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -418,7 +456,7 @@ describe('update prompt', () => {
   it('locks even Escape while the restart runs', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     expect(screen.getByRole('button', { name: 'Restarting…' })).toBeTruthy();
@@ -429,7 +467,7 @@ describe('update prompt', () => {
   it('unlocks the prompt when the shell refuses to restart', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockResolvedValueOnce({ ok: false, error: 'no update' });
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
@@ -438,7 +476,7 @@ describe('update prompt', () => {
   it('unlocks the prompt when the restart fails after the ack', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
-    await openLanding();
+    openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     harness.restartFailed();
@@ -448,7 +486,7 @@ describe('update prompt', () => {
   it('picks up a download that finished before the subscription', async () => {
     const harness = installBridge();
     harness.bridge.getUpdateState.mockResolvedValueOnce({ ready: true });
-    await openLanding();
+    openWorkspace();
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy());
   });
 });

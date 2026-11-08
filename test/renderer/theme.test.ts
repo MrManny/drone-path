@@ -4,9 +4,9 @@ import { themeFor } from '../../src/renderer/theme.js';
 
 describe('themeFor', () => {
   it.for([
-    { style: 'satellite', core: '#41f0ff', vignette: 0.16 },
-    { style: 'topo', core: '#e63946', vignette: 0.06 },
-  ] as const)('$style theme paints its own core color', ({ style, core, vignette }) => {
+    { style: 'satellite', core: '#e87f54', vignette: 0.16 },
+    { style: 'topo', core: '#e87f54', vignette: 0.06 },
+  ] as const)('$style theme paints the shared trail core', ({ style, core, vignette }) => {
     const theme = themeFor(style);
     expect(theme.core).toBe(core);
     expect(theme.vignette).toBe(vignette);

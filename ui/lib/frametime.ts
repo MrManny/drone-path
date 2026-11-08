@@ -33,8 +33,10 @@ export function formatTime(sec: number): string {
   return Math.floor(total / 60) + ':' + ('0' + (total % 60)).slice(-2);
 }
 
+// A zero rate stands for "no recording loaded" (the empty workspace has no
+// fps yet); it reads as frame zero instead of a NaN time.
 export function timeAt(frame: number, fps: number): number {
-  return frame / fps;
+  return fps > 0 ? frame / fps : 0;
 }
 
 /** The time readout: the presented position over the recording's duration. */
@@ -59,4 +61,22 @@ export function formatFrameRange(points: LoopPoints, fps: number): string {
 /** The loop readout; empty until any point is set. */
 export function formatLoopReadout(loop: LoopState, fps: number): string {
   return hasLoop(loop) ? `loop ${formatFrameSpan(loop.in, loop.out, fps)}` : '';
+}
+
+// Ruler ticks use one of these whole-second steps; 60 keeps the minute
+// marks, 300 the five-minute ones for long recordings.
+const TICK_STEPS_SEC = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600];
+
+/**
+ * The ruler tick times for a recording: the smallest whole step that keeps
+ * the tick count near six, always starting at 0 and ending at the duration.
+ */
+export function timelineTicks(durationSec: number): number[] {
+  if (!(durationSec > 0)) return [];
+  const step = TICK_STEPS_SEC.find((s) => durationSec / s <= 6) ?? 600;
+  const ticks: number[] = [];
+  for (let t = 0; t < durationSec; t += step) ticks.push(t);
+  const last = Math.round(durationSec);
+  if (ticks[ticks.length - 1] !== last) ticks.push(last);
+  return ticks;
 }

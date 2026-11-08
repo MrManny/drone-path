@@ -136,3 +136,21 @@ describe('ExportForm actions', () => {
     expect(screen.getByText('the app backend went away')).toBeTruthy();
   });
 });
+
+describe('ExportForm scan hierarchy', () => {
+  it('runs the output-size fields above the encoding controls', () => {
+    renderForm({ segment: SEGMENT });
+    const how = screen.getByRole('group', { name: 'How' });
+    const labels = [...how.querySelectorAll('.settings-label')].map((el) => el.textContent);
+    expect(labels).toEqual(['Width', 'Height', 'Format', 'Quality', 'Speed']);
+  });
+
+  it('renders the range choices as distinct rows', () => {
+    renderForm({ segment: SEGMENT });
+    const what = screen.getByRole('group', { name: 'What' });
+    expect(what.querySelectorAll('.export-choice')).toHaveLength(2);
+    const how = screen.getByRole('group', { name: 'How' });
+    expect(how.querySelectorAll('.export-size .settings-row')).toHaveLength(2);
+    expect(how.querySelectorAll('.export-encode .settings-row')).toHaveLength(3);
+  });
+});

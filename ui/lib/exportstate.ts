@@ -14,13 +14,22 @@ export type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
 
 // Only the tail is ever shown, so the reducer keeps a bounded window instead
 // of copying an ever-growing log on every progress line.
-export const LOG_CAP = 50;
+const LOG_CAP = 50;
 
 // The pipeline reports capture progress as typed counts (not log text), so
 // the bar cannot drift from the emitter's wording.
 export function captureFraction(capture: CaptureProgress | null): number | null {
   if (!capture) return null;
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
+}
+
+// The frame the output preview stands on: the middle of the export selection,
+// so the visible trail growth represents the chosen range and tracks its edits
+// without animating the map.
+export function previewFrame(range: FrameRange | null, frames: number): number {
+  const start = range ? range.start : 0;
+  const end = range ? range.end : Math.max(0, frames - 1);
+  return Math.max(0, Math.min(Math.max(0, frames - 1), Math.round((start + end) / 2)));
 }
 
 export interface ExportForm {

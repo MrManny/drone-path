@@ -4,13 +4,13 @@ import type { ReactNode, RefObject } from 'react';
 
 import type { PageVideo } from '../../src/appsession.js';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
-import { pipStyle } from '../lib/pipstyle.js';
-import { MapIsland } from './MapIsland.js';
+import type { StageLayout } from '../lib/layout.js';
+import { MapCard } from './MapCard.js';
 
 export interface PlayerStageProps {
   video: PageVideo;
   sceneData: SceneData;
-  mapIsMain: boolean;
+  layout: StageLayout;
   videoRef: RefObject<HTMLVideoElement | null>;
   onScene: (scene: Scene) => void;
   onPlayState: (playing: boolean) => void;
@@ -21,18 +21,15 @@ export interface PlayerStageProps {
 export function PlayerStage({
   video,
   sceneData,
-  mapIsMain,
+  layout,
   videoRef,
   onScene,
   onPlayState,
   notice,
 }: PlayerStageProps) {
   return (
-    <div className="stage">
-      <div
-        className={`pane ${mapIsMain ? 'pane-pip' : 'pane-main'}`}
-        style={mapIsMain ? pipStyle(true, video.width, video.height) : undefined}
-      >
+    <div className={`stage stage-${layout}`}>
+      <div className="pane-video">
         <video
           ref={videoRef}
           src={video.src}
@@ -43,12 +40,7 @@ export function PlayerStage({
           onEnded={() => onPlayState(false)}
         />
       </div>
-      <div
-        className={`pane ${mapIsMain ? 'pane-main' : 'pane-pip'}`}
-        style={mapIsMain ? undefined : pipStyle(false)}
-      >
-        <MapIsland data={sceneData} onScene={onScene} />
-      </div>
+      <MapCard data={sceneData} onScene={onScene} layout={layout} />
       {notice ? <div className="player-notices">{notice}</div> : null}
     </div>
   );

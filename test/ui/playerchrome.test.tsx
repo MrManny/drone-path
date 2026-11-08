@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { Scene } from '../../src/renderer/scene.js';
@@ -11,56 +11,25 @@ import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
 import { useDialogs } from '../../ui/hooks/useDialogs.js';
 import { START_PREPARE_PROGRESS } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
+import { SESSION, flushRaf, installRafStub } from './harness.js';
 
 const fakeScene = vi.hoisted((): Scene => ({
   setFrame: vi.fn(() => Promise.resolve()),
   relayout: vi.fn(),
   update: vi.fn(() => Promise.resolve()),
   ready: Promise.resolve(),
+  dispose: vi.fn(),
 }));
 
-// The real island delivers its scene asynchronously (after the Leaflet
-// chunk); the mock keeps that timing so late-arrival behavior stays covered.
 vi.mock('../../ui/components/MapIsland.js', async () => {
-  const { useEffect } = await import('react');
-  return {
-    MapIsland: ({ onScene }: { onScene: (scene: Scene) => void }) => {
-      useEffect(() => {
-        const t = setTimeout(() => onScene(fakeScene), 0);
-        return () => clearTimeout(t);
-      }, [onScene]);
-      return <div data-testid="map-island" />;
-    },
-  };
+  const { delayedMapIslandMock } = await import('./harness.js');
+  return delayedMapIslandMock(fakeScene);
 });
 
-const SESSION: UiSession = {
-  scene: {
-    style: 'satellite',
-    tileUrl: '/tiles/satellite/{z}/{x}/{y}.png',
-    view: 'overview',
-    width: 768,
-    height: 768,
-    zoom: 15,
-    center: { lat: 46.61, lon: 14.26 },
-    attribution: 'Test Attribution',
-    introN: 0,
-    outroN: 0,
-    lat: [46.61, 46.611, 46.612],
-    lon: [14.26, 14.261, 14.262],
-    alt: [10, 11, null],
-    speed: [null, 2.5, 3.1],
-    headingDeg: [0, 90, 180],
-    hud: { heading: true, alt: true, speed: true },
-    trailLat: [46.61, 46.612],
-    trailLon: [14.26, 14.262],
-    trailFrame: [0, 2],
-  },
-  video: { src: '/video', fps: 30, frames: 90, width: 1512, height: 2688 },
-  tileBase: '/tiles',
-  bbox: { minLat: 46.6, maxLat: 46.612, minLon: 14.26, maxLon: 14.262 },
-  durationSec: 3,
-};
+vi.mock('../../ui/components/ExportPreview.js', async () => {
+  const { stubExportPreviewMock } = await import('./harness.js');
+  return stubExportPreviewMock();
+});
 
 const SETTINGS: RenderConfig = { ...DEFAULT_CONFIG };
 
@@ -75,25 +44,9 @@ function Chrome({
   return <PlayerChrome {...props} onHelp={onHelp} dialogs={dialogs} />;
 }
 
-const rafQueue: Array<(now: number) => void> = [];
-let rafNow = 0;
-
-function flushRaf(): void {
-  for (const cb of rafQueue.splice(0)) {
-    rafNow += 100;
-    cb(rafNow);
-  }
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  rafQueue.length = 0;
-  rafNow = 0;
-  vi.stubGlobal('requestAnimationFrame', (cb: (now: number) => void): number => {
-    rafQueue.push(cb);
-    return rafQueue.length;
-  });
-  vi.stubGlobal('cancelAnimationFrame', (): void => {});
+  installRafStub();
 });
 
 afterEach(() => {
@@ -121,8 +74,39 @@ describe('PlayerChrome export form memory', () => {
   });
 });
 
-describe('PlayerChrome', () => {
-  it('opens help through the control bar', () => {
+describe('PlayerChrome workspace structure', () => {
+  it('keeps the header, transport, timeline and status bar actions reachable', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    // Header
+    expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Export…' })).toBeTruthy();
+    // Transport
+    expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
+    // The transport carries the one position readout (#157).
+    expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(1);
+    expect(screen.getByRole('group', { name: 'Playback speed' })).toBeTruthy();
+    // Timeline
+    expect(screen.getByRole('button', { name: 'Set loop in' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set loop out' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
+    // Status bar
+    expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
+    expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
+  });
+
+  it('keeps the transport row after the stage row, so it can mirror the stage layout', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const stage = document.querySelector('.stage') as HTMLElement;
+    expect(stage.parentElement?.className).toBe('workspace');
+    expect(stage.nextElementSibling).toBe(document.querySelector('.transport'));
+  });
+
+  it('opens help from the status bar', () => {
     const onHelp = vi.fn();
     render(
       <Chrome
@@ -137,46 +121,32 @@ describe('PlayerChrome', () => {
     expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
-  it('loads the recording and gates playback on tile warm-up', async () => {
+  it('gates playback until the scene is ready', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
-    expect(warmup.disabled).toBe(true);
+    const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
+    expect(play.disabled).toBe(true);
     await waitFor(() => {
-      const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
-      expect(play.disabled).toBe(false);
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Play' }).disabled).toBe(false);
     });
   });
 
-  it('renders the video and the swap control', () => {
+  it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Swap view' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
+    const card = document.querySelector('.map-card') as HTMLElement;
+    expect(card.className).toContain('map-card-split');
+    expect(card.className).not.toContain('map-card-overlay');
   });
 
-  it('groups the bar into left Open, centered transport, and right view controls', () => {
+  it('shows no preview strip over the stage (#157)', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const controls = document.querySelector('.controls') as HTMLElement;
-    const left = controls.querySelector('.controls-left') as HTMLElement;
-    const center = controls.querySelector('.controls-center') as HTMLElement;
-    const right = controls.querySelector('.controls-right') as HTMLElement;
-
-    expect(within(left).getAllByRole('button')).toHaveLength(1);
-    expect(within(left).getByRole('button', { name: 'Open…' })).toBeTruthy();
-
-    expect(within(center).getByRole('button', { name: /Play|Warming tiles/ })).toBeTruthy();
-    expect(within(center).getByRole('button', { name: 'Set loop in' })).toBeTruthy();
-    expect(within(center).getByRole('button', { name: 'Set loop out' })).toBeTruthy();
-    expect(within(center).getByRole('button', { name: 'Clear loop' })).toBeTruthy();
-    expect(within(center).getByRole('slider', { name: 'Playback position' })).toBeTruthy();
-    expect(within(center).getByText('0:00 / 0:03')).toBeTruthy();
-    expect(within(center).getByRole('group', { name: 'Playback speed' })).toBeTruthy();
-
-    expect(within(right).getAllByRole('button')).toHaveLength(4);
-    expect(within(right).getByRole('button', { name: 'Swap view' })).toBeTruthy();
-    expect(within(right).getByRole('button', { name: 'Export…' })).toBeTruthy();
-    expect(within(right).getByRole('button', { name: 'Settings' })).toBeTruthy();
-    expect(within(right).getByRole('button', { name: 'Help' })).toBeTruthy();
+    expect(document.querySelector('.preview-strip')).toBeNull();
+    expect(screen.queryByText('Video + map')).toBeNull();
+    expect(screen.queryByText(/^Paused at|^Playing at/)).toBeNull();
+    expect(screen.getByText('Timeline')).toBeTruthy();
+    expect(screen.queryByText('Playback & loop points')).toBeNull();
   });
 
   it('collects the speed buttons in one labeled group', () => {
@@ -219,76 +189,89 @@ describe('PlayerChrome', () => {
     act(() => flushRaf());
     expect(currentTime).toBeCloseTo(30.5 / 30);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
+    // The imperative readout follows the presented frame.
+    expect(document.querySelector('.transport .readout')?.textContent).toBe('0:01 / 0:03');
+  });
+});
+
+describe('PlayerChrome view swap', () => {
+  it('switches between the split panes and the overlay layout and back', () => {
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    const card = document.querySelector('.map-card') as HTMLElement;
+    expect(card.className).toContain('map-card-split');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(card.className).toContain('map-card-overlay');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(card.className).toContain('map-card-split');
   });
 
-  it('swaps the picture-in-picture layout', () => {
+  it('flips the stage layout class the transport mirrors', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    expect(mapPane.className).toContain('pane-pip');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    expect(mapPane.className).toContain('pane-main');
+    const stage = document.querySelector('.stage') as HTMLElement;
+    expect(stage.className).toContain('stage-split');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(stage.className).toContain('stage-overlay');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(stage.className).toContain('stage-split');
   });
 
-  it('opens the settings panel from the cog button', () => {
+  it('keeps the map island mounted across the swap, so playback stays synchronized', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    const island = screen.getByTestId('map-island');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    expect(screen.getByTestId('map-island')).toBe(island);
   });
 
-  it('pins only the picture-in-picture pane to a sized box', () => {
+  it('does not swap views when the map card is clicked', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
+    const card = document.querySelector('.map-card') as HTMLElement;
+    fireEvent.click(card);
+    expect(card.className).toContain('map-card-split');
+  });
+});
 
-    // Map in the pip box (pipStyle-sized); the video pane must fill the stage.
-    expect(mapPane.className).toContain('pane-pip');
-    expect(mapPane.style.width).toBe('30%');
-    expect(mapPane.style.aspectRatio).toBe('16 / 9');
-    expect(videoPane.className).toContain('pane-main');
-    expect(videoPane.style.width).toBe('');
-
-    // Video in the pip box (aspect-sized, height-bound for portrait);
-    // the map becomes the main pane and must fill the stage, never a pip box.
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    expect(mapPane.className).toContain('pane-main');
-    expect(mapPane.style.width).toBe('');
-    expect(mapPane.style.aspectRatio).toBe('');
-    expect(videoPane.style.width).toBe('auto');
-    expect(videoPane.style.aspectRatio).toBe('1512 / 2688');
+describe('PlayerChrome map appearance popover', () => {
+  it('opens from the footer button and closes with Escape', async () => {
+    const user = userEvent.setup();
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Map settings' });
+    await user.click(toggle);
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    key(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('keeps the map pip above the footage in video view', () => {
+  it('closes on a second toggle press instead of flapping open', async () => {
+    const user = userEvent.setup();
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
-    expect(mapPane.className).toContain('pane-pip');
-    expect(mapPane.style.zIndex).toBe('2');
-    expect(videoPane.className).toContain('pane-main');
-    expect(videoPane.style.zIndex).toBe('');
+    const toggle = screen.getByRole('button', { name: 'Map settings' });
+    await user.click(toggle);
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    await user.click(toggle);
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
   });
 
-  it('keeps the drone footage pip above the map in map view', () => {
-    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    const videoPane = (document.querySelector('video') as HTMLElement).parentElement as HTMLElement;
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    expect(videoPane.className).toContain('pane-pip');
-    expect(videoPane.style.zIndex).toBe('2');
-    expect(mapPane.className).toContain('pane-main');
-    expect(mapPane.style.zIndex).toBe('');
-  });
-
-  it('does not swap views when the map pane is clicked', () => {
-    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const mapPane = screen.getByTestId('map-island').parentElement as HTMLElement;
-    fireEvent.click(mapPane);
-    expect(mapPane.className).toContain('pane-pip');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap view' }));
-    fireEvent.click(mapPane);
-    expect(mapPane.className).toContain('pane-main');
+  it('applies settings changes from the popover', () => {
+    const onSettingsChange = vi.fn();
+    render(
+      <Chrome
+        session={SESSION}
+        settings={SETTINGS}
+        onSettingsChange={onSettingsChange}
+        onOpen={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ style: 'topo' }),
+    );
   });
 });
 
@@ -376,7 +359,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(fake.play).not.toHaveBeenCalled();
   });
 
-  it('gates keyboard play on tile warm-up', () => {
+  it('gates keyboard play until the scene is ready', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
     key(window, { key: ' ' });
@@ -408,19 +391,19 @@ describe('PlayerChrome keyboard shortcuts', () => {
   it('claims keys that land before the post-commit effect flush', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
-    const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
+    const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
     // The enabling commit's MutationObserver microtask runs before that
     // commit's passive effects — the window where a stale handler swallowed
     // keys (#62).
     const pressed = new Promise<void>((resolve) => {
       const observer = new MutationObserver(() => {
-        if (warmup.disabled) return;
+        if (play.disabled) return;
         observer.disconnect();
         key(window, { key: ' ' });
         key(window, { key: 'ArrowRight' });
         resolve();
       });
-      observer.observe(warmup, { attributes: true, attributeFilter: ['disabled'] });
+      observer.observe(play, { attributes: true, attributeFilter: ['disabled'] });
     });
     await pressed;
     expect(fake.play).toHaveBeenCalledTimes(1);
@@ -468,12 +451,23 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(fake.state.currentTime).toBeCloseTo(0.5 / 30);
   });
 
-  it('leaves native arrow stepping to the focused scrubber', async () => {
+  it('steps a frame with the arrows while the scrubber holds focus (#157)', async () => {
     const fake = await renderPlayer();
     const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
     const event = key(scrub, { key: 'ArrowRight' });
-    expect(event.defaultPrevented).toBe(false);
-    expect(fake.state.currentTime).toBe(0);
+    expect(event.defaultPrevented).toBe(true);
+    act(() => flushRaf());
+    expect(fake.state.currentTime).toBeCloseTo(1.5 / 30);
+  });
+
+  it('sets the loop points with I and O while the scrubber holds focus (#157)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    expect(document.querySelector('.loop-band')).toBeNull();
+    key(scrub, { key: 'i' });
+    key(scrub, { key: 'ArrowRight' });
+    key(scrub, { key: 'o' });
+    expect(document.querySelector('.loop-band')).toBeTruthy();
   });
 
   it('leaves unclaimed keys to their default behavior', async () => {
@@ -495,14 +489,20 @@ describe('PlayerChrome keyboard shortcuts', () => {
     key(scrub, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(2);
   });
+
+  it('swaps the layout with S', async () => {
+    await renderPlayer();
+    const card = document.querySelector('.map-card') as HTMLElement;
+    key(window, { key: 's' });
+    expect(card.className).toContain('map-card-overlay');
+  });
 });
 
 describe('PlayerChrome loop region', () => {
   it('sets the loop with I and O, shows the region, and wraps playback into it', async () => {
     const fake = await renderPlayer();
     setLoopRegion(30, 60);
-    const center = document.querySelector('.controls-center') as HTMLElement;
-    expect(within(center).getByText('loop 0:01–0:02')).toBeTruthy();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
     const band = document.querySelector('.loop-band') as HTMLElement;
     expect(parseFloat(band.style.left)).toBeCloseTo((30 / 89) * 100);
     expect(parseFloat(band.style.width)).toBeCloseTo((30 / 89) * 100);
@@ -513,15 +513,15 @@ describe('PlayerChrome loop region', () => {
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
   });
 
-  it('clears the loop with Esc and closes an open modal first', async () => {
+  it('closes the popover on Esc first and clears the loop on the second', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     key(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
-    expect(screen.getByText('loop 0:01–0:02')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
     key(window, { key: 'Escape' });
-    expect(screen.queryByText('loop 0:01–0:02')).toBeNull();
+    expect(document.querySelector('.loop-readout')).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(true);
   });
 
@@ -529,7 +529,7 @@ describe('PlayerChrome loop region', () => {
     await renderPlayer();
     setLoopRegion(30, 60);
     fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));
-    expect(screen.queryByText('loop 0:01–0:02')).toBeNull();
+    expect(document.querySelector('.loop-readout')).toBeNull();
   });
 
   it('states why Clear is disabled without a loop', async () => {
@@ -545,7 +545,7 @@ describe('PlayerChrome loop region', () => {
     await renderPlayer();
     setLoopRegion(60, 30);
     expect(document.querySelector('.loop-band')).toBeNull();
-    expect(screen.getByText('loop 0:02–0:01')).toBeTruthy();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:02–0:01');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(false);
   });
 
@@ -562,10 +562,10 @@ describe('PlayerChrome loop region', () => {
 });
 
 describe('PlayerChrome shortcut guard rails', () => {
-  it('keeps player keys inert while the settings modal is open', async () => {
+  it('keeps player keys inert while a dialog is open', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
     key(window, { key: ' ' });
     key(window, { key: '2' });
     key(window, { key: 'ArrowRight' });
@@ -576,27 +576,36 @@ describe('PlayerChrome shortcut guard rails', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it('keeps player keys inert while typing in a settings field', async () => {
+  it('keeps player keys inert while typing in a popover field', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     const field = document.querySelector('input[type="number"]') as HTMLInputElement;
     key(field, { key: '3' });
     key(field, { key: ' ' });
-    key(field, { key: 'o', ctrlKey: true });
     expect(fake.state.playbackRate).toBe(1);
     expect(fake.play).not.toHaveBeenCalled();
     expect(onOpen).not.toHaveBeenCalled();
+    // Ctrl+O stays available while typing, as everywhere else.
+    key(field, { key: 'o', ctrlKey: true });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps player keys live while the popover is open', async () => {
+    const fake = await renderPlayer();
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    key(window, { key: ' ' });
+    expect(fake.play).toHaveBeenCalledTimes(1);
   });
 
   it('leaves Esc on an open select dropdown to the select', async () => {
     await renderPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
     const select = document.querySelector('select') as HTMLSelectElement;
     key(select, { key: 'Escape' });
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     key(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
   });
 });
 
@@ -623,7 +632,7 @@ describe('PlayerChrome open notice', () => {
       />,
     );
     expect(screen.getByRole('alert').textContent).toContain('"win.ini" is not a readable .mp4 recording.');
-    expect(document.querySelector('.controls')).not.toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });

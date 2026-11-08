@@ -72,6 +72,10 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =>
   [/^render canceled$/, () => 'The export was canceled.'],
   [/^not a readable \.mp4 file: (.+)$/, (m) => `"${leafName(m[1])}" is not a readable .mp4 recording.`],
   [
+    /^no telemetry found: /,
+    () => 'This recording has no flight telemetry. Add its .SRT sidecar or choose a recording with GPS data.',
+  ],
+  [
     /^output verification failed: /,
     () => 'The finished file does not match the recording frame count or frame rate.',
   ],

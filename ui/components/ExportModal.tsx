@@ -9,7 +9,12 @@ import type { AppBridge, ExportAck } from '../lib/backend.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogRunEvent } from '../lib/dialogstate.js';
 import type { ExportEvent } from '../lib/exportstate.js';
-import { captureFraction, exportReducer, initialExportState } from '../lib/exportstate.js';
+import {
+  captureFraction,
+  exportReducer,
+  initialExportState,
+  previewFrame,
+} from '../lib/exportstate.js';
 import { formatFrameRange, formatTime } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { engagedLoop } from '../lib/loop.js';
@@ -18,6 +23,7 @@ import { ExportCanceled } from './ExportCanceled.js';
 import { ExportDone } from './ExportDone.js';
 import { ExportError } from './ExportError.js';
 import { ExportForm } from './ExportForm.js';
+import { ExportPreview } from './ExportPreview.js';
 import { ExportRunning } from './ExportRunning.js';
 
 export interface ExportModalProps {
@@ -96,6 +102,12 @@ export function ExportModal({
   }, []);
 
   const { phase, form, result, error, canceling } = state;
+  // The preview depicts the output: the frozen request while a job runs, the
+  // live choices before it starts. It ends with the job's outcome — canceled
+  // and error are notice-only so nothing implies a kept file.
+  const showPreview = phase === 'form' || phase === 'running' || phase === 'done';
+  const previewConfig = state.request?.config ?? settings;
+  const previewRange = state.request ? state.request.range : form.range;
   const totalText = formatTime(durationSec);
   const segment: { range: FrameRange; label: string } | null = loopPoints
     ? {
@@ -187,46 +199,61 @@ export function ExportModal({
   return (
     <DialogShell
       title="Export"
+      panelClass="export-panel"
       onClose={onClose}
       closeOnBackdrop={dismissible}
       blockedReason={dismissible ? undefined : 'Export is running. Cancel it to close.'}
     >
-      {phase === 'form' ? (
-        <ExportForm
-          form={form}
-          segment={segment}
-          totalText={totalText}
-          encode={{ codec: settings.codec, quality: settings.quality, preset: settings.preset }}
-          error={error}
-          dispatch={dispatch}
-          onEncoderChange={changeEncoder}
-          onClose={onClose}
-          onStart={() => void chooseAndExport()}
-        />
-      ) : null}
+      <div className="export-body">
+        {showPreview ? (
+          <ExportPreview
+            session={session}
+            config={previewConfig}
+            size={{ width: form.width, height: form.height }}
+            frame={previewFrame(previewRange, video.frames)}
+          />
+        ) : null}
+        <div className="export-phase">
+          {phase === 'form' ? (
+            <ExportForm
+              form={form}
+              segment={segment}
+              totalText={totalText}
+              encode={{ codec: settings.codec, quality: settings.quality, preset: settings.preset }}
+              error={error}
+              dispatch={dispatch}
+              onEncoderChange={changeEncoder}
+              onClose={onClose}
+              onStart={() => void chooseAndExport()}
+            />
+          ) : null}
 
-      {phase === 'running' ? (
-        <ExportRunning
-          fraction={captureFraction(state.capture)}
-          canceling={canceling}
-          error={error}
-          onCancel={cancelExport}
-        />
-      ) : null}
+          {phase === 'running' ? (
+            <ExportRunning
+              fraction={captureFraction(state.capture)}
+              canceling={canceling}
+              error={error}
+              onCancel={cancelExport}
+            />
+          ) : null}
 
-      {phase === 'done' && result ? (
-        <ExportDone
-          result={result}
-          error={error}
-          onReveal={() => runDoneAction((bridge) => bridge.revealExportOutput({ out: result.out }))}
-          onOpen={() => runDoneAction((bridge) => bridge.openExportOutput({ out: result.out }))}
-          onClose={onClose}
-        />
-      ) : null}
+          {phase === 'done' && result ? (
+            <ExportDone
+              result={result}
+              error={error}
+              onReveal={() =>
+                runDoneAction((bridge) => bridge.revealExportOutput({ out: result.out }))
+              }
+              onOpen={() => runDoneAction((bridge) => bridge.openExportOutput({ out: result.out }))}
+              onClose={onClose}
+            />
+          ) : null}
 
-      {phase === 'canceled' ? <ExportCanceled onClose={onClose} /> : null}
+          {phase === 'canceled' ? <ExportCanceled onClose={onClose} /> : null}
 
-      {phase === 'error' && error ? <ExportError error={error} onClose={onClose} /> : null}
+          {phase === 'error' && error ? <ExportError error={error} onClose={onClose} /> : null}
+        </div>
+      </div>
     </DialogShell>
   );
 }

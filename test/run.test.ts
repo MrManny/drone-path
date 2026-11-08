@@ -6,8 +6,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { RenderConfig } from '../src/config.js';
-import { project } from '../src/geo.js';
-import { GATE_TILE_COUNT, displayedTiles } from '../src/plan.js';
+import { planView } from '../src/plan.js';
 import {
   frameArrays,
   outputPathFor,
@@ -159,55 +158,18 @@ describe('prepareSession', () => {
 });
 
 describe('prepareSession progress reports', () => {
-  it('advances one step per stage and one per planned tile, ending at the full count', async () => {
+  it('reports one step at the start of every stage', async () => {
     const events: PrepareProgress[] = [];
-    const deps = stubDeps({
-      prefetchTiles: async ({ tiles, onTile }) => {
-        tiles.forEach(() => onTile?.('downloaded'));
-        return { downloaded: tiles.length, failed: 0, total: tiles.length };
-      },
-    });
     await prepareSession(VIDEO, testConfig(), () => {}, {
-      deps,
+      deps: stubDeps(),
       onProgress: (progress) => events.push(progress),
     });
 
-    const tileCount = events[3].tilesTotal;
-    expect(tileCount).toBeGreaterThan(0);
-    expect(events[0]).toEqual(START_PREPARE_PROGRESS);
-    expect(events.slice(1, 3)).toEqual([
-      { stage: 'telemetry', done: 1, total: 3, tilesDone: 0, tilesTotal: 0 },
-      { stage: 'plan', done: 2, total: 3, tilesDone: 0, tilesTotal: 0 },
+    expect(events).toEqual([
+      START_PREPARE_PROGRESS,
+      { stage: 'telemetry', done: 1, total: 3 },
+      { stage: 'plan', done: 2, total: 3 },
     ]);
-    expect(events).toHaveLength(4 + tileCount);
-    events.slice(3).forEach((event, i) => {
-      expect(event).toEqual({
-        stage: 'tiles',
-        done: 3 + i,
-        total: 3 + tileCount,
-        tilesDone: i,
-        tilesTotal: tileCount,
-      });
-    });
-  });
-
-  it('counts cached and failed tiles as progress', async () => {
-    const events: PrepareProgress[] = [];
-    const deps = stubDeps({
-      prefetchTiles: async ({ tiles, onTile }) => {
-        onTile?.('cached');
-        for (let i = 1; i < tiles.length; i++) onTile?.('failed');
-        return { downloaded: 0, failed: tiles.length - 1, total: tiles.length };
-      },
-    });
-    await prepareSession(VIDEO, testConfig(), () => {}, {
-      deps,
-      onProgress: (progress) => events.push(progress),
-    });
-
-    const last = events[events.length - 1];
-    expect(last.tilesDone).toBe(last.tilesTotal);
-    expect(last.done).toBe(last.total);
   });
 
   it('stops reporting once a stage fails', async () => {
@@ -227,134 +189,90 @@ describe('prepareSession progress reports', () => {
   });
 });
 
-describe('prepareSession tile gate', () => {
-  const FRAME = { width: 480, height: 270 };
-
-  function warmRecorder(
-    onTile: (status: 'cached' | 'downloaded' | 'failed') => void = () => {},
-  ) {
+describe('processRecording tile pre-warm', () => {
+  function warmRecorder() {
     const warmed: { z: number; x: number; y: number }[][] = [];
     const deps = stubDeps({
-      prefetchTiles: async ({ tiles, onTile: settle }) => {
+      prefetchTiles: async ({ tiles }) => {
         warmed.push(tiles);
-        tiles.forEach(() => {
-          settle?.('downloaded');
-          onTile('downloaded');
-        });
         return { downloaded: tiles.length, failed: 0, total: tiles.length };
       },
     });
     return { deps, warmed };
   }
 
-  it('warms the tiles the first frame shows and fills the bar exactly at the switch', async () => {
-    const events: PrepareProgress[] = [];
+  it('warms the whole planned tile set before the render starts', async () => {
     const { deps, warmed } = warmRecorder();
-    const prep = await prepareSession(VIDEO, testConfig(), () => {}, {
-      deps,
-      tileWait: 'gate',
-      frameSize: FRAME,
-      onProgress: (progress) => events.push(progress),
-    });
+    const config = testConfig();
+    const out = path.join(tmpDir(), 'out.mp4');
+    const summary = await processRecording(VIDEO, config, () => {}, out, { deps });
 
-    // The gate covers the first frame, not the whole export-canvas plan.
+    // The render path waits for the plan the view stage computed, not a gate.
     expect(warmed).toHaveLength(1);
-    expect(warmed[0].length).toBeGreaterThanOrEqual(GATE_TILE_COUNT);
-    expect(warmed[0].length).toBeLessThan(prep.overview.tiles.length);
-    for (const tile of warmed[0]) expect(prep.overview.tiles).toContainEqual(tile);
-
-    const last = events[events.length - 1];
-    expect(last.tilesTotal).toBe(warmed[0].length);
-    expect(last.tilesDone).toBe(warmed[0].length);
-    expect(last.done).toBe(last.total);
+    expect(warmed[0]).toEqual(
+      planView(telemetryFixture().bbox, config.width, config.height, config).tiles,
+    );
+    expect(summary.tilesDownloaded).toBe(warmed[0].length);
   });
 
-  it('always warms the tile under the drone at the first frame', async () => {
-    const { deps, warmed } = warmRecorder();
-    const prep = await prepareSession(VIDEO, testConfig(), () => {}, {
-      deps,
-      tileWait: 'gate',
-      frameSize: FRAME,
+  it('keeps waiting for the tiles before the first rendered frame', async () => {
+    let release: () => void = () => {};
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
     });
-
-    const z = prep.overview.tiles[0].z;
-    const origin = project(14.2, 46.6, z);
-    expect(warmed[0]).toContainEqual({
-      z,
-      x: Math.floor(origin.x / 256),
-      y: Math.floor(origin.y / 256),
-    });
-  });
-
-  it('covers more tiles when the intro starts zoomed out', async () => {
-    const plain = warmRecorder();
-    await prepareSession(VIDEO, testConfig({ introSec: 0, outroSec: 0 }), () => {}, {
-      deps: plain.deps,
-      tileWait: 'gate',
-      frameSize: FRAME,
-    });
-    const intro = warmRecorder();
-    await prepareSession(VIDEO, testConfig({ introSec: 2, outroSec: 0 }), () => {}, {
-      deps: intro.deps,
-      tileWait: 'gate',
-      frameSize: FRAME,
-    });
-
-    expect(intro.warmed[0].length).toBeGreaterThan(plain.warmed[0].length);
-  });
-
-  it('warms the whole displayed set when it holds fewer tiles than the gate', async () => {
-    const events: PrepareProgress[] = [];
-    const { deps, warmed } = warmRecorder();
-    const frame = { width: 64, height: 64 };
-    const config = testConfig({
-      width: 64,
-      height: 64,
-      style: 'topo',
-      zoom: 19,
-      view: 'overview',
-    });
-    const prep = await prepareSession(VIDEO, config, () => {}, {
-      deps,
-      tileWait: 'gate',
-      frameSize: frame,
-      onProgress: (progress) => events.push(progress),
-    });
-
-    const displayed = displayedTiles(prep.tel.bbox, prep.overview.zoom, frame, config);
-    expect(displayed.length).toBeLessThan(GATE_TILE_COUNT);
-    expect(warmed[0]).toEqual(displayed);
-    expect(events[events.length - 1].done).toBe(events[events.length - 1].total);
-  });
-
-  it('counts failed tiles toward the gate so an offline machine still opens', async () => {
-    const events: PrepareProgress[] = [];
+    const rendered: string[] = [];
     const deps = stubDeps({
-      prefetchTiles: async ({ tiles, onTile }) => {
-        tiles.forEach(() => onTile?.('failed'));
-        return { downloaded: 0, failed: tiles.length, total: tiles.length };
+      prefetchTiles: async ({ tiles }) => {
+        rendered.push('prefetch:start');
+        await waiting;
+        rendered.push('prefetch:done');
+        return { downloaded: tiles.length, failed: 0, total: tiles.length };
+      },
+      renderVideo: async () => {
+        rendered.push('render');
+        return { profile: { evalMs: 0, captureMs: 0, emitMs: 0 } };
       },
     });
-    await prepareSession(VIDEO, testConfig(), () => {}, {
-      deps,
-      tileWait: 'gate',
-      frameSize: FRAME,
-      onProgress: (progress) => events.push(progress),
-    });
 
-    const last = events[events.length - 1];
-    expect(last.tilesDone).toBe(last.tilesTotal);
-    expect(last.done).toBe(last.total);
+    const pending = processRecording(VIDEO, testConfig(), () => {}, path.join(tmpDir(), 'out.mp4'), {
+      deps,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rendered).toEqual(['prefetch:start']);
+    release();
+    await pending;
+    expect(rendered).toEqual(['prefetch:start', 'prefetch:done', 'render']);
   });
 
-  it('keeps waiting for every planned tile by default', async () => {
-    const { deps, warmed } = warmRecorder();
-    const prep = await prepareSession(VIDEO, testConfig(), () => {}, { deps });
-    expect(warmed[0]).toEqual(prep.overview.tiles);
+  it('counts cached and failed tiles toward the summary', async () => {
+    const deps = stubDeps({
+      prefetchTiles: async ({ tiles }) => {
+        return { downloaded: 1, failed: tiles.length - 1, total: tiles.length };
+      },
+    });
+    const summary = await processRecording(
+      VIDEO,
+      testConfig(),
+      () => {},
+      path.join(tmpDir(), 'out.mp4'),
+      { deps },
+    );
+    expect(summary.tilesDownloaded).toBe(1);
+  });
+
+  it('fails the render when the tile pre-warm fails', async () => {
+    const deps = stubDeps({
+      prefetchTiles: async () => {
+        throw new Error('tile download exploded');
+      },
+    });
+    await expect(
+      processRecording(VIDEO, testConfig(), () => {}, path.join(tmpDir(), 'out.mp4'), { deps }),
+    ).rejects.toThrow('tile download exploded');
   });
 });
 
-describe('prepareSession deps overrides', () => {
+describe('processRecording deps overrides', () => {
   it('runs the real prefetch into the run cache when only other deps are overridden', async () => {
     vi.useFakeTimers();
     const stubs = stubDeps();
@@ -362,17 +280,21 @@ describe('prepareSession deps overrides', () => {
     vi.stubGlobal('fetch', fetchStub);
     const config = testConfig();
 
-    const pending = prepareSession(VIDEO, config, () => {}, {
-      deps: { probeVideo: stubs.probeVideo, loadTelemetry: stubs.loadTelemetry },
+    const pending = processRecording(VIDEO, config, () => {}, path.join(tmpDir(), 'out.mp4'), {
+      deps: {
+        probeVideo: stubs.probeVideo,
+        loadTelemetry: stubs.loadTelemetry,
+        renderVideo: stubs.renderVideo,
+        verifyOutput: stubs.verifyOutput,
+      },
     });
     await vi.advanceTimersByTimeAsync(60000);
-    const prep = await pending;
+    const summary = await pending;
 
-    expect(fetchStub).toHaveBeenCalledTimes(prep.tileStats.total);
-    expect(prep.tileStats.total).toBeGreaterThan(0);
-    expect(prep.tileStats.downloaded).toBe(prep.tileStats.total);
+    expect(fetchStub).toHaveBeenCalledTimes(summary.tilesDownloaded ?? 0);
+    expect(summary.tilesDownloaded).toBeGreaterThan(0);
     // The seam names no cache; the default warm binds the run's own cache.
-    const first = prep.overview.tiles[0];
+    const first = planView(telemetryFixture().bbox, config.width, config.height, config).tiles[0];
     expect(fs.existsSync(tilePaths(config.tileCache, config.style, first).file)).toBe(true);
   });
 
@@ -384,19 +306,27 @@ describe('prepareSession deps overrides', () => {
       const fetchStub = vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 }));
       vi.stubGlobal('fetch', fetchStub);
 
-      const pending = prepareSession(VIDEO, testConfig(), () => {}, {
-        deps: {
-          probeVideo: stubs.probeVideo,
-          loadTelemetry: stubs.loadTelemetry,
-          // The cast mirrors untyped shell code, which can legally send null.
-          prefetchTiles: nullish as unknown as PipelineDeps['prefetchTiles'],
+      const pending = processRecording(
+        VIDEO,
+        testConfig(),
+        () => {},
+        path.join(tmpDir(), 'out.mp4'),
+        {
+          deps: {
+            probeVideo: stubs.probeVideo,
+            loadTelemetry: stubs.loadTelemetry,
+            renderVideo: stubs.renderVideo,
+            verifyOutput: stubs.verifyOutput,
+            // The cast mirrors untyped shell code, which can legally send null.
+            prefetchTiles: nullish as unknown as PipelineDeps['prefetchTiles'],
+          },
         },
-      });
+      );
       await vi.advanceTimersByTimeAsync(60000);
-      const prep = await pending;
+      const summary = await pending;
 
-      expect(prep.tileStats.total).toBeGreaterThan(0);
-      expect(fetchStub).toHaveBeenCalledTimes(prep.tileStats.total);
+      expect(summary.tilesDownloaded).toBeGreaterThan(0);
+      expect(fetchStub).toHaveBeenCalledTimes(summary.tilesDownloaded ?? 0);
     },
   );
 });

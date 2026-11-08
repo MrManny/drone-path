@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { ExportRequest } from '../../src/config.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
-import { captureFraction, exportReducer, initialExportState } from '../../ui/lib/exportstate.js';
+import {
+  captureFraction,
+  exportReducer,
+  initialExportState,
+  previewFrame,
+} from '../../ui/lib/exportstate.js';
 import type { ExportEvent, ExportState } from '../../ui/lib/exportstate.js';
 
 const REQUEST: ExportRequest = {
@@ -256,5 +261,28 @@ describe('captureFraction', () => {
   it('never exceeds 1 and tolerates a zero total', () => {
     expect(captureFraction({ done: 9, total: 5 })).toBe(1);
     expect(captureFraction({ done: 0, total: 0 })).toBeNull();
+  });
+});
+
+describe('previewFrame', () => {
+  it.for<{
+    name: string;
+    range: { start: number; end: number } | null;
+    frames: number;
+    mid: number;
+  }>([
+    { name: 'the chosen segment', range: { start: 300, end: 360 }, frames: 621, mid: 330 },
+    { name: 'the full recording', range: null, frames: 621, mid: 310 },
+    { name: 'a single-frame segment', range: { start: 7, end: 7 }, frames: 10, mid: 7 },
+  ])('stands on the middle of $name', ({ range, frames, mid }) => {
+    expect(previewFrame(range, frames)).toBe(mid);
+  });
+
+  it('clamps a segment past the recording to its last frame', () => {
+    expect(previewFrame({ start: 900, end: 1000 }, 621)).toBe(620);
+  });
+
+  it('stays inside an empty recording', () => {
+    expect(previewFrame(null, 0)).toBe(0);
   });
 });

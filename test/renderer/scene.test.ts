@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LatLngExpr, LeafletApi, MarkerHandle, PolylineHandle, TileLayerHandle } from '../../src/renderer/leaflet.js';
 import { createScene } from '../../src/renderer/scene.js';
 import type { SceneData } from '../../src/renderer/scene.js';
+import { themeFor } from '../../src/renderer/theme.js';
 
 interface PolylineRecord {
   points: Array<[number, number]>;
@@ -34,7 +35,7 @@ function fakeL(host: HTMLElement): {
     options: Array<{ maxZoom: number; maxNativeZoom?: number }>;
     handlers: Record<string, () => void>;
   };
-  map: { views: Array<[LatLngExpr, number]>; invalidations: number };
+  map: { views: Array<[LatLngExpr, number]>; invalidations: number; removed: number };
   removals: { count: number };
 } {
   const polylines: PolylineRecord[] = [];
@@ -46,7 +47,7 @@ function fakeL(host: HTMLElement): {
     options: [] as Array<{ maxZoom: number; maxNativeZoom?: number }>,
     handlers: {} as Record<string, () => void>,
   };
-  const map = { views: [] as Array<[LatLngExpr, number]>, invalidations: 0 };
+  const map = { views: [] as Array<[LatLngExpr, number]>, invalidations: 0, removed: 0 };
 
   const L: LeafletApi = {
     map: () => ({
@@ -57,6 +58,9 @@ function fakeL(host: HTMLElement): {
       project: (latlng) => ({ x: latOf(latlng) * 1000, y: lngOf(latlng) * 1000 }),
       invalidateSize() {
         map.invalidations++;
+      },
+      remove() {
+        map.removed++;
       },
     }),
     tileLayer: (url, options): TileLayerHandle => {
@@ -210,7 +214,7 @@ describe('createScene', () => {
     expect(host.querySelector('#attr')?.textContent).toBe('Test Attribution');
     expect(tile.url).toBe('/tiles/satellite/{z}/{x}/{y}.png');
     expect(document.head.textContent).toContain('#map-frame');
-    expect(document.head.textContent).toContain('#41f0ff');
+    expect(document.head.textContent).toContain('#e87f54');
   });
 
   it('centers the overview view on the configured center', () => {
@@ -360,7 +364,7 @@ describe('Scene.update', () => {
     // The new source's zoom constraints go with the layer (topo is native
     // to z17; asking it for z18+ returns placeholder tiles).
     expect(tile.options.at(-1)).toMatchObject({ maxZoom: 19, maxNativeZoom: 17 });
-    expect(document.head.textContent).toContain('#e63946');
+    expect(document.head.textContent).toContain(themeFor('topo').glow);
     expect(host.querySelector('#attr')?.textContent).toBe('Topo Attribution');
     expect(removals.count).toBeGreaterThan(0);
     expect(polylines.length).toBeGreaterThan(layersBefore);
@@ -437,5 +441,44 @@ describe('Scene.update', () => {
       { lat: expect.closeTo(46.611, 6), lng: expect.closeTo(14.261, 6) },
       13,
     ]);
+  });
+});
+
+describe('coexisting scenes', () => {
+  function scopeOf(host: HTMLElement): string {
+    return [...host.classList].find((c) => c.startsWith('scene-scope-')) ?? '';
+  }
+
+  it('scopes each scene style to its own host', () => {
+    const a = mount();
+    const b = mount();
+    createScene(a.host, sceneData(), { L: fakeL(a.host).L });
+    const cssA = document.head.querySelector('style')?.textContent ?? '';
+    createScene(b.host, sceneData(), { L: fakeL(b.host).L });
+    const styles = document.head.querySelectorAll('style');
+    const cssB = styles[1]?.textContent ?? '';
+    const scopeA = scopeOf(a.host);
+    const scopeB = scopeOf(b.host);
+
+    expect(scopeA).not.toBe('');
+    expect(scopeB).not.toBe('');
+    expect(scopeA).not.toBe(scopeB);
+    expect(cssA).toContain(`.${scopeA} #map`);
+    expect(cssA).not.toContain(scopeB);
+    expect(cssB).toContain(`.${scopeB} #map`);
+    expect(cssB).not.toContain(scopeA);
+  });
+
+  it('dispose removes the injected style and the map and settles ready', async () => {
+    const { host } = mount();
+    const { L, map } = fakeL(host);
+    const scene = createScene(host, sceneData(), { L });
+    const stylesBefore = document.head.querySelectorAll('style').length;
+
+    scene.dispose();
+
+    expect(document.head.querySelectorAll('style').length).toBe(stylesBefore - 1);
+    expect(map.removed).toBe(1);
+    await expect(scene.ready).resolves.toBeUndefined();
   });
 });

@@ -20,7 +20,7 @@ import {
   rememberOpenedFile,
   writeAppState,
 } from '../dist/appstate.js';
-import { createAppSession, parseWarmRequest } from '../dist/appsession.js';
+import { createAppSession, parsePickRequest } from '../dist/appsession.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
 import { resolveConfig } from '../dist/configfile.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
@@ -213,9 +213,9 @@ async function initServices(state) {
   state.appState = readAppState(appStateFile());
   state.config = applyAppState(resolved.config, state.appState);
   await requireTools(resolveFfTools(state.config));
-  // One polite tile queue for the whole app: the gate pre-warm, the
-  // background pre-warm, on-demand tiles and exports all share its request
-  // budget, and on-demand tiles the player needs right now jump the queue.
+  // One polite tile queue for the whole app: on-demand tiles and the export
+  // prefetch share its request budget, and on-demand tiles the player needs
+  // right now jump the queue.
   state.tileTraffic = createTileTraffic(state.config.tileCache);
   state.tilePrefetch = (options) => state.tileTraffic.stream(options);
   state.session = createAppSession({
@@ -225,8 +225,6 @@ async function initServices(state) {
     onPreparing: () => sendToWindow(state, 'neo2flightpath:preparing'),
     onPrepareProgress: (progress) =>
       sendToWindow(state, 'neo2flightpath:preparing:progress', progress),
-    streamTiles: state.tilePrefetch,
-    onWarmProgress: (progress) => sendToWindow(state, 'neo2flightpath:warm:progress', progress),
   });
 }
 
@@ -248,7 +246,7 @@ function registerIpcHandlers(state) {
   ipcMain.handle('neo2flightpath:pick', (event, raw) => {
     assertTrusted(event);
     try {
-      return state.session.pick(parseWarmRequest(raw));
+      return state.session.pick(parsePickRequest(raw));
     } catch (e) {
       return { ok: false, error: errorMessage(e) };
     }
@@ -278,15 +276,6 @@ function registerIpcHandlers(state) {
       log(`app state not saved: ${errorMessage(e)}`);
     }
     return { ok: true };
-  });
-  ipcMain.handle('neo2flightpath:warm:retarget', (event, raw) => {
-    assertTrusted(event);
-    try {
-      state.session.warm.retarget(parseWarmRequest(raw));
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: errorMessage(e) };
-    }
   });
 
   ipcMain.handle('neo2flightpath:export:pick-output', async (event) => {
@@ -402,7 +391,7 @@ function createWindow(state) {
     minWidth: 1024,
     minHeight: 600,
     // Match --page in ui/app/globals.css so startup shows one background.
-    backgroundColor: '#0b1017',
+    backgroundColor: '#232323',
     autoHideMenuBar: true,
     // The loaded page's <title> takes over after load (ui/app/layout.tsx).
     title: 'Neo2 Flightpath',

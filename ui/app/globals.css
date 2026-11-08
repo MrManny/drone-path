@@ -1,37 +1,43 @@
 /* Design tokens: every surface, text tone, state color, radius and motion value
    the UI uses is named here once. Components reference these names only. */
 :root {
-  --page: #0b1017;
-  --surface-1: #121a25;
-  --surface-2: #19232f;
-  --surface-3: #212c3a;
-  --surface-4: #2b3749;
-  --bar: rgba(11, 16, 23, 0.94);
-  --scrim: rgba(4, 7, 12, 0.5);
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-strong: rgba(255, 255, 255, 0.16);
-  --hairline-hover: rgba(255, 255, 255, 0.28);
-  --text: #eef3f8;
-  --text-2: rgba(238, 243, 248, 0.74);
-  --text-3: rgba(238, 243, 248, 0.6);
-  --accent: #5cd5ff;
-  --accent-hover: #8fe6ff;
-  --accent-press: #47c2ec;
-  --accent-ink: #071018;
-  --focus: #ffffff;
-  --danger: #ff7a7a;
-  --warning: #ffcb6b;
-  --info: #8ab4ff;
-  --loop: #b388ff;
-  --loop-text: #d4bcff;
+  --page: #232323;
+  --surface-1: #2e2e2e;
+  --surface-2: #363636;
+  --surface-3: #454545;
+  --surface-4: #525252;
+  --bar: rgba(35, 35, 35, 0.94);
+  --glass: rgba(35, 35, 35, 0.6);
+  --scrim: rgba(10, 10, 10, 0.6);
+  --hairline: rgba(232, 232, 232, 0.12);
+  --hairline-strong: rgba(232, 232, 232, 0.24);
+  --hairline-hover: rgba(232, 232, 232, 0.42);
+  --text: #e8e8e8;
+  --text-2: rgba(232, 232, 232, 0.75);
+  --text-3: rgba(232, 232, 232, 0.68);
+  --accent: #e87f54;
+  --accent-hover: #f0a967;
+  --accent-press: #c96640;
+  --accent-ink: #2b1207;
+  --accent-text: #f0a967;
+  --focus: #e8e8e8;
+  --danger: #df5441;
+  --danger-text: #f37d75;
+  --warning: #f0a967;
+  --info: #7fa3c4;
+  --loop: #ecc9a8;
+  --loop-text: #f4e2d2;
   --radius-control: 8px;
   --radius-panel: 12px;
   --radius-pill: 999px;
   --control-h: 36px;
-  --bar-h: 64px;
+  --header-h: 56px;
+  --transport-h: 48px;
+  --timeline-h: 200px;
+  --status-h: 32px;
+  --rail-w: clamp(280px, 28%, 372px);
   --dialog-top: 56px;
   --shadow-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-pip: 0 12px 32px rgba(0, 0, 0, 0.5);
   --disabled-opacity: 0.45;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --motion: 140ms;
@@ -43,6 +49,8 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* Contain child margins so none of them can grow the page. */
+  display: flow-root;
   background: var(--page);
   color: var(--text);
   /* Dark native widgets (select popups, scrollbars, spinners): Chromium would
@@ -163,35 +171,6 @@ button.primary {
   color: var(--text-3);
 }
 
-/* Landing: one raised card on the page surface. */
-.landing {
-  max-width: 560px;
-  margin: 12vh auto 0;
-  padding: 32px;
-  box-sizing: border-box;
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-float);
-}
-.landing h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-.landing > p:not(.hint) {
-  margin: 0 0 16px;
-  line-height: 1.5;
-  color: var(--text-2);
-}
-.landing .hint {
-  margin: 16px 0 0;
-}
-.landing-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* One notice for every surface: same placement, type size and tone tokens. */
 .notice {
   display: flex;
@@ -256,32 +235,96 @@ button.primary {
   margin-top: 0;
 }
 
-/* Player stage: the map and the video share it; the picture-in-picture pane
-   floats above the main pane with a hairline and a soft shadow. */
+/* The review workspace: header, stage, transport, timeline and status bar
+   stacked in one column. The fixed chrome heights below size every row but
+   the stage, which flexes into the rest of the window. */
+.workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Header bar: brand, project identity and the app's actions. */
+.workspace-header {
+  flex: none;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--hairline);
+}
+.brand {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.brand-light {
+  font-weight: 400;
+  color: var(--text-2);
+}
+.header-divider {
+  flex: none;
+  height: 24px;
+  margin: 0 8px;
+  border-left: 1px solid var(--hairline);
+}
+.header-project {
+  min-width: 0;
+}
+.header-project strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.header-project small {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.header-spacer {
+  flex: 1 1 auto;
+}
+
+/* Caption rows: the timeline heading and the export preview's caption share
+   the title and meta styles. */
+.preview-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.preview-state {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* The stage: the video pane beside the bare flight map rail (split), or with
+   the map as a square corner card on the footage (overlay). The map island
+   host isolates Leaflet's own z-indexes inside its own box. */
 .stage {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: var(--bar-h);
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  box-sizing: border-box;
   overflow: hidden;
 }
-.pane {
-  position: absolute;
+.pane-video {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-}
-.pane-main {
-  inset: 0;
-}
-.pane-pip {
-  right: 16px;
-  bottom: 16px;
-  border-radius: var(--radius-panel);
   background: #000;
   border: 1px solid var(--hairline-strong);
-  box-shadow: var(--shadow-pip);
+  border-radius: var(--radius-panel);
 }
-.pane video {
+.pane-video video {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -290,9 +333,96 @@ button.primary {
   background: #000;
   display: block;
 }
+/* The empty stage's open call to action: the accent button centered in the
+   footage pane with the Open flow's notice riding along, the explainer copy
+   and the hint under it as quiet text. */
+.stage-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+}
+.stage-empty p {
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.stage-empty .hint {
+  margin: 0;
+}
+/* The notice sits in the gap-spaced stack: no top margin of its own. */
+.stage-empty > .notice,
+.stage-empty > .prepare-status {
+  margin-top: 0;
+  width: min(560px, 100%);
+}
+.stage-empty .primary {
+  width: 320px;
+  max-width: 100%;
+}
 .scene-host {
   position: absolute;
   inset: 0;
+}
+.map-card {
+  position: relative;
+  box-sizing: border-box;
+}
+.map-card-split {
+  flex: none;
+  width: var(--rail-w);
+}
+/* The map rail before a recording loads: a quiet pane that says so. */
+.map-card-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+}
+.map-overlay-tag {
+  display: none;
+}
+/* Overlay layout: the map becomes a floating card with a tag over it. */
+.map-card-overlay {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  height: clamp(180px, 36%, 242px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+  z-index: 2;
+}
+.map-card-overlay .map-overlay-tag {
+  display: block;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bar);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
 }
 .player-notices {
   position: absolute;
@@ -313,55 +443,91 @@ button.primary {
   margin-top: 0;
 }
 
-/* The background pre-warm's status chip: small and centered over the stage,
-   an overlay that never takes space from the map or the video. */
-.warm-hint {
-  align-self: center;
-  width: max-content;
-  max-width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-2);
-  background: color-mix(in srgb, var(--info) 11%, var(--surface-1));
-  border: 1px solid color-mix(in srgb, var(--info) 40%, transparent);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-float);
-}
-
-/* Control bar: left, centered transport and right view controls on one row.
-   At 1440px and below it becomes two rows (see the media query at the end). */
-.controls {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--bar-h);
-  display: flex;
+/* Transport row: the time readout at the left edge, rewind / play / forward
+   centered under the footage, playback speed at the right. The grid mirrors
+   the stage's columns so the cluster sits on the video pane's center in both
+   layouts. The timeline panel owns the scrubber and the loop. */
+.transport {
+  flex: none;
+  height: var(--transport-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   padding: 0 16px;
   box-sizing: border-box;
   background: var(--bar);
   border-top: 1px solid var(--hairline);
-  color: var(--text);
 }
-.controls-left,
-.controls-center,
-.controls-right {
+.stage-overlay ~ .transport {
+  grid-template-columns: minmax(0, 1fr);
+}
+.transport-time {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: start;
+}
+.transport-cluster {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: center;
+}
+.transport-speed {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+}
+.stage-overlay ~ .transport .transport-speed {
+  grid-column: 1;
+}
+.transport-group {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.controls-left,
-.controls-right {
+.transport-step {
+  padding: 0 8px;
+}
+/* 72px = widest plausible label plus icon and gap, so toggling playback
+   never shifts the centered cluster. */
+.transport-play {
+  min-width: 72px;
+}
+.transport-label {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* Segmented controls: playback speed and the view choice share the pill. */
+.segmented {
+  display: inline-flex;
   flex: none;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
 }
-.controls-center {
-  flex: 1 1 auto;
+.segmented button.segment {
+  min-height: 30px;
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
 }
+.segmented button.segment:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.segmented button.segment[aria-pressed='true'] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  font-weight: 600;
+}
+.segmented button.segment[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
 .readout {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -371,56 +537,235 @@ button.primary {
 .readout.loop-readout {
   color: var(--loop-text);
 }
-.scrubber {
-  position: relative;
-  flex: 1 1 auto;
+
+/* Timeline panel: loop actions and readout in the header, a time ruler, and
+   the video track — a tiled filmstrip, the loop band with draggable ends,
+   the playhead, and the range slider (the keyboard-accessible scrub
+   control) over it all. The ruler shares the track's exact span so its
+   ticks stay aligned with the band and playhead. The panel is a flush
+   surface — full window width, square, meeting the status bar — because
+   the workspace rows carry no margins: the fixed row heights account for
+   the whole window height. */
+.timeline {
+  flex: none;
+  height: var(--timeline-h);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  background: var(--surface-1);
+  overflow: hidden;
+}
+.timeline-header {
+  height: 40px;
   display: flex;
   align-items: center;
-  min-width: 120px;
-  width: clamp(120px, 28vw, 420px);
+  justify-content: space-between;
+  gap: 8px;
 }
-.scrubber input[type='range'] {
-  flex: 1;
-  width: 100%;
-  margin: 0;
-  accent-color: var(--accent);
+.timeline-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.timeline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.timeline-actions .loop-readout {
+  margin-left: 8px;
+}
+.ruler {
+  position: relative;
+  flex: none;
+  height: 20px;
+}
+.ruler-tick {
+  position: absolute;
+  top: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+/* So the strip breathes instead of reading as one packed band. */
+.filmstrip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+  opacity: 0.65;
+}
+.film-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+  overflow: hidden;
+}
+.film-cell img {
+  display: block;
+  /* A narrow cell or the compact timeline only ever scales one down. */
+  max-width: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
 }
 .loop-band {
   position: absolute;
-  top: 50%;
-  height: 8px;
-  transform: translateY(-50%);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--loop) 45%, transparent);
-  box-shadow: inset 0 0 0 1px var(--loop);
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--loop) 20%, transparent);
+  border: 2px solid var(--loop);
+  border-radius: 4px;
   pointer-events: none;
 }
-.speed-group {
-  display: inline-flex;
-  flex: none;
-  gap: 2px;
-  padding: 2px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
+.loop-handle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: var(--loop-text);
+  cursor: ew-resize;
+  pointer-events: auto;
 }
-.speed-group button.speed {
-  min-height: 30px;
-  padding: 0 8px;
+.loop-handle-in {
+  left: -2px;
+}
+.loop-handle-out {
+  right: -2px;
+}
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.track input[type='range'] {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.track input[type='range']::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+.track input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+}
+.track input[type='range']::-moz-range-thumb {
+  width: 1px;
+  height: 100%;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-pill);
 }
-.speed-group button.speed:hover:not(:disabled) {
-  background: var(--surface-3);
+
+/* Status bar: readiness, telemetry and duration at the left, Help at the
+   right. Its small Help button follows the notice-dismiss size. */
+.status-bar {
+  flex: none;
+  height: var(--status-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 12px;
+  color: var(--text-3);
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
 }
-.speed-group button.speed[aria-pressed='true'] {
-  color: var(--accent-ink);
-  background: var(--accent);
-  font-weight: 600;
+.status-item {
+  white-space: nowrap;
 }
-.speed-group button.speed[aria-pressed='true']:hover:not(:disabled) {
-  background: var(--accent-hover);
+.status-bar button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* The map appearance popover: a non-modal panel anchored above the footer's
+   Map settings button, below dialogs in the stacking order. */
+.map-popover {
+  position: fixed;
+  bottom: calc(var(--status-h) + 8px);
+  right: 16px;
+  z-index: 1500;
+  width: min(360px, calc(100% - 32px));
+  max-height: calc(100vh - var(--status-h) - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+}
+/* Narrow panel: rows wrap instead of scrolling sideways. */
+.map-popover .settings-row {
+  flex-wrap: wrap;
+}
+.map-popover .settings-row .hint {
+  white-space: normal;
+}
+.map-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.map-popover-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.map-appearance-desc {
+  margin: 0 0 8px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.popover-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+.popover-note span {
+  font-size: 13px;
+  color: var(--text-3);
 }
 
 /* Dialogs share one anchor: the top edge stays fixed as the phase changes. */
@@ -498,7 +843,7 @@ button.primary {
 .settings-row select {
   appearance: none;
   padding-right: 32px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b9c6d6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b8b8b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   cursor: pointer;
@@ -510,7 +855,7 @@ button.primary {
 .field-message {
   font-size: 13px;
   white-space: nowrap;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 .settings-group {
   min-width: 0;
@@ -619,6 +964,65 @@ input[type='radio']:disabled {
   white-space: nowrap;
 }
 
+/* Export: the widened panel holds the output preview beside the phase column.
+   The preview box keeps the output's exact aspect ratio (its inline runtime
+   geometry) so the frame shows the export's own crop, letterboxed in black
+   like the footage pane. */
+.export-panel {
+  width: min(720px, 100%);
+}
+.export-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.export-phase:only-child {
+  grid-column: 1 / -1;
+}
+.export-preview {
+  min-width: 0;
+}
+.export-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.export-preview-frame {
+  /* The inline --export-preview-cap is the runtime width cap keeping the
+     frame at most 300px tall at any output shape. */
+  width: min(100%, var(--export-preview-cap));
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+}
+.export-preview-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.export-choice {
+  box-sizing: border-box;
+  padding: 0 16px;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+}
+.export-choice:hover {
+  border-color: var(--hairline-hover);
+}
+.export-choice + .export-choice {
+  margin-top: 8px;
+}
+.export-encode {
+  margin-top: 16px;
+}
+
 /* Help: the manual's reading surface - dialog anatomy in a wide panel, nav
    column and compiled page content beside each other. */
 .help-panel {
@@ -653,7 +1057,7 @@ input[type='radio']:disabled {
   background: var(--surface-2);
 }
 .help-nav a[aria-current='page'] {
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--surface-2);
   border-color: var(--hairline-strong);
   font-weight: 600;
@@ -691,7 +1095,7 @@ input[type='radio']:disabled {
   margin: 4px 0;
 }
 .help-content a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .help-content code {
   padding: 0 4px;
@@ -743,27 +1147,9 @@ input[type='radio']:disabled {
   color: var(--text-3);
 }
 
-/* At 1440px and below the bar cannot hold one row without overlaps: the view
-   and settings controls move to a row of their own above the transport row. */
-@media (max-width: 1440px) {
+/* The timeline shrinks on short windows so the stage keeps room. */
+@media (max-height: 720px) {
   :root {
-    --bar-h: 96px;
-  }
-  .controls {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-content: center;
-    row-gap: 8px;
-    padding: 8px 16px;
-  }
-  .controls-left {
-    order: 1;
-  }
-  .controls-right {
-    order: 2;
-  }
-  .controls-center {
-    order: 3;
-    flex-basis: 100%;
+    --timeline-h: 140px;
   }
 }
