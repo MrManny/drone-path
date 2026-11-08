@@ -2,7 +2,7 @@
 
 ## What it does
 
-neo2-flightpath renders flight-path map-overlay videos from DJI drone recordings (the DJI Neo 2 and similar) at exactly the source frame rate and frame count. Telemetry comes from the `.SRT` sidecar when one is available, otherwise from the embedded CAM-meta (DVTM) stream.
+Drone Path renders flight-path map-overlay videos from DJI drone recordings (the DJI Neo 2 and similar) at exactly the source frame rate and frame count. Telemetry comes from the `.SRT` sidecar when one is available, otherwise from the embedded CAM-meta (DVTM) stream.
 
 ![Desktop app: drone footage beside the synchronized flight map](../images/app-main-window.jpg)
 
@@ -10,12 +10,12 @@ neo2-flightpath renders flight-path map-overlay videos from DJI drone recordings
 
 ## Getting it
 
-Run it straight from npm with `npx neo2-flightpath`, or straight from GitHub with `npx github:MrManny/neo2-flightpath`. To work from a checkout instead, clone the repository and run `npm ci`.
+Run it straight from npm with `npx drone-path`, or straight from GitHub with `npx github:MrManny/neo2-flightpath`. To work from a checkout instead, clone the repository and run `npm ci`.
 
 ## Requirements
 
 - **Node.js >= 24**
-- **ffmpeg + ffprobe** for telemetry extraction and video encoding: bundled with the desktop app and the npm package, overridable with `--ffmpeg <path>` / `--ffprobe <path>`, and looked up on `PATH` as a fallback. Installing (including a first `npx neo2-flightpath` run) downloads the ffmpeg/ffprobe binaries in a postinstall step (~250 MB for both tools); with `--omit=optional` or offline installs the `PATH` fallback applies: `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
+- **ffmpeg + ffprobe** for telemetry extraction and video encoding: bundled with the desktop app and the npm package, overridable with `--ffmpeg <path>` / `--ffprobe <path>`, and looked up on `PATH` as a fallback. Installing (including a first `npx drone-path` run) downloads the ffmpeg/ffprobe binaries in a postinstall step (~250 MB for both tools); with `--omit=optional` or offline installs the `PATH` fallback applies: `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
 - **Google Chrome or Microsoft Edge** for rendering from the CLI. The desktop app embeds Chromium and needs no system browser. With neither browser installed, `npx playwright install chromium` works too, and any Chromium executable can be forced with `--browser <path>`.
 - **Internet on the first run**: map tiles are fetched and then cached permanently (see [Tiles and attribution](tiles-and-attribution.md)).
 
@@ -26,10 +26,10 @@ Run it straight from npm with `npx neo2-flightpath`, or straight from GitHub wit
 npx github:MrManny/neo2-flightpath "my-flight.mp4"
 
 # from npm
-npx neo2-flightpath "my-flight.mp4"
+npx drone-path "my-flight.mp4"
 
 # topographic map, altitude + speed HUD
-npx neo2-flightpath "my-flight.mp4" --style topo --hud heading,alt,speed
+npx drone-path "my-flight.mp4" --style topo --hud heading,alt,speed
 ```
 
 Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder and the name are configurable. For inputs and options in depth, see [CLI usage](cli.md).

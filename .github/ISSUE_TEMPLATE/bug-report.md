@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report something in neo2-flightpath that does not work as expected
+about: Report something in Drone Path that does not work as expected
 labels: bug
 ---
 

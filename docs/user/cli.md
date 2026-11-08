@@ -3,7 +3,7 @@
 ## Syntax
 
 ```sh
-neo2-flightpath <inputs...> [options]
+drone-path <inputs...> [options]
 ```
 
 `<inputs...>` are `.mp4` files and/or folders (folders are scanned for `*.mp4`, optionally with `--recurse`). Every recording is processed independently.
@@ -12,11 +12,11 @@ neo2-flightpath <inputs...> [options]
 
 ```sh
 # quick conversion: one video, all default settings
-neo2-flightpath "flight.mp4"
+drone-path "flight.mp4"
 
 # full flight-path video: topographic map and the complete HUD
 # (heading arrow + altitude + speed chips)
-neo2-flightpath "flight.mp4" --style topo --hud heading,alt,speed
+drone-path "flight.mp4" --style topo --hud heading,alt,speed
 ```
 
 ## Example output
@@ -39,4 +39,4 @@ The heading arrow shows drone yaw when the `CAM meta` stream provides it, otherw
 
 ## Options and reference
 
-Run `npx neo2-flightpath --help` for the built-in overview. The complete table of options and config keys lives in [CLI and config reference](cli-reference.md); persistent settings are covered in [Config file](config-file.md).
+Run `npx drone-path --help` for the built-in overview. The complete table of options and config keys lives in [CLI and config reference](cli-reference.md); persistent settings are covered in [Config file](config-file.md).

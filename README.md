@@ -1,4 +1,4 @@
-# Neo 2 Flightpath
+# Drone Path
 
 This handy little tool allows you to render flight-path map videos
 from DJI drone recordings (DJI Neo 2 and similar).
@@ -29,10 +29,10 @@ ready and the rest of the map keeps loading in the background.
 npx github:MrManny/neo2-flightpath "my-flight.mp4"
 
 # from npm
-npx neo2-flightpath "my-flight.mp4"
+npx drone-path "my-flight.mp4"
 
 # topographic map, altitude + speed HUD
-npx neo2-flightpath "my-flight.mp4" --style topo --hud heading,alt,speed
+npx drone-path "my-flight.mp4" --style topo --hud heading,alt,speed
 ```
 
 Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder
@@ -52,7 +52,7 @@ ships the same pages as offline help. Highlights:
 - [Keyboard shortcuts](docs/user/keyboard-shortcuts.md) — every shortcut of the review player at a glance.
 - [CLI usage](docs/user/cli.md) — inputs, examples, and example output.
 - [CLI and config reference](docs/user/cli-reference.md) — every option and config key with its default.
-- [Config file](docs/user/config-file.md) — where `.neo2flightpath.json` is found and how defaults apply.
+- [Config file](docs/user/config-file.md) — where `.dronepath.json` is found and how defaults apply.
 - [Tiles and attribution](docs/user/tiles-and-attribution.md) — map sources, attribution, and tile caching.
 
 ## Desktop app

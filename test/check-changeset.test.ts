@@ -30,7 +30,7 @@ it.for([
     env: {},
     changed: [],
     code: 1,
-    message: '[neo2-flightpath] ERROR: PR_TITLE, BASE_SHA and HEAD_SHA must be set',
+    message: '[drone-path] ERROR: PR_TITLE, BASE_SHA and HEAD_SHA must be set',
   },
   {
     name: 'exempt title',
@@ -52,7 +52,7 @@ it.for([
     changed: ['src/render.ts'],
     code: 1,
     message:
-      "[neo2-flightpath] ERROR: 'feat: add thing' must add a .changeset/*.md fragment (see .changeset/README.md)",
+      "[drone-path] ERROR: 'feat: add thing' must add a .changeset/*.md fragment (see .changeset/README.md)",
   },
   {
     name: 'release with changelog',
@@ -66,14 +66,14 @@ it.for([
     env: { PR_TITLE: 'release: v0.2.0', BASE_SHA: 'base', HEAD_SHA: 'head' },
     changed: [],
     code: 1,
-    message: "[neo2-flightpath] ERROR: 'release: v0.2.0' must change CHANGELOG.md",
+    message: "[drone-path] ERROR: 'release: v0.2.0' must change CHANGELOG.md",
   },
   {
     name: 'git failure',
     env: FULL_ENV,
     changed: new Error('bad revision'),
     code: 1,
-    message: '[neo2-flightpath] ERROR: could not list changed files: bad revision',
+    message: '[drone-path] ERROR: could not list changed files: bad revision',
   },
 ])('runCheck: $name', ({ env, changed, code, message }) => {
   const result = run(env, changed);
@@ -101,5 +101,5 @@ it('entrypoint exits 1 when environment variables are missing', () => {
     env: { ...process.env, PR_TITLE: '', BASE_SHA: '', HEAD_SHA: '' },
   });
   expect(result.status).toBe(1);
-  expect(result.stderr).toContain('[neo2-flightpath] ERROR: PR_TITLE, BASE_SHA and HEAD_SHA must be set');
+  expect(result.stderr).toContain('[drone-path] ERROR: PR_TITLE, BASE_SHA and HEAD_SHA must be set');
 });

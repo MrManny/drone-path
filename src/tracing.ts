@@ -52,7 +52,7 @@ export interface Tracing {
 
 type Env = Record<string, string | undefined>;
 
-const SERVICE_NAME = 'neo2-flightpath';
+const SERVICE_NAME = 'drone-path';
 const OTLP_PROTOCOL = 'http/protobuf';
 
 const noopSpan: Span = {

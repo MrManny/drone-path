@@ -9,7 +9,7 @@ Run `npm run changeset`, or hand-write a `<name>.md` file:
 
 ```md
 ---
-"neo2-flightpath": minor
+"drone-path": minor
 ---
 
 Describe the change as a user would notice it, in one or two sentences.

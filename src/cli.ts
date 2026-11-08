@@ -23,7 +23,7 @@ export interface ParsedCli {
 export function buildProgram(): Command {
   const program = new Command();
   program
-    .name('neo2-flightpath')
+    .name('drone-path')
     .description(
       'Render flight-path map overlay videos from DJI drone recordings (telemetry ' +
         'from the .SRT sidecar or the embedded CAM-meta stream) at exactly the source ' +
@@ -128,7 +128,7 @@ function resolveInvocation(argv: string[]): Invocation {
 
 function createLogger(config: RenderConfig): LogFn {
   return (msg: string): void => {
-    if (!config.quiet) process.stderr.write(`[neo2-flightpath] ${msg}\n`);
+    if (!config.quiet) process.stderr.write(`[drone-path] ${msg}\n`);
   };
 }
 

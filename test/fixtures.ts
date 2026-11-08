@@ -18,7 +18,7 @@ import type { Tracer, Tracing } from '../src/tracing.js';
 const tmpDirs: string[] = [];
 
 export function tmpDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo2-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dronepath-test-'));
   tmpDirs.push(dir);
   return dir;
 }

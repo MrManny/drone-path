@@ -1,5 +1,5 @@
-appId: io.github.mrmanny.neo2flightpath
-productName: Neo2 Flightpath
+appId: io.github.mrmanny.dronepath
+productName: Drone Path
 # The portable default would contain a space; keep artifact names shell-friendly.
 artifactName: ${name}-${version}-${os}-${arch}.${ext}
 # The auto-update feed: electron-updater reads this repository's releases, and

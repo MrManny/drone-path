@@ -63,7 +63,7 @@ export function parseAppState(raw: unknown): AppState {
 }
 
 // The file's option values use the config-file spelling (the HUD spec as its
-// CLI string), so a state file reads like .neo2flightpath.json.
+// CLI string), so a state file reads like .dronepath.json.
 export function serializeAppState(state: AppState): string {
   const out: Record<string, unknown> = { version: APP_STATE_VERSION };
   if (state.settings) {

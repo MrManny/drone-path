@@ -25,14 +25,14 @@ describe('uiExportRoot', () => {
 describe('userDataDir', () => {
   it('prefers LOCALAPPDATA', () => {
     vi.stubEnv('LOCALAPPDATA', 'C:\\Users\\me\\AppData\\Local');
-    expect(userDataDir()).toBe(path.join('C:\\Users\\me\\AppData\\Local', 'neo2-flightpath'));
+    expect(userDataDir()).toBe(path.join('C:\\Users\\me\\AppData\\Local', 'drone-path'));
   });
 
   it('falls back to the home cache directory', () => {
     const saved = process.env['LOCALAPPDATA'];
     delete process.env['LOCALAPPDATA'];
     try {
-      expect(userDataDir()).toBe(path.join(os.homedir(), '.cache', 'neo2-flightpath'));
+      expect(userDataDir()).toBe(path.join(os.homedir(), '.cache', 'drone-path'));
     } finally {
       if (saved !== undefined) process.env['LOCALAPPDATA'] = saved;
     }
@@ -43,7 +43,7 @@ describe('appStateFile', () => {
   it('is state.json in the per-user app directory', () => {
     vi.stubEnv('LOCALAPPDATA', 'C:\\Users\\me\\AppData\\Local');
     expect(appStateFile()).toBe(
-      path.join('C:\\Users\\me\\AppData\\Local', 'neo2-flightpath', 'state.json'),
+      path.join('C:\\Users\\me\\AppData\\Local', 'drone-path', 'state.json'),
     );
   });
 });

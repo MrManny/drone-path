@@ -62,7 +62,7 @@ vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 - Progress/errors → stderr; `--json` output → stdout.
 - Errors: throw plain `Error` with a lowercase message; when catching and
   rethrowing, wrap the original with `{ cause }` instead of dropping it.
-- Top-level failures report `[neo2-flightpath] ERROR: <message>` on stderr and
+- Top-level failures report `[drone-path] ERROR: <message>` on stderr and
   set `process.exitCode` — never call `process.exit()` mid-flow.
 
 ## Design principles

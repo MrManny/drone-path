@@ -190,7 +190,7 @@ describe('createTracing (enabled)', () => {
     await tracing.flush();
     const [finished] = exporter.getFinishedSpans();
     await tracing.shutdown();
-    expect(finished.resource.attributes['service.name']).toBe('neo2-flightpath');
+    expect(finished.resource.attributes['service.name']).toBe('drone-path');
     expect(finished.resource.attributes['service.version']).toBe(VERSION);
   });
 

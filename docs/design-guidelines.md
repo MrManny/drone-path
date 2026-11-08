@@ -1,4 +1,4 @@
-# Design guidelines: neo2-flightpath desktop UI
+# Design guidelines: Drone Path desktop UI
 
 Standing reference for the Electron desktop UI. Read before changing anything under `ui/`.
 

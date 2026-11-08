@@ -8,24 +8,24 @@ function subscribe(channel, adapt) {
   return () => ipcRenderer.removeListener(channel, handler);
 }
 
-contextBridge.exposeInMainWorld('neo2flightpath', {
-  pickRecording: (request) => ipcRenderer.invoke('neo2flightpath:pick', request),
-  getSession: () => ipcRenderer.invoke('neo2flightpath:session'),
-  getSettings: () => ipcRenderer.invoke('neo2flightpath:settings'),
-  saveSettings: (patch) => ipcRenderer.invoke('neo2flightpath:settings:save', patch),
-  pickExportOutput: () => ipcRenderer.invoke('neo2flightpath:export:pick-output'),
-  startExport: (request) => ipcRenderer.invoke('neo2flightpath:export:start', request),
-  cancelExport: () => ipcRenderer.invoke('neo2flightpath:export:cancel'),
-  revealExportOutput: (payload) => ipcRenderer.invoke('neo2flightpath:export:reveal', payload),
-  openExportOutput: (payload) => ipcRenderer.invoke('neo2flightpath:export:open', payload),
-  onExportProgress: (cb) => subscribe('neo2flightpath:export:progress', cb),
-  onExportCapture: (cb) => subscribe('neo2flightpath:export:capture', cb),
-  onExportDone: (cb) => subscribe('neo2flightpath:export:done', cb),
-  onPreparing: (cb) => subscribe('neo2flightpath:preparing', () => cb()),
-  onPrepareProgress: (cb) => subscribe('neo2flightpath:preparing:progress', cb),
-  onUpdateReady: (cb) => subscribe('neo2flightpath:update:ready', () => cb()),
+contextBridge.exposeInMainWorld('dronepath', {
+  pickRecording: (request) => ipcRenderer.invoke('dronepath:pick', request),
+  getSession: () => ipcRenderer.invoke('dronepath:session'),
+  getSettings: () => ipcRenderer.invoke('dronepath:settings'),
+  saveSettings: (patch) => ipcRenderer.invoke('dronepath:settings:save', patch),
+  pickExportOutput: () => ipcRenderer.invoke('dronepath:export:pick-output'),
+  startExport: (request) => ipcRenderer.invoke('dronepath:export:start', request),
+  cancelExport: () => ipcRenderer.invoke('dronepath:export:cancel'),
+  revealExportOutput: (payload) => ipcRenderer.invoke('dronepath:export:reveal', payload),
+  openExportOutput: (payload) => ipcRenderer.invoke('dronepath:export:open', payload),
+  onExportProgress: (cb) => subscribe('dronepath:export:progress', cb),
+  onExportCapture: (cb) => subscribe('dronepath:export:capture', cb),
+  onExportDone: (cb) => subscribe('dronepath:export:done', cb),
+  onPreparing: (cb) => subscribe('dronepath:preparing', () => cb()),
+  onPrepareProgress: (cb) => subscribe('dronepath:preparing:progress', cb),
+  onUpdateReady: (cb) => subscribe('dronepath:update:ready', () => cb()),
   onUpdateRestartFailed: (cb) =>
-    subscribe('neo2flightpath:update:restart-failed', (message) => cb(message)),
-  getUpdateState: () => ipcRenderer.invoke('neo2flightpath:update:state'),
-  restartToUpdate: () => ipcRenderer.invoke('neo2flightpath:update:restart'),
+    subscribe('dronepath:update:restart-failed', (message) => cb(message)),
+  getUpdateState: () => ipcRenderer.invoke('dronepath:update:state'),
+  restartToUpdate: () => ipcRenderer.invoke('dronepath:update:restart'),
 });

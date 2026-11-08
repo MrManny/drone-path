@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { main, longFlagOf, parseCliArgs } from '../src/cli.js';
+import { buildProgram, main, longFlagOf, parseCliArgs } from '../src/cli.js';
 import { CONFIG_OPTIONS, DEFAULT_CONFIG } from '../src/config.js';
 import { defaultTileCache, resolveConfig } from '../src/configfile.js';
 import type * as ffModule from '../src/ff.js';
@@ -14,6 +14,14 @@ import type * as tracingModule from '../src/tracing.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);
+
+describe('buildProgram', () => {
+  it('reports drone-path as the program name in help output', () => {
+    const program = buildProgram();
+    expect(program.name()).toBe('drone-path');
+    expect(program.helpInformation()).toMatch(/Usage: drone-path\b/);
+  });
+});
 
 describe('parseCliArgs', () => {
   it('forwards only the flags actually set (bare invocation adds nothing)', () => {
@@ -83,7 +91,7 @@ describe('parseCliArgs', () => {
 
   it('lets config-file values win over defaults on a bare invocation', () => {
     const dir = tmpDir();
-    const cfgPath = path.join(dir, '.neo2flightpath.json');
+    const cfgPath = path.join(dir, '.dronepath.json');
     fs.writeFileSync(
       cfgPath,
       JSON.stringify({
@@ -105,7 +113,7 @@ describe('parseCliArgs', () => {
 
   it('lets explicitly set CLI flags win over the config file', () => {
     const dir = tmpDir();
-    const cfgPath = path.join(dir, '.neo2flightpath.json');
+    const cfgPath = path.join(dir, '.dronepath.json');
     fs.writeFileSync(
       cfgPath,
       JSON.stringify({ width: 320, style: 'topo', skipExisting: true }),
@@ -191,9 +199,9 @@ describe('main tracing wiring', () => {
     const stderr = vi
       .spyOn(process.stderr, 'write')
       .mockImplementation(() => true);
-    await main(['node', 'neo2-flightpath', 'clip.mp4', '--config', configPath]);
+    await main(['node', 'drone-path', 'clip.mp4', '--config', configPath]);
     expect(stderr.mock.calls.map((c) => String(c[0])).join('')).toContain(
-      '[neo2-flightpath] ERROR: unsupported OTEL_EXPORTER_OTLP_PROTOCOL: grpc (only http/protobuf is supported)',
+      '[drone-path] ERROR: unsupported OTEL_EXPORTER_OTLP_PROTOCOL: grpc (only http/protobuf is supported)',
     );
     expect(process.exitCode).toBe(1);
   });
@@ -238,7 +246,7 @@ describe('main tracing wiring', () => {
       fs.writeFileSync(configPath, '{}');
       const { main: mockedMain } = await import('../src/cli.js');
       await mockedMain([
-        'node', 'neo2-flightpath', 'clip.mp4', '--out-dir', tmpDir(),
+        'node', 'drone-path', 'clip.mp4', '--out-dir', tmpDir(),
         '--config', configPath,
       ]);
       return {
@@ -257,7 +265,7 @@ describe('main tracing wiring', () => {
   it('logs the enabled tracer and shuts tracing down when the batch fails', async () => {
     const { stderr, shutdowns } = await mainWithMocks({});
     expect(stderr).toContain('tracing: enabled (OTLP/HTTP protobuf)');
-    expect(stderr).toContain('[neo2-flightpath] ERROR: batch exploded');
+    expect(stderr).toContain('[drone-path] ERROR: batch exploded');
     expect(shutdowns).toBe(1);
     expect(process.exitCode).toBe(1);
   });
@@ -266,7 +274,7 @@ describe('main tracing wiring', () => {
     const { stderr, shutdowns } = await mainWithMocks({
       shutdownError: new Error('shutdown exploded'),
     });
-    expect(stderr).toContain('[neo2-flightpath] ERROR: batch exploded');
+    expect(stderr).toContain('[drone-path] ERROR: batch exploded');
     expect(stderr).toContain(
       'warning: tracing shutdown failed: shutdown exploded',
     );

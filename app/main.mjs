@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Electron shell for the neo2-flightpath desktop app: window, native file
+// Electron shell for the Drone Path desktop app: window, native file
 // dialog, the app:// scheme and process lifecycle only. All behavior lives in
 // dist/ (compiled from src/), so the app and the CLI stay one code base.
 
@@ -38,7 +38,7 @@ const SCHEME = 'app';
 const devUrlIndex = process.argv.indexOf('--dev-url');
 const DEV_URL = devUrlIndex >= 0 ? process.argv[devUrlIndex + 1] : null;
 const DEV_MODE = DEV_URL !== null;
-const log = (msg) => process.stderr.write(`[neo2-flightpath] ${msg}\n`);
+const log = (msg) => process.stderr.write(`[drone-path] ${msg}\n`);
 
 // Must run before app ready so the scheme gets standard/secure semantics.
 protocol.registerSchemesAsPrivileged([
@@ -114,7 +114,7 @@ function rememberPicked(state, filePath) {
 function fail(error) {
   const message = errorMessage(error);
   process.stderr.write(`${ERROR_PREFIX}${message}\n`);
-  dialog.showErrorBox('Neo2 Flightpath', message);
+  dialog.showErrorBox('Drone Path', message);
   app.quit();
 }
 
@@ -124,7 +124,7 @@ function sendToWindow(state, channel, payload) {
 
 function handleExportDone(state, outcome) {
   if (outcome.status === 'ok') state.lastExportOut = outcome.summary.out;
-  sendToWindow(state, 'neo2flightpath:export:done', outcome);
+  sendToWindow(state, 'dronepath:export:done', outcome);
   if (state.pendingClose) {
     state.pendingClose = false;
     if (state.win && !state.win.isDestroyed()) state.win.close();
@@ -222,9 +222,9 @@ async function initServices(state) {
     config: state.config,
     pickFile: () => pickRecording(state),
     log,
-    onPreparing: () => sendToWindow(state, 'neo2flightpath:preparing'),
+    onPreparing: () => sendToWindow(state, 'dronepath:preparing'),
     onPrepareProgress: (progress) =>
-      sendToWindow(state, 'neo2flightpath:preparing:progress', progress),
+      sendToWindow(state, 'dronepath:preparing:progress', progress),
   });
 }
 
@@ -232,10 +232,10 @@ function initExportRunner(state) {
   state.exportRunner = createExportRunner({
     log: (msg) => {
       log(msg);
-      sendToWindow(state, 'neo2flightpath:export:progress', msg);
+      sendToWindow(state, 'dronepath:export:progress', msg);
     },
     onCapture: (progress) =>
-      sendToWindow(state, 'neo2flightpath:export:capture', progress),
+      sendToWindow(state, 'dronepath:export:capture', progress),
     onDone: (outcome) => handleExportDone(state, outcome),
     // An export warms tiles next to the live app: same queue, same budget.
     deps: { prefetchTiles: state.tilePrefetch },
@@ -243,7 +243,7 @@ function initExportRunner(state) {
 }
 
 function registerIpcHandlers(state) {
-  ipcMain.handle('neo2flightpath:pick', (event, raw) => {
+  ipcMain.handle('dronepath:pick', (event, raw) => {
     assertTrusted(event);
     try {
       return state.session.pick(parsePickRequest(raw));
@@ -251,15 +251,15 @@ function registerIpcHandlers(state) {
       return { ok: false, error: errorMessage(e) };
     }
   });
-  ipcMain.handle('neo2flightpath:session', (event) => {
+  ipcMain.handle('dronepath:session', (event) => {
     assertTrusted(event);
     return state.session.getSession();
   });
-  ipcMain.handle('neo2flightpath:settings', (event) => {
+  ipcMain.handle('dronepath:settings', (event) => {
     assertTrusted(event);
     return state.config;
   });
-  ipcMain.handle('neo2flightpath:settings:save', (event, raw) => {
+  ipcMain.handle('dronepath:settings:save', (event, raw) => {
     assertTrusted(event);
     let settings;
     try {
@@ -278,7 +278,7 @@ function registerIpcHandlers(state) {
     return { ok: true };
   });
 
-  ipcMain.handle('neo2flightpath:export:pick-output', async (event) => {
+  ipcMain.handle('dronepath:export:pick-output', async (event) => {
     assertTrusted(event);
     const video = state.session ? state.session.videoPath() : null;
     if (!video) return { ok: false, error: 'no recording loaded' };
@@ -318,7 +318,7 @@ function registerIpcHandlers(state) {
     }
     return { ok: true, path: chosen };
   });
-  ipcMain.handle('neo2flightpath:export:start', (event, raw) => {
+  ipcMain.handle('dronepath:export:start', (event, raw) => {
     assertTrusted(event);
     try {
       const video = state.session ? state.session.videoPath() : null;
@@ -329,12 +329,12 @@ function registerIpcHandlers(state) {
       return { ok: false, error: errorMessage(e) };
     }
   });
-  ipcMain.handle('neo2flightpath:export:cancel', (event) => {
+  ipcMain.handle('dronepath:export:cancel', (event) => {
     assertTrusted(event);
     state.exportRunner.cancel();
     return { ok: true };
   });
-  ipcMain.handle('neo2flightpath:export:reveal', (event, payload) => {
+  ipcMain.handle('dronepath:export:reveal', (event, payload) => {
     assertTrusted(event);
     try {
       shell.showItemInFolder(exportOutputOf(state, payload));
@@ -343,7 +343,7 @@ function registerIpcHandlers(state) {
       return { ok: false, error: errorMessage(e) };
     }
   });
-  ipcMain.handle('neo2flightpath:export:open', async (event, payload) => {
+  ipcMain.handle('dronepath:export:open', async (event, payload) => {
     assertTrusted(event);
     try {
       const error = await shell.openPath(exportOutputOf(state, payload));
@@ -352,16 +352,16 @@ function registerIpcHandlers(state) {
       return { ok: false, error: errorMessage(e) };
     }
   });
-  ipcMain.handle('neo2flightpath:update:restart', (event) => {
+  ipcMain.handle('dronepath:update:restart', (event) => {
     assertTrusted(event);
     if (!state.updates) return { ok: false, error: 'this build does not self-update' };
     // No pendingClose here: the prompt never opens over a running export, and
     // a failed restart must not poison the export close guard.
     return state.updates.restart({
-      onError: (message) => sendToWindow(state, 'neo2flightpath:update:restart-failed', message),
+      onError: (message) => sendToWindow(state, 'dronepath:update:restart-failed', message),
     });
   });
-  ipcMain.handle('neo2flightpath:update:state', (event) => {
+  ipcMain.handle('dronepath:update:state', (event) => {
     assertTrusted(event);
     return { ready: state.updateReady };
   });
@@ -394,7 +394,7 @@ function createWindow(state) {
     backgroundColor: '#232323',
     autoHideMenuBar: true,
     // The loaded page's <title> takes over after load (ui/app/layout.tsx).
-    title: 'Neo2 Flightpath',
+    title: 'Drone Path',
     // Windows renders an ICO best, Linux a PNG (Electron docs); both are
     // derived from build/icon-master.png (see build/README.md).
     icon:
@@ -479,7 +479,7 @@ async function startup() {
         // Buffered: the cache fast path can announce before the renderer
         // subscribes, and the state handler replays it on mount.
         state.updateReady = true;
-        sendToWindow(state, 'neo2flightpath:update:ready');
+        sendToWindow(state, 'dronepath:update:ready');
       },
     });
     registerIpcHandlers(state);

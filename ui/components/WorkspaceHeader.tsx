@@ -25,8 +25,8 @@ export function WorkspaceHeader({
   return (
     <header className="workspace-header">
       <div className="brand">
-        <span className="brand-name">neo2</span>
-        <span className="brand-light"> / flightpath</span>
+        <span className="brand-name">drone</span>
+        <span className="brand-light"> / path</span>
       </div>
       <div className="header-divider" />
       <div className="header-project">

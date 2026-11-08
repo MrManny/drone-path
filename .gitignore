@@ -11,7 +11,7 @@ ui/public/
 *.tsbuildinfo
 
 # configuration, caches and renderings
-.neo2flightpath.json
+.dronepath.json
 out/
 /.scratch/**
 !/.scratch/.gitkeep

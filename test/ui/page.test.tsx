@@ -87,7 +87,7 @@ function installBridge() {
     getUpdateState: vi.fn(async () => ({ ready: false })),
     restartToUpdate: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
   };
-  (window as { neo2flightpath?: unknown }).neo2flightpath = bridge;
+  (window as { dronepath?: unknown }).dronepath = bridge;
   return {
     bridge,
     prepare: () => {
@@ -164,7 +164,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   cleanup();
-  delete (window as { neo2flightpath?: unknown }).neo2flightpath;
+  delete (window as { dronepath?: unknown }).dronepath;
 });
 
 describe('the empty workspace at launch', () => {
