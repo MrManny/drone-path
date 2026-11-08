@@ -3,20 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createAppSession,
   frameExactDuration,
-  parseWarmRequest,
+  parsePickRequest,
   prepareUiSession,
 } from '../src/appsession.js';
-import type {
-  PrepareUiSession,
-  UiSession,
-  WarmProgress,
-  WarmRequest,
-} from '../src/appsession.js';
-import type { LookSettings, RenderConfig } from '../src/config.js';
-import { displayedTiles, planView } from '../src/plan.js';
-import type { PipelineDeps, PrepareProgress } from '../src/run.js';
-import { createTileTraffic } from '../src/tiles.js';
-import type { PrefetchStats, TileStatus, WarmOptions } from '../src/tiles.js';
+import type { PickRequest, PrepareUiSession, UiSession } from '../src/appsession.js';
+import type { RenderConfig } from '../src/config.js';
+import type { PrepareProgress } from '../src/run.js';
+import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
 import {
   cleanupTmpDirs,
   probeFixture,
@@ -33,7 +26,7 @@ import { afterEach } from 'vitest';
 const CONFIG = {} as RenderConfig;
 const SESSION = { scene: {}, video: {} } as unknown as UiSession;
 
-const REQUEST: WarmRequest = {
+const REQUEST: PickRequest = {
   settings: {
     style: 'satellite',
     view: 'overview',
@@ -43,7 +36,6 @@ const REQUEST: WarmRequest = {
     introSec: 0,
     outroSec: 0,
   },
-  frame: { width: 480, height: 270 },
 };
 
 const PROBE = probeFixture({
@@ -94,8 +86,6 @@ describe('createAppSession', () => {
       { ...CONFIG, ...REQUEST.settings },
       expect.any(Function),
       expect.any(Function),
-      REQUEST.frame,
-      { prefetchTiles: expect.any(Function) },
     );
     expect(session.getSession()).toBe(SESSION);
     expect(session.videoPath()).toBe(file);
@@ -238,11 +228,9 @@ describe('createAppSession onPreparing hook', () => {
 
 describe('createAppSession onPrepareProgress hook', () => {
   const reported: PrepareProgress = {
-    stage: 'tiles',
-    done: 3,
-    total: 51,
-    tilesDone: 0,
-    tilesTotal: 48,
+    stage: 'plan',
+    done: 2,
+    total: 3,
   };
 
   it('hands the hook to preparation and forwards its reports', async () => {
@@ -265,8 +253,6 @@ describe('createAppSession onPrepareProgress hook', () => {
       { ...CONFIG, ...REQUEST.settings },
       expect.any(Function),
       onPrepareProgress,
-      REQUEST.frame,
-      { prefetchTiles: expect.any(Function) },
     );
     expect(onPrepareProgress).toHaveBeenCalledTimes(1);
     expect(onPrepareProgress).toHaveBeenCalledWith(reported);
@@ -285,7 +271,7 @@ describe('createAppSession onPrepareProgress hook', () => {
   });
 });
 
-describe('parseWarmRequest', () => {
+describe('parsePickRequest', () => {
   const settings = {
     style: 'topo',
     view: 'follow',
@@ -296,320 +282,46 @@ describe('parseWarmRequest', () => {
     outroSec: 0,
   };
 
-  it('takes the look settings and the frame off the renderer request', () => {
-    expect(parseWarmRequest({ settings, frame: { width: 640, height: 360 } })).toEqual({
-      settings,
-      frame: { width: 640, height: 360 },
-    });
+  it('takes the look settings off the renderer request', () => {
+    expect(parsePickRequest({ settings })).toEqual({ settings });
   });
 
   it('rejects an unknown map style', () => {
-    expect(() =>
-      parseWarmRequest({
-        settings: { ...settings, style: 'paper' },
-        frame: { width: 640, height: 360 },
-      }),
-    ).toThrow('unknown map style: paper');
+    expect(() => parsePickRequest({ settings: { ...settings, style: 'paper' } })).toThrow(
+      'unknown map style: paper',
+    );
   });
 
   it('rejects an unknown view', () => {
-    expect(() =>
-      parseWarmRequest({
-        settings: { ...settings, view: 'chase' },
-        frame: { width: 640, height: 360 },
-      }),
-    ).toThrow('unknown view: chase');
+    expect(() => parsePickRequest({ settings: { ...settings, view: 'chase' } })).toThrow(
+      'unknown view: chase',
+    );
   });
 
   it('rejects non-numeric and negative values', () => {
-    const frame = { width: 640, height: 360 };
-    expect(() => parseWarmRequest({ settings: { ...settings, zoom: 'high' }, frame })).toThrow();
-    expect(() => parseWarmRequest({ settings: { ...settings, zoom: -1 }, frame })).toThrow(
+    expect(() => parsePickRequest({ settings: { ...settings, zoom: 'high' } })).toThrow();
+    expect(() => parsePickRequest({ settings: { ...settings, zoom: -1 } })).toThrow(
       'zoom must be >= 0',
     );
-    expect(() => parseWarmRequest({ settings: { ...settings, zoomOut: -1 }, frame })).toThrow(
+    expect(() => parsePickRequest({ settings: { ...settings, zoomOut: -1 } })).toThrow(
       'zoom-out must be >= 0',
     );
-    expect(() => parseWarmRequest({ settings: { ...settings, introSec: -1 }, frame })).toThrow(
+    expect(() => parsePickRequest({ settings: { ...settings, introSec: -1 } })).toThrow(
       'intro must be 0 or more',
     );
-  });
-
-  it('rejects a missing or empty frame', () => {
-    expect(() => parseWarmRequest({ settings })).toThrow('frame width');
-    expect(() =>
-      parseWarmRequest({ settings, frame: { width: 0, height: 360 } }),
-    ).toThrow('frame size must be positive');
+    expect(() => parsePickRequest({ settings: { ...settings, outroSec: -1 } })).toThrow(
+      'outro must be 0 or more',
+    );
   });
 
   it('rejects junk payloads', () => {
-    expect(() => parseWarmRequest(null)).toThrow('unknown map style');
-  });
-});
-
-describe('createAppSession background pre-warm', () => {
-  const WARM_SESSION = {
-    scene: { width: 768, height: 768 },
-    video: {},
-    tileBase: 'app://bundle/tiles',
-    bbox: { minLat: 46.6, maxLat: 46.62, minLon: 14.2, maxLon: 14.22 },
-    durationSec: 1,
-  } as unknown as UiSession;
-
-  const SETTINGS: LookSettings = {
-    style: 'satellite',
-    view: 'overview',
-    zoom: 0,
-    zoomOut: 0,
-    hud: { heading: true, alt: false, speed: false },
-    introSec: 0,
-    outroSec: 0,
-  };
-  const TOPO: LookSettings = { ...SETTINGS, style: 'topo' };
-  const FRAME = { width: 480, height: 270 };
-  const SAT: WarmRequest = { settings: SETTINGS, frame: FRAME };
-  const TOPO_PLAN: WarmRequest = { settings: TOPO, frame: FRAME };
-
-  const tilesOf = (request: WarmRequest): unknown[] =>
-    displayedTiles(
-      WARM_SESSION.bbox,
-      planView(WARM_SESSION.bbox, 768, 768, request.settings).zoom,
-      request.frame,
-      request.settings,
-    );
-
-  // The warm stream emits from a microtask; one timer turn sees them all.
-  const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
-
-  function warmHarness(streamTiles?: (options: WarmOptions) => Promise<PrefetchStats>) {
-    const calls: WarmOptions[] = [];
-    const progress: WarmProgress[] = [];
-    const logs: string[] = [];
-    const pending: { options: WarmOptions; resolve: (stats: PrefetchStats) => void }[] = [];
-    const stream =
-      streamTiles ??
-      vi.fn(
-        (options: WarmOptions) =>
-          new Promise<PrefetchStats>((resolve) => {
-            pending.push({ options, resolve });
-          }),
-      );
-    const session = createAppSession({
-      config: { tileCache: tmpDir() } as RenderConfig,
-      pickFile: async () => mp4(),
-      prepare: vi.fn(async (): Promise<UiSession> => WARM_SESSION),
-      log: (msg) => logs.push(msg),
-      streamTiles: (options) => {
-        calls.push(options);
-        return stream(options);
-      },
-      onWarmProgress: (p) => progress.push(p),
-    });
-    return { session, calls, progress, logs, pending };
-  }
-
-  it('streams the plan these settings describe and counts every settled tile', async () => {
-    const { session, calls, progress, pending } = warmHarness();
-    await session.pick(REQUEST);
-    session.warm.retarget(SAT);
-    await flush();
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0].style).toBe('satellite');
-    expect(calls[0].tiles).toEqual(tilesOf(SAT));
-    expect(progress).toEqual([{ done: 0, total: tilesOf(SAT).length }]);
-
-    const settle = calls[0].onTile as (status: TileStatus) => void;
-    settle('cached');
-    settle('downloaded');
-    await flush();
-    expect(progress[progress.length - 1]).toEqual({
-      done: 2,
-      total: tilesOf(SAT).length,
-    });
-    pending[0].resolve({ downloaded: 1, failed: 0, total: calls[0].tiles.length });
-  });
-
-  it('ignores a pivot onto the plan already streaming', async () => {
-    const { session, calls } = warmHarness();
-    await session.pick(REQUEST);
-    session.warm.retarget(SAT);
-    session.warm.retarget({ settings: { ...SETTINGS }, frame: { ...FRAME } });
-    await flush();
-    expect(calls).toHaveLength(1);
-  });
-
-  it('pivots onto a new plan, drops the old one and restarts the count', async () => {
-    const { session, calls, progress, pending } = warmHarness();
-    await session.pick(REQUEST);
-    session.warm.retarget(SAT);
-    await flush();
-    (calls[0].onTile as (status: TileStatus) => void)('cached');
-    await flush();
-
-    session.warm.retarget(TOPO_PLAN);
-    await flush();
-
-    // The old downloads are dropped and its late settles stop counting.
-    expect(calls[0].signal?.aborted).toBe(true);
-    (calls[0].onTile as (status: TileStatus) => void)('downloaded');
-    await flush();
-    expect(calls).toHaveLength(2);
-    expect(calls[1].tiles).toEqual(tilesOf(TOPO_PLAN));
-    expect(progress).toEqual([
-      { done: 0, total: tilesOf(SAT).length },
-      { done: 1, total: tilesOf(SAT).length },
-      { done: 0, total: tilesOf(TOPO_PLAN).length },
-    ]);
-    for (const call of pending) call.resolve({ downloaded: 0, failed: 0, total: 1 });
-  });
-
-  it('clears the hint when the stream dies and logs why', async () => {
-    const { session, progress, logs } = warmHarness(async () => {
-      throw new Error('cache unwritable');
-    });
-    await session.pick(REQUEST);
-    session.warm.retarget(SAT);
-    await flush();
-
-    expect(progress[progress.length - 1]).toEqual({ done: 0, total: 0 });
-    expect(logs.some((line) => line.includes('cache unwritable'))).toBe(true);
-  });
-
-  it('drops the stream when another recording is picked', async () => {
-    const { session, calls, progress, pending } = warmHarness();
-    await session.pick(REQUEST);
-    session.warm.retarget(SAT);
-    await flush();
-
-    await session.pick(REQUEST);
-    await flush();
-
-    expect(calls[0].signal?.aborted).toBe(true);
-    expect(progress[progress.length - 1]).toEqual({ done: 0, total: 0 });
-    for (const call of pending) call.resolve({ downloaded: 0, failed: 0, total: 1 });
-  });
-});
-
-describe('createAppSession shared tile queue', () => {
-  const STUB_SESSION = {
-    scene: { width: 768, height: 768 },
-    video: {},
-    tileBase: 'app://bundle/tiles',
-    bbox: { minLat: 46.6, maxLat: 46.62, minLon: 14.2, maxLon: 14.22 },
-    durationSec: 1,
-  } as unknown as UiSession;
-
-  const warmTilesOf = (request: WarmRequest) =>
-    displayedTiles(
-      STUB_SESSION.bbox,
-      planView(STUB_SESSION.bbox, 768, 768, request.settings).zoom,
-      request.frame,
-      request.settings,
-    );
-
-  it('hands the preparation the very stream the warm uses', async () => {
-    const file = mp4();
-    const streamTiles = vi.fn(
-      async (): Promise<PrefetchStats> => ({ downloaded: 0, failed: 0, total: 0 }),
-    );
-    let received: Partial<PipelineDeps> | undefined;
-    const prepare = vi.fn<PrepareUiSession>(
-      async (_file, _config, _log, _onProgress, _frame, deps) => {
-        received = deps;
-        return SESSION;
-      },
-    );
-    const session = createAppSession({
-      config: CONFIG,
-      pickFile: async () => file,
-      prepare,
-      streamTiles,
-    });
-
-    await session.pick(REQUEST);
-
-    expect(received?.prefetchTiles).toBe(streamTiles);
-  });
-
-  it('keeps every lane inside one 500 ms budget through the app composition', async () => {
-    vi.useFakeTimers();
-    const dir = tmpDir();
-    const starts: number[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        starts.push(Date.now());
-        return new Response(new Uint8Array([1]), { status: 200 });
-      }),
-    );
-    // The app composition (app/main.mjs): one tile traffic drives the warm
-    // stream and, through the injected deps, the preparation's gate pre-warm.
-    const traffic = createTileTraffic(dir);
-    const gateTiles = [
-      { z: 1, x: 0, y: 0 },
-      { z: 1, x: 0, y: 1 },
-      { z: 1, x: 0, y: 2 },
-      { z: 1, x: 0, y: 3 },
-    ];
-    const prepare: PrepareUiSession = async (_file, _config, _log, _onProgress, _frame, deps) => {
-      await deps?.prefetchTiles?.({ style: 'satellite', tiles: gateTiles });
-      return STUB_SESSION;
-    };
-    const session = createAppSession({
-      config: { tileCache: dir } as RenderConfig,
-      pickFile: async () => mp4(),
-      prepare,
-      streamTiles: (options) => traffic.stream(options),
-    });
-
-    // The gate pre-warm runs while the live player still fetches tiles.
-    const picking = session.pick(REQUEST);
-    const playerA = traffic.ensure('satellite', { z: 1, x: 9, y: 0 });
-    const playerB = traffic.ensure('satellite', { z: 1, x: 9, y: 1 });
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(await picking).toEqual({ ok: true });
-
-    // The hand-over onto the background warm, with the player still going.
-    session.warm.retarget(REQUEST);
-    const playerC = traffic.ensure('satellite', { z: 1, x: 9, y: 2 });
-    await vi.advanceTimersByTimeAsync(60000);
-    await Promise.all([playerA, playerB, playerC]);
-
-    expect(starts).toHaveLength(gateTiles.length + 3 + warmTilesOf(REQUEST).length);
-    for (let i = 1; i < starts.length; i++) {
-      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
-    }
-  });
-
-  it('writes into the queue-owned cache: the seam cannot name another', async () => {
-    const dir = tmpDir();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 })),
-    );
-    const prepare: PrepareUiSession = async (_file, _config, _log, _onProgress, _frame, deps) => {
-      await deps?.prefetchTiles?.({
-        style: 'satellite',
-        tiles: [{ z: 1, x: 0, y: 0 }],
-      });
-      return SESSION;
-    };
-    // No streamTiles: the session's own queue serves warm and preparation,
-    // and its own cache directory is the only one that exists to write to.
-    const session = createAppSession({
-      config: { tileCache: dir } as RenderConfig,
-      pickFile: async () => mp4(),
-      prepare,
-    });
-
-    expect(await session.pick(REQUEST)).toEqual({ ok: true });
-    expect(fs.existsSync(path.join(dir, 'esri-imagery', '1', '0', '0.png'))).toBe(true);
+    expect(() => parsePickRequest(null)).toThrow('unknown map style');
+    expect(() => parsePickRequest({})).toThrow('unknown map style');
   });
 });
 
 describe('prepareUiSession', () => {
-  it('warms the gate tiles through the injected deps', async () => {
+  it('runs probe, telemetry and the view plan without waiting for tiles', async () => {
     const prefetchTiles = vi.fn(
       async ({ tiles }: WarmOptions): Promise<PrefetchStats> => ({
         downloaded: tiles.length,
@@ -617,41 +329,38 @@ describe('prepareUiSession', () => {
         total: tiles.length,
       }),
     );
+    const events: PrepareProgress[] = [];
     const config = testConfig();
 
     const ui = await prepareUiSession(
       'clips/flight.mp4',
       config,
       () => {},
-      undefined,
-      { width: 480, height: 270 },
+      (progress) => events.push(progress),
       stubDeps({ prefetchTiles }),
     );
 
-    expect(prefetchTiles).toHaveBeenCalledTimes(1);
-    const warm = prefetchTiles.mock.calls[0][0];
-    expect(warm.style).toBe(config.style);
-    // The seam carries no cache name at all: the provider owns its directory.
-    expect(warm).not.toHaveProperty('cacheDir');
-    expect(warm.tiles.length).toBeGreaterThan(0);
+    // The app path never prefetches: the map fetches its tiles on demand.
+    expect(prefetchTiles).not.toHaveBeenCalled();
+    expect(events.map((e) => e.stage)).toEqual(['probe', 'telemetry', 'plan']);
     expect(ui.bbox).toEqual(telemetryFixture().bbox);
     expect(ui.video.frames).toBe(probeFixture().frames);
+    expect(ui.video.src).toContain('video');
   });
 
-  it('fails the preparation when the gate warm fails', async () => {
-    const prefetchTiles = vi.fn(async (): Promise<PrefetchStats> => {
-      throw new Error('cache unwritable');
-    });
-
+  it('fails the preparation when a stage fails', async () => {
     await expect(
       prepareUiSession(
         'clips/flight.mp4',
         testConfig(),
         () => {},
         undefined,
-        { width: 480, height: 270 },
-        stubDeps({ prefetchTiles }),
+        stubDeps({
+          loadTelemetry: async () => {
+            throw new Error('telemetry unreadable');
+          },
+        }),
       ),
-    ).rejects.toThrow('cache unwritable');
+    ).rejects.toThrow('telemetry unreadable');
   });
 });

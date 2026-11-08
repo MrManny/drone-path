@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PickResult, WarmProgress } from '../../src/appsession.js';
+import type { PickResult } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { PrepareProgress } from '../../src/run.js';
@@ -27,7 +27,6 @@ function installBridge() {
   const listeners: {
     preparing?: () => void;
     progress?: (progress: PrepareProgress) => void;
-    warm?: (progress: WarmProgress) => void;
     updateReady?: () => void;
     restartFailed?: (message: string) => void;
   } = {};
@@ -53,13 +52,6 @@ function installBridge() {
         listeners.progress = undefined;
       };
     }),
-    onWarmProgress: vi.fn((cb: (progress: WarmProgress) => void) => {
-      listeners.warm = cb;
-      return () => {
-        listeners.warm = undefined;
-      };
-    }),
-    retargetWarm: vi.fn(async (): Promise<{ ok: boolean }> => ({ ok: true })),
     onUpdateReady: vi.fn((cb: () => void) => {
       listeners.updateReady = cb;
       return () => {
@@ -86,11 +78,6 @@ function installBridge() {
     report: (progress: PrepareProgress) => {
       act(() => {
         listeners.progress?.(progress);
-      });
-    },
-    warm: (progress: WarmProgress) => {
-      act(() => {
-        listeners.warm?.(progress);
       });
     },
     updateReady: () => {
@@ -153,16 +140,18 @@ describe('Open flow on the landing', () => {
     const harness = installBridge();
     fireEvent.click(await openLanding());
     harness.prepare();
-    harness.report({ stage: 'tiles', done: 3, total: 51, tilesDone: 0, tilesTotal: 48 });
-    expect(screen.getByText('Warming tiles… 0/48')).toBeTruthy();
+    harness.report({ stage: 'telemetry', done: 1, total: 3 });
+    expect(screen.getByText('Loading telemetry…')).toBeTruthy();
+    expect(
+      screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
+    ).toBe('33');
+    harness.report({ stage: 'plan', done: 2, total: 3 });
+    expect(screen.getByText('Planning the view…')).toBeTruthy();
     expect(
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
     ).toBe('67');
-    harness.report({ stage: 'tiles', done: 15, total: 51, tilesDone: 12, tilesTotal: 48 });
-    expect(screen.getByText('Warming tiles… 12/48')).toBeTruthy();
-    expect(
-      screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
-    ).toBe('75');
+    // The open flow never shows tile warm-up copy (#167).
+    expect(screen.queryByText(/Warming tiles/)).toBeNull();
     await harness.settle({ ok: true });
   });
 
@@ -229,49 +218,6 @@ describe('Open flow over the player', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(document.querySelector('.workspace')).not.toBeNull();
-  });
-});
-
-describe('background tile pre-warm hint', () => {
-  async function openPlayer() {
-    const harness = installBridge();
-    fireEvent.click(await openLanding());
-    harness.prepare();
-    await harness.settle({ ok: true });
-    await waitFor(() => expect(document.querySelector('.workspace')).not.toBeNull());
-    return harness;
-  }
-
-  it('starts the pre-warm at the switch and keeps the running count', async () => {
-    const harness = await openPlayer();
-    expect(harness.bridge.retargetWarm).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('.warm-hint')).toBeNull();
-
-    harness.warm({ done: 12, total: 48 });
-    const hint = document.querySelector('.warm-hint');
-    expect(hint?.textContent).toBe('Warming tiles… 12/48');
-    expect(hint?.getAttribute('role')).toBe('status');
-  });
-
-  it('hides the hint when the last tile settles', async () => {
-    const harness = await openPlayer();
-    harness.warm({ done: 47, total: 48 });
-    expect(document.querySelector('.warm-hint')?.textContent).toBe('Warming tiles… 47/48');
-    harness.warm({ done: 48, total: 48 });
-    expect(document.querySelector('.warm-hint')).toBeNull();
-  });
-
-  it('pivots the pre-warm when the settings re-plan the map', async () => {
-    const harness = await openPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
-    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
-    expect(harness.bridge.retargetWarm).toHaveBeenCalledTimes(2);
-    expect(harness.bridge.retargetWarm).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        settings: expect.objectContaining({ style: 'topo' }),
-        frame: expect.objectContaining({ width: expect.any(Number) }),
-      }),
-    );
   });
 });
 

@@ -1,10 +1,9 @@
 // The polite tile download policy in one home: every request start - retries
 // included - is spaced REQUEST_INTERVAL_MS apart (2.0 req/s) and at most
 // DOWNLOAD_WORKERS downloads run at once, whichever entry point drives them.
-// createTileTraffic (the app: the gate pre-warm, the background pre-warm,
-// on-demand tiles and exports on one queue) and prefetchTiles (the CLI's
-// bulk pre-warm, its own queue as it runs alone) are thin wrappers whose
-// priorities decide ordering and sharing.
+// createTileTraffic (the app: on-demand tiles and exports on one queue) and
+// prefetchTiles (the CLI's bulk prefetch, its own queue as it runs alone) are
+// thin wrappers whose priorities decide ordering and sharing.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -297,7 +296,7 @@ export interface TileTraffic {
 }
 
 // The app's tile traffic on one polite queue: on-demand tiles jump ahead of
-// the background pre-warm, and both stay inside the same 2.0 req/s budget.
+// the queued prefetch, and both stay inside the same 2.0 req/s budget.
 export function createTileTraffic(cacheDir: string): TileTraffic {
   const downloader = createDownloader(cacheDir, createPlaceholderSource());
   return {
@@ -332,9 +331,8 @@ export function createTileTraffic(cacheDir: string): TileTraffic {
 }
 
 // Polite bulk fetching for the pipeline: 2 concurrent workers, 2.0 req/s. It
-// settles once per tile (cached, downloaded or failed) so callers can track
-// the pre-warm's running progress, and rejects with 'tile download canceled'
-// when a signal aborts it.
+// settles once per tile (cached, downloaded or failed) through onTile and
+// rejects with 'tile download canceled' when a signal aborts it.
 export function prefetchTiles(options: PrefetchOptions): Promise<PrefetchStats> {
   return createTileTraffic(options.cacheDir).stream(options);
 }

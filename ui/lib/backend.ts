@@ -2,7 +2,7 @@
 // bridge (contextBridge + validated IPC); without it the UI cannot drive the
 // native dialog or the pipeline.
 
-import type { PickResult, UiSession, WarmProgress, WarmRequest } from '../../src/appsession.js';
+import type { PickRequest, PickResult, UiSession } from '../../src/appsession.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
@@ -31,7 +31,7 @@ interface UpdateState {
 }
 
 export interface AppBridge {
-  pickRecording(request: WarmRequest): Promise<PickResult>;
+  pickRecording(request: PickRequest): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
   getSettings(): Promise<RenderConfig>;
   /** Persist the panel's look so the next launch restores it. */
@@ -49,10 +49,6 @@ export interface AppBridge {
   onPreparing(cb: () => void): () => void;
   /** The preparation's loading steps, so the busy status can show its progress. */
   onPrepareProgress(cb: (progress: PrepareProgress) => void): () => void;
-  /** The background pre-warm's running count over the current plan. */
-  onWarmProgress(cb: (progress: WarmProgress) => void): () => void;
-  /** Pivot the background pre-warm onto the tiles this request displays. */
-  retargetWarm(request: WarmRequest): Promise<ExportAck>;
   /** A newer version finished downloading in the background. */
   onUpdateReady(cb: () => void): () => void;
   /** The restart could not start; the prompt may offer it again. */

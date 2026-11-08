@@ -60,8 +60,8 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     // The driver may have committed frames before the scene existed; the
     // scene must show the current one, not its initial frame.
     void scene.setFrame(latestIndexRef.current);
-    // Play is ready at the gate switch, not at the tile layer's load: the
-    // gate warmed what the first frame shows.
+    // Playback is ready once the scene boots; the map fetches its tiles on
+    // demand, so nothing else gates play.
     setReady(true);
   }, []);
 

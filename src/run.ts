@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { errorMessage } from './errors.js';
-import type { Bbox, LatLon } from './geo.js';
-import { unproject } from './geo.js';
+import type { Bbox } from './geo.js';
 import { outputMatchesSource, probeVideo, verifyOutput } from './ff.js';
 import { resolveFfTools } from './fftools.js';
 import type { FfToolPaths } from './fftools.js';
@@ -19,8 +18,8 @@ import type {
 } from './telemetry-math.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats, WarmOptions } from './tiles.js';
-import { gateTiles, displayedTiles, planIntroOutroFrames, planView } from './plan.js';
-import type { IntroOutroFrames, Overview, TileCoord } from './plan.js';
+import { planIntroOutroFrames, planView } from './plan.js';
+import type { IntroOutroFrames, Overview } from './plan.js';
 import { buildPageHtml, planPageOpts } from './page.js';
 import type { PageOpts } from './page.js';
 import { renderVideo } from './render.js';
@@ -46,22 +45,18 @@ export type LogFn = (msg: string) => void;
 // The preparation stages in execution order. The loading-bar step numbers
 // derive from this sequence, so adding or reordering a stage cannot silently
 // skew the bar (see PrepareProgress).
-const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan', 'tiles'] as const;
+const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
 
-/** The loading stage a preparation is in; tiles is the long map pre-warm. */
+/** The loading stage a preparation is in. */
 export type PrepareStage = (typeof PREPARE_STAGE_ORDER)[number];
 
-// The loading bar advances one step per stage and one per warmed tile during
-// the pre-warm: 3 + tile count steps in all. The tiles are the whole plan, or
-// only the gate tiles when the preparation waits for those (tileWait).
+// The loading bar advances one step per stage: 3 steps in all.
 export interface PrepareProgress {
   stage: PrepareStage;
-  /** Completed steps: the finished stages plus the settled tiles. */
+  /** Completed steps: the finished stages. */
   done: number;
-  /** The full step count; 3 until the view plan reveals the tile count. */
+  /** The full step count. */
   total: number;
-  tilesDone: number;
-  tilesTotal: number;
 }
 
 export type PrepareProgressFn = (progress: PrepareProgress) => void;
@@ -284,17 +279,6 @@ export interface PipelineOptions {
   onProgress?: PrepareProgressFn;
   /** Typed capture progress, for progress displays. */
   onCapture?: (progress: CaptureProgress) => void;
-  /**
-   * Which tiles the preparation waits for: the whole plan (the render
-   * pipeline, so frames never fall back to placeholders) or only the gate
-   * tiles around the drone (the app, which streams the rest behind the open).
-   */
-  tileWait?: 'all' | 'gate';
-  /**
-   * The frame the app's player shows (its map pane), so the gate covers the
-   * first frame's visible tiles; defaults to the export canvas.
-   */
-  frameSize?: { width: number; height: number };
 }
 
 // A segment export renders source frames start..end inclusive; the guard
@@ -321,49 +305,22 @@ export interface PreparedRecording {
   hud: HudSpec;
   introOutro: IntroOutroFrames;
   overview: Overview;
-  tileStats: PrefetchStats;
   frames: FrameArrays;
 }
 
-// One loading-bar step per stage until the tile pre-warm, which adds one step
-// per warmed tile on top (see PrepareProgress).
-const PREPARE_STAGE_STEPS = PREPARE_STAGE_ORDER.indexOf('tiles');
-
-// Loading-bar bookkeeping: stage starts derive their step from the stage
-// order; the pre-warm reports one step per settled tile.
-interface PrepareReporter {
-  begin(stage: PrepareStage): void;
-  /** The view plan revealed the tile count the bar's total now includes. */
-  revealTiles(total: number): void;
-  /** A planned tile settled: downloaded, cached or failed. */
-  tileSettled(): void;
-}
+// Loading-bar bookkeeping: one step per stage, derived from the stage order
+// (see PrepareProgress).
+type PrepareReporter = (stage: PrepareStage) => void;
 
 function createPrepareReporter(
   onProgress: PrepareProgressFn = () => {},
 ): PrepareReporter {
-  let tilesTotal = 0;
-  let tilesDone = 0;
-  const report = (stage: PrepareStage, done: number): void =>
+  return (stage) =>
     onProgress({
       stage,
-      done,
-      total: PREPARE_STAGE_STEPS + tilesTotal,
-      tilesDone,
-      tilesTotal,
+      done: PREPARE_STAGE_ORDER.indexOf(stage),
+      total: PREPARE_STAGE_ORDER.length,
     });
-  return {
-    begin(stage: PrepareStage): void {
-      report(stage, PREPARE_STAGE_ORDER.indexOf(stage));
-    },
-    revealTiles(total: number): void {
-      tilesTotal = total;
-    },
-    tileSettled(): void {
-      tilesDone += 1;
-      report('tiles', PREPARE_STAGE_STEPS + tilesDone);
-    },
-  };
 }
 
 // What a preparation stage needs: the run inputs plus the shared tracing,
@@ -378,15 +335,13 @@ interface PrepareStageEnv {
   deps: PipelineDeps;
   tools: FfToolPaths;
   report: PrepareReporter;
-  tileWait: 'all' | 'gate';
-  frameSize?: { width: number; height: number };
 }
 
 async function probeStage(
   env: PrepareStageEnv,
 ): Promise<{ probe: VideoProbe; introOutro: IntroOutroFrames }> {
   const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
-  report.begin('probe');
+  report('probe');
   const probe = await stage(tracer, 'probe', parent, {}, () =>
     deps.probeVideo(tools, videoPath, log),
   );
@@ -410,7 +365,7 @@ async function telemetryStage(
   probe: VideoProbe,
 ): Promise<{ tel: Telemetry; hud: HudSpec }> {
   const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
-  report.begin('telemetry');
+  report('telemetry');
   const tel = await stage(tracer, 'telemetry.load', parent, {}, async (span) => {
     const loaded = await deps.loadTelemetry(videoPath, {
       frames: probe.frames,
@@ -438,7 +393,7 @@ async function telemetryStage(
 
 async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Overview> {
   const { config, log, tracer, parent, report } = env;
-  report.begin('plan');
+  report('plan');
   const overview = await stage(tracer, 'plan', parent, { 'plan.view': config.view }, async (span) => {
     const computed = planView(tel.bbox, config.width, config.height, config);
     span.setAttributes({
@@ -452,61 +407,22 @@ async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Over
   return overview;
 }
 
-// The drone's position at the start of the recording; the frame samples
-// carry it, the bbox center stands in when they do not.
-function startFixOf(tel: Telemetry): LatLon {
-  const fix = tel.frames.find((frame) => frame.fix !== null)?.fix;
-  return (
-    fix ?? {
-      lat: (tel.bbox.minLat + tel.bbox.maxLat) / 2,
-      lon: (tel.bbox.minLon + tel.bbox.maxLon) / 2,
-    }
-  );
-}
-
-// The gate runs off the frame the player opens on: the pane's window at the
-// intro's zoomed-out first frame (one level out doubles the visible area),
-// around the drone's position - and, for overview, the map's own center.
-function gateSet(
-  env: PrepareStageEnv,
-  overview: Overview,
-  tel: Telemetry,
-  introOutro: IntroOutroFrames,
-): TileCoord[] {
-  const { config, frameSize } = env;
-  const frame = frameSize ?? { width: config.width, height: config.height };
-  const start = startFixOf(tel);
-  const center =
-    config.view === 'follow'
-      ? start
-      : unproject(overview.centerPx.x, overview.centerPx.y, overview.zoom);
-  const zoomedOut = introOutro.introN > 0 ? 2 : 1;
-  return gateTiles(
-    displayedTiles(tel.bbox, overview.zoom, frame, config),
-    start,
-    { width: frame.width * zoomedOut, height: frame.height * zoomedOut },
-    center,
-  );
-}
-
+// The render path's tile pre-warm: rendered frames must never fall back to
+// placeholder tiles, so the whole plan settles before capture starts. The
+// app's open flow skips this and lets the player fetch on demand.
 async function tileWarmStage(
-  env: PrepareStageEnv,
+  deps: PipelineDeps,
+  config: RenderConfig,
   overview: Overview,
-  tel: Telemetry,
-  introOutro: IntroOutroFrames,
+  log: LogFn,
+  tracer: Tracer,
+  parent: Span | undefined,
 ): Promise<PrefetchStats> {
-  const { config, log, tracer, parent, deps, report, tileWait } = env;
-  const tiles = tileWait === 'gate' ? gateSet(env, overview, tel, introOutro) : overview.tiles;
-  report.revealTiles(tiles.length);
-  report.begin('tiles');
   const tileStats = await stage(tracer, 'tiles.prefetch', parent, {}, async (span) => {
     const stats = await deps.prefetchTiles({
       style: config.style,
-      tiles,
+      tiles: overview.tiles,
       log,
-      onTile: () => {
-        report.tileSettled();
-      },
     });
     span.setAttributes({
       'tiles.total': stats.total,
@@ -523,8 +439,8 @@ async function tileWarmStage(
 }
 
 // The preparation stages shared by the headless pipeline and the app: probe,
-// telemetry, view plan, tile pre-warm. One trace context: the stages nest
-// under the caller's parent span (or stand alone when none is given).
+// telemetry, view plan. One trace context: the stages nest under the caller's
+// parent span (or stand alone when none is given).
 export async function prepareSession(
   videoPath: string,
   config: RenderConfig,
@@ -540,8 +456,6 @@ export async function prepareSession(
     deps: resolveDeps(options.deps, config.tileCache),
     tools: options.tools ?? resolveFfTools(config),
     report: createPrepareReporter(options.onProgress),
-    tileWait: options.tileWait ?? 'all',
-    frameSize: options.frameSize,
   };
 
   // Config producers normalize the canvas (config.normalizeDimensions); the
@@ -551,7 +465,6 @@ export async function prepareSession(
   const { probe, introOutro } = await probeStage(env);
   const { tel, hud } = await telemetryStage(env, probe);
   const overview = await viewPlanStage(env, tel);
-  const tileStats = await tileWarmStage(env, overview, tel, introOutro);
   const frames = frameArrays(tel);
 
   return {
@@ -562,7 +475,6 @@ export async function prepareSession(
     hud,
     introOutro,
     overview,
-    tileStats,
     frames,
   };
 }
@@ -599,6 +511,8 @@ interface RenderContext extends PreparedRecording {
   /** Frames actually rendered: the source count or the exported range's. */
   outFrames: number;
   frameRange: FrameRange | null;
+  /** The settled tile pre-warm, for the summary's download count. */
+  tileStats: PrefetchStats;
 }
 
 interface RenderStageEnv {
@@ -743,6 +657,7 @@ export async function processRecording(
         'telemetry.source': prep.tel.source,
       });
 
+      const tileStats = await tileWarmStage(deps, config, prep.overview, log, tracer, root);
       const range = resolveRange(options.range, prep.probe.frames);
       const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
       const ctx: RenderContext = {
@@ -753,6 +668,7 @@ export async function processRecording(
         log,
         outFrames,
         frameRange: range,
+        tileStats,
       };
       await renderToOutput({ ctx, deps, tools, options, tracer, root });
       return buildOkSummary(ctx, Math.round((Date.now() - t0) / 1000));

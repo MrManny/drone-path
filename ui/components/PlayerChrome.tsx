@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 
-import type { UiSession, WarmProgress, WarmRequest } from '../../src/appsession.js';
+import type { UiSession } from '../../src/appsession.js';
 import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
@@ -11,7 +11,6 @@ import type { Dialogs } from '../hooks/useDialogs.js';
 import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
-import { useWarmRetarget } from '../hooks/useWarmRetarget.js';
 import type { StageLayout } from '../lib/layout.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
@@ -23,7 +22,6 @@ import { SettingsPanel } from './SettingsPanel.js';
 import { StatusBar } from './StatusBar.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
-import { WarmHint } from './WarmHint.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
 
 export interface PlayerChromeProps {
@@ -37,10 +35,6 @@ export interface PlayerChromeProps {
   /** The Open flow: only preparing and failures show over the player. */
   openState?: PickState;
   onDismissOpenState?: () => void;
-  /** The background pre-warm's running count, for the warm hint. */
-  warm?: WarmProgress | null;
-  /** Re-targets the background pre-warm onto the tiles the map now shows. */
-  onWarmRetarget?: (request: WarmRequest) => void;
 }
 
 const IDLE_OPEN: PickState = { kind: 'idle' };
@@ -54,8 +48,6 @@ export function PlayerChrome({
   dialogs,
   openState = IDLE_OPEN,
   onDismissOpenState,
-  warm = null,
-  onWarmRetarget,
 }: PlayerChromeProps) {
   const { video, durationSec } = session;
   const {
@@ -112,8 +104,6 @@ export function PlayerChrome({
     [session, style, view, zoom, zoomOut, introSec, outroSec, hud],
   );
 
-  useWarmRetarget(onWarmRetarget, settings, layout);
-
   const dispatch = usePlayerHotkeys(
     {
       togglePlay,
@@ -135,7 +125,6 @@ export function PlayerChrome({
     openState.kind === 'preparing' || openState.kind === 'error' ? (
       <OpenNotice state={openState} onDismiss={onDismissOpenState} />
     ) : null;
-  const warmHint = warm ? <WarmHint progress={warm} /> : null;
 
   return (
     <div className="workspace">
@@ -152,14 +141,7 @@ export function PlayerChrome({
         videoRef={videoRef}
         onScene={handleScene}
         onPlayState={setPlaying}
-        notice={
-          openNotice || warmHint ? (
-            <>
-              {openNotice}
-              {warmHint}
-            </>
-          ) : null
-        }
+        notice={openNotice}
       />
       <TransportBar
         dispatch={dispatch}

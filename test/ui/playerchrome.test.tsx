@@ -82,7 +82,7 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Export…' })).toBeTruthy();
     // Transport
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Play|Warming tiles/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
     // The transport carries the one position readout (#157).
     expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(1);
@@ -121,13 +121,12 @@ describe('PlayerChrome workspace structure', () => {
     expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
-  it('loads the recording and gates playback on tile warm-up', async () => {
+  it('gates playback until the scene is ready', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
-    expect(warmup.disabled).toBe(true);
+    const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
+    expect(play.disabled).toBe(true);
     await waitFor(() => {
-      const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
-      expect(play.disabled).toBe(false);
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Play' }).disabled).toBe(false);
     });
   });
 
@@ -360,7 +359,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(fake.play).not.toHaveBeenCalled();
   });
 
-  it('gates keyboard play on tile warm-up', () => {
+  it('gates keyboard play until the scene is ready', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
     key(window, { key: ' ' });
@@ -392,19 +391,19 @@ describe('PlayerChrome keyboard shortcuts', () => {
   it('claims keys that land before the post-commit effect flush', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
-    const warmup = screen.getByRole<HTMLButtonElement>('button', { name: 'Warming tiles…' });
+    const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
     // The enabling commit's MutationObserver microtask runs before that
     // commit's passive effects — the window where a stale handler swallowed
     // keys (#62).
     const pressed = new Promise<void>((resolve) => {
       const observer = new MutationObserver(() => {
-        if (warmup.disabled) return;
+        if (play.disabled) return;
         observer.disconnect();
         key(window, { key: ' ' });
         key(window, { key: 'ArrowRight' });
         resolve();
       });
-      observer.observe(warmup, { attributes: true, attributeFilter: ['disabled'] });
+      observer.observe(play, { attributes: true, attributeFilter: ['disabled'] });
     });
     await pressed;
     expect(fake.play).toHaveBeenCalledTimes(1);

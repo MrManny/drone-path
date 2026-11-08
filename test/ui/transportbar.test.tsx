@@ -73,8 +73,8 @@ describe('TransportBar', () => {
   it.for([
     { ready: true, playing: false, label: 'Play', disabled: false },
     { ready: true, playing: true, label: 'Pause', disabled: false },
-    { ready: false, playing: false, label: 'Warming tiles…', disabled: true },
-  ])('shows $label while ready is $ready', ({ ready, playing, label, disabled }) => {
+    { ready: false, playing: false, label: 'Play', disabled: true },
+  ])('shows $label while ready is $ready and playing is $playing', ({ ready, playing, label, disabled }) => {
     renderBar({ ready, playing });
     const button = screen.getByRole<HTMLButtonElement>('button', { name: label });
     expect(button.disabled).toBe(disabled);
@@ -131,21 +131,21 @@ describe('TransportBar arrangement', () => {
     within(speed as HTMLElement).getByRole('group', { name: 'Playback speed' });
   });
 
-  it('holds the three regions while the tiles are still warming', () => {
+  it('holds the three regions while playback is not ready', () => {
     renderBar({ ready: false });
     const { cluster } = regions();
     expect(
       within(cluster as HTMLElement)
         .getAllByRole('button')
         .map((button) => button.getAttribute('aria-label') ?? button.textContent),
-    ).toEqual(['Jump to start', 'Warming tiles…', 'Jump to end']);
+    ).toEqual(['Jump to start', 'Play', 'Jump to end']);
   });
 });
 
 const PLAY_STATES = [
   { ready: true, playing: false, label: 'Play' },
   { ready: true, playing: true, label: 'Pause' },
-  { ready: false, playing: false, label: 'Warming tiles…' },
+  { ready: false, playing: false, label: 'Play' },
 ];
 
 describe('TransportBar play button width', () => {
@@ -157,7 +157,7 @@ describe('TransportBar play button width', () => {
     expect(parseFloat(getComputedStyle(button).minWidth)).toBeGreaterThan(0);
   });
 
-  it('holds one width floor across the Play, Pause and warming states', () => {
+  it('holds one width floor across the Play, Pause and not-ready states', () => {
     const floors = PLAY_STATES.map(({ label, ...props }) => {
       renderBar(props);
       const floor = getComputedStyle(screen.getByRole('button', { name: label })).minWidth;
