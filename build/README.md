@@ -4,13 +4,16 @@ Source artwork and derived platform formats for the desktop app icon.
 
 ## Files
 
-- `icon-master.png` — 512x512 RGBA master, downsampled with Lanczos from the
-  maintainer's source artwork. It carries the final branding with real
-  rounded-corner transparency (rounded-rectangle mask, corner radius 112 px =
-  22% of the side) and no textual PNG metadata — only IHDR/IDAT/IEND chunks.
-  Replace this file to rebrand, then re-derive the formats below.
-- `icons/<n>x<n>.png` — 16 to 512 resizes of the master; the Linux icon set
-  (`linux.icon` in `electron-builder.yml`).
+- `icon-master.svg` — the source artwork: a 512x512 pure-vector SVG (Inkscape,
+  no embedded raster) defining the circular badge with the drone glyph.
+  Committed so the derivation chain below can be re-run.
+- `icon-master.png` — 512x512 RGBA master rasterized from `icon-master.svg`.
+  The badge keeps the artwork's own alpha shape (transparent outside the
+  circle and the overhanging glyph, anti-aliased rim) and no textual PNG
+  metadata — only IHDR/IDAT/IEND chunks. Replace the SVG and this file to
+  rebrand, then re-derive the formats below.
+- `icons/<n>x<n>.png` — 16 to 512 sizes derived from the master (512 carries
+  the master's pixels); the Linux icon set (`linux.icon` in `electron-builder.yml`).
 - `icon.ico` — Windows application icon (`win.icon`), sizes 16 to 256. The
   256x256 entry is not for display: electron-builder's icon converter rejects
   an ICO without one.
@@ -20,19 +23,27 @@ Source artwork and derived platform formats for the desktop app icon.
 
 ## Provenance
 
-`icon-master.png` is the final branded artwork created for this project by the
-maintainer (no third-party assets). The derived formats inherit the master's
-provenance and the project license (MIT).
+`icon-master.svg` and the master raster were provided by the maintainer as the
+final branded artwork for this project (no third-party assets). The derived
+formats inherit the source's provenance and the project license (MIT).
 
 ## Deriving the platform formats
 
-One-off steps, re-run when the master changes; no tool is added to the project.
-The current master was produced with Python + Pillow: the source artwork was
-re-encoded to drop its AI-tool metadata (ComfyUI workflow `tEXt` chunks), the
-full-bleed square was masked to rounded-corner alpha (radius 112 px at 512),
-and it was downsampled to 512 with Lanczos; the icon set resizes the master
-with premultiplied-alpha Lanczos. Any decent resampler works for the resizing,
-e.g. ImageMagick `magick icon-master.png -resize 256 256x256.png`.
+One-off steps, re-run when the source changes; no tool is added to the project.
+Temporary tools live in the git-ignored `.scratch/`.
+
+1. Rasterize `icon-master.svg` to 512x512 RGBA with an SVG renderer — headless
+   Chrome was used here (load the SVG in a zero-margin page and screenshot at
+   512x512 with a transparent background).
+2. With Python + Pillow: keep the raster's own alpha, fill the RGB channels of
+   fully transparent pixels with the badge's dark color `#232323` so
+   non-premultiplied resamplers stay fringe-free, and save as `icon-master.png`
+   (only IHDR/IDAT/IEND chunks).
+3. Resize the master to the icon set with premultiplied-alpha Lanczos, clamping
+   each pixel's alpha to its source-neighborhood min/max so resampling cannot
+   ring alpha outside the source's support. Any decent resampler works for the
+   resizing, e.g. ImageMagick `magick icon-master.png -resize 256 256x256.png`
+   (mind the premultiplied alpha).
 
 Packed with [`png-to-ico`](https://www.npmjs.com/package/png-to-ico) (MIT),
 installed temporarily under the git-ignored `.scratch/` and driven through its
