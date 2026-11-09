@@ -101,9 +101,9 @@ interface Meta {
   clip?: { protoFile: string; productProtoVersion: string };
 }
 
-// A proto3 serializer never writes default values: zeros and empty strings
-// are absent on the wire, so the fixture codes only the non-default members -
-// the exact representation a real encoder produces.
+// A proto3 serializer never writes default values: scalar zeros and empty
+// strings are absent on the wire, and a set-but-default message field rides
+// as a ZERO-LENGTH submessage - the exact forms a real encoder produces.
 function eulerMessage(spec: EulerSpec): Buffer {
   const parts: Buffer[] = [];
   if (spec.pitch) parts.push(fldVarint(1, spec.pitch));
@@ -113,23 +113,29 @@ function eulerMessage(spec: EulerSpec): Buffer {
 }
 
 // ProductMeta { 1 clip_meta, 3 frame_meta { 2 camera, 4 drone, 5 gimbal } }
-// per the verified field map; sub-fields are coded only when non-default.
+// per the verified field map; members are coded only when non-default and
+// set-but-default message fields are zero-length.
 function buildProductMeta(m: Meta): Buffer {
   const coord = Buffer.concat([fldDouble(2, m.lat), fldDouble(3, m.lon)]);
   const gpsParts = [fldBytes(1, coord)];
   if (m.gpsAltMm) gpsParts.push(fldVarint(2, m.gpsAltMm));
   const gps = fldBytes(4, Buffer.concat(gpsParts));
-  const rel = m.relAltMm ? fldBytes(5, fldFloat(1, m.relAltMm)) : Buffer.alloc(0);
+  const rel = fldBytes(5, m.relAltMm ? fldFloat(1, m.relAltMm) : Buffer.alloc(0));
 
-  const droneParts = [gps];
+  const droneParts = [gps, rel];
   if (m.attitude) droneParts.unshift(fldBytes(3, eulerMessage(m.attitude)));
-  if (rel.length > 0) droneParts.push(rel);
   const drone = fldBytes(4, Buffer.concat(droneParts));
 
   const camParts: Buffer[] = [];
-  if (m.iso) camParts.push(fldBytes(3, fldVarint(1, m.iso)));
-  if (m.ct) camParts.push(fldBytes(6, fldVarint(1, m.ct)));
-  if (m.absAltM) camParts.push(fldBytes(11, fldFloat(1, m.absAltM)));
+  if (m.iso !== undefined) {
+    camParts.push(fldBytes(3, m.iso ? fldVarint(1, m.iso) : Buffer.alloc(0)));
+  }
+  if (m.ct !== undefined) {
+    camParts.push(fldBytes(6, m.ct ? fldVarint(1, m.ct) : Buffer.alloc(0)));
+  }
+  if (m.absAltM !== undefined) {
+    camParts.push(fldBytes(11, m.absAltM ? fldFloat(1, m.absAltM) : Buffer.alloc(0)));
+  }
 
   const frameParts = camParts.length > 0 ? [fldBytes(2, Buffer.concat(camParts))] : [];
   frameParts.push(drone);
@@ -146,8 +152,7 @@ function buildProductMeta(m: Meta): Buffer {
       if (device.timestampMs) headerParts.push(fldVarint(6, device.timestampMs));
       gimbalParts.push(fldBytes(1, Buffer.concat(headerParts)));
     }
-    const gimbalEuler = eulerMessage(m.gimbal);
-    if (gimbalEuler.length > 0) gimbalParts.push(fldBytes(2, gimbalEuler));
+    gimbalParts.push(fldBytes(2, eulerMessage(m.gimbal)));
     frameParts.push(fldBytes(5, Buffer.concat(gimbalParts)));
   }
 
@@ -316,6 +321,36 @@ describe('decodeProductMeta', () => {
     expect(m.gimbalRollDeg).toBeNull();
     expect(m.gimbalYawDeg).toBeNull();
     expect(m.gimbalDeviceTimestampMs).toBeNull();
+  });
+
+  // Touchdown frames: rel_alt rides as a zero-length submessage when the
+  // value is exactly 0.0 mm - the known 0.0, not an unknown.
+  it('exports the known 0.0 for a set-but-default RelativeAltitude', () => {
+    const m = decodeProductMeta(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0 }));
+    expect(m.relAlt).toBe(0);
+  });
+
+  // Sea-level clips: a set-but-default AbsoluteAltitude is the known 0.0 m;
+  // the GPS altitude fallback must not take its place.
+  it('never falls back to the GPS altitude where the camera says 0.0', () => {
+    const m = decodeProductMeta(
+      buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300, absAltM: 0, gpsAltMm: 313227 }),
+    );
+    expect(m.absAlt).toBe(0);
+  });
+
+  it('zero-defaults a wire-missing gps_altitude_mm of a present GpsBasic', () => {
+    const m = decodeProductMeta(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300 }));
+    expect(m.gpsAltMm).toBe(0);
+    expect(m.absAlt).toBe(0); // the fallback reads the same known 0
+  });
+
+  it('zero-defaults wire-missing ISO and CCT values', () => {
+    const m = decodeProductMeta(
+      buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300, iso: 0, ct: 0 }),
+    );
+    expect(m.iso).toBe(0);
+    expect(m.whiteBalanceCctK).toBe(0);
   });
 });
 

@@ -230,23 +230,29 @@ export function decodeProductMeta(
   };
 }
 
-// camera.3 ISO { 1 varint } and camera.6 WhiteBalanceCCT { 1 varint }.
+// camera.3 ISO { 1 varint } and camera.6 WhiteBalanceCCT { 1 varint }. The
+// proto3 zero-omission rule: a present message with a wire-missing value is
+// the known 0, never an unknown.
 function decodeCameraVarint(
   buf: Buffer,
   camera: ProtoFieldMap,
   fieldNumber: number,
 ): number | null {
   const message = subMessage(buf, camera, fieldNumber);
-  return message ? firstVarint(message, VALUE) : null;
+  return message ? (firstVarint(message, VALUE) ?? 0) : null;
 }
 
-// camera.11 AbsoluteAltitude { 1 float32 meters MSL }.
+// camera.11 AbsoluteAltitude { 1 float32 meters MSL }. A present message
+// with a wire-missing value is the known 0.0 m - the GPS fallback must not
+// take its place (that would be another sensor's reading).
 function decodeAbsoluteAltitude(
   buf: Buffer,
   camera: ProtoFieldMap,
 ): number | null {
   const absoluteAltitude = subMessage(buf, camera, ABSOLUTE_ALTITUDE);
-  return absoluteAltitude ? firstFloat(absoluteAltitude, VALUE) : null;
+  if (!absoluteAltitude) return null;
+  const meters = firstFloat(absoluteAltitude, VALUE) ?? 0;
+  return Number.isFinite(meters) ? meters : null;
 }
 
 // drone.4 GpsBasic: WGS84 lat/lon doubles plus gps_altitude_mm (the
@@ -256,7 +262,7 @@ interface GpsDecode {
   fix: LatLon | null;
   /** Position pair present but not a real fix (see isGpsFix). */
   noLock: boolean;
-  /** gps_altitude_mm as decoded (raw millimeters). */
+  /** Raw gps_altitude_mm; a present GpsBasic carries the known 0 when omitted. */
   gpsAltMm: number | null;
 }
 
@@ -280,20 +286,21 @@ function decodeGps(buf: Buffer, drone: ProtoFieldMap): GpsDecode {
       else out.noLock = true;
     }
   }
-  out.gpsAltMm = firstVarint(gps, GPS_ALTITUDE_MM);
+  out.gpsAltMm = firstVarint(gps, GPS_ALTITUDE_MM) ?? 0;
   return out;
 }
 
-// drone.5 RelativeAltitude { 1 float32 millimeters above takeoff }.
+// drone.5 RelativeAltitude { 1 float32 millimeters above takeoff }. A
+// present message with a wire-missing value is the known 0.0 - the touchdown
+// frame's rel_alt, not an unknown.
 function decodeRelativeAltitude(
   buf: Buffer,
   drone: ProtoFieldMap,
 ): number | null {
   const relative = subMessage(buf, drone, RELATIVE_ALTITUDE);
-  const millimeters = relative ? firstFloat(relative, VALUE) : null;
-  return millimeters !== null && Number.isFinite(millimeters)
-    ? millimeters / 1000
-    : null;
+  if (!relative) return null;
+  const millimeters = firstFloat(relative, VALUE) ?? 0;
+  return Number.isFinite(millimeters) ? millimeters / 1000 : null;
 }
 
 // drone.3 / gimbal.2 EulerAngle { 1 pitch, 2 roll, 3 yaw } varint
