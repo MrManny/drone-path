@@ -3,21 +3,19 @@
 ## 0.9.0
 
 - **New:** The flight trail is now configurable: `--trail-color <hex>`
-  (RGB or RGBA hex) and the `trailColor` setting recolor the flight
-  trail, the drone marker and the HUD accents. Glow and casing are
-  derived from the chosen color, so the layered trail stays readable on
-  both map styles; omitting the option keeps the per-style theme
-  defaults.
+  (RGB or RGBA hex like `#e63946` or `#e63946cc`, `#` optional) and the
+  `trailColor` setting recolor the flight trail, the drone marker and
+  the HUD accents. Glow and casing are derived from the chosen color,
+  so the layered trail stays readable on both map styles; omitting the
+  option keeps the per-style theme defaults.
 - **New:** `--telemetry-json <file>` exports per-frame telemetry —
   time, position, altitude, body and gimbal attitude, heading and
   camera exposure — as one versioned JSON document with a record per
   source frame; the schema is checked in as
-  `docs/telemetry-json.schema.json`.
-- **New:** The desktop workspace exports that document straight from
-  the loaded recording through Export telemetry…: a native save dialog
-  writes it without a render, honoring the loop points (the In–Out
-  segment or the full recording), with output byte-identical to
-  `--telemetry-json` and "Reveal in folder" for the kept file.
+  `docs/telemetry-json.schema.json`. The desktop workspace writes the
+  same document through Export telemetry…, straight from the loaded
+  recording (the In–Out segment or the full recording) and
+  byte-identical to the CLI output.
 - **New:** The desktop workspace has a top menu bar with the workspace
   actions moved into it: **File** holds Open… (Ctrl+O), Export video…,
   Export telemetry…, Settings and Exit, **View** holds Swap (S), and
@@ -32,8 +30,7 @@
   build's version — `MAJOR.MINOR.PATCH` for releases,
   `MAJOR.MINOR.PATCH+<short commit>` for every other build, injected at
   build time — an MIT license line, and a link that opens the
-  `MrManny/drone-path` repository in the default browser. The dialog
-  closes on Esc or Close like the other dialogs.
+  `MrManny/drone-path` repository in the default browser.
 
 ## 0.8.1
 
