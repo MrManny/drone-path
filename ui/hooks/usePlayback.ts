@@ -1,10 +1,5 @@
 'use client';
 
-// Playback wiring: the frame driver's lifecycle, the imperative scrubber,
-// playhead and time-text updates (they change every presented frame and must
-// not re-render the tree), and the transport controls. The pure frame math
-// stays in frametime.ts and loop.ts.
-
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -25,7 +20,6 @@ export interface Playback {
   setSpeed: (rate: 1 | 2 | 3 | 4) => void;
   loop: LoopState;
   setLoopPoint: (which: 'in' | 'out') => void;
-  /** Sets a loop point to an explicit frame, e.g. from a dragged handle. */
   setLoopFrame: (which: 'in' | 'out', frame: number) => void;
   clearLoop: () => void;
   scrubTo: (i: number) => void;
@@ -34,9 +28,7 @@ export interface Playback {
   handleScene: (scene: Scene) => void;
   videoRef: RefObject<HTMLVideoElement | null>;
   scrubRef: RefObject<HTMLInputElement | null>;
-  /** The transport's "position / duration" readout. */
   timeRef: RefObject<HTMLSpanElement | null>;
-  /** The timeline playhead marker, moved imperatively like the scrubber. */
   playheadRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -46,8 +38,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
   const timeRef = useRef<HTMLSpanElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<Scene | null>(null);
-  // The head frame: committed or queued, so rapid steps never stack onto a
-  // stale index before the driver's next tick.
   const latestIndexRef = useRef(0);
   const driverRef = useRef<ReturnType<typeof createFrameDriver> | null>(null);
   const [ready, setReady] = useState(false);
@@ -57,11 +47,7 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
 
   const handleScene = useCallback((scene: Scene) => {
     sceneRef.current = scene;
-    // The driver may have committed frames before the scene existed; the
-    // scene must show the current one, not its initial frame.
     void scene.setFrame(latestIndexRef.current);
-    // Playback is ready once the scene boots; the map fetches its tiles on
-    // demand, so nothing else gates play.
     setReady(true);
   }, []);
 
@@ -77,9 +63,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
       onIndex: (i) => {
         latestIndexRef.current = i;
         if (scrubRef.current) scrubRef.current.value = String(i);
-        // Imperative like the scrubber: the readouts and the playhead change
-        // every presented frame and must not re-render the tree at playback
-        // rate.
         const readout = formatTimeReadout(i, video.fps, durationSec);
         if (timeRef.current) timeRef.current.textContent = readout;
         if (playheadRef.current) {
@@ -96,7 +79,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     };
   }, [video, durationSec]);
 
-  // The loop state lives here; the driver owns the wrap mechanics.
   useEffect(() => {
     driverRef.current?.setLoop(loop);
   }, [video, loop]);
@@ -119,8 +101,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     const videoEl = videoRef.current;
     if (!videoEl || !ready) return;
     if (videoEl.paused) {
-      // play() on ended media restarts from the file start; a loop must
-      // resume at its own start.
       const active = engagedLoop(loop);
       if (videoEl.ended && active) scrubTo(active.in);
       videoEl.play().catch(() => {});
@@ -132,7 +112,6 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
   const stepBy = useCallback(
     (deltaFrames: number) => {
       const videoEl = videoRef.current;
-      // Stepping is for close inspection: it parks playback first.
       if (videoEl && !videoEl.paused) videoEl.pause();
       scrubTo(latestIndexRef.current + deltaFrames);
     },

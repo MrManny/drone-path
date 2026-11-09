@@ -13,27 +13,20 @@ import { MarkOutIcon } from '../icons/MarkOutIcon.js';
 import { Filmstrip } from './Filmstrip.js';
 
 export interface TimelinePanelProps {
-  /** The player's action map: buttons and hotkeys drive the same actions. */
   dispatch: (action: HotkeyAction) => void;
-  /** No recording is loaded: no filmstrip, scrubber and loop controls off. */
   disabled?: boolean;
   loop: LoopState;
   setLoopFrame: (which: 'in' | 'out', frame: number) => void;
-  /** Raw timeline values; the panel formats its own readouts from them. */
   fps: number;
   frames: number;
   durationSec: number;
   maxFrame: number;
   scrubTo: (i: number) => void;
   scrubRef: RefObject<HTMLInputElement | null>;
-  /** The playhead marker, moved imperatively by the frame driver. */
   playheadRef: RefObject<HTMLDivElement | null>;
-  /** The video's media URL, sampled for the filmstrip thumbnails. */
   src: string;
 }
 
-// The range slider stretched over the track is the keyboard-accessible scrub
-// control; the filmstrip, band and playhead under it are its visual track.
 export function TimelinePanel({
   dispatch,
   disabled = false,
@@ -54,9 +47,6 @@ export function TimelinePanel({
   const loopReadout = formatLoopReadout(loop, fps);
   const clearable = hasLoop(loop);
 
-  // The handles drag with the pointer only: the arrow keys belong to the
-  // global frame-step shortcuts, so the keyboard path to move loop points is
-  // I/O and the Set in/Set out buttons.
   const startDrag = (which: 'in' | 'out'): void => {
     const track = trackRef.current;
     if (!track) return;

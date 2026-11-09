@@ -133,8 +133,6 @@ describe('buildTelemetryDocument', () => {
     expect(record.altRel).toBe(0);
   });
 
-  // Rainy: a fractional cue value (e.g. [ct: 4435.5]) must never emit a
-  // document that is invalid against the published schema's integer fields.
   it('rounds fractional values onto the schema integer fields', () => {
     const doc = buildTelemetryDocument(
       docInput({
@@ -315,8 +313,6 @@ describe('generateTelemetryJsonSchema', () => {
   });
 });
 
-// The checked-in JSON Schema is generated ("npm run docs:schema"), never
-// hand-edited - same gate as the CLI reference.
 describe('docs/telemetry-json.schema.json', () => {
   it('matches the generator; run "npm run docs:schema" after changing src/telemetry-json.ts', () => {
     const checkedIn = fs.readFileSync(

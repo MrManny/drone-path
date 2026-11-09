@@ -12,18 +12,13 @@ export type SpanValue = string | number | boolean;
 export interface Span {
   setAttribute(name: string, value: SpanValue): void;
   setAttributes(values: Record<string, SpanValue>): void;
-  /** Record the failure on this span: exception event plus ERROR status. */
   fail(error: unknown): void;
-  /** End the span. Later end()/fail() calls do nothing: spans with overlapping
-   * lifecycles are wound down from several code paths. */
   end(): void;
-  /** The OpenTelemetry handle for parenting; no-op spans have none. */
   readonly raw?: ApiSpan;
 }
 
 export interface StartSpanOptions {
   attributes?: Record<string, SpanValue>;
-  /** Explicit parent; unparented spans are trace roots. */
   parent?: Span;
 }
 
@@ -31,8 +26,6 @@ export interface Tracer {
   startSpan(name: string, options?: StartSpanOptions): Span;
 }
 
-// Passed as one object so pipeline and render signatures do not keep growing
-// tracer/parent pairs.
 export interface TraceContext {
   tracer: Tracer;
   parent?: Span;
@@ -41,9 +34,7 @@ export interface TraceContext {
 export interface Tracing {
   enabled: boolean;
   tracer: Tracer;
-  /** Push buffered spans to the exporter without closing it. */
   flush(): Promise<void>;
-  /** Flush and close the exporter; call once when the run is over. */
   shutdown(): Promise<void>;
 }
 
@@ -68,8 +59,6 @@ function envFlag(value: string | undefined): boolean {
 }
 
 function envText(value: string | undefined): string | undefined {
-  // A blank value means "unset": the OTLP lookups fall through on undefined,
-  // so an empty string must not count as configured (which ?? would allow).
   const trimmed = value?.trim();
   return trimmed === '' ? undefined : trimmed;
 }
@@ -81,8 +70,7 @@ export function isTracingEnabled(env: Env = process.env): boolean {
   return endpoint !== undefined && !envFlag(env['OTEL_SDK_DISABLED']);
 }
 
-// The signal-specific endpoint is used as-is; the generic one is a base URL
-// the signal path is appended to (OTLP spec).
+// Per OTLP spec the specific endpoint is used as-is; the generic one is a base URL that gets /v1/traces.
 export function otlpTracesUrl(env: Env): string | undefined {
   const specific = envText(env['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT']);
   if (specific) return specific;
@@ -90,8 +78,6 @@ export function otlpTracesUrl(env: Env): string | undefined {
   return base ? `${base.replace(/\/+$/, '')}/v1/traces` : undefined;
 }
 
-// `k1=v1,k2=v2` lists with URL-encoded values, as the OTEL header and
-// resource-attribute variables use.
 function parseKeyValueList(value: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   for (const pair of (value ?? '').split(',')) {
@@ -109,7 +95,6 @@ function parseKeyValueList(value: string | undefined): Record<string, string> {
   return out;
 }
 
-// Signal-specific headers win per key over the generic ones (OTLP spec).
 export function otlpHeaders(env: Env): Record<string, string> {
   return {
     ...parseKeyValueList(envText(env['OTEL_EXPORTER_OTLP_HEADERS'])),
@@ -117,8 +102,6 @@ export function otlpHeaders(env: Env): Record<string, string> {
   };
 }
 
-// Parsed here instead of via envDetector because that reads process.env
-// directly, which would leave the env seam half-applied.
 export function resourceAttributesFromEnv(env: Env): Record<string, string> {
   const attrs = parseKeyValueList(envText(env['OTEL_RESOURCE_ATTRIBUTES']));
   const serviceName = envText(env['OTEL_SERVICE_NAME']);
@@ -126,10 +109,6 @@ export function resourceAttributesFromEnv(env: Env): Record<string, string> {
   return attrs;
 }
 
-// Exporting is fixed to OTLP/HTTP protobuf; a protocol variable promising
-// anything else would silently push into the wrong port of the collector.
-// Per the OTel spec the signal-specific variable wins over the generic one,
-// so only the effective value is judged.
 function assertSupportedProtocol(env: Env): void {
   const specific = envText(env['OTEL_EXPORTER_OTLP_TRACES_PROTOCOL']);
   const generic = envText(env['OTEL_EXPORTER_OTLP_PROTOCOL']);
@@ -145,8 +124,6 @@ function assertSupportedProtocol(env: Env): void {
   }
 }
 
-// The span ends with the body (or earlier, if the body ends it), and a thrown
-// error is recorded on it before it propagates.
 export async function withSpan<T>(
   tracer: Tracer,
   name: string,
@@ -165,8 +142,6 @@ export async function withSpan<T>(
   }
 }
 
-// Parent and initial attributes are exactly what every stage site would
-// otherwise spell out again.
 export function stage<T>(
   tracer: Tracer,
   name: string,
@@ -218,9 +193,7 @@ class OtelTracer implements Tracer {
 
   startSpan(name: string, options?: StartSpanOptions): Span {
     const parent = options?.parent;
-    // Unwrap through the Span interface, not instanceof. A parent without an
-    // OpenTelemetry handle (a no-op or foreign span) would silently detach the
-    // new span and quietly break the trace topology - refuse it instead.
+    // Unwrap through Span.raw, not instanceof: a parent without an OpenTelemetry handle would silently detach the new span.
     const parentRaw = parent?.raw;
     if (parent && !parentRaw) {
       throw new Error('parent span carries no OpenTelemetry handle');
@@ -236,15 +209,10 @@ class OtelTracer implements Tracer {
 }
 
 export interface CreateTracingOptions {
-  /** Every OTEL_* setting is read from here, endpoint and resource included;
-   * defaults to process.env. */
   env?: Env;
-  /** Test seam: replaces the OTLP exporter. */
   spanExporter?: SpanExporter;
 }
 
-// The OpenTelemetry packages are imported here and nowhere else, so a disabled
-// run never loads them.
 export async function createTracing(
   options: CreateTracingOptions = {},
 ): Promise<Tracing> {
@@ -284,9 +252,7 @@ export async function createTracing(
     spanProcessors: [
       new BatchSpanProcessor({
         exporter,
-        // The default queue (2048) drops spans silently when the collector is
-        // slow or unreachable; long batches make thousands of batch spans that
-        // must survive to keep the trace complete.
+        // The default queue (2048) drops spans silently; long batches need thousands to survive.
         maxQueueSize: 8192,
       }),
     ],

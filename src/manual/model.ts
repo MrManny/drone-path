@@ -5,7 +5,6 @@ export interface ManualHeading {
 }
 
 export interface ManualPage {
-  /** File base name ("keyboard-shortcuts"); README.md becomes "index". */
   slug: string;
   title: string;
   headings: ManualHeading[];

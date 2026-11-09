@@ -12,9 +12,6 @@ const GimbalDeviceSchema = z.strictObject({
   frequency: z.number(),
 });
 
-// Record fields in the acceptance order: time, position, body attitude,
-// camera attitude, heading, camera exposure. Optional fields are absent keys,
-// never null.
 const TelemetryRecordSchema = z.strictObject({
   frame: z.int(),
   gimbalDeviceTimestampMs: z.int().optional(),
@@ -56,27 +53,19 @@ type TelemetryValueKey = Exclude<
   'frame' | 'headingDeg' | 'headingSource'
 >;
 
-/** One source frame's decoded values, decoder-shaped (null = not carried). */
 export type TelemetryFrameInput = { [K in TelemetryValueKey]?: number | null };
 
 export interface TelemetryDocumentInput {
-  /** "proto_file_name product_proto_version" as the stream declares it. */
   protoFile?: string | null;
   source: TelemetrySource;
   headingMode: HeadingMode;
   frameCount: number;
-  /** Source frame index of row 0 (default 0): segment documents keep the
-   * recording's frame numbers, so records read frameStart + row index. */
   frameStart?: number;
   gimbalDevice?: TelemetryGimbalDevice | null;
-  /** Per-source-frame values; fewer entries than frameCount is fine. */
   frames: readonly TelemetryFrameInput[];
-  /** The pipeline's per-frame heading - the values the map arrow renders. */
   headingDeg: readonly number[];
 }
 
-// The record's key order: the acceptance grouping above, fixed so reruns are
-// byte-identical.
 const BEFORE_HEADING_KEYS = [
   'gimbalDeviceTimestampMs',
   'lat',
@@ -99,9 +88,6 @@ const EXPOSURE_KEYS = [
   'fNumber',
 ] as const satisfies readonly TelemetryValueKey[];
 
-// The schema declares these values as integers (their DVTM wire encoding is
-// a varint); fractional input (e.g. a decimal SRT cue) rounds to the nearest
-// integer so the emitted document always validates against the schema.
 const INTEGER_VALUE_KEYS: ReadonlySet<TelemetryValueKey> = new Set([
   'gimbalDeviceTimestampMs',
   'gpsAltMm',
@@ -118,9 +104,6 @@ function copyValue(
   record[key] = INTEGER_VALUE_KEYS.has(key) ? Math.round(value) : value;
 }
 
-// One record per source frame: row i's decoded values plus the pipeline's
-// heading for that frame. Frames without source values carry frame + heading
-// only - unknown values are omitted, never guessed.
 function buildRecord(
   input: TelemetryDocumentInput,
   index: number,

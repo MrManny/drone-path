@@ -21,18 +21,14 @@ import type { ProtoFieldMap } from './proto.js';
 const execFileAsync = promisify(execFile);
 
 export interface ProductMeta {
-  /** A real GPS fix, or null when the frame has none (see gpsFix). */
   fix: LatLon | null;
-  /** Position pair present but not a real fix (see isGpsFix). */
   noLock: boolean;
   relAlt: number | null;
   absAlt: number | null;
   yawDeg: number | null;
   pitchDeg: number | null;
   rollDeg: number | null;
-  /** Raw gps_altitude_mm (GpsBasic.2). */
   gpsAltMm: number | null;
-  /** Stabilized camera attitude (gimbal.2); null = no gimbal attitude. */
   gimbalPitchDeg: number | null;
   gimbalRollDeg: number | null;
   gimbalYawDeg: number | null;
@@ -55,23 +51,20 @@ export interface GimbalDeviceConstants {
   frequency: number;
 }
 
-/** The clip-level constants a ProductMeta can declare. */
 export interface ClipProvenance {
-  /** "proto_file_name product_proto_version" as declared, null when absent. */
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
 
 export interface CamMetaResult {
   samples: CamSample[];
-  /** No-lock positions; the byte-scan fallback reports 0 (fix pairs only). */
   noLock: number;
   method: CamMetaMethod;
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
 
-// DVTM field numbers (see the module comment for the message layout).
+// DVTM field numbers; the message layout is documented in docs/telemetry-protobuf.md.
 const CLIP_META = 1;
 const CLIP_META_HEADER = 1;
 const PROTO_FILE_NAME = 1;
@@ -103,7 +96,7 @@ const YAW = 3;
 const LAT = 2;
 const LON = 3;
 
-// Size of the 0x11/0x19 fixed64 GPS double pair scanned by the fallback.
+// GPS double-pair wire signature (0x11 lat f64, 0x19 lon f64); see docs/telemetry-protobuf.md.
 const GPS_PAIR_SPAN = 18;
 
 const FFMPEG_MAX_BUFFER = 64 * 1024 * 1024;
@@ -177,7 +170,6 @@ export function decodeProductMeta(
     fix: gps?.fix ?? null,
     noLock: gps?.noLock ?? false,
     relAlt: drone ? decodeRelativeAltitude(buf, drone) : null,
-    // camera.11 is authoritative; gps_altitude_mm is its fallback.
     absAlt: absAlt ?? gpsAltMeters(gps?.gpsAltMm ?? null),
     yawDeg: euler?.yawDeg ?? null,
     pitchDeg: euler?.pitchDeg ?? null,
@@ -194,9 +186,6 @@ export function decodeProductMeta(
   };
 }
 
-// camera.3 ISO { 1 varint } and camera.6 WhiteBalanceCCT { 1 varint }. The
-// proto3 zero-omission rule: a present message with a wire-missing value is
-// the known 0, never an unknown.
 function decodeCameraVarint(
   buf: Buffer,
   camera: ProtoFieldMap,
@@ -206,9 +195,6 @@ function decodeCameraVarint(
   return message ? (firstVarint(message, VALUE) ?? 0) : null;
 }
 
-// camera.11 AbsoluteAltitude { 1 float32 meters MSL }. A present message
-// with a wire-missing value is the known 0.0 m - the GPS fallback must not
-// take its place (that would be another sensor's reading).
 function decodeAbsoluteAltitude(
   buf: Buffer,
   camera: ProtoFieldMap,
@@ -219,14 +205,9 @@ function decodeAbsoluteAltitude(
   return Number.isFinite(meters) ? meters : null;
 }
 
-// drone.4 GpsBasic: WGS84 lat/lon doubles plus gps_altitude_mm (the
-// absolute-altitude fallback when camera.11 is missing). A position pair
-// that fails gpsFix is the no-lock placeholder: counted, never a fix.
 interface GpsDecode {
   fix: LatLon | null;
-  /** Position pair present but not a real fix (see isGpsFix). */
   noLock: boolean;
-  /** Raw gps_altitude_mm; a present GpsBasic carries the known 0 when omitted. */
   gpsAltMm: number | null;
 }
 
@@ -243,7 +224,6 @@ function decodeGps(buf: Buffer, drone: ProtoFieldMap): GpsDecode {
   if (coord) {
     const lat = firstDouble(coord, LAT);
     const lon = firstDouble(coord, LON);
-    // Only a present pair is an event: a fix, or exactly one no-lock count.
     if (lat !== null && lon !== null) {
       const fix = gpsFix(lat, lon);
       if (fix !== null) out.fix = fix;
@@ -254,9 +234,6 @@ function decodeGps(buf: Buffer, drone: ProtoFieldMap): GpsDecode {
   return out;
 }
 
-// drone.5 RelativeAltitude { 1 float32 millimeters above takeoff }. A
-// present message with a wire-missing value is the known 0.0 - the touchdown
-// frame's rel_alt, not an unknown.
 function decodeRelativeAltitude(
   buf: Buffer,
   drone: ProtoFieldMap,
@@ -267,10 +244,6 @@ function decodeRelativeAltitude(
   return Number.isFinite(millimeters) ? millimeters / 1000 : null;
 }
 
-// drone.3 / gimbal.2 EulerAngle { 1 pitch, 2 roll, 3 yaw } varint
-// deci-degrees. proto3 zero-omission: a present message with a wire-missing
-// member carries the known default 0.0; only an absent message means "no
-// attitude here".
 interface EulerDecode {
   pitchDeg: number;
   rollDeg: number;
@@ -291,9 +264,6 @@ function decodeEulerAngles(
   };
 }
 
-// The clip-level constants one ProductMeta can declare: the schema the clip
-// header names and the gimbal device header. Anything not fully declared is
-// reported absent - never guessed.
 export function decodeProvenance(
   buf: Buffer,
   start = 0,
@@ -316,7 +286,6 @@ function decodeProtoFile(buf: Buffer, top: ProtoFieldMap): string | null {
   return version ? `${name} ${version}` : name;
 }
 
-// proto3 zero-omission: an empty string is the default, not a declaration.
 function nonEmptyString(
   buf: Buffer,
   fields: ProtoFieldMap,
@@ -334,8 +303,6 @@ function decodeGimbalDevice(
   const gimbal = frameMeta && subMessage(buf, frameMeta, GIMBAL);
   const header = gimbal && subMessage(buf, gimbal, GIMBAL_DEVICE_HEADER);
   if (!header) return null;
-  // proto3 zero-omission, the EulerAngle rule: a present header with
-  // wire-missing members carries their known defaults.
   return {
     id: firstVarint(header, DEVICE_ID) ?? 0,
     type: firstVarint(header, DEVICE_TYPE) ?? 0,
@@ -345,10 +312,6 @@ function decodeGimbalDevice(
   };
 }
 
-// Byte-scan fallback: the 0x11/0x19 fixed64 GPS double pair. It judges
-// coordinates through src/geo.ts's gpsFix - the same rule as the protobuf
-// path, so a genuine fix is never accepted by one path and dropped by the
-// other.
 export function scanGpsPair(
   buf: Buffer,
   offset = 0,
@@ -368,8 +331,6 @@ export interface PacketInfo {
   size: number;
 }
 
-// A probe failure is operational, not absence: it surfaces with its cause so
-// a missing or broken ffprobe is never mistaken for a stream without data.
 async function listCamMetaPackets(
   tools: FfToolPaths,
   videoPath: string,
@@ -430,11 +391,6 @@ function toCamSample(meta: ProductMeta, tSec: number): CamSample {
   return { tSec, ...meta };
 }
 
-// Primary path: walk the dump packet by packet so each ProductMeta message
-// aligns to its packet PTS. No-lock packets are counted like SRT counts
-// no-lock cues so summaries agree across telemetry sources; they join the
-// samples only under keepAll. Clip-level constants (first declaration wins)
-// ride along for the telemetry JSON export header.
 export function decodePacketSamples(
   buf: Buffer,
   packets: PacketInfo[],
@@ -459,8 +415,6 @@ export function decodePacketSamples(
     }
     if (meta.noLock) noLock++;
     if (meta.fix !== null || keepAll) {
-      // No PTS: pretend "same time as the first sample" rather than
-      // fabricating a timeline out of a sample count (unit mismatch).
       const tSec = Number.isFinite(packet.tSec) ? packet.tSec : 0;
       samples.push(toCamSample(meta, tSec));
     }
@@ -469,7 +423,6 @@ export function decodePacketSamples(
   return { samples, noLock, provenance: { protoFile, gimbalDevice } };
 }
 
-// Fallback path: no frame alignment.
 function scanBufferForGpsPairs(buf: Buffer): CamSample[] {
   const samples: CamSample[] = [];
   for (let i = 0; i <= buf.length - GPS_PAIR_SPAN; i++) {
@@ -484,7 +437,6 @@ function scanBufferForGpsPairs(buf: Buffer): CamSample[] {
   return samples;
 }
 
-// Best effort: scan-found samples carry no real timestamps.
 function spreadSampleTimes(samples: CamSample[], durationSec: number): void {
   const span =
     Number.isFinite(durationSec) && durationSec > 0
@@ -495,17 +447,12 @@ function spreadSampleTimes(samples: CamSample[], durationSec: number): void {
   });
 }
 
-// opts.keepAll keeps every per-frame message even without a GPS fix (frame
-// index then stays aligned to video frames; lat stays null). Default false
-// keeps only GPS-bearing frames.
 export async function parseCamMeta(
   tools: FfToolPaths,
   videoPath: string,
   durationSec: number,
   opts: { keepAll?: boolean } = {},
 ): Promise<CamMetaResult | null> {
-  // Null returns below mark a genuine absence ("no CAM meta stream"); tool
-  // failures have already thrown with their cause by this point.
   const streamIndex = await findCamMetaIndex(tools, videoPath);
   if (streamIndex === null) return null;
 
@@ -526,8 +473,6 @@ export async function parseCamMeta(
   const samples = scanBufferForGpsPairs(buf);
   if (samples.length === 0) return null;
   spreadSampleTimes(samples, durationSec);
-  // The scan sees complete fix pairs only - a no-lock placeholder is
-  // indistinguishable from absent bytes in raw data.
   return {
     samples,
     noLock: 0,

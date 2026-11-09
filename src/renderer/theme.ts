@@ -1,9 +1,7 @@
 import type { Style } from '../config.js';
 
 export interface Theme {
-  /** The scene accent (drone marker, start dot, HUD chips): always solid. */
   core: string;
-  /** The trail core stroke: the chosen color verbatim, RGBA alpha honored. */
   trailCore: string;
   glow: string;
   casing: string;
@@ -14,7 +12,6 @@ export interface Theme {
   vignette: number;
 }
 
-/** The flight-trail color: the palette accent, one color everywhere. */
 const TRAIL_COLOR = '#e87f54';
 
 interface Rgb {

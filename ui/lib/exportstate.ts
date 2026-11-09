@@ -1,9 +1,3 @@
-// Export modal state as a pure reducer: form edits, the request snapshot
-// frozen at confirm, and the job's lifecycle events. Framework-free so the
-// transitions stay unit-testable. The form always holds the effective even
-// dimensions the pipeline renders (normalizeDimensions), so the fields can
-// never show a number the export would silently change (#94).
-
 import type { ExportRequest, FrameRange } from '../../src/config.js';
 import { normalizeDimensions } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
@@ -12,20 +6,13 @@ import type { RecordingSummary } from '../../src/run.js';
 
 type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
 
-// Only the tail is ever shown, so the reducer keeps a bounded window instead
-// of copying an ever-growing log on every progress line.
 const LOG_CAP = 50;
 
-// The pipeline reports capture progress as typed counts (not log text), so
-// the bar cannot drift from the emitter's wording.
 export function captureFraction(capture: CaptureProgress | null): number | null {
   if (!capture) return null;
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
 }
 
-// The frame the output preview stands on: the middle of the export selection,
-// so the visible trail growth represents the chosen range and tracks its edits
-// without animating the map.
 export function previewFrame(range: FrameRange | null, frames: number): number {
   const start = range ? range.start : 0;
   const end = range ? range.end : Math.max(0, frames - 1);
@@ -34,20 +21,16 @@ export function previewFrame(range: FrameRange | null, frames: number): number {
 
 export interface ExportForm {
   outPath: string | null;
-  /** The effective even sizes (rounded down, minimum 64), never the raw typed text. */
   width: number;
   height: number;
-  /** null = the full recording. */
   range: FrameRange | null;
 }
 
 export interface ExportState {
   phase: ExportPhase;
   form: ExportForm;
-  /** Frozen at confirm; later preview changes cannot alter the running job. */
   request: ExportRequest | null;
   messages: string[];
-  /** The latest typed capture progress of the running job. */
   capture: CaptureProgress | null;
   result: RecordingSummary | null;
   error: string | null;
@@ -145,12 +128,10 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
     case 'cancelRequested':
       return state.phase === 'running' ? { ...state, canceling: true, error: null } : state;
     case 'cancelFailed':
-      // The job keeps running: the cancel affordance comes back for a retry.
       return state.phase === 'running' ? { ...state, canceling: false, error: event.error } : state;
     case 'clearError':
       return { ...state, error: null };
     case 'finish': {
-      // Late events after a terminal state are stale and must not flip it.
       if (state.phase !== 'running') return state;
       const { outcome } = event;
       if (outcome.status === 'ok') {

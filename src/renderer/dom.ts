@@ -139,7 +139,6 @@ export function droneMarkerMarkup(coreColor: string): string {
   );
 }
 
-/** Returns the element the renderer's DOM contract guarantees. */
 export function el<T extends Element>(root: ParentNode, selector: string): T {
   const found = root.querySelector<T>(selector);
   if (!found) throw new Error(`renderer element missing: ${selector}`);

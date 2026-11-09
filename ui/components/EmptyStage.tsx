@@ -11,10 +11,6 @@ export interface EmptyStageProps {
   onDismiss?: () => void;
 }
 
-// The stage before a recording loads: the open call to action centered in the
-// footage pane with the Open flow's notice beside it and an empty map rail.
-// It reuses the player's stage geometry, so committing a recording swaps the
-// content without moving a single row.
 export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
   const preparing = state.kind === 'preparing';
   const notice =

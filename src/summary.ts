@@ -11,7 +11,6 @@ export interface TelemetrySummary {
   headingMode: HeadingMode;
   fixes: number;
   noLock: number;
-  /** Meters, rounded the way every user-facing surface reports them. */
   trackDistanceM: number;
 }
 

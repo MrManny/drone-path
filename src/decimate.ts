@@ -4,14 +4,11 @@ import type { Pixel } from './geo.js';
 export interface DecimatedTrack {
   lat: number[];
   lon: number[];
-  /** Source frame index of each kept point; strictly increasing. */
   frame: number[];
 }
 
 export interface DecimateOptions {
-  /** Maximum tolerated deviation from the track, in pixels at the working zoom. */
   epsilonPx?: number;
-  /** Upper bound for kept points; the epsilon grows until the bound holds. */
   maxPoints?: number;
 }
 
@@ -43,9 +40,6 @@ export function decimateTrack(
 
   let keep = douglasPeucker(px, epsilonPx);
   if (keep.length > maxPoints) {
-    // The cap is a promise (<=3k visible points on a 20 min flight), so the
-    // epsilon doubles until it holds; geometric growth keeps that
-    // deterministic and cheap (one or two extra passes in practice).
     let hi = epsilonPx > 0 ? epsilonPx * 2 : 1;
     let hiKeep = douglasPeucker(px, hi);
     while (hiKeep.length > maxPoints) {
@@ -64,7 +58,6 @@ export function decimateTrack(
   return track;
 }
 
-// Iterative (stack-based) so adversarial tracks cannot blow the call stack.
 function douglasPeucker(px: readonly Pixel[], epsilon: number): number[] {
   const n = px.length;
   const keep = new Uint8Array(n);
@@ -82,8 +75,6 @@ function douglasPeucker(px: readonly Pixel[], epsilon: number): number[] {
     let maxIdx = -1;
     for (let i = start + 1; i < end; i++) {
       const d = distanceToSegment(px[i], a, b);
-      // Ties go to the middle-most point so regular patterns (hover
-      // jitter, zigzags) split evenly instead of degenerating to O(n^2).
       if (
         d > maxDist ||
         (d === maxDist && Math.abs(i - mid) < Math.abs(maxIdx - mid))

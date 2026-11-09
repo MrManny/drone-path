@@ -8,19 +8,13 @@ import type { ManualBundle } from '../../src/manual/model.js';
 import { DialogClose } from './DialogClose.js';
 
 export interface HelpOverlayProps {
-  /** The compiled manual; tests pass a fixture, the app passes the bundle. */
   bundle: ManualBundle;
   onClose: () => void;
 }
 
-// The manual's reading surface: dialog anatomy in a wide panel, a nav column
-// from the manual index, and the compiled page as content. Internal links
-// carry data-manual-slug/data-manual-anchor and navigate in place; web links
-// are left to the shell, which opens them externally.
 export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
   const startSlug = bundle.pages['index'] ? 'index' : (bundle.nav[0]?.slug ?? '');
   const [slug, setSlug] = useState(startSlug);
-  // Wrapped in an object so clicking the same anchor twice re-scrolls.
   const [anchor, setAnchor] = useState<{ id: string } | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const page = bundle.pages[slug];
@@ -30,8 +24,6 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
     const target = [...(articleRef.current?.querySelectorAll('[id]') ?? [])].find(
       (node) => node.id === anchor.id,
     );
-    // The optional call keeps the overlay rendering in test environments
-    // without scroll support.
     target?.scrollIntoView?.({ block: 'start' });
   }, [anchor, slug]);
 
@@ -79,8 +71,6 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
               </a>
             ))}
           </nav>
-          {/* The compiler escapes raw HTML and rewrites links and images, so
-              the corpus renders here as authored. */}
           <article
             ref={articleRef}
             className="help-content"

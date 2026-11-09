@@ -12,19 +12,16 @@ export interface HudSpec {
 }
 
 export interface RenderConfig {
-  /** null = write output beside the source video. */
   outDir: string | null;
   outSuffix: string;
   width: number;
   height: number;
   style: Style;
   view: View;
-  /** 0 = auto-fit to the track. */
   zoom: number;
   zoomOut: number;
   introSec: number;
   outroSec: number;
-  /** null = the map style's theme trail color. */
   trailColor: string | null;
   hud: HudSpec;
   workers: number;
@@ -32,15 +29,12 @@ export interface RenderConfig {
   codec: Codec;
   quality: Quality;
   preset: Preset;
-  /** Empty = the per-user cache directory; resolveConfig fills it in. */
   tileCache: string;
   browser: string | null;
-  /** Tool overrides; null = the embedded binary, then PATH. */
   ffmpeg: string | null;
   ffprobe: string | null;
   skipExisting: boolean;
   recurse: boolean;
-  /** null = no telemetry JSON document; the doc goes only to this file. */
   telemetryJson: string | null;
   json: boolean;
   quiet: boolean;
@@ -50,8 +44,6 @@ export type ConfigOverrides = Partial<RenderConfig>;
 
 export const CONFIG_FILE_NAME = '.dronepath.json';
 
-// The config-file selection flag: vocabulary outside the config keys,
-// shared by the CLI and the generated reference so they cannot drift.
 export const CONFIG_FILE_OPTION = {
   flags: '--config <path>',
   help: 'config file (default: .dronepath.json discovered upward from the working directory)',
@@ -64,8 +56,6 @@ export const CODEC_VALUES: readonly Codec[] = ['h264', 'h265'];
 export const QUALITY_VALUES: readonly Quality[] = ['near-lossless', 'high', 'medium', 'low'];
 export const PRESET_VALUES: readonly Preset[] = ['medium', 'veryfast'];
 
-// The normalizer column of the option key table: validation and conversion for
-// one key, taking the raw value and an error-context name.
 type OverrideNormalizer = (value: unknown, name: string) => ConfigOverrides;
 
 export function parseHud(list: string): HudSpec {
@@ -86,19 +76,14 @@ export function parseHud(list: string): HudSpec {
   return hud;
 }
 
-// The "alt hides when unavailable" rule, one home for the pipeline and the UI.
 export function resolveHudSpec(hud: HudSpec, hasAlt: boolean): HudSpec {
   return hud.alt && !hasAlt ? { ...hud, alt: false } : hud;
 }
 
-// What "unavailable" means for the rule above: no altitude sample at all in
-// the telemetry.
 export function hasAltitude(alt: readonly (number | null)[]): boolean {
   return alt.some((a) => a !== null);
 }
 
-// The CLI-string form of a HUD spec ("none" when no chip is on), the inverse
-// of parseHud.
 export function formatHud(hud: HudSpec): string {
   const parts: string[] = [];
   if (hud.heading) parts.push('heading');
@@ -107,8 +92,6 @@ export function formatHud(hud: HudSpec): string {
   return parts.length ? parts.join(',') : 'none';
 }
 
-// Typed layers (config files, export requests) carry exact JSON types, so a
-// mistyped value must fail instead of being silently converted.
 export function asNumber(value: unknown, name: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new Error(`invalid number for ${name}: ${String(value)}`);
@@ -116,9 +99,6 @@ export function asNumber(value: unknown, name: string): number {
   return value;
 }
 
-// Commander hands every option value as a string; numeric flags are converted
-// at the CLI boundary only. Anything that is not a plain decimal literal
-// passes through so asNumber rejects it naming the offending input verbatim.
 const CLI_NUMBER_RX = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
 function cliNumber(raw: unknown): unknown {
@@ -156,10 +136,6 @@ function asNullableString(value: unknown, name: string): string | null {
   return asString(value, name);
 }
 
-// A trail color as canonical lowercase hex, #rrggbb or #rrggbbaa. Shorthand
-// #rgb/#rgba expands and the leading # is optional, so CLI callers never need
-// shell quoting; empty is the unset default like the other nullable options,
-// and anything else is one clear error naming the input.
 const TRAIL_COLOR_RX = /^#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 export function asTrailColor(value: unknown, name: string): string | null {
@@ -176,9 +152,6 @@ export function asTrailColor(value: unknown, name: string): string | null {
   return `#${hex}`;
 }
 
-// How one option appears on the command line: the flags (with any value
-// placeholder), the help text, the accepted choices for enum flags, and how
-// commander's string-y value becomes the typed one.
 interface CliOptionSpec {
   flags: string;
   help: string;
@@ -186,10 +159,6 @@ interface CliOptionSpec {
   parse?: (raw: unknown) => unknown;
 }
 
-// One row per config key: the key name, how the CLI spells it, the single
-// default, and the normalizer. This is the option vocabulary's one table: the
-// CLI's commander options and its override collection, the config-file layer
-// and DEFAULT_CONFIG are all derived from it, so adding an option is one edit.
 export interface ConfigOption<K extends keyof RenderConfig = keyof RenderConfig> {
   key: K;
   cli: CliOptionSpec;
@@ -374,12 +343,6 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   },
 ];
 
-// The CLI spells a default the way commander expects it. The config-native
-// default stays in the table's `default` column so DEFAULT_CONFIG is a straight
-// copy. Three kinds differ from their config form: a boolean default stays a
-// boolean (commander's presence flags), a null default becomes the empty string
-// ("not set") - "null" would read as a literal path - and the HUD spec becomes
-// its comma string.
 export function cliDefaultOf(key: keyof RenderConfig): string | boolean {
   const row = CONFIG_OPTIONS.find((r) => r.key === key);
   if (!row) throw new Error(`unknown config key ${String(key)}`);
@@ -389,8 +352,6 @@ export function cliDefaultOf(key: keyof RenderConfig): string | boolean {
   return key === 'hud' ? formatHud(value as HudSpec) : String(value);
 }
 
-// Frozen so no resolved config can corrupt the shared defaults; merges copy
-// the hud spec so every resolved config owns its own mutable copy.
 export const DEFAULT_CONFIG: RenderConfig = Object.freeze(
   Object.fromEntries(
     CONFIG_OPTIONS.map((row) => [row.key, row.default]),
@@ -398,8 +359,6 @@ export const DEFAULT_CONFIG: RenderConfig = Object.freeze(
 );
 Object.freeze(DEFAULT_CONFIG.hud);
 
-// Keyed lookup built from the option table; a key's normalizer is found by its
-// name, and an unknown key is a usage error naming the origin.
 const OVERRIDE_NORMALIZERS: Record<keyof RenderConfig, OverrideNormalizer> =
   Object.fromEntries(
     CONFIG_OPTIONS.map((row) => [row.key, row.normalize]),
@@ -417,9 +376,6 @@ export function normalizeOverrides(
     if (!normalize) throw new Error(`unknown config key ${key} in ${origin}`);
     const value = raw[key];
     if (value === undefined) continue;
-    // An explicit null means "unset to default" where the vocabulary's default
-    // is null (so a nullable override can reset a non-null base); elsewhere a
-    // null is a mistyped value this layer historically ignores.
     if (value === null && DEFAULT_CONFIG[key as keyof RenderConfig] !== null) continue;
     Object.assign(out, normalize(value, `${origin}: ${key}`));
   }
@@ -430,16 +386,13 @@ export function effectiveZoomOut(config: Pick<RenderConfig, 'zoom' | 'zoomOut'>)
   return config.zoom > 0 ? 0 : config.zoomOut;
 }
 
-/** The encoder knobs the export modal owns and the renderer applies. */
 export type EncodeSettings = Pick<RenderConfig, 'codec' | 'quality' | 'preset'>;
 
-/** The look settings: what the map shows. */
 export type LookSettings = Pick<
   RenderConfig,
   'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec' | 'trailColor'
 >;
 
-/** The persisted settings: the look the settings panel owns and the encoder choices the export modal owns. */
 export type SettingsPatch = LookSettings & EncodeSettings;
 
 export function settingsPatchOf(config: RenderConfig): SettingsPatch {
@@ -458,8 +411,6 @@ export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   };
 }
 
-// The persisted keys in the vocabulary's table order: the persisted state's
-// shape and its serialization order in one home.
 export const SETTINGS_KEYS = [
   'style',
   'view',
@@ -474,18 +425,11 @@ export const SETTINGS_KEYS = [
   'preset',
 ] as const;
 
-// The settings-values boundary (the settings save IPC, the persisted state
-// file): the keys arrive complete and vocabulary-valid, so no layer
-// downstream can hold a value the pipeline would reject. The HUD spec travels
-// as its object form over IPC and as its CLI string in JSON files; both run
-// through the vocabulary's own normalizers.
 export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new Error(`invalid settings in ${origin}`);
   }
   const flat = { ...(raw as Record<string, unknown>) };
-  // A known config key outside the persisted set (a machine-owned value) must
-  // never ride along; the vocabulary's normalizers only reject unknown keys.
   for (const key of Object.keys(flat)) {
     if (!(SETTINGS_KEYS as readonly string[]).includes(key)) {
       throw new Error(`unknown settings key ${key} in ${origin}`);
@@ -505,20 +449,15 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
   return settings;
 }
 
-// The smallest canvas the renderer and the app's dimension fields accept, in
-// one home so the CLI, the pipeline and the export modal cannot disagree.
 export const MIN_DIMENSION = 64;
 
-// The negated comparisons are NaN-safe: they also reject NaN sneak-ins.
+// Negated comparisons are NaN-safe (NaN would slip through <).
 export function validateDimensions(width: number, height: number): void {
   if (!(width >= MIN_DIMENSION) || !(height >= MIN_DIMENSION)) {
     throw new Error(`width and height must be at least ${MIN_DIMENSION}`);
   }
 }
 
-// The documented "rounded down to even" rule (keeping the MIN_DIMENSION
-// floor), in one home: every config producer applies it so a RenderConfig
-// always holds the effective canvas the renderer gets.
 export function normalizeDimensions(
   width: number,
   height: number,
@@ -542,25 +481,17 @@ export function validateRenderConfig(config: RenderConfig): void {
   if (!config.outSuffix) throw new Error('out-suffix must not be empty');
 }
 
-// ---- export vocabulary (the UI's export modal -> the app's export job) ----
-
-/** Inclusive source-frame range, e.g. the loop's In/Out points. */
 export interface FrameRange {
   start: number;
   end: number;
 }
 
 export interface ExportRequest {
-  /** Destination path; the .mp4 extension fixes the container. */
   outPath: string;
-  /** The settings snapshot (panel look + export dimensions), frozen at confirm. */
   config: RenderConfig;
-  /** Source-frame segment to export, or null for the full recording. */
   range: FrameRange | null;
 }
 
-// One rule for a usable frame range, shared by the request parser and the
-// pipeline's range guard so they cannot drift.
 export function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
   if (!Number.isInteger(range.start) || !Number.isInteger(range.end)) {
     throw new Error(`invalid ${name}: start and end must be integer frame indices`);
@@ -603,17 +534,11 @@ function parseHudObject(value: unknown, name: string): HudSpec {
   };
 }
 
-// Machine-owned settings the renderer never chooses: the main process's
-// resolved values stay authoritative, so a snapshot cannot redirect the tile
-// cache, the browser, the worker count or the CLI-only switches.
 const MAIN_OWNED_KEYS = [
   'outDir', 'outSuffix', 'tileCache', 'browser', 'ffmpeg', 'ffprobe', 'workers', 'capture',
   'skipExisting', 'recurse', 'telemetryJson', 'json', 'quiet',
 ] as const;
 
-// The renderer sends the look and the export dimensions; everything else comes
-// from the main process. The HUD spec travels in its CLI string form so the
-// vocabulary's own normalizers stay the single validation home.
 function parseRequestConfig(raw: unknown, base: RenderConfig): RenderConfig {
   if (typeof raw !== 'object' || raw === null) {
     throw new Error('invalid export request: config');

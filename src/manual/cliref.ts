@@ -8,7 +8,6 @@ function defaultCell(key: keyof RenderConfig): string {
 }
 
 function describe(row: ConfigOption): string {
-  // Angle brackets in help text would read as HTML on GitHub
   const help = row.cli.help.replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return row.cli.choices ? `${help} (choices: ${row.cli.choices.join(', ')})` : help;
 }

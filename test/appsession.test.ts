@@ -170,8 +170,6 @@ describe('createAppSession', () => {
 
   it('refuses a pick while another is in progress', async () => {
     const file = mp4();
-    // An assertion initializer: the resolver runs inside the Promise executor,
-    // and control-flow analysis cannot see assignments made in closures.
     let release = null as ((value: PreparedUiSession) => void) | null;
     const prepare = vi.fn(
       () =>
@@ -371,13 +369,11 @@ describe('prepareUiSession', () => {
       stubDeps({ prefetchTiles }),
     );
 
-    // The app path never prefetches: the map fetches its tiles on demand.
     expect(prefetchTiles).not.toHaveBeenCalled();
     expect(events.map((e) => e.stage)).toEqual(['probe', 'telemetry', 'plan']);
     expect(ui.session.bbox).toEqual(telemetryFixture().bbox);
     expect(ui.session.video.frames).toBe(probeFixture().frames);
     expect(ui.session.video.src).toContain('video');
-    // The preparation keeps the telemetry JSON document input for the save.
     expect(ui.telemetry.frameCount).toBe(probeFixture().frames);
     expect(ui.telemetry.headingDeg).toEqual([90, 91, 92]);
   });
@@ -408,8 +404,6 @@ describe('prepareUiSession', () => {
   });
 });
 
-// A five-frame recording with decoded values on three rows (one carrying
-// explicit nulls): enough to slice segments and to prove absent keys.
 function saveDeps() {
   const telemetry = telemetryFixture({
     frames: [
@@ -523,7 +517,6 @@ describe('AppSession.saveTelemetryJson', () => {
     expect(TelemetryDocumentSchema.safeParse(doc).success).toBe(true);
   });
 
-  // Rainy: a missing value is an absent key in the document, never a null.
   it('omits missing values as absent keys and never writes nulls', async () => {
     const session = await loadedSession(mp4());
     const out = path.join(tmpDir(), 'fields.telemetry.json');
@@ -564,8 +557,6 @@ describe('AppSession.saveTelemetryJson', () => {
   });
 });
 
-// The acceptance contract: the desktop document is byte-identical to the
-// CLI's --telemetry-json output for the same recording.
 describe('saveTelemetryJson byte parity', () => {
   it('writes the same bytes as processRecording with telemetryJson', async () => {
     const file = mp4('flight.mp4');

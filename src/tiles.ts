@@ -20,16 +20,9 @@ const REQUEST_INTERVAL_MS = 500;
 const RETRY_DELAY_MS = 500;
 const FETCH_TIMEOUT_MS = 20000;
 
-// Politeness for the tile servers: every request start in one queue is spaced
-// REQUEST_INTERVAL_MS apart (2.0 req/s), retries included, whichever queue
-// drives them.
 type RequestGate = () => Promise<void>;
 
 function createRequestGate(): RequestGate {
-  // Waiters release in arrival order - the queue's priorities decide who
-  // acquires first - and the stamp lands at the actual release with every
-  // turn re-checking after sleeping: a late event-loop wake can never
-  // squeeze the next start inside the previous release's interval.
   let nextFreeAt = 0;
   let tail: Promise<void> = Promise.resolve();
   return () => {
@@ -60,15 +53,10 @@ function tileUrl(style: Style, tile: TileCoord): string {
     .replace('{y}', String(tile.y));
 }
 
-// A canceled download is not a failed one: no placeholder is written and the
-// tile stays uncached, so a later request may fetch the real tile.
 function canceledError(signal: AbortSignal): Error {
   return new Error('tile download canceled', { cause: signal.reason });
 }
 
-// The network half of one tile: its body after a successful attempt, null
-// when the attempts run out. The download retry is for network problems
-// only; cache writes live in writeCacheFile and fail fast.
 async function downloadTile(
   url: string,
   acquire: RequestGate,
@@ -92,9 +80,6 @@ async function downloadTile(
   return null;
 }
 
-// An fs failure while writing the cache is the cache's fault, not the
-// network's: it fails the tile's job instead of being retried as a download,
-// and names the cache so the log and Open errors read it as a cache failure.
 function writeCacheFile(cachePath: string, data: Buffer): void {
   try {
     fs.mkdirSync(path.dirname(cachePath), { recursive: true });
@@ -104,9 +89,6 @@ function writeCacheFile(cachePath: string, data: Buffer): void {
   }
 }
 
-// Placeholder PNGs are pure derivations of the tile source's background
-// color; memoizing per downloader keeps repeat failures cheap without any
-// module-level mutable state.
 function createPlaceholderSource(): (style: Style) => Buffer {
   const cache = new Map<Style, Buffer>();
   return (style) => {
@@ -122,7 +104,6 @@ function createPlaceholderSource(): (style: Style) => Buffer {
 type TileStatus = 'cached' | 'downloaded' | 'failed';
 
 interface TileFetchResult {
-  /** The file to serve: the real tile, or its placeholder after a failure. */
   file: string;
   status: TileStatus;
 }
@@ -133,9 +114,6 @@ interface FetchContext {
   placeholderPng: (style: Style) => Buffer;
 }
 
-// The full cache dance for one tile: hit, download, or placeholder. The
-// placeholder is served as a fallback so a missing tile is retried on a later
-// run instead of being cached as missing.
 async function fetchTileToCache(
   ctx: FetchContext,
   style: Style,
@@ -153,12 +131,6 @@ async function fetchTileToCache(
   return { file: paths.placeholder, status: 'failed' };
 }
 
-/**
- * A queued download's urgency: `now` serves the tile the player is looking at
- * and jumps the queue; `background` streams one plan's tiles behind it. The
- * two never share a download, so a canceled pre-warm cannot abort an
- * on-demand fetch.
- */
 type TilePriority = 'now' | 'background';
 
 interface QueuedTile {
@@ -180,7 +152,6 @@ interface Downloader {
 
 interface InFlightEntry {
   promise: Promise<TileFetchResult>;
-  /** Downloads are shared within one stream only: its abort decides their fate. */
   signal?: AbortSignal;
 }
 
@@ -221,8 +192,7 @@ function createDownloader(
     enqueue(style, tile, options = {}): Promise<TileFetchResult> {
       const priority = options.priority ?? 'background';
       const key = `${priority}:${tilePaths(cacheDir, style, tile).file}`;
-      // A canceled stream's downloads must never be handed to the next one:
-      // sharing follows the abort signal of the download it joins.
+      // Share only within one stream: a canceled stream's downloads must never be handed to the next one.
       const shared = inFlight.get(key);
       if (shared && shared.signal === options.signal) return shared.promise;
       const task = new Promise<TileFetchResult>((resolve, reject) => {
@@ -267,13 +237,11 @@ export interface PrefetchStats {
   total: number;
 }
 
-/** One plan's slice of the tile pre-warm, streamed through the polite queue. */
 export interface WarmOptions {
   style: Style;
   tiles: TileCoord[];
   log?: (msg: string) => void;
   onTile?: (status: TileStatus) => void;
-  /** Cancels the pre-warm: queued and in-flight downloads are dropped. */
   signal?: AbortSignal;
 }
 
@@ -282,14 +250,10 @@ export interface PrefetchOptions extends WarmOptions {
 }
 
 export interface TileTraffic {
-  /** Fetches one tile the player needs now, ahead of the pre-warm. */
   ensure(style: Style, tile: TileCoord): Promise<string>;
-  /** Streams one plan's tiles; onTile fires once per settled tile. */
   stream(options: WarmOptions): Promise<PrefetchStats>;
 }
 
-// The app's tile traffic on one polite queue: on-demand tiles jump ahead of
-// the queued prefetch, and both stay inside the same 2.0 req/s budget.
 export function createTileTraffic(cacheDir: string): TileTraffic {
   const downloader = createDownloader(cacheDir, createPlaceholderSource());
   return {
@@ -323,9 +287,6 @@ export function createTileTraffic(cacheDir: string): TileTraffic {
   };
 }
 
-// Polite bulk fetching for the pipeline: 2 concurrent workers, 2.0 req/s. It
-// settles once per tile (cached, downloaded or failed) through onTile and
-// rejects with 'tile download canceled' when a signal aborts it.
 export function prefetchTiles(options: PrefetchOptions): Promise<PrefetchStats> {
   return createTileTraffic(options.cacheDir).stream(options);
 }

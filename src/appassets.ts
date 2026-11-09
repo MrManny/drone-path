@@ -23,7 +23,6 @@ export type AppAsset =
     }
   | { kind: 'not-found' };
 
-/** Resolves an already-decoded URL pathname (e.g. "/index.html"). */
 export function resolveAppAsset(pathname: string, routes: AppRoutes): AppAsset {
   if (pathname === MEDIA_PATH) {
     return routes.videoPath
@@ -31,10 +30,6 @@ export function resolveAppAsset(pathname: string, routes: AppRoutes): AppAsset {
       : { kind: 'not-found' };
   }
 
-  // Every known style routes into the shared cache ({ anyStyle: true }):
-  // live restyle switches styles without a reload, so no single style owns
-  // the tile route. Anything tile-shaped but not a tile resolves like any
-  // other static path.
   const tile = resolveTileRoute(pathname, routes.tileCache, { anyStyle: true });
   if (tile) {
     return { kind: 'tile', ...tile };
@@ -46,9 +41,8 @@ export function resolveAppAsset(pathname: string, routes: AppRoutes): AppAsset {
 function exportFile(pathname: string, exportRoot: string): AppAsset {
   let rel = pathname.replace(/^\/+/, '');
   if (rel === '' || rel.endsWith('/')) rel += 'index.html';
-  // URL pathnames are POSIX-style; a drive prefix or backslash marks a
-  // Windows-flavored path that POSIX resolution would mistake for a plain
-  // file name. Refuse it outright so the guard behaves the same on every OS.
+  // Windows drive prefixes or backslashes would be a plain file name to POSIX
+  // resolution; refuse them so the guard works the same on every OS.
   if (rel.split('/').some((s) => s.includes('\\') || /^[a-zA-Z]:/.test(s))) {
     return { kind: 'not-found' };
   }

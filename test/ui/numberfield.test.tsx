@@ -23,7 +23,6 @@ function renderZoom(overrides: Partial<NumberFieldProps> = {}) {
   return { input: screen.getByLabelText<HTMLInputElement>('Zoom'), onValue };
 }
 
-// A value equal to the field's current 0 would not fire a change event at all.
 describe.each(['1', '2.5', '1000'])('a valid value %s', (value) => {
   it('commits, keeps the hint and shows no message', () => {
     const { input, onValue } = renderZoom();

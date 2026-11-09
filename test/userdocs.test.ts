@@ -39,8 +39,6 @@ describe('the checked-in manual corpus', () => {
   });
 });
 
-// The shortcut table must cover every key the hotkeys vocabulary maps, so a
-// new shortcut cannot ship undocumented (the #32 gap).
 describe('docs/user/keyboard-shortcuts.md', () => {
   const doc = fs.readFileSync(path.join(userDir, 'keyboard-shortcuts.md'), 'utf8');
   const keyCells = doc

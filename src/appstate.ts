@@ -7,9 +7,7 @@ import type { RenderConfig, SettingsPatch } from './config.js';
 export const APP_STATE_VERSION = 1;
 
 export interface AppState {
-  /** The persisted look; null when nothing usable is persisted. */
   settings: SettingsPatch | null;
-  /** The folder the last recording was opened from; null when none yet. */
   lastOpenDir: string | null;
 }
 
@@ -17,10 +15,6 @@ export function emptyAppState(): AppState {
   return { settings: null, lastOpenDir: null };
 }
 
-// Older settings objects read tolerantly: a key their writer did not know
-// starts at its documented default, so an upgrade keeps the look the user
-// chose. A present-but-mistyped value (null included) stays the parser's
-// business and fails the state.
 function fillMissingSettings(raw: unknown): unknown {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
   const filled = { ...(raw as Record<string, unknown>) };
@@ -30,9 +24,6 @@ function fillMissingSettings(raw: unknown): unknown {
   return filled;
 }
 
-// The state falls back as a whole: a file whose shape this build cannot read
-// is outdated or corrupt, and keeping parts of it would restore a look the
-// user never chose.
 export function parseAppState(raw: unknown): AppState {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new Error('invalid app state');
@@ -57,8 +48,6 @@ export function parseAppState(raw: unknown): AppState {
   return { settings, lastOpenDir };
 }
 
-// The file's option values use the config-file spelling (the HUD spec as its
-// CLI string), so a state file reads like .dronepath.json.
 export function serializeAppState(state: AppState): string {
   const out: Record<string, unknown> = { version: APP_STATE_VERSION };
   if (state.settings) {
@@ -73,14 +62,11 @@ export function serializeAppState(state: AppState): string {
   return `${JSON.stringify(out, null, 2)}\n`;
 }
 
-// The persisted look seeds the panel and the export base; machine-owned values
-// always stay whatever the config layers resolved.
 export function applyAppState(config: RenderConfig, state: AppState): RenderConfig {
   if (!state.settings) return config;
   return {
     ...config,
     ...state.settings,
-    // hud is an object; the winner is copied so no two configs share it.
     hud: { ...state.settings.hud },
   };
 }
@@ -89,8 +75,6 @@ export function rememberOpenedFile(state: AppState, filePath: string): AppState 
   return { ...state, lastOpenDir: path.dirname(filePath) };
 }
 
-// A missing or unusable state file is a fresh install: never a failure the
-// launch would die on.
 export function readAppState(file: string): AppState {
   let text: string;
   try {

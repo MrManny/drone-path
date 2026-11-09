@@ -18,8 +18,6 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// jsdom does no layout, so the placement pins read the real stylesheet's
-// computed values: deterministic and offline.
 let stylesheet: HTMLStyleElement;
 
 beforeAll(() => {

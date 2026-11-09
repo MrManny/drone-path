@@ -97,8 +97,7 @@ export function compileMarkdown(source: string, slug: string): CompiledPage {
     },
   });
 
-  // parser(lexer(...)) instead of parse(): the instance is synchronous, and
-  // only the two-step form types the output as a plain string.
+  // Two-step form instead of parse(): only parser(lexer(...)) types the output as a plain string.
   const html = md.parser(md.lexer(source));
   const title = headings.find((h) => h.level === 1)?.text ?? '';
   return {

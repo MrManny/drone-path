@@ -7,8 +7,6 @@ export interface ExportErrorProps {
   onClose: () => void;
 }
 
-// Every failure here is an export outcome: the job wrote beside the
-// destination and never replaced it, so the phase can promise it is intact.
 export function ExportError({ error, onClose }: ExportErrorProps) {
   return (
     <>

@@ -7,10 +7,7 @@ export function githubSlug(text: string): string {
     .replace(/ /g, '-');
 }
 
-/**
- * Slugs one document's headings with GitHub's duplicate rule: the first
- * "Foo" stays "foo", later ones become "foo-1", "foo-2", ...
- */
+// GitHub's duplicate rule: the first "Foo" stays "foo", later ones become "foo-1", "foo-2", ...
 export function createSlugger(): (text: string) => string {
   const seen = new Map<string, number>();
   return (text) => {

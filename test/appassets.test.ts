@@ -72,9 +72,6 @@ describe('resolveAppAsset (tiles)', () => {
   });
 
   it('treats unknown tile styles and non-png tile paths as plain export paths', () => {
-    // The parser accepts vocabulary styles only; anything tile-shaped but not
-    // a tile resolves like any other static path (404 at serve time when the
-    // export root has no such file).
     const r = routes();
     expect(resolveAppAsset('/tiles/evil/1/2/3.png', r)).toEqual({
       kind: 'export',

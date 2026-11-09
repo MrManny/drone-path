@@ -28,7 +28,6 @@ function renderModal(overrides: Partial<TelemetrySaveModalProps> = {}) {
   return { onReveal, onClose };
 }
 
-// The phase's action row; the dialog header carries its own close control.
 function actions(): HTMLElement {
   return document.querySelector('.dialog-actions') as HTMLElement;
 }
@@ -45,8 +44,6 @@ describe('TelemetrySaveModal saving phase', () => {
     expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
   });
 
-  // A late write failure must surface here, so while the machine pins the
-  // dialog (dismissible = false) nothing may close it.
   it('refuses every dismissal while the machine pins the write', () => {
     const { onClose } = renderModal({ phase: { kind: 'saving' }, dismissible: false });
     const headerClose = screen.getByRole<HTMLButtonElement>('button', { name: 'Close' });

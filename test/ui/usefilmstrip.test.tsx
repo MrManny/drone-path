@@ -88,7 +88,6 @@ describe('useFilmstrip', () => {
     await waitFor(() => expect(screen.getByTestId('thumbs').textContent).not.toBe(''));
     expect(sampler.grabbed).toHaveLength(10);
 
-    // A re-plan must not re-grab cached frames or rebuild the sampler (#152).
     replan();
     replan();
     await waitFor(() => expect(screen.getByTestId('cells').textContent).not.toBe(''));
@@ -122,8 +121,6 @@ describe('useFilmstrip', () => {
       dispose() {},
     };
     render(<Harness sampler={sampler} />);
-    // The mount race: the observer delivers the same plan again while the
-    // first fill is still grabbing, and the plan must not restart.
     replan();
     replan();
     for (let i = 0; i < 10; i += 1) {

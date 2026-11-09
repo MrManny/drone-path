@@ -7,14 +7,10 @@ import { SettingsIcon } from '../icons/SettingsIcon.js';
 import { SwapIcon } from '../icons/SwapIcon.js';
 
 export interface StatusBarProps {
-  /** No recording is loaded: the bar carries the one quiet state message. */
   disabled?: boolean;
-  /** The recording has telemetry; the bar says so when it does. */
   hasTelemetry: boolean;
-  /** Toggles the map appearance popover. */
   onMapSettings: () => void;
   mapSettingsOpen: boolean;
-  /** Focus returns here when the map appearance popover closes. */
   settingsButtonRef?: RefObject<HTMLButtonElement | null>;
   onSwap: () => void;
   onHelp: () => void;

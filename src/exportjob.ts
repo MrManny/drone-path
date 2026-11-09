@@ -22,9 +22,6 @@ export type RunExportJob = (
   onCapture?: (progress: CaptureProgress) => void,
 ) => Promise<RecordingSummary>;
 
-// The pipeline is called exactly like the CLI calls it: one job, the
-// snapshot's config, the frozen range. The deps let an in-app export warm
-// through the app's shared tile queue instead of a budget of its own.
 const runViaPipeline =
   (deps: Partial<PipelineDeps> | undefined): RunExportJob =>
   (videoPath, request, log, workingPath, signal, onCapture) =>
@@ -38,43 +35,32 @@ const runViaPipeline =
 export interface ExportRunnerOptions {
   log?: LogFn;
   onDone: (outcome: ExportOutcome) => void;
-  /** Typed capture progress, forwarded to progress displays. */
   onCapture?: (progress: CaptureProgress) => void;
   run?: RunExportJob;
-  /** I/O overrides for the default pipeline run; ignored by a custom run. */
   deps?: Partial<PipelineDeps>;
 }
 
 export interface ExportRunner {
-  /** Throws on spot rejections; the finished job reports through onDone. */
   start(videoPath: string, request: ExportRequest): void;
   cancel(): void;
   running(): boolean;
 }
 
-// The working file must keep the .mp4 suffix (ffmpeg infers the container
-// from it) and share the destination's directory so the final rename stays
-// on one volume. Existing names are never reused or deleted: a stray file
-// there may belong to someone else.
+// The working file keeps the .mp4 suffix: ffmpeg infers the container from it.
 function workingPathFor(outPath: string): string {
   const dir = path.dirname(outPath);
   const stem = `${path.basename(outPath, path.extname(outPath))}.partial`;
   return uniquePath(dir, stem, '.mp4', (candidate) => fs.existsSync(candidate));
 }
 
-// Best-effort removal of our own working file; a cleanup failure must never
-// mask the job's real error.
 function removeQuietly(working: string): void {
   try {
     fs.rmSync(working, { force: true });
   } catch {
-    // nothing sensible to do
+    // best-effort removal; a cleanup failure must never throw from here
   }
 }
 
-// The module's core invariant: the destination is replaced only after the
-// render is complete and verified. A failed swap must keep the finished
-// render at the working path (e.g. when a player holds the destination open).
 function swapIntoPlace(working: string, outPath: string): void {
   try {
     fs.renameSync(working, outPath);
@@ -128,8 +114,7 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
       const controller = new AbortController();
       job = { abort: () => controller.abort() };
       const working = workingPathFor(request.outPath);
-      // The catch guard contains a consumer's throwing onDone (and any
-      // broken chain): an unhandled rejection here would kill the process.
+      // The catch guards a consumer's throwing onDone: an unhandled rejection here would kill the process.
       void execute(videoPath, request, working, controller)
         .then((outcome) => {
           job = null;

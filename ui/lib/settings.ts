@@ -1,8 +1,3 @@
-// The map appearance popover edits one RenderConfig through the same
-// validation the CLI applies, so the panel can never hold a value the
-// pipeline would reject. The config vocabulary holds raw values; the labels
-// map shows plain words.
-
 import { normalizeDimensions, validateRenderConfig } from '../../src/config.js';
 import type {
   ConfigOverrides,

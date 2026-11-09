@@ -124,8 +124,6 @@ function fakeL(host: HTMLElement): {
       markers.push(rec);
       return {
         addTo: () => {
-          // Leaflet materializes the divIcon HTML only after the map has a
-          // view; the fake does it on add so the DOM contract holds.
           const icon = options.icon as { html?: string };
           if (icon?.html) host.insertAdjacentHTML('beforeend', icon.html);
         },
@@ -174,8 +172,6 @@ function flushRaf(): void {
   for (const cb of rafQueue.splice(0)) cb();
 }
 
-// setFrame's side effects land immediately; the returned promise resolves
-// only after the two-rAF paint barrier, which the stubbed queue must flush.
 async function applyFrame(
   scene: { setFrame(i: number): Promise<void> },
   i: number,
@@ -374,8 +370,6 @@ describe('Scene.update', () => {
     );
 
     expect(tile.urls).toContain('/tiles/topo/{z}/{x}/{y}.png');
-    // The new source's zoom constraints go with the layer (topo is native
-    // to z17; asking it for z18+ returns placeholder tiles).
     expect(tile.options.at(-1)).toMatchObject({ maxZoom: 19, maxNativeZoom: 17 });
     expect(document.head.textContent).toContain(themeFor('topo').glow);
     expect(host.querySelector('#attr')?.textContent).toBe('Topo Attribution');

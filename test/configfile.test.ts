@@ -99,8 +99,8 @@ describe('resolveConfig', () => {
     expect(configPath).toBe(file);
     expect(config.width).toBe(640);
     expect(config.style).toBe('topo');
-    expect(config.height).toBe(768); // default survives
-    expect(config.outDir).toBe(path.join(root, 'out')); // resolved against the working directory
+    expect(config.height).toBe(768);
+    expect(config.outDir).toBe(path.join(root, 'out'));
   });
 
   it('fills the per-user tile cache when no layer sets one', () => {
@@ -152,7 +152,7 @@ describe('resolveConfig', () => {
 
     const { config: first } = resolveConfig({ configPath: file, cwd: root });
     expect(first.hud).not.toBe(DEFAULT_CONFIG.hud);
-    first.hud.alt = true; // in-place edit must not leak anywhere else
+    first.hud.alt = true;
 
     const { config: second } = resolveConfig({ configPath: file, cwd: root });
     expect(second.hud).toEqual(DEFAULT_CONFIG.hud);

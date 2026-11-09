@@ -12,16 +12,10 @@ import { rangePlan } from './range.js';
 const require_ = createRequire(import.meta.url);
 const LEAFLET_DIR = path.dirname(require_.resolve('leaflet/dist/leaflet.js'));
 
-/** Compiled shared renderer modules, served to generated pages as ESM. */
 export const RENDERER_DIR = fileURLToPath(new URL('./renderer/', import.meta.url));
 
-/** The served roots callers configure; Leaflet ships with the app. */
 export type ServeRoutes = Omit<AssetRoutes, 'leafletDir'>;
 
-// Writes the shared router's result: the routed file (or its placeholder
-// fallback) with its mime, or a 404 for a claimed URL without a file.
-// Returns true when the URL belongs to one of the routes; callers route
-// everything else themselves.
 export function serveAsset(
   url: string,
   res: http.ServerResponse,
@@ -45,9 +39,6 @@ export function serveAsset(
   return true;
 }
 
-// Streams a file with HTTP Range support so the <video> element can seek.
-// The returned promise resolves once the file handle is released, so callers
-// can order file cleanup after the stream.
 export function serveFileWithRange(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -76,8 +67,6 @@ export function serveFileWithRange(
     plan.status === 206
       ? fs.createReadStream(filePath, { start: plan.span.start, end: plan.span.end })
       : fs.createReadStream(filePath);
-  // pipeline tears the read stream down when the client aborts (every video
-  // seek does), so the file handle is released and the promise settles.
   return new Promise<void>((resolve) => {
     pipeline(stream, res, () => resolve());
   });

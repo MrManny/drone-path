@@ -20,7 +20,6 @@ export interface CompiledRefs {
 
 const SCHEME_RX = /^[a-z][a-z0-9+.-]*:/i;
 
-/** README.md is the index page "index"; foo.md is "foo". */
 export function pageSlugOf(file: string): string {
   const base = file.split('/').pop() ?? file;
   return base === 'README.md' ? 'index' : base.replace(/\.md$/, '');
@@ -35,7 +34,6 @@ export interface PageTarget {
   anchor: string | null;
 }
 
-/** Parses an internal Markdown link target: "foo.md", "foo.md#bar", "#bar". */
 export function parsePageLink(raw: string, currentSlug: string): PageTarget | null {
   const [path, hash, ...rest] = raw.split('#');
   if (rest.length > 0) return null;
@@ -46,7 +44,6 @@ export function parsePageLink(raw: string, currentSlug: string): PageTarget | nu
   return { slug: pageSlugOf(clean), anchor };
 }
 
-/** Parses an image target: "../images/foo.jpg" becomes "foo.jpg". */
 export function parseImageRef(raw: string): string | null {
   const match = /^\.\.\/images\/([^/?#]+)$/.exec(raw);
   return match ? (match[1] ?? null) : null;
@@ -57,7 +54,6 @@ export interface CorpusIssue {
   message: string;
 }
 
-/** Validates every reference of every compiled page against the corpus. */
 export function validateCorpus(
   pages: readonly { slug: string; page: ManualPage; refs: CompiledRefs }[],
   imageFiles: ReadonlySet<string>,

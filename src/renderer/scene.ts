@@ -1,15 +1,3 @@
-// The shared map renderer: it receives all telemetry inline, paints
-// the map once, and exposes setFrame(i) for per-frame marker/trail updates.
-// Headless capture workers (via the generated page's window.__setFrame bridge)
-// and the app's React map island both drive this one implementation;
-// setFrame resolves after the canvas has painted so screenshots are
-// frame-exact. update(data) restyles in place for the app's settings panel,
-// rebuilding only the decorations the new settings actually invalidate.
-//
-// Views:
-//   overview - static map fitted to the whole track (trail grows with time)
-//   follow   - drone marker stays in the center and the map slides under it
-
 import type { HudSpec, Style, View } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
@@ -33,9 +21,7 @@ import type { TrailController } from './trail.js';
 
 export interface SceneData {
   style: Style;
-  /** null = the map style's theme trail color. */
   trailColor: string | null;
-  /** Leaflet tile URL template, e.g. "/tiles/satellite/{z}/{x}/{y}.png". */
   tileUrl: string;
   view: View;
   width: number;
@@ -57,15 +43,10 @@ export interface SceneData {
 }
 
 export interface Scene {
-  /** Aligns everything with frame i; resolves after the canvas has painted. */
   setFrame(i: number): Promise<void>;
-  /** Re-lays out after a frame size change and repaints the current frame. */
   relayout(): void;
-  /** Applies new settings-derived data in place; repaints the current frame. */
   update(data: SceneData): Promise<void>;
-  /** Resolves once the first tile pass finished (or the warm-up timeout hit). */
   ready: Promise<void>;
-  /** Tears the scene down: its styles and map must not outlive the host. */
   dispose(): void;
 }
 
@@ -167,9 +148,7 @@ class SceneState implements Scene {
     this.scalelineEl = el<HTMLElement>(host, '#scaleline');
     this.scaletextEl = el<HTMLElement>(host, '#scaletext');
 
-    // Before the decorations below: Leaflet defers marker DOM creation until
-    // the map has a view, so the arrow/wrap elements only exist after this
-    // first call.
+    // Leaflet only creates marker DOM once the map has a view: layoutMap() must precede buildDecor() so the arrow/wrap elements exist.
     this.layoutMap();
     this.decor = this.buildDecor();
     this.rebuildHud();
@@ -210,8 +189,6 @@ class SceneState implements Scene {
     quietAttributionLinks(this.attrEl);
   }
 
-  // The map fills its frame at any size (headless: the export canvas; app:
-  // the pane currently holding it), so every frame size change re-lays out.
   private layoutMap(): void {
     const { data, map, mapEl, frameEl } = this;
     const vw = frameEl.clientWidth || data.width;
@@ -269,11 +246,9 @@ class SceneState implements Scene {
     return layers;
   }
 
-  // The live trail layers (empty until the controller fills them): glow,
-  // casing and core, thickest first so the core stays on top.
+  // Creation order sets stacking: thickest first so the core stays on top.
   private buildTrailLayers(theme: Theme): PolylineHandle[] {
-    // All geometry is pre-decimated (smoothFactor 0 skips Leaflet's own
-    // simplification) and the canvas renderer keeps redraws rAF-batched.
+    // smoothFactor 0 keeps Leaflet from re-simplifying the pre-decimated path.
     const wCore = Math.max(3, 5.5 * this.scale());
     const trailGlow: PolylineHandle = this.L.polyline([], {
       color: theme.glow,
@@ -435,8 +410,7 @@ class SceneState implements Scene {
       next.attribution !== prev.attribution;
     if (chromeChanged) this.applyChrome();
     if (next.style !== prev.style) {
-      // The zoom constraints are per source (topo tiles are native to z17),
-      // so a style switch swaps the layer instead of only its URL.
+      // Zoom constraints are per tile layer (topo is native to z17), so a style switch swaps the layer instead of only its URL.
       this.tiles.remove();
       this.tiles = this.makeTileLayer(next.tileUrl, next.style);
       this.tiles.addTo(this.map);

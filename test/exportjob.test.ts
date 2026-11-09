@@ -28,14 +28,11 @@ function requestFor(outPath: string, range: ExportRequest['range'] = null): Expo
   return { outPath, config: { ...DEFAULT_CONFIG, tileCache: tmpDir() }, range };
 }
 
-// The render stub must leave the working file behind: the runner's swap is
-// the very thing that turns a finished render into the destination.
 const writesOutput: PipelineDeps['renderVideo'] = async ({ outPath }) => {
   fs.writeFileSync(outPath, 'rendered');
   return { profile: { evalMs: 1, captureMs: 2, emitMs: 3 } };
 };
 
-// Resolves when the runner reports; the job itself is driven by the test.
 function harness(run: RunExportJob) {
   const outcomes: ExportOutcome[] = [];
   const runner = createExportRunner({ run, onDone: (o) => outcomes.push(o) });
@@ -150,7 +147,6 @@ describe('export runner: failures never destroy the destination', () => {
     const dir = tmpDir();
     const out = path.join(dir, 'flight_map.mp4');
     let working = '';
-    // A directory at the destination makes the rename fail on every platform.
     fs.mkdirSync(out);
     const { runner, settled } = harness(async (_v, _r, _log, w) => {
       working = w;
@@ -321,7 +317,6 @@ describe('export runner: completion safety', () => {
       runner.start(SOURCE, requestFor(out));
       await new Promise((resolve) => setTimeout(resolve, 30));
 
-      // The export itself still completed; only the callback blew up.
       expect(fs.readFileSync(out, 'utf8')).toBe('x');
       expect(logs.some((m) => m.includes('export completion failed'))).toBe(true);
       expect(logs.some((m) => m.includes('consumer blew up'))).toBe(true);
@@ -360,7 +355,6 @@ describe('export runner: the default run honors injected deps', () => {
     expect(outcome.status).toBe('ok');
     expect(prefetchTiles).toHaveBeenCalledTimes(1);
     const warm = prefetchTiles.mock.calls[0][0];
-    // The seam carries no cache name at all: the provider owns its directory.
     expect(warm).not.toHaveProperty('cacheDir');
     expect(warm.tiles.length).toBeGreaterThan(0);
   });
@@ -401,7 +395,6 @@ describe('export runner: the default run honors injected deps', () => {
         return new Response(new Uint8Array([1]), { status: 200 });
       }),
     );
-    // The app composition: the export's prefetch joins the app's tile queue.
     const traffic = createTileTraffic(cacheDir);
     const outcome = new Promise<ExportOutcome>((resolve) => {
       const runner = createExportRunner({

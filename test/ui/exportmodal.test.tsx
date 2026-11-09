@@ -14,8 +14,6 @@ import type { DialogRunEvent } from '../../ui/lib/dialogstate.js';
 import type { LoopState } from '../../ui/lib/loop.js';
 import { ExportModal } from '../../ui/components/ExportModal.js';
 
-// The preview is its own component with a scene to boot (like MapIsland in the
-// player tests); here only what it is asked to show matters.
 vi.mock('../../ui/components/ExportPreview.js', () => ({
   ExportPreview: ({
     config,
@@ -96,9 +94,6 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-// The dialog machine the player wires around the modal: a running job must
-// pin the dialog open, so the modal reports its lifecycle and takes the
-// dismissal rule back from the machine.
 function Harness({
   loop,
   onRunEvent,

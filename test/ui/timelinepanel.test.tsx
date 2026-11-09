@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TimelinePanel } from '../../ui/components/TimelinePanel.js';
 import type { LoopState } from '../../ui/lib/loop.js';
 
-// The filmstrip samples real media; the timeline tests cover its slot.
 vi.mock('../../ui/components/Filmstrip.js', () => ({
   Filmstrip: () => <div data-testid="filmstrip" />,
 }));
@@ -55,8 +54,6 @@ function renderPanel({
   return { dispatch, setLoopFrame, scrubTo, scrubRef, playheadRef };
 }
 
-// Pointer drags travel through window listeners; plain mouse events with
-// pointer event types keep the tests free of constructor dependencies.
 function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): void {
   act(() => {
     target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, ...init }));
@@ -182,7 +179,6 @@ describe('TimelinePanel track', () => {
     const handle = document.querySelector('.loop-handle-in') as HTMLElement;
     pointer('pointerdown', handle);
     pointer('pointermove', window, { clientX: 90 });
-    // 90% of the track is frame 80, but the in end may not pass out - 1.
     expect(setLoopFrame).toHaveBeenLastCalledWith('in', 59);
     pointer('pointermove', window, { clientX: 10 });
     expect(setLoopFrame).toHaveBeenLastCalledWith('in', 9);
@@ -200,7 +196,6 @@ describe('TimelinePanel track', () => {
     const handle = document.querySelector('.loop-handle-out') as HTMLElement;
     pointer('pointerdown', handle);
     pointer('pointermove', window, { clientX: 5 });
-    // 5% is frame 4, but the out end may not pass in + 1.
     expect(setLoopFrame).toHaveBeenLastCalledWith('out', 31);
     pointer('pointerup', window);
   });

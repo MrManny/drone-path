@@ -1,6 +1,3 @@
-// The manual build: reads docs/user/*.md and docs/images, validates the
-// corpus, then emits the typed UI module and the bundled images.
-
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +21,6 @@ export interface ManualBuildResult {
   images: string[];
 }
 
-/** The repository's real paths, resolved from a built or source tree. */
 export function defaultManualPaths(root: string): ManualBuildPaths {
   return {
     userDir: path.join(root, 'docs', 'user'),
@@ -65,7 +61,6 @@ export function buildManual(paths: ManualBuildPaths): ManualBuildResult {
     );
   }
 
-  // The nav comes from the index; pages sort by slug so the bundle is stable.
   const bundle: ManualBundle = {
     nav: index ? navFromIndex(index) : [],
     pages: {},

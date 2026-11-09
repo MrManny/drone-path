@@ -9,7 +9,6 @@ export interface Fps {
   num: number;
   den: number;
   value: number;
-  /** ffprobe-style rate string, e.g. "30" or "30000/1001". */
   str: string;
 }
 
@@ -61,9 +60,6 @@ export async function ffprobeJson(
   return JSON.parse(stdout || '{}') as Record<string, unknown>;
 }
 
-// One split of ffprobe's rate wire format ("30" or "30000/1001"), with each
-// consumer's own policy on top: the probe needs a usable rate, the output
-// verification only reads a value.
 function parseRate(str: string): { num: number; den?: number } | null {
   const [num, den] = str.split('/').map(Number);
   return Number.isFinite(num) ? { num, den } : null;
@@ -88,7 +84,6 @@ function parseCount(text: string | undefined): number {
   return Number.parseInt(text ?? '', 10);
 }
 
-// ffprobe result shapes we rely on.
 interface ProbeStream {
   r_frame_rate?: string;
   avg_frame_rate?: string;
@@ -130,8 +125,6 @@ export async function probeVideo(
     frames = Math.round(durationSec * fps.value);
     log('warning: nb_frames missing, using duration x fps');
   }
-  // A NaN frame count would flow into renderVideo (zero workers, empty
-  // ffmpeg input) and fail much later with a confusing message.
   if (!Number.isFinite(frames) || frames <= 0) {
     throw new Error(
       `could not determine the frame count of ${videoPath} ` +
@@ -185,7 +178,6 @@ async function probeRateFrames(ffprobe: string, file: string): Promise<string> {
   return stdout.trim();
 }
 
-// Missing or unreadable outputs count as a mismatch, not an error.
 export async function outputMatchesSource(
   tools: FfToolPaths,
   src: string,

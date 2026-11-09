@@ -15,10 +15,8 @@ import { SelectField } from './SelectField.js';
 
 export interface ExportFormProps {
   form: ExportFormState;
-  /** The engaged loop's segment, or null while only the full recording exists. */
   segment: { range: FrameRange; label: string } | null;
   totalText: string;
-  /** Encoder choices; the page persists them on change. */
   encode: EncodeSettings;
   error: string | null;
   dispatch: (event: ExportEvent) => void;
@@ -27,7 +25,6 @@ export interface ExportFormProps {
   onStart: () => void;
 }
 
-// The config vocabulary holds raw values; the options show plain words.
 const CODEC_LABELS: Record<Codec, string> = {
   h264: 'H.264',
   h265: 'H.265',
@@ -43,7 +40,6 @@ const PRESET_LABELS: Record<Preset, string> = {
   veryfast: 'Faster',
 };
 
-// The modal's dimensions go through the same rule the CLI and pipeline apply.
 function dimensionsValid(width: number, height: number): boolean {
   try {
     validateDimensions(width, height);
@@ -66,8 +62,6 @@ export function ExportForm({
 }: ExportFormProps) {
   return (
     <>
-      {/* With no engaged loop there is nothing to choose: the export is
-          the full recording and the choice stays out of the way. */}
       {segment ? (
         <fieldset className="settings-group">
           <legend>What</legend>
@@ -92,8 +86,6 @@ export function ExportForm({
         </fieldset>
       ) : null}
 
-      {/* The "How" legend names the pair with "What"; with no engaged loop
-          there is no pair and the lone group needs no name. */}
       <fieldset className="settings-group">
         {segment ? <legend>How</legend> : null}
         <div className="export-size">

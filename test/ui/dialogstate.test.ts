@@ -25,9 +25,6 @@ const EVENTS: DialogEvent[] = [
   { type: 'close' },
 ];
 
-// The full transition table: one row per state and event, derived from the
-// machine's rules (open is refused over work in flight or the update prompt,
-// updateReady needs a quiet UI, close is refused while work is in flight).
 function busy(state: DialogState): boolean {
   return state === 'export-running' || state === 'telemetry-saving';
 }

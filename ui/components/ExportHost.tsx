@@ -12,18 +12,13 @@ export interface ExportHostProps {
   session: UiSession;
   settings: RenderConfig;
   loop: LoopState;
-  /** Whether the dialog is open; the host stays mounted to keep the sizes. */
   open: boolean;
-  /** The one dismissal rule from the dialog machine. */
   dismissible: boolean;
   onClose: () => void;
   onRunEvent: (event: DialogRunEvent) => void;
   onSettingsChange: (config: RenderConfig) => void;
 }
 
-// The export dialog's host: it remembers the session's committed output sizes
-// so the form reopens on them, and ties encoder changes back into the shared
-// look settings. It stays mounted across dialog opens to keep that memory.
 export function ExportHost({
   session,
   settings,

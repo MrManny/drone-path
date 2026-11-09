@@ -90,8 +90,6 @@ describe('the packaged desktop app embeds ffmpeg/ffprobe', () => {
   });
 });
 
-// electron-builder silently skips missing extraResources sources: without the
-// guard, a dropped optional dependency packages green with empty tooling.
 describe('the afterPack guard', () => {
   const guard = createRequire(import.meta.url)(path.join(root, 'build', 'after-pack.cjs')) as {
     assertFfResources: (resourcesDir: string, platform: string) => void;

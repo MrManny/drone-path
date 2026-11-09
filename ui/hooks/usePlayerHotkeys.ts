@@ -1,16 +1,11 @@
 'use client';
 
-// The player's action map: one dispatch that buttons and hotkeys drive
-// alike, plus the key subscription that keeps acting on the latest
-// committed state.
-
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { framesForSeconds } from '../lib/frametime.js';
 import type { HotkeyAction, HotkeySession } from '../lib/hotkeys.js';
 import { INITIAL_SESSION, mapKey } from '../lib/hotkeys.js';
 
-/** The handlers behind the player's actions. */
 export interface PlayerActionHandlers {
   togglePlay: () => void;
   setSpeed: (rate: 1 | 2 | 3 | 4) => void;
@@ -24,9 +19,7 @@ export interface PlayerActionHandlers {
 }
 
 export interface PlayerActionContext {
-  /** A modal overlay is open: only Escape reaches the dialog logic. */
   modalOpen: boolean;
-  /** The map appearance popover is open: Escape closes it instead of the loop. */
   popoverOpen: boolean;
   fps: number;
   frames: number;
@@ -77,12 +70,7 @@ export function usePlayerHotkeys(
     }
   };
 
-  // Hotkeys must act on the latest committed state: when the handler lived
-  // inside the subscribing effect, a key landing between a commit and its
-  // passive effects ran a stale closure and silently no-oped (#62).
   const hotkeyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
-  // The mapper's cross-event session (the Esc a focused select may keep)
-  // lives here so it survives re-renders without resubscribing.
   const sessionRef = useRef<HotkeySession>(INITIAL_SESSION);
   useLayoutEffect(() => {
     hotkeyHandlerRef.current = (e: KeyboardEvent): void => {
@@ -93,7 +81,6 @@ export function usePlayerHotkeys(
       );
       sessionRef.current = session;
       if (action === null) return;
-      // No page scroll on Space, no double toggle on a focused button.
       e.preventDefault();
       e.stopPropagation();
       dispatch(action);
@@ -101,9 +88,7 @@ export function usePlayerHotkeys(
   });
 
   // Capture phase so claimed keys win over the map's keyboard pan/zoom; keys
-  // this player does not claim still reach whatever holds focus. Subscribed
-  // once: the handler ref keeps it current, so no key can arrive between a
-  // commit and a re-subscribe.
+  // this player does not claim still reach whatever holds focus.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => hotkeyHandlerRef.current(e);
     window.addEventListener('keydown', onKeyDown, true);

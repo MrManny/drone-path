@@ -11,7 +11,6 @@ import {
 } from './config.js';
 import type { ConfigOverrides, RenderConfig } from './config.js';
 
-// DRONEPATH_TILE_CACHE overrides the per-user cache directory.
 export function defaultTileCache(): string {
   const override = process.env['DRONEPATH_TILE_CACHE'];
   if (override) return path.resolve(override);
@@ -66,9 +65,6 @@ function mergeConfigLayers(
     ...DEFAULT_CONFIG,
     ...fileCfg,
     ...cli,
-    // hud is an object; Partial spread replaces it wholesale, which is what
-    // we want. The winner is copied so no resolved config shares mutable
-    // state with DEFAULT_CONFIG or another layer.
     hud: { ...(cli.hud ?? fileCfg.hud ?? DEFAULT_CONFIG.hud) },
   };
 }

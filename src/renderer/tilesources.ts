@@ -25,8 +25,6 @@ export const TILE_SOURCES: Record<Style, TileSource> = {
     tileFilter: 'saturate(1.06) contrast(1.03)',
     maxZoom: 19,
   },
-  // OpenTopoMap: OSM topography with contour lines and shaded relief - rich
-  // detail in alpine terrain. Tiles are native to z17
   topo: {
     cacheKey: 'opentopomap',
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',

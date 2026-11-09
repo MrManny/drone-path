@@ -1,8 +1,3 @@
-// The jsdom scaffolding and shared fakes the UI suites install: the browser
-// globals jsdom lacks (animation frames, resize observation), the scene
-// stand-in, the shared session fixture and the module shapes the vi.mock
-// factories return. Kept in one place so suites stop rebuilding each stub.
-
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { vi } from 'vitest';
@@ -15,7 +10,6 @@ type FrameCallback = (now: number) => void;
 const rafQueue: FrameCallback[] = [];
 let rafNow = 0;
 
-/** Runs the queued animation-frame callbacks once, each with a growing timestamp. */
 export function flushRaf(): void {
   for (const cb of rafQueue.splice(0)) {
     rafNow += 100;
@@ -23,7 +17,6 @@ export function flushRaf(): void {
   }
 }
 
-/** A deterministic requestAnimationFrame: callbacks run only through flushRaf(). */
 export function installRafStub(): void {
   rafQueue.length = 0;
   rafNow = 0;
@@ -40,7 +33,6 @@ export interface FakeObserver {
   disconnected: boolean;
 }
 
-/** Records every observer the code under test creates, for tests to fire and inspect. */
 export function installResizeObserverStub(): FakeObserver[] {
   const observers: FakeObserver[] = [];
   vi.stubGlobal(
@@ -60,7 +52,6 @@ export function installResizeObserverStub(): FakeObserver[] {
   return observers;
 }
 
-/** A fresh Scene stand-in whose every operation is a spy. */
 export function createFakeScene(): Scene {
   return {
     setFrame: vi.fn(() => Promise.resolve()),
@@ -106,8 +97,6 @@ interface MapIslandProps {
 
 type MapIslandModule = { MapIsland: (props: MapIslandProps) => ReactElement };
 
-// The real island delivers its scene asynchronously (after the Leaflet
-// chunk); this mock keeps that timing so late-arrival behavior stays covered.
 export function delayedMapIslandMock(scene: Scene): MapIslandModule {
   return {
     MapIsland: ({ onScene }) => {
@@ -120,7 +109,6 @@ export function delayedMapIslandMock(scene: Scene): MapIslandModule {
   };
 }
 
-// For suites that pin behavior after the scene arrives, not the arrival itself.
 export function immediateMapIslandMock(scene: Scene): MapIslandModule {
   return {
     MapIsland: ({ onScene }) => {
@@ -130,8 +118,6 @@ export function immediateMapIslandMock(scene: Scene): MapIslandModule {
   };
 }
 
-// The export preview boots a scene of its own; suites that only compose the
-// dialog need just the placeholder it renders.
 export function stubExportPreviewMock(): { ExportPreview: () => ReactElement } {
   return { ExportPreview: () => <div data-testid="export-preview" /> };
 }

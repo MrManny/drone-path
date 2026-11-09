@@ -33,9 +33,6 @@ vi.mock('../../ui/components/ExportPreview.js', async () => {
 
 const SETTINGS: RenderConfig = { ...DEFAULT_CONFIG };
 
-// The player receives the app's one dialog machine from the page; the wrapper
-// runs the real machine so dialog behavior stays what the page gets. Help
-// defaults to a no-op so tests that do not exercise it stay quiet.
 function Chrome({
   onHelp = () => {},
   ...props
@@ -77,22 +74,17 @@ describe('PlayerChrome export form memory', () => {
 describe('PlayerChrome workspace structure', () => {
   it('keeps the header, transport, timeline and status bar actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    // Header
     expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export…' })).toBeTruthy();
-    // Transport
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
-    // The transport carries the one position readout (#157).
     expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'Playback speed' })).toBeTruthy();
-    // Timeline
     expect(screen.getByRole('button', { name: 'Set loop in' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Set loop out' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
-    // Status bar
     expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
@@ -175,7 +167,6 @@ describe('PlayerChrome workspace structure', () => {
   it('seeks the video into the target frame span and repaints the scene when scrubbing', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const video = document.querySelector('video') as HTMLVideoElement;
-    // jsdom's media element ignores currentTime writes; track them instead.
     let currentTime = 0;
     Object.defineProperty(video, 'currentTime', {
       get: () => currentTime,
@@ -189,7 +180,6 @@ describe('PlayerChrome workspace structure', () => {
     act(() => flushRaf());
     expect(currentTime).toBeCloseTo(30.5 / 30);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
-    // The imperative readout follows the presented frame.
     expect(document.querySelector('.transport .readout')?.textContent).toBe('0:01 / 0:03');
   });
 });
@@ -281,8 +271,6 @@ interface FakePlayback {
   pause: ReturnType<typeof vi.fn>;
 }
 
-// jsdom's media element ignores playback; this models play/pause/seek state
-// so keyboard behavior stays observable.
 function stubPlayback(): FakePlayback {
   const video = document.querySelector('video') as HTMLVideoElement;
   const state = { paused: true, ended: false, currentTime: 0, playbackRate: 1 };
@@ -392,9 +380,6 @@ describe('PlayerChrome keyboard shortcuts', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const fake = stubPlayback();
     const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
-    // The enabling commit's MutationObserver microtask runs before that
-    // commit's passive effects — the window where a stale handler swallowed
-    // keys (#62).
     const pressed = new Promise<void>((resolve) => {
       const observer = new MutationObserver(() => {
         if (play.disabled) return;
@@ -484,7 +469,6 @@ describe('PlayerChrome keyboard shortcuts', () => {
     key(window, { key: 'o' });
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(screen.getByText('loop ?–0:00')).toBeTruthy();
-    // Ctrl+O still fires while the scrubber has focus.
     const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
     key(scrub, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(2);
@@ -586,7 +570,6 @@ describe('PlayerChrome shortcut guard rails', () => {
     expect(fake.state.playbackRate).toBe(1);
     expect(fake.play).not.toHaveBeenCalled();
     expect(onOpen).not.toHaveBeenCalled();
-    // Ctrl+O stays available while typing, as everywhere else.
     key(field, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
@@ -689,15 +672,12 @@ describe('PlayerChrome save telemetry JSON', () => {
     return bridge;
   }
 
-  // Drains the flow's awaited stages deterministically before asserting.
   async function settle(): Promise<void> {
     await act(async () => {
       for (let i = 0; i < 5; i++) await Promise.resolve();
     });
   }
 
-  // Rainy (mandated): a canceled save dialog starts nothing - no save call,
-  // no dialog, the workspace untouched.
   it('starts nothing when the save dialog is canceled', async () => {
     const bridge = installTelemetryBridge({
       pickTelemetryOutput: vi.fn(async () => ({ ok: false, canceled: true })),
@@ -723,11 +703,7 @@ describe('PlayerChrome save telemetry JSON', () => {
     expect(screen.getByText('the dialog went away')).toBeTruthy();
   });
 
-  // The silent-failure hole: dismissing "Saving telemetry JSON…" must not
-  // swallow a late write failure, so the machine pins the dialog open.
   it('keeps the dialog up during the write and surfaces a late failure', async () => {
-    // An assertion initializer: the resolver runs inside the Promise executor,
-    // and control-flow analysis cannot see assignments made in closures.
     let finish = null as ((ack: { ok: boolean; error?: string }) => void) | null;
     installTelemetryBridge({
       saveTelemetryJson: vi.fn(

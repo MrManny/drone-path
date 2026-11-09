@@ -10,9 +10,7 @@ import type { TelemetryFrameInput } from './telemetry-json.js';
 
 export interface LoadedTelemetry {
   telemetry: Telemetry;
-  /** One entry per source frame, index-aligned to the frames. */
   frameValues: TelemetryFrameInput[];
-  /** "proto_file_name product_proto_version" as declared, null when absent. */
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
@@ -55,7 +53,6 @@ interface SourceSamples extends TelemetrySamples {
   gimbalDevice: GimbalDeviceConstants | null;
 }
 
-// The .SRT sidecar takes precedence over the embedded CAM-meta stream.
 async function loadSamples(
   tools: FfToolPaths,
   videoPath: string,
@@ -82,9 +79,6 @@ async function loadSamples(
     };
   }
 
-  // keepAll keeps fix-less packets so the export gets one row per source
-  // frame; the pipeline still sees only fix-bearing samples, so the values
-  // the overlay renders do not change.
   const cam = await parseCamMeta(tools, videoPath, durationSec, { keepAll: true });
   const fixSamples = cam ? cam.samples.filter((sample) => sample.fix !== null) : [];
   if (!cam || fixSamples.length === 0) {
@@ -97,8 +91,6 @@ async function loadSamples(
     source: 'cammeta',
     method: cam.method,
     noLock: cam.noLock,
-    // The byte-scan fallback has no frame alignment; its samples must not
-    // masquerade as source frames.
     frameValues:
       cam.method === 'dvtm-packets' ? cam.samples.map(camSampleToFrameValues) : [],
     protoFile: cam.protoFile,

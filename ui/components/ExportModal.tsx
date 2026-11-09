@@ -31,15 +31,10 @@ export interface ExportModalProps {
   settings: RenderConfig;
   loop: LoopState;
   onClose: () => void;
-  /** From the dialog state machine: a running job pins the dialog open. */
   dismissible: boolean;
-  /** Feeds the dialog state machine the job's lifecycle. */
   onRunEvent: (event: DialogRunEvent) => void;
-  /** Encoder edits persist through the page's settings change. */
   onEncoderChange: (patch: Partial<EncodeSettings>) => void;
-  /** The session's last committed sizes; the form reopens on them. */
   initialSizes?: { width: number; height: number } | null;
-  /** Reported from an effect; must be a stable callback (a state setter). */
   onSizesChange?: (sizes: { width: number; height: number }) => void;
 }
 
@@ -56,8 +51,6 @@ export function ExportModal({
 }: ExportModalProps) {
   const { video, durationSec } = session;
   const loopPoints = engagedLoop(loop);
-  // The form opens on the engaged segment and the session's last sizes: the
-  // close-reopen retry keeps the choices that matter.
   const [state, dispatch] = useReducer(exportReducer, undefined, () =>
     initialExportState(
       initialSizes?.width ?? settings.width,
@@ -102,9 +95,6 @@ export function ExportModal({
   }, []);
 
   const { phase, form, result, error, canceling } = state;
-  // The preview depicts the output: the frozen request while a job runs, the
-  // live choices before it starts. It ends with the job's outcome — canceled
-  // and error are notice-only so nothing implies a kept file.
   const showPreview = phase === 'form' || phase === 'running' || phase === 'done';
   const previewConfig = state.request?.config ?? settings;
   const previewRange = state.request ? state.request.range : form.range;
@@ -116,10 +106,6 @@ export function ExportModal({
       }
     : null;
 
-  // One shape for every bridge call: a thrown error or a refused ack becomes
-  // the failure event the call site names, worded from the fallback when the
-  // backend reports none. No fallback means a plain refusal is not an error:
-  // that is the canceled native dialog, not a failure.
   async function runBridgeAction<T extends ExportAck>(
     call: (bridge: AppBridge) => Promise<T>,
     onFailure: (error: string) => ExportEvent,
@@ -138,8 +124,6 @@ export function ExportModal({
     }
   }
 
-  // The destination comes from the native save dialog; cancelling it
-  // cancels the export.
   const pickDestination = async (): Promise<string | null> => {
     const picked = await runBridgeAction(
       (bridge) => bridge.pickExportOutput(),
@@ -148,10 +132,6 @@ export function ExportModal({
     return picked?.ok && picked.path ? picked.path : null;
   };
 
-  // The snapshot is frozen here: the job runs this request however the
-  // preview settings move afterwards. The segment export follows the frames
-  // marked at confirm (the label the user reads), never a stale range; a
-  // choice made without a marked segment exports the full recording.
   const buildRequest = (outPath: string): ExportRequest => ({
     outPath,
     config: { ...settings, width: form.width, height: form.height },
@@ -183,14 +163,11 @@ export function ExportModal({
     );
   };
 
-  // Reveal and open act on the kept render: their failures surface in place
-  // and clear as soon as the user tries again.
   const runDoneAction = (call: (bridge: AppBridge) => Promise<ExportAck>): void => {
     dispatch({ type: 'clearError' });
     void runBridgeAction(call, (error) => ({ type: 'failed', error }), 'action failed');
   };
 
-  // Like every form edit, an encoder change clears a stale error.
   const changeEncoder = (patch: Partial<EncodeSettings>): void => {
     dispatch({ type: 'clearError' });
     onEncoderChange(patch);

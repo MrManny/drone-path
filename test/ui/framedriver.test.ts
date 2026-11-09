@@ -40,8 +40,6 @@ function fakeVideo(): FakeVideo {
   return video;
 }
 
-// A fake that drives the requestVideoFrameCallback path, the one Electron
-// actually runs: tests present frames explicitly instead of relying on time.
 function fakeVideoRvfc(): {
   video: FakeVideo;
   present: (mediaTime: number) => void;
@@ -214,8 +212,6 @@ describe('createFrameDriver loop wrap', () => {
     driver.start();
     driver.scrub(25);
     flushRaf();
-    // Chromium presents the seeked frame even while paused; the loop must
-    // not yank an explicit target back into the region.
     present(25 / 30);
     expect(video.currentTime).toBeCloseTo(25.5 / 30);
     expect(applyFrame).toHaveBeenCalledWith(25);

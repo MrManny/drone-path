@@ -14,7 +14,6 @@ export interface PlayerStageProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   onScene: (scene: Scene) => void;
   onPlayState: (playing: boolean) => void;
-  /** The open-flow notices, centered over the stage. */
   notice: ReactNode;
 }
 

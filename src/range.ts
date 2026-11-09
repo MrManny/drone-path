@@ -3,8 +3,6 @@ export interface ByteRange {
   end: number;
 }
 
-// Malformed range headers are ignored (full response); only syntactically
-// valid but unsatisfiable ranges earn a 416.
 export function parseRange(
   header: string | string[] | undefined,
   size: number,
@@ -37,9 +35,6 @@ export type RangePlan =
   | { status: 206; headers: Record<string, string>; span: ByteRange }
   | { status: 416; headers: Record<string, string>; body: string };
 
-// Everything both transports compute by hand for one Range request: status,
-// the response headers, and the byte span (or 416 body) to send. Only the
-// transport write is left to the caller.
 export function rangePlan(
   header: string | string[] | undefined,
   size: number,
@@ -56,7 +51,6 @@ export function rangePlan(
   const headers: Record<string, string> = {
     'Content-Type': mime,
     'Accept-Ranges': 'bytes',
-    // A URL-keyed cache must never replay stale bytes from this live local file.
     'Cache-Control': 'no-store',
     'Content-Length': String(range === null ? size : range.end - range.start + 1),
   };

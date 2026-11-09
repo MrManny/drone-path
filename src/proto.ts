@@ -11,7 +11,6 @@ interface ProtoField {
   varintValue?: bigint;
   doubleValue?: number;
   floatValue?: number;
-  /** Byte span [start, end) of a length-delimited payload. */
   bytesSpan?: [number, number];
 }
 
@@ -34,7 +33,6 @@ function readVarint(
   return null;
 }
 
-/** Interpret a 64-bit varint as a signed integer. */
 function signedVarint(value: bigint): number {
   return Number(BigInt.asIntN(64, value));
 }
@@ -115,7 +113,6 @@ function pushField(
   else fields.set(fieldNumber, [field]);
 }
 
-/** Sub-messages are length-delimited fields; only the first occurrence is decoded. */
 export function subMessage(
   buf: Buffer,
   fields: ProtoFieldMap,

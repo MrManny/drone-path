@@ -6,17 +6,12 @@ import { ErrorNotice } from './ErrorNotice.js';
 import { Notice } from './Notice.js';
 
 export interface TelemetrySaveModalProps {
-  /** The flow's phase: the write in flight, then its outcome. */
   phase: TelemetrySavePhase;
-  /** From the dialog state machine: a running write pins the dialog open. */
   dismissible: boolean;
   onReveal: () => void;
   onClose: () => void;
 }
 
-// The compact Save telemetry JSON dialog: one write, so one phase column and
-// no preview. The done phase names the kept file and the scope captured when
-// the save started, like the export dialog names its render.
 export function TelemetrySaveModal({
   phase,
   dismissible,

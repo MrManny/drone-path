@@ -25,16 +25,10 @@ interface LoadedSession {
 export default function Page() {
   const [pickState, dispatch] = useReducer(pickReducer, { kind: 'idle' });
   const [loaded, setLoaded] = useState<LoadedSession | null>(null);
-  // One settings object for the panel and the export modal; seeded from the
-  // resolved config the app backend hands over.
   const [settings, setSettings] = useState<RenderConfig>(DEFAULT_CONFIG);
-  // The one dialog machine: the player's dialogs and the update prompt share
-  // it, so the prompt can never stack onto another dialog.
   const dialogs = useDialogs();
   const { modalOpen, helpOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
   const [updatePhase, dispatchUpdate] = useReducer(updateReducer, 'idle');
-  // While the restart runs nothing may dismiss the prompt: the wrapped
-  // dispatch refuses close for every caller, Escape included.
   const dispatchDialog = useCallback(
     (event: DialogEvent) => {
       if (updatePhase === 'restarting' && event.type === 'close') return;
@@ -44,7 +38,6 @@ export default function Page() {
   );
   const sharedDialogs = { ...dialogs, dispatchDialog };
   const nextId = useRef(0);
-  // Guards re-entry for the whole Open flow, preparation included.
   const picking = useRef(false);
 
   useEffect(() => {
@@ -62,23 +55,18 @@ export default function Page() {
     };
   }, []);
 
-  // Every panel change persists so the next launch restores the look.
   const handleSettingsChange = useCallback((next: RenderConfig) => {
     setSettings(next);
     try {
       void appBridge()
         .saveSettings(settingsPatchOf(next))
         .catch(() => {
-          // A refused write keeps the look; the next change tries again.
         });
     } catch {
       // Outside the app shell there is no backend to persist settings.
     }
   }, []);
 
-  // The backend reports preparation only after the picker returned a valid file,
-  // so the busy status never covers the native dialog; its progress events then
-  // drive the loading bar while preparation runs.
   useEffect(() => {
     let offPreparing: (() => void) | null = null;
     let offProgress: (() => void) | null = null;
@@ -96,8 +84,6 @@ export default function Page() {
     };
   }, []);
 
-  // The shell announces a finished background download once per update; the
-  // state query catches downloads that finished before this subscription.
   useEffect(() => {
     let offReady: (() => void) | null = null;
     let offFailed: (() => void) | null = null;
@@ -112,7 +98,6 @@ export default function Page() {
           if (state.ready) dispatchUpdate({ type: 'ready' });
         })
         .catch(() => {
-          // A missing state answer changes nothing; the event may still come.
         });
     } catch {
       // Outside the app shell there is no backend to report updates.
@@ -123,8 +108,6 @@ export default function Page() {
     };
   }, []);
 
-  // The prompt waits for a quiet UI: it never opens over another dialog or an
-  // export dialog pinned open by a running job.
   useEffect(() => {
     if (!shouldPrompt(updatePhase, modalOpen)) return;
     dispatchUpdate({ type: 'prompt' });

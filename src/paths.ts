@@ -1,7 +1,5 @@
 import path from 'node:path';
 
-// Resolved so separator and `..` spellings of one file share a key;
-// toLowerCase is locale-independent, so the key stays deterministic.
 export function pathKey(
   p: string,
   platform: NodeJS.Platform = process.platform,
@@ -18,9 +16,6 @@ export function samePath(
   return pathKey(a, platform) === pathKey(b, platform);
 }
 
-// First free name `stem.ext`, `stem-2.ext`, `stem-3.ext`, ... in dir. The
-// caller says what "taken" means (names planned in this run, or files on
-// disk); existing names are never reused or deleted.
 export function uniquePath(
   dir: string,
   stem: string,

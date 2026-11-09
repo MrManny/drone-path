@@ -25,8 +25,6 @@ vi.mock('../../ui/components/ExportPreview.js', async () => {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// jsdom does no layout, so the no-reflow pin compares the rows' computed
-// heights from the real stylesheet: deterministic and offline.
 let stylesheet: HTMLStyleElement;
 
 beforeAll(() => {
@@ -39,9 +37,6 @@ afterAll(() => {
   stylesheet.remove();
 });
 
-// The bridge stands in for the shell: the test decides when the native picker
-// returns, when the shell reports that a valid file is being prepared, and how
-// the preparation progresses.
 function installBridge() {
   const pending: Array<(result: PickResult) => void> = [];
   const listeners: {
@@ -120,8 +115,6 @@ function installBridge() {
   };
 }
 
-// Two "Open…" buttons live on the empty workspace: the stage call to action
-// and the header button. Queries scope to their region.
 function stageCta(): HTMLButtonElement {
   return document.querySelector<HTMLButtonElement>(
     '.stage-empty button.primary',
@@ -140,8 +133,6 @@ function openWorkspace() {
 
 const ROWS = ['.workspace-header', '.stage', '.transport', '.timeline', '.status-bar'];
 
-// The no-reflow contract: the same five rows with the same geometry before
-// and after a recording commits.
 function rowGeometry(): string[] {
   return ROWS.map((selector) => {
     const row = document.querySelector(selector) as HTMLElement;
@@ -232,7 +223,6 @@ describe('the empty workspace at launch', () => {
     expect(
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
     ).toBe('67');
-    // The open flow never shows tile warm-up copy (#167).
     expect(screen.queryByText(/Warming tiles/)).toBeNull();
     await harness.settle({ ok: true });
   });

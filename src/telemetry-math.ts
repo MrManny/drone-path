@@ -2,8 +2,6 @@ import { bearingDeg, circularMeanDeg, haversineM } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
 import type { CamMetaMethod } from './cammeta.js';
 
-// The closed telemetry vocabulary, one home so a typo cannot flow silently
-// into the --json output.
 export type TelemetrySource = 'srt' | 'cammeta';
 export type TelemetryMethod = 'srt-cues' | CamMetaMethod;
 export type HeadingMode = 'yaw' | 'cog';
@@ -20,16 +18,8 @@ export interface Telemetry {
   method: TelemetryMethod;
   headingMode: HeadingMode;
   sampleCount: number;
-  /** Samples carrying a GPS fix; other samples are neither fixes nor no-locks. */
   fixCount: number;
-  /**
-   * No-lock positions (the placeholder is not a fix, see isGpsFix). Every
-   * source counts them the same way - SRT as no-lock cues, the CAM meta
-   * packet path as no-lock packets - except the raw byte-scan fallback,
-   * which sees fix pairs only and reports 0.
-   */
   noLock: number;
-  /** Index-aligned to video frames. */
   frames: FrameData[];
   bbox: Bbox;
   trackDistanceM: number;
@@ -37,14 +27,12 @@ export interface Telemetry {
 
 export interface TelSample {
   tSec: number;
-  /** A real GPS fix, or null when the sample has none (see gpsFix). */
   fix: LatLon | null;
   relAlt: number | null;
   absAlt: number | null;
   yawDeg: number | null;
 }
 
-/** A source's samples with their provenance, ready for the pure pipeline. */
 export interface TelemetrySamples {
   samples: TelSample[];
   source: TelemetrySource;
@@ -57,26 +45,22 @@ interface FramePosition {
   alt: number | null;
 }
 
-/** A sample carrying a GPS fix; parsers decide this once (see gpsFix). */
 type FixSample = TelSample & { fix: LatLon };
 
-/** A fix-bearing sample with its index in the sample list. */
 type FixRef = FixSample & { index: number };
 
-const MAX_INTERPOLATION_GAP_S = 3; // hold the earlier fix across longer gaps
-const SPEED_SMOOTHING_SPAN = 5; // +-N samples moving average for the HUD
-const HEADING_MIN_MOVE_M = 1.5; // ignore bearings from sub-meter displacement
-const HEADING_HALF_WINDOW_S = 0.35; // preferred course baseline half-width
-const HEADING_MAX_BASELINE_S = 3; // widened baseline for slow flights
-const HEADING_MIN_SPEED_MPS = 0.5; // below this the course is meaningless
-const HEADING_SMOOTHING_SPAN = 4; // +-N samples circular mean
+const MAX_INTERPOLATION_GAP_S = 3;
+const SPEED_SMOOTHING_SPAN = 5;
+const HEADING_MIN_MOVE_M = 1.5;
+const HEADING_HALF_WINDOW_S = 0.35;
+const HEADING_MAX_BASELINE_S = 3;
+const HEADING_MIN_SPEED_MPS = 0.5;
+const HEADING_SMOOTHING_SPAN = 4;
 
 function isFixSample(sample: TelSample): sample is FixSample {
   return sample.fix !== null;
 }
 
-// The fix-bearing samples in order, with their indices; the pipeline works
-// from these instead of re-deriving who carries a fix.
 function fixRefs(samples: TelSample[]): FixRef[] {
   const refs: FixRef[] = [];
   samples.forEach((sample, index) => {
@@ -105,7 +89,6 @@ function interpolateAltitude(
   return altA + (altB - altA) * fraction;
 }
 
-// Nearest sample with a GPS fix at or beyond idx in the given direction.
 function nearestFix(
   samples: TelSample[],
   idx: number,
@@ -120,8 +103,6 @@ function nearestFix(
   return null;
 }
 
-// Position at time t (seconds). Gaps of missing fixes longer than maxGapSec
-// are bridged by holding the earlier fix instead of interpolating across them.
 function positionAt(
   samples: TelSample[],
   t: number,
@@ -152,7 +133,6 @@ function positionAt(
   };
 }
 
-// t before the first sample yields index 0.
 function sampleIndexBefore(samples: TelSample[], t: number): number {
   let lo = 0;
   let hi = samples.length - 1;
@@ -194,9 +174,6 @@ function computeTrackStats(
   return { bbox, trackDistanceM };
 }
 
-// Centered difference over neighboring fixes (m/s), smoothed with a moving
-// average to tame GPS jitter for the HUD. Values live on the sample indexes
-// so any sample can answer a frame's nearest-sample lookup.
 function computeSpeedBySample(
   sampleCount: number,
   fixes: FixRef[],
@@ -208,7 +185,6 @@ function computeSpeedBySample(
       rawSpeed[k] = haversineM(fixes[k - 1].fix, fixes[k + 1].fix) / dt;
     }
   }
-  // Endpoints reuse the adjacent centered value.
   rawSpeed[0] = rawSpeed[1] ?? 0;
   rawSpeed[fixes.length - 1] = rawSpeed[fixes.length - 2] ?? 0;
 
@@ -235,10 +211,6 @@ interface HeadingResult {
   headingMode: HeadingMode;
 }
 
-// Preferred source: drone body yaw (DVTM EulerAngle, deci-degrees) - valid
-// even while hovering. Fallback: course over ground measured across a moving
-// baseline (consecutive fixes are only centimeters apart at 60 fps, so
-// neighbor bearings are pure GPS jitter). Held while truly stationary.
 function computeHeadingBySample(
   samples: TelSample[],
   fixes: FixRef[],
@@ -255,7 +227,6 @@ function computeHeadingBySample(
   }
   fillHeadingGaps(rawHeading);
 
-  // Samples without a fix carry the default so the array is fully populated.
   const defaultHeading = rawHeading[0] ?? firstKnownHeading(rawHeading) ?? 0;
   const headingBySample = new Array<number>(samples.length).fill(defaultHeading);
   for (let k = 0; k < fixes.length; k++) {
@@ -288,8 +259,6 @@ function fillCourseOverGroundHeadings(
   for (let k = 0; k < fixes.length; k++) {
     const tk = fixes[k].tSec;
     if ((speedBySample[fixes[k].index] ?? 0) < HEADING_MIN_SPEED_MPS) continue;
-    // Grow the baseline until the pair clears the GPS jitter floor: slow
-    // flights get a wider window instead of losing their heading to holds.
     let ka = k;
     let kb = k;
     let displacement = 0;
@@ -307,9 +276,6 @@ function fillCourseOverGroundHeadings(
   }
 }
 
-// The leading unknowns are back-filled from the FIRST known heading, never
-// the flight's final heading, which would point the arrow the wrong way on
-// clips that start hovering and turn later.
 function fillHeadingGaps(rawHeading: (number | null)[]): void {
   let last: number | null = null;
   for (let k = 0; k < rawHeading.length; k++) {
@@ -351,9 +317,6 @@ function buildFrameData(
   return frameData;
 }
 
-// Bridge fully-missing frame positions at the very ends: frames before the
-// first fix hold the first fix, frames after the last fix hold the last fix
-// (the hold-earlier policy from positionAt, applied past its ends).
 function bridgeMissingFramePositions(frameData: FrameData[]): void {
   const first = frameData.find((d) => d.fix !== null);
   const last = [...frameData].reverse().find((d) => d.fix !== null);
@@ -370,7 +333,6 @@ function bridgeMissingFramePositions(frameData: FrameData[]): void {
   }
 }
 
-// The pure pipeline: samples in, per-frame telemetry and track stats out.
 export function buildTelemetry(
   loaded: TelemetrySamples,
   timing: { frames: number; fpsValue: number },

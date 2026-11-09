@@ -10,7 +10,6 @@ import { SelectField } from './SelectField.js';
 
 export interface SettingsPanelProps {
   config: RenderConfig;
-  /** False when the telemetry has no altitude: the alt chip cannot show. */
   hasAltitude: boolean;
   onChange: (config: RenderConfig) => void;
 }
@@ -21,14 +20,11 @@ const HUD_CHIPS: Array<{ chip: 'heading' | 'alt' | 'speed'; label: string }> = [
   { chip: 'speed', label: 'Speed (SPD)' },
 ];
 
-// Presentation order only; the vocabulary in src/config.ts keeps its order.
 const VIEW_CHOICES: ReadonlyArray<{ value: View; label: string }> = [
   { value: 'overview', label: VIEW_LABELS.overview },
   { value: 'follow', label: VIEW_LABELS.follow },
 ];
 
-// Every change applies at once and is stored like the rest of the look
-// settings.
 export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelProps) {
   const apply = (patch: Parameters<typeof patchConfig>[1]): boolean => {
     const next = patchConfig(config, patch);

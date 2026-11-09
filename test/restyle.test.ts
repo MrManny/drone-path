@@ -19,9 +19,6 @@ const VIDEO = path.join('clips', 'flight.mp4');
 
 const PROBE = probeFixture({ frames: 5, durationSec: 5 / 30 });
 
-// The fix bbox is deliberately wider than the frame samples (a fix between
-// two frame times never appears in a frame position): planning from the frame
-// samples would fit the view tighter than the pipeline does.
 const TEL = telemetryFixture({
   sampleCount: 3,
   fixCount: 3,
@@ -59,8 +56,6 @@ describe('restyleSceneData', () => {
     const next = restyleSceneData(scene, config, meta);
 
     expect(next).toEqual(scene);
-    // Same planned zoom: the trail arrays keep their identity so the scene
-    // knows no trail work is needed.
     expect(next.zoom).toBe(prep.overview.zoom);
     expect(next.trailLat).toBe(scene.trailLat);
   });
@@ -70,8 +65,6 @@ describe('restyleSceneData', () => {
     const { prep, meta, scene } = await pipelineScene(config);
 
     const fromFixes = restyleSceneData(scene, config, meta);
-    // What planning from the frame samples alone would see (they span less
-    // than the fixes).
     const fromFrames = restyleSceneData(scene, config, {
       ...meta,
       bbox: { minLat: 46.61, maxLat: 46.612, minLon: 14.26, maxLon: 14.262 },
@@ -79,7 +72,6 @@ describe('restyleSceneData', () => {
 
     expect(fromFixes.zoom).toBe(prep.overview.zoom);
     expect(fromFixes.center).toEqual(scene.center);
-    // The fixture discriminates: frame-sample planning would fit tighter.
     expect(fromFrames.zoom).not.toBe(prep.overview.zoom);
   });
 
@@ -96,7 +88,7 @@ describe('restyleSceneData', () => {
       testConfig({ zoom: 13, zoomOut: 4 }),
       meta,
     );
-    expect(fixed.zoom).toBe(13); // fixed zoom wins, zoom-out is ignored
+    expect(fixed.zoom).toBe(13);
 
     const overview = restyleSceneData(scene, testConfig({ view: 'overview' }), meta);
     expect(overview.view).toBe('overview');

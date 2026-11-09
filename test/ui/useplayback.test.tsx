@@ -26,8 +26,6 @@ function Harness(): ReactElement {
   );
 }
 
-// Marks run in their own commits, like separate key presses: the mark reads
-// the head frame at press time.
 function scrubAndMark(i: number, which: 'in' | 'out'): void {
   act(() => {
     api.scrubTo(i);
@@ -43,8 +41,6 @@ interface FakePlayback {
   pause: ReturnType<typeof vi.fn>;
 }
 
-// jsdom's media element ignores playback; this models play/pause/seek state
-// so the wiring stays observable.
 function stubPlayback(): FakePlayback {
   const video = document.querySelector('video') as HTMLVideoElement;
   const state = { paused: true, ended: false, currentTime: 0, playbackRate: 1 };

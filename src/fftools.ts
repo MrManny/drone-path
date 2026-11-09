@@ -6,7 +6,6 @@ import type { RenderConfig } from './config.js';
 
 export type FfToolName = 'ffmpeg' | 'ffprobe';
 
-/** The resolved commands to spawn: absolute paths or bare PATH names. */
 export interface FfToolPaths {
   ffmpeg: string;
   ffprobe: string;
@@ -16,12 +15,9 @@ export type FfOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
 
 interface FfToolEnv {
   exists: (file: string) => boolean;
-  /** Embedded-binary candidates in resolution order (packaged first). */
   candidates: (tool: FfToolName) => (string | null)[];
 }
 
-// A bare command name defers to spawn's PATH lookup; anything that looks like
-// a path is the documented `<path>` override and must name a real file.
 function isPathLike(value: string): boolean {
   return value.includes('/') || value.includes('\\') || path.isAbsolute(value);
 }
@@ -55,9 +51,6 @@ function packagedCandidate(tool: FfToolName): string | null {
   return resourcesPath ? path.join(resourcesPath, 'ff', exeName(tool)) : null;
 }
 
-// The optional ffmpeg-ffprobe-static package may be absent (unsupported
-// platform, --omit=optional, a failed install download) and must never crash
-// module loading: resolve it lazily.
 function devCandidate(tool: FfToolName): string | null {
   try {
     const mod = createRequire(import.meta.url)('ffmpeg-ffprobe-static') as {

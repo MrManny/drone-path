@@ -7,17 +7,10 @@ import type { Scene, SceneData } from '../../src/renderer/scene.js';
 
 export interface SceneIslandOptions {
   data: SceneData;
-  /** Seek target; omitted for hosts an external frame driver seeks. */
   frame?: number;
   onScene?: (scene: Scene) => void;
 }
 
-// One scene-island lifecycle for every mount point (the player's map island and
-// the export preview): the shared scene is created after mount because Leaflet
-// only loads in the browser, restyled in place on data changes, and disposed on
-// unmount so its injected styles and Leaflet map cannot outlive the host. A
-// ResizeObserver re-lays out whenever the box settles or changes: the pane size
-// may still be zero at creation time.
 export function useSceneIsland({ data, frame, onScene }: SceneIslandOptions) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<Scene | null>(null);
@@ -25,9 +18,6 @@ export function useSceneIsland({ data, frame, onScene }: SceneIslandOptions) {
   const frameRef = useRef(frame);
   const onSceneRef = useRef(onScene);
 
-  // The boot effect below runs once, after the lazy Leaflet import settles;
-  // syncing the latest props here keeps it from building the scene against
-  // stale props without remounting the map.
   useEffect(() => {
     dataRef.current = data;
     frameRef.current = frame;

@@ -83,7 +83,6 @@ interface Meta {
   lon: number;
   relAltMm: number;
   absAltM?: number;
-  /** Body attitude; zero members are wire-omitted (proto3 zero-omission). */
   attitude?: EulerSpec;
   gpsAltMm?: number;
   iso?: number;
@@ -101,9 +100,6 @@ interface Meta {
   clip?: { protoFile: string; productProtoVersion: string };
 }
 
-// A proto3 serializer never writes default values: scalar zeros and empty
-// strings are absent on the wire, and a set-but-default message field rides
-// as a ZERO-LENGTH submessage - the exact forms a real encoder produces.
 function eulerMessage(spec: EulerSpec): Buffer {
   const parts: Buffer[] = [];
   if (spec.pitch) parts.push(fldVarint(1, spec.pitch));
@@ -112,9 +108,6 @@ function eulerMessage(spec: EulerSpec): Buffer {
   return Buffer.concat(parts);
 }
 
-// ProductMeta { 1 clip_meta, 3 frame_meta { 2 camera, 4 drone, 5 gimbal } }
-// per the verified field map; members are coded only when non-default and
-// set-but-default message fields are zero-length.
 function buildProductMeta(m: Meta): Buffer {
   const coord = Buffer.concat([fldDouble(2, m.lat), fldDouble(3, m.lon)]);
   const gpsParts = [fldBytes(1, coord)];
@@ -190,9 +183,9 @@ describe('decodeProductMeta', () => {
     const m = decodeProductMeta(buf);
     expect(m.fix?.lat).toBeCloseTo(46.61307, 9);
     expect(m.fix?.lon).toBeCloseTo(14.262388, 9);
-    expect(m.relAlt).toBeCloseTo(3.3, 4); // 3300 mm -> 3.3 m
+    expect(m.relAlt).toBeCloseTo(3.3, 4);
     expect(m.absAlt).toBeCloseTo(313.227, 2); // float32 precision
-    expect(m.pitchDeg).toBeCloseTo(12.3, 6); // deci-degrees
+    expect(m.pitchDeg).toBeCloseTo(12.3, 6);
     expect(m.rollDeg).toBeCloseTo(45.6, 6);
     expect(m.yawDeg).toBeCloseTo(270.0, 6);
   });
@@ -209,8 +202,6 @@ describe('decodeProductMeta', () => {
   });
 
   it('keeps near-null-island coordinates as fixes (regression)', () => {
-    // The shared rule (src/geo.ts's isGpsFix) rejects only exactly 0/0;
-    // the old 0.5-degree box used to drop these genuine fixes.
     const buf = buildProductMeta({
       lat: 0.0000001,
       lon: 0.0000001,
@@ -295,8 +286,6 @@ describe('decodeProductMeta', () => {
     expect(m.gimbalDeviceTimestampMs).toBe(1234);
   });
 
-  // proto3 zero-omission: a wire-missing member of a present EulerAngle is a
-  // known 0.0, not an unknown value - for the gimbal block and the body.
   it('exports a wire-missing Euler member of a present message as 0.0', () => {
     const buf = buildProductMeta({
       lat: 46.6,
@@ -323,15 +312,11 @@ describe('decodeProductMeta', () => {
     expect(m.gimbalDeviceTimestampMs).toBeNull();
   });
 
-  // Touchdown frames: rel_alt rides as a zero-length submessage when the
-  // value is exactly 0.0 mm - the known 0.0, not an unknown.
   it('exports the known 0.0 for a set-but-default RelativeAltitude', () => {
     const m = decodeProductMeta(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0 }));
     expect(m.relAlt).toBe(0);
   });
 
-  // Sea-level clips: a set-but-default AbsoluteAltitude is the known 0.0 m;
-  // the GPS altitude fallback must not take its place.
   it('never falls back to the GPS altitude where the camera says 0.0', () => {
     const m = decodeProductMeta(
       buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300, absAltM: 0, gpsAltMm: 313227 }),
@@ -342,7 +327,7 @@ describe('decodeProductMeta', () => {
   it('zero-defaults a wire-missing gps_altitude_mm of a present GpsBasic', () => {
     const m = decodeProductMeta(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300 }));
     expect(m.gpsAltMm).toBe(0);
-    expect(m.absAlt).toBe(0); // the fallback reads the same known 0
+    expect(m.absAlt).toBe(0);
   });
 
   it('zero-defaults wire-missing ISO and CCT values', () => {
@@ -382,9 +367,6 @@ describe('decodeProvenance', () => {
     });
   });
 
-  // The regression: a real proto3 encoder omits zero-valued constants (a
-  // device_id of 0 is never coded), so a present header with nothing on the
-  // wire still carries the known defaults.
   it('zero-defaults wire-missing constants of a present device header', () => {
     const p = decodeProvenance(
       buildProductMeta({
@@ -444,9 +426,6 @@ describe('scanGpsPair', () => {
   });
 
   it('applies the same GPS-fix rule as the protobuf path', () => {
-    // Near the prime meridian (or the equator) and near null island: the
-    // (0.1, 0.1) disagreement regression - genuine fixes neither path may
-    // drop; only exactly 0/0 is the placeholder.
     for (const [lat, lon] of [
       [10.2, 0.2],
       [0.2, 10.2],
@@ -523,8 +502,6 @@ describe('decodePacketSamples', () => {
   });
 });
 
-// Tool failures are operational errors with a cause chain; only a genuine
-// absence ("no CAM meta stream") may look like "no telemetry".
 describe('parseCamMeta failure surfacing', () => {
   const VIDEO = 'clips/flight.mp4';
 
@@ -563,7 +540,6 @@ describe('parseCamMeta failure surfacing', () => {
   });
 
   it('rethrows ffmpeg dump failures with their cause', async () => {
-    // Distinctive paths: a hardcoded 'ffmpeg' inside cammeta must not survive.
     const tools = { ffmpeg: '/resolved/ffmpeg', ffprobe: '/resolved/ffprobe' };
     const failure = new Error('spawn ffmpeg ENOENT');
     mocks.ffprobeJson
