@@ -51,7 +51,7 @@ The user manual lives in [docs/user/](docs/user/README.md); the desktop app
 ships the same pages as offline help. Highlights:
 
 - [Getting started](docs/user/getting-started.md) — requirements, install options, and your first render.
-- [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, and exporting video from the app.
+- [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, exporting video, and saving telemetry JSON from the app.
 - [Keyboard shortcuts](docs/user/keyboard-shortcuts.md) — every shortcut of the review player at a glance.
 - [CLI usage](docs/user/cli.md) — inputs, examples, and example output.
 - [CLI and config reference](docs/user/cli-reference.md) — every option and config key with its default.
@@ -68,8 +68,8 @@ For reviewing flights without the terminal, grab the packaged desktop app
 The app shows the footage and the synchronized flight map side by side —
 swappable to a map overlay — on one shared timeline;
 [the manual](docs/user/desktop-app.md) walks through loading a recording,
-reviewing a flight, looping a passage, and exporting. The look settings carry
-over between launches.
+reviewing a flight, looping a passage, exporting, and saving the per-frame
+telemetry JSON. The look settings carry over between launches.
 
 ![Desktop app: drone footage beside the synchronized flight map](docs/images/app-main-window.jpg)
 

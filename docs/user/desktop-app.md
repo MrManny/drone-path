@@ -64,6 +64,12 @@ At the compact 1024×600 minimum window size the preview shrinks and the form st
 
 *The Export dialog at the compact 1024×600 window size.*
 
+## Saving telemetry JSON
+
+The **Save telemetry JSON…** button in the header — right of **Export…** — writes the same per-frame telemetry document as the CLI's `--telemetry-json`, straight from the loaded recording and without rendering anything: time, position, altitude, body and gimbal attitude, heading and camera exposure, one record per source frame. The scope follows the loop points automatically: with a loop set the document covers just the In–Out segment (the same frames the segment export renders, keeping the recording's own frame numbers), and without one the full recording. The button's tooltip states the scope before you click.
+
+Clicking opens the native save dialog, which suggests `<recording>.telemetry.json` in the export folder; cancelling it starts nothing and leaves the workspace untouched. On confirm a compact dialog reports the save and then names the kept file and the scope it covers, with **Reveal in folder** opening its folder. For the same recording and range the file is byte-identical to the CLI output (see [CLI usage](cli.md)).
+
 ## Map appearance
 
 The **Map settings** button in the footer opens the *Map appearance* popover with the map look settings: map style (satellite or topographic), view (*Overview* shows the whole track at once, *Follow* keeps the drone centered with the map sliding under it), zoom and zoom-out levels, the intro and outro zoom transitions, and the HUD chips (heading arrow, altitude (ALT) and speed (SPD) — altitude and speed are off by default, and altitude is unavailable when the telemetry has none). The panel repeats the rule under the settings: *Export renders the map, not the source video.* Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults.

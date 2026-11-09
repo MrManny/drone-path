@@ -9,16 +9,19 @@ afterEach(cleanup);
 function renderHeader(overrides: Partial<Parameters<typeof WorkspaceHeader>[0]> = {}) {
   const onOpen = vi.fn();
   const onExport = vi.fn();
+  const onTelemetrySave = vi.fn();
   render(
     <WorkspaceHeader
       durationSec={3}
       opening={false}
+      telemetryScope="full recording (0:03)"
       onOpen={onOpen}
       onExport={onExport}
+      onTelemetrySave={onTelemetrySave}
       {...overrides}
     />,
   );
-  return { onOpen, onExport };
+  return { onOpen, onExport, onTelemetrySave };
 }
 
 describe('WorkspaceHeader', () => {
@@ -40,11 +43,27 @@ describe('WorkspaceHeader', () => {
   });
 
   it('dispatches the header actions', () => {
-    const { onOpen, onExport } = renderHeader();
+    const { onOpen, onExport, onTelemetrySave } = renderHeader();
     fireEvent.click(screen.getByRole('button', { name: 'Open…' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onExport).toHaveBeenCalledTimes(1);
+    expect(onTelemetrySave).toHaveBeenCalledTimes(1);
+  });
+
+  it('places the telemetry save right of the export action', () => {
+    renderHeader();
+    const buttons = [...document.querySelectorAll('.workspace-header button')].map(
+      (b) => b.textContent,
+    );
+    expect(buttons).toEqual(['Open…', 'Export…', 'Save telemetry JSON…']);
+  });
+
+  it('states the save scope in the title before the click', () => {
+    renderHeader({ telemetryScope: 'In–Out segment (0:01–0:02 · 2 frames)' });
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Save telemetry JSON…' });
+    expect(button.title).toBe('Saves telemetry JSON for the In–Out segment (0:01–0:02 · 2 frames)');
   });
 
   it('holds Open while the Open flow prepares', () => {
@@ -52,9 +71,12 @@ describe('WorkspaceHeader', () => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(true);
   });
 
-  it('disables Export while nothing is loaded and keeps Open live', () => {
+  it('disables Export and the telemetry save while nothing is loaded and keeps Open live', () => {
     renderHeader({ disabled: true });
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export…' }).disabled).toBe(true);
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Save telemetry JSON…' }).disabled,
+    ).toBe(true);
     const open = screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' });
     expect(open.disabled).toBe(false);
     expect(open.className).not.toContain('primary');

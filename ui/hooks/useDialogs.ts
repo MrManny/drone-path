@@ -14,6 +14,7 @@ export interface Dialogs {
   modalOpen: boolean;
   helpOpen: boolean;
   exportOpen: boolean;
+  telemetrySaveOpen: boolean;
   updateOpen: boolean;
   /** The one dismissal rule, for Escape, the backdrop and the header close. */
   dismissible: boolean;
@@ -26,6 +27,7 @@ export function useDialogs(): Dialogs {
     modalOpen: dialog !== 'closed',
     helpOpen: dialog === 'help',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
+    telemetrySaveOpen: dialog === 'telemetry-save',
     updateOpen: dialog === 'update-prompt',
     dismissible: canDismiss(dialog),
     dispatchDialog,

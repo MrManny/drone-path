@@ -24,6 +24,7 @@ describe('useDialogs', () => {
       modalOpen: false,
       helpOpen: false,
       exportOpen: false,
+      telemetrySaveOpen: false,
       updateOpen: false,
       dismissible: true,
       dispatchDialog: result.current.dispatchDialog,
@@ -64,6 +65,14 @@ describe('useDialogs', () => {
     expect(result.current.dismissible).toBe(true);
     send({ type: 'close' });
     expect(result.current.modalOpen).toBe(false);
+  });
+
+  it('opens the telemetry save dialog as a dismissable modal', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openTelemetrySave' });
+    expect(result.current.modalOpen).toBe(true);
+    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.dismissible).toBe(true);
   });
 
   it('opens the help overlay as a dismissable modal', () => {

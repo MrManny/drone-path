@@ -21,7 +21,7 @@ import {
   buildTelemetryDocument,
   serializeTelemetryDocument,
 } from './telemetry-json.js';
-import type { TelemetryFrameInput } from './telemetry-json.js';
+import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-json.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats, WarmOptions } from './tiles.js';
 import { planIntroOutroFrames, planView } from './plan.js';
@@ -647,6 +647,21 @@ async function renderToOutput(env: RenderStageEnv): Promise<void> {
   });
 }
 
+// The prepared recording mapped onto the shared telemetry JSON emitter's
+// input: the one home the CLI writer and the desktop's save flow share, so
+// both write the identical document for the same recording.
+export function telemetryExportInput(prep: PreparedRecording): TelemetryDocumentInput {
+  return {
+    source: prep.tel.source,
+    headingMode: prep.tel.headingMode,
+    frameCount: prep.probe.frames,
+    protoFile: prep.protoFile,
+    gimbalDevice: prep.gimbalDevice,
+    frames: prep.frameValues,
+    headingDeg: prep.tel.frames.map((frame) => frame.headingDeg),
+  };
+}
+
 // The telemetry JSON export: one complete document per recording, written
 // alongside the render (it only depends on the telemetry load, so a later
 // render failure cannot invalidate it).
@@ -655,15 +670,7 @@ function writeTelemetryExport(
   prep: PreparedRecording,
   log: LogFn,
 ): void {
-  const doc = buildTelemetryDocument({
-    source: prep.tel.source,
-    headingMode: prep.tel.headingMode,
-    frameCount: prep.probe.frames,
-    protoFile: prep.protoFile,
-    gimbalDevice: prep.gimbalDevice,
-    frames: prep.frameValues,
-    headingDeg: prep.tel.frames.map((frame) => frame.headingDeg),
-  });
+  const doc = buildTelemetryDocument(telemetryExportInput(prep));
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, serializeTelemetryDocument(doc));
   log(`telemetry JSON: wrote ${file}`);

@@ -3,11 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
 import type { DialogEvent, DialogState } from '../../ui/lib/dialogstate.js';
 
-const STATES: DialogState[] = ['closed', 'help', 'export-form', 'export-running', 'update-prompt'];
+const STATES: DialogState[] = [
+  'closed',
+  'help',
+  'export-form',
+  'export-running',
+  'telemetry-save',
+  'update-prompt',
+];
 
 const EVENTS: DialogEvent[] = [
   { type: 'openHelp' },
   { type: 'openExport' },
+  { type: 'openTelemetrySave' },
   { type: 'exportStarted' },
   { type: 'exportFinished' },
   { type: 'updateReady' },
@@ -24,6 +32,8 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
       return pinned ? state : 'help';
     case 'openExport':
       return pinned ? state : 'export-form';
+    case 'openTelemetrySave':
+      return pinned ? state : 'telemetry-save';
     case 'exportStarted':
       return state === 'export-form' ? 'export-running' : state;
     case 'exportFinished':
@@ -45,7 +55,7 @@ describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) =>
   });
 });
 
-describe.each<DialogState>(['closed', 'help', 'export-form', 'update-prompt'])(
+describe.each<DialogState>(['closed', 'help', 'export-form', 'telemetry-save', 'update-prompt'])(
   'canDismiss(%s)',
   (state) => {
     it('is true, so Escape, the backdrop and the close may dismiss', () => {

@@ -2,13 +2,18 @@
 // bridge (contextBridge + validated IPC); without it the UI cannot drive the
 // native dialog or the pipeline.
 
-import type { PickRequest, PickResult, UiSession } from '../../src/appsession.js';
+import type {
+  PickRequest,
+  PickResult,
+  TelemetrySaveRequest,
+  UiSession,
+} from '../../src/appsession.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { PrepareProgress } from '../../src/run.js';
 
-interface PickOutputResult {
+export interface PickOutputResult {
   ok: boolean;
   path?: string;
   canceled?: boolean;
@@ -37,6 +42,10 @@ export interface AppBridge {
   /** Persist the panel's look so the next launch restores it. */
   saveSettings(patch: SettingsPatch): Promise<ExportAck>;
   pickExportOutput(): Promise<PickOutputResult>;
+  /** The native save dialog for the telemetry JSON document. */
+  pickTelemetryOutput(): Promise<PickOutputResult>;
+  /** Writes the telemetry JSON document straight from the loaded recording. */
+  saveTelemetryJson(request: TelemetrySaveRequest): Promise<ExportAck>;
   startExport(request: ExportRequest): Promise<ExportAck>;
   cancelExport(): Promise<ExportAck>;
   revealExportOutput(payload: ExportOutputPayload): Promise<ExportAck>;

@@ -4,14 +4,24 @@ import {
   createAppSession,
   frameExactDuration,
   parsePickRequest,
+  parseTelemetrySaveRequest,
   prepareUiSession,
 } from '../src/appsession.js';
-import type { PickRequest, PrepareUiSession, UiSession } from '../src/appsession.js';
+import type {
+  PickRequest,
+  PreparedUiSession,
+  PrepareUiSession,
+  UiSession,
+} from '../src/appsession.js';
 import type { RenderConfig } from '../src/config.js';
+import { processRecording } from '../src/run.js';
 import type { PrepareProgress } from '../src/run.js';
+import { TelemetryDocumentSchema } from '../src/telemetry-json.js';
+import type { TelemetryDocumentInput } from '../src/telemetry-json.js';
 import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
 import {
   cleanupTmpDirs,
+  loadedTelemetry,
   probeFixture,
   stubDeps,
   telemetryFixture,
@@ -25,6 +35,14 @@ import { afterEach } from 'vitest';
 
 const CONFIG = {} as RenderConfig;
 const SESSION = { scene: {}, video: {} } as unknown as UiSession;
+const TELEMETRY = {
+  source: 'srt',
+  headingMode: 'cog',
+  frameCount: 3,
+  frames: [],
+  headingDeg: [90, 91, 92],
+} as unknown as TelemetryDocumentInput;
+const PREPARED: PreparedUiSession = { session: SESSION, telemetry: TELEMETRY };
 
 const REQUEST: PickRequest = {
   settings: {
@@ -77,7 +95,7 @@ afterEach(() => {
 describe('createAppSession', () => {
   it('prepares a picked recording and holds its session', async () => {
     const file = mp4();
-    const prepare = vi.fn(async (): Promise<UiSession> => SESSION);
+    const prepare = vi.fn(async (): Promise<PreparedUiSession> => PREPARED);
     const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare });
 
     expect(await session.pick(REQUEST)).toEqual({ ok: true });
@@ -139,7 +157,7 @@ describe('createAppSession', () => {
 
   it('keeps the previous session when a new pick fails', async () => {
     const first = mp4('first.mp4');
-    const prepare = vi.fn(async (): Promise<UiSession> => SESSION);
+    const prepare = vi.fn(async (): Promise<PreparedUiSession> => PREPARED);
     let pickFile = async (): Promise<string | null> => first;
     const session = createAppSession({ config: CONFIG, pickFile: () => pickFile(), prepare });
     await session.pick(REQUEST);
@@ -153,10 +171,10 @@ describe('createAppSession', () => {
     const file = mp4();
     // An assertion initializer: the resolver runs inside the Promise executor,
     // and control-flow analysis cannot see assignments made in closures.
-    let release = null as ((value: UiSession) => void) | null;
+    let release = null as ((value: PreparedUiSession) => void) | null;
     const prepare = vi.fn(
       () =>
-        new Promise<UiSession>((resolve) => {
+        new Promise<PreparedUiSession>((resolve) => {
           release = resolve;
         }),
     );
@@ -165,7 +183,7 @@ describe('createAppSession', () => {
     const first = session.pick(REQUEST);
     const second = await session.pick(REQUEST);
     expect(second).toEqual({ ok: false, error: 'a pick is already in progress' });
-    if (release) release(SESSION);
+    if (release) release(PREPARED);
     expect(await first).toEqual({ ok: true });
   });
 });
@@ -177,9 +195,9 @@ describe('createAppSession onPreparing hook', () => {
     const onPreparing = vi.fn((videoPath: string) => {
       order.push(`preparing ${videoPath}`);
     });
-    const prepare = vi.fn(async (): Promise<UiSession> => {
+    const prepare = vi.fn(async (): Promise<PreparedUiSession> => {
       order.push('prepare');
-      return SESSION;
+      return PREPARED;
     });
     const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare, onPreparing });
 
@@ -238,7 +256,7 @@ describe('createAppSession onPrepareProgress hook', () => {
     const onPrepareProgress = vi.fn();
     const prepare = vi.fn<PrepareUiSession>(async (_file, _config, _log, onProgress) => {
       onProgress?.(reported);
-      return SESSION;
+      return PREPARED;
     });
     const session = createAppSession({
       config: CONFIG,
@@ -343,9 +361,12 @@ describe('prepareUiSession', () => {
     // The app path never prefetches: the map fetches its tiles on demand.
     expect(prefetchTiles).not.toHaveBeenCalled();
     expect(events.map((e) => e.stage)).toEqual(['probe', 'telemetry', 'plan']);
-    expect(ui.bbox).toEqual(telemetryFixture().bbox);
-    expect(ui.video.frames).toBe(probeFixture().frames);
-    expect(ui.video.src).toContain('video');
+    expect(ui.session.bbox).toEqual(telemetryFixture().bbox);
+    expect(ui.session.video.frames).toBe(probeFixture().frames);
+    expect(ui.session.video.src).toContain('video');
+    // The preparation keeps the telemetry JSON document input for the save.
+    expect(ui.telemetry.frameCount).toBe(probeFixture().frames);
+    expect(ui.telemetry.headingDeg).toEqual([90, 91, 92]);
   });
 
   it('fails the preparation when a stage fails', async () => {
@@ -368,8 +389,182 @@ describe('prepareUiSession', () => {
     const uiA = await prepareUiSession('clips/flight-a.mp4', testConfig(), () => {}, undefined, stubDeps());
     const uiB = await prepareUiSession('clips/flight-b.mp4', testConfig(), () => {}, undefined, stubDeps());
 
-    expect(uiA.video.src).not.toBe(uiB.video.src);
-    expect(new URL(uiA.video.src).pathname).toBe('/media/video');
-    expect(new URL(uiB.video.src).pathname).toBe('/media/video');
+    expect(uiA.session.video.src).not.toBe(uiB.session.video.src);
+    expect(new URL(uiA.session.video.src).pathname).toBe('/media/video');
+    expect(new URL(uiB.session.video.src).pathname).toBe('/media/video');
+  });
+});
+
+// A five-frame recording with decoded values on three rows (one carrying
+// explicit nulls): enough to slice segments and to prove absent keys.
+function saveDeps() {
+  const telemetry = telemetryFixture({
+    frames: [
+      { fix: { lat: 46.6, lon: 14.2 }, alt: 3.3, speed: 1.2, headingDeg: 90 },
+      { fix: { lat: 46.61, lon: 14.21 }, alt: 3.4, speed: 1.3, headingDeg: 91 },
+      { fix: { lat: 46.62, lon: 14.22 }, alt: 3.5, speed: 1.4, headingDeg: 92 },
+      { fix: { lat: 46.63, lon: 14.23 }, alt: 3.6, speed: 1.5, headingDeg: 93 },
+      { fix: { lat: 46.64, lon: 14.24 }, alt: 3.7, speed: 1.6, headingDeg: 94 },
+    ],
+  });
+  return stubDeps({
+    probe: probeFixture({ frames: 5 }),
+    telemetry,
+    loaded: loadedTelemetry({
+      telemetry,
+      frameValues: [
+        { lat: 46.6, lng: 14.2, altRel: 3.3, iso: 340 },
+        { altRel: 3.4 },
+        { lat: null, lng: null, altRel: 3.5 },
+        {},
+        { lat: 46.64, lng: 14.24, altRel: 3.7 },
+      ],
+      protoFile: 'dvtm_NEO2.proto v02.00.07',
+      gimbalDevice: { id: 0, type: 1, subType: 3, name: 'gimbal', frequency: 200 },
+    }),
+  });
+}
+
+async function loadedSession(file: string, deps = saveDeps()) {
+  const session = createAppSession({
+    config: testConfig(),
+    pickFile: async () => file,
+    prepare: (video, config, log, onProgress) =>
+      prepareUiSession(video, config, log, onProgress, deps),
+  });
+  expect((await session.pick(REQUEST)).ok).toBe(true);
+  return session;
+}
+
+describe('parseTelemetrySaveRequest', () => {
+  it('takes the destination and the range off the renderer request', () => {
+    expect(
+      parseTelemetrySaveRequest({
+        outPath: '/exports/flight.telemetry.json',
+        range: { start: 1, end: 3 },
+      }),
+    ).toEqual({ outPath: '/exports/flight.telemetry.json', range: { start: 1, end: 3 } });
+  });
+
+  it('treats a missing or null range as the full recording', () => {
+    const expected = { outPath: '/exports/flight.telemetry.json', range: null };
+    expect(parseTelemetrySaveRequest({ outPath: '/exports/flight.telemetry.json' })).toEqual(
+      expected,
+    );
+    expect(
+      parseTelemetrySaveRequest({ outPath: '/exports/flight.telemetry.json', range: null }),
+    ).toEqual(expected);
+  });
+
+  it('rejects junk payloads, unknown keys and empty paths', () => {
+    expect(() => parseTelemetrySaveRequest(null)).toThrow('invalid telemetry save request');
+    expect(() => parseTelemetrySaveRequest([])).toThrow('invalid telemetry save request');
+    expect(() => parseTelemetrySaveRequest({})).toThrow('outPath');
+    expect(() => parseTelemetrySaveRequest({ outPath: '' })).toThrow('outPath');
+    expect(() => parseTelemetrySaveRequest({ outPath: 7 })).toThrow('outPath');
+    expect(() =>
+      parseTelemetrySaveRequest({ outPath: '/a.json', surprise: 1 }),
+    ).toThrow('unknown telemetry save request key surprise');
+  });
+
+  it('rejects an invalid range through the shared frame-range rule', () => {
+    expect(() =>
+      parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 2, end: 2 } }),
+    ).toThrow('0 <= start < end');
+    expect(() =>
+      parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 0, end: 1, extra: 2 } }),
+    ).toThrow('unknown frame range key extra');
+  });
+});
+
+describe('AppSession.saveTelemetryJson', () => {
+  it('writes the versioned document for the full recording', async () => {
+    const session = await loadedSession(mp4());
+    const out = path.join(tmpDir(), 'flight.telemetry.json');
+    session.saveTelemetryJson(out, null);
+
+    const doc = JSON.parse(fs.readFileSync(out, 'utf8')) as Record<string, unknown>;
+    expect(doc.schemaVersion).toBe(1);
+    expect(doc.frameCount).toBe(5);
+    expect((doc.frames as { frame: number }[]).map((f) => f.frame)).toEqual([0, 1, 2, 3, 4]);
+    expect(doc.protoFile).toBe('dvtm_NEO2.proto v02.00.07');
+  });
+
+  it('writes only the In-Out segment, keeping the source frame numbers', async () => {
+    const session = await loadedSession(mp4());
+    const out = path.join(tmpDir(), 'segment.telemetry.json');
+    session.saveTelemetryJson(out, { start: 1, end: 3 });
+
+    const doc = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(doc.frameCount).toBe(3);
+    expect(doc.frames.map((f: { frame: number }) => f.frame)).toEqual([1, 2, 3]);
+    expect(doc.frames.map((f: { headingDeg: number }) => f.headingDeg)).toEqual([91, 92, 93]);
+    expect(doc.frames[0]).toMatchObject({ frame: 1, altRel: 3.4, headingSource: 'cog' });
+    expect(doc.frames[2]).toEqual({ frame: 3, headingDeg: 93, headingSource: 'cog' });
+    expect(TelemetryDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  // Rainy: a missing value is an absent key in the document, never a null.
+  it('omits missing values as absent keys and never writes nulls', async () => {
+    const session = await loadedSession(mp4());
+    const out = path.join(tmpDir(), 'fields.telemetry.json');
+    session.saveTelemetryJson(out, null);
+
+    const raw = fs.readFileSync(out, 'utf8');
+    expect(raw).not.toContain('null');
+    const doc = JSON.parse(raw);
+    expect(doc.frames[1]).toEqual({ frame: 1, altRel: 3.4, headingDeg: 91, headingSource: 'cog' });
+    expect(doc.frames[2]).not.toHaveProperty('lat');
+    expect(doc.frames[2]).not.toHaveProperty('lng');
+    expect(doc.frames[0].iso).toBe(340);
+    expect(doc.frames[1]).not.toHaveProperty('iso');
+  });
+
+  it.for([
+    { what: 'a negative start', range: { start: -1, end: 2 }, message: '0 <= start < end' },
+    { what: 'an empty range', range: { start: 2, end: 2 }, message: '0 <= start < end' },
+    { what: 'a reversed range', range: { start: 3, end: 1 }, message: '0 <= start < end' },
+    { what: 'fractional frames', range: { start: 0.5, end: 2 }, message: 'integer frame indices' },
+    { what: 'an end past the recording', range: { start: 3, end: 5 }, message: 'beyond the recording' },
+  ])('rejects $what and writes nothing', async ({ range, message }) => {
+    const session = await loadedSession(mp4());
+    const out = path.join(tmpDir(), 'range.telemetry.json');
+    expect(() => session.saveTelemetryJson(out, range)).toThrow(message);
+    expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it('refuses to save when no recording is loaded', () => {
+    const session = createAppSession({
+      config: CONFIG,
+      pickFile: async () => null,
+      prepare: vi.fn(),
+    });
+    expect(() => session.saveTelemetryJson(path.join(tmpDir(), 'x.json'), null)).toThrow(
+      'no recording loaded',
+    );
+  });
+});
+
+// The acceptance contract: the desktop document is byte-identical to the
+// CLI's --telemetry-json output for the same recording.
+describe('saveTelemetryJson byte parity', () => {
+  it('writes the same bytes as processRecording with telemetryJson', async () => {
+    const file = mp4('flight.mp4');
+    const dir = tmpDir();
+    const cliFile = path.join(dir, 'cli.telemetry.json');
+    const desktopFile = path.join(dir, 'desktop.telemetry.json');
+    const deps = saveDeps();
+
+    await processRecording(
+      file,
+      testConfig({ telemetryJson: cliFile }),
+      () => {},
+      path.join(dir, 'out.mp4'),
+      { deps },
+    );
+    const session = await loadedSession(file, deps);
+    session.saveTelemetryJson(desktopFile, null);
+
+    expect(fs.readFileSync(desktopFile)).toEqual(fs.readFileSync(cliFile));
   });
 });

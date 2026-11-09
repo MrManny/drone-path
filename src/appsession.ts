@@ -5,16 +5,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
-import { STYLE_VALUES, VIEW_VALUES, asNumber } from './config.js';
-import type { LookSettings, RenderConfig, Style, View } from './config.js';
+import {
+  STYLE_VALUES,
+  VIEW_VALUES,
+  asNumber,
+  assertValidFrameRange,
+  parseFrameRange,
+} from './config.js';
+import type { FrameRange, LookSettings, RenderConfig, Style, View } from './config.js';
 import { errorMessage } from './errors.js';
 import type { VideoProbe } from './ff.js';
 import type { Bbox } from './geo.js';
 import { isRecordingName } from './inputs.js';
 import { buildSceneData } from './page.js';
 import type { SceneData } from './renderer/scene.js';
-import { prepareSession, recordingPageOpts } from './run.js';
+import { prepareSession, recordingPageOpts, telemetryExportInput } from './run.js';
 import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
+import { buildTelemetryDocument, serializeTelemetryDocument } from './telemetry-json.js';
+import type { TelemetryDocumentInput } from './telemetry-json.js';
 
 export interface PageVideo {
   /** Media URL the <video> element loads, e.g. "app://bundle/media/video?v=…". */
@@ -91,6 +99,34 @@ export function parsePickRequest(raw: unknown): PickRequest {
   };
 }
 
+/** What the Save telemetry JSON flow sends: the chosen file and the scope. */
+export interface TelemetrySaveRequest {
+  /** Destination path; the native save dialog fixes the .json extension. */
+  outPath: string;
+  /** Source-frame segment to save, or null for the full recording. */
+  range: FrameRange | null;
+}
+
+// The IPC boundary's vocabulary check: whatever the renderer sends, the save
+// only ever writes one file for one valid frame range.
+export function parseTelemetrySaveRequest(raw: unknown): TelemetrySaveRequest {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error('invalid telemetry save request');
+  }
+  const r = raw as Record<string, unknown>;
+  for (const key of Object.keys(r)) {
+    if (key !== 'outPath' && key !== 'range') {
+      throw new Error(`unknown telemetry save request key ${key}`);
+    }
+  }
+  if (typeof r.outPath !== 'string' || !r.outPath) {
+    throw new Error('invalid telemetry save request: outPath');
+  }
+  const range =
+    r.range === undefined || r.range === null ? null : parseFrameRange(r.range);
+  return { outPath: r.outPath, range };
+}
+
 export type PrepareUiSession = (
   videoPath: string,
   config: RenderConfig,
@@ -98,7 +134,14 @@ export type PrepareUiSession = (
   onProgress: PrepareProgressFn | undefined,
   /** I/O overrides for the pipeline's stages. */
   deps?: Partial<PipelineDeps>,
-) => Promise<UiSession>;
+) => Promise<PreparedUiSession>;
+
+/** What a preparation yields: the player's session plus the telemetry JSON
+ * document input the workspace's save action writes from. */
+export interface PreparedUiSession {
+  session: UiSession;
+  telemetry: TelemetryDocumentInput;
+}
 
 // The shared pipeline preparation plus the scene data the UI drives: probe,
 // telemetry and the view plan — no tile wait, so the footage shows right away
@@ -115,17 +158,20 @@ export const prepareUiSession: PrepareUiSession = async (
     deps,
   });
   return {
-    scene: buildSceneData(recordingPageOpts(prep, config), TILE_BASE),
-    video: {
-      src: mediaUrlFor(videoPath),
-      fps: prep.probe.fps.value,
-      frames: prep.probe.frames,
-      width: prep.probe.width,
-      height: prep.probe.height,
+    session: {
+      scene: buildSceneData(recordingPageOpts(prep, config), TILE_BASE),
+      video: {
+        src: mediaUrlFor(videoPath),
+        fps: prep.probe.fps.value,
+        frames: prep.probe.frames,
+        width: prep.probe.width,
+        height: prep.probe.height,
+      },
+      tileBase: TILE_BASE,
+      bbox: prep.tel.bbox,
+      durationSec: frameExactDuration(prep.probe),
     },
-    tileBase: TILE_BASE,
-    bbox: prep.tel.bbox,
-    durationSec: frameExactDuration(prep.probe),
+    telemetry: telemetryExportInput(prep),
   };
 };
 
@@ -145,6 +191,10 @@ export interface AppSession {
   pick(request: PickRequest): Promise<PickResult>;
   getSession(): UiSession | null;
   videoPath(): string | null;
+  /** Writes the telemetry JSON document for the full recording or one
+   * source-frame segment; throws when no recording is loaded or the range
+   * falls outside it. */
+  saveTelemetryJson(file: string, range: FrameRange | null): void;
 }
 
 function isReadableVideo(filePath: string): boolean {
@@ -156,13 +206,36 @@ function isReadableVideo(filePath: string): boolean {
   }
 }
 
+// The segment save's input: rows and headings sliced onto the requested
+// source-frame range, with frameStart keeping the record numbers on the
+// recording's own frame indices. One validation home for every save.
+function segmentTelemetryInput(
+  input: TelemetryDocumentInput,
+  range: FrameRange | null,
+): TelemetryDocumentInput {
+  if (!range) return input;
+  assertValidFrameRange(range);
+  if (range.end >= input.frameCount) {
+    throw new Error(
+      `frame range ${range.start}-${range.end} is beyond the recording (${input.frameCount} frames)`,
+    );
+  }
+  return {
+    ...input,
+    frameCount: range.end - range.start + 1,
+    frames: input.frames.slice(range.start, range.end + 1),
+    headingDeg: input.headingDeg.slice(range.start, range.end + 1),
+    frameStart: range.start,
+  };
+}
+
 export function createAppSession(options: AppSessionOptions): AppSession {
   const { config, pickFile } = options;
   const prepare = options.prepare ?? prepareUiSession;
   const log = options.log ?? ((): void => {});
   const onPreparing = options.onPreparing ?? ((): void => {});
   const onPrepareProgress = options.onPrepareProgress ?? ((): void => {});
-  let session: UiSession | null = null;
+  let prepared: PreparedUiSession | null = null;
   let videoPath: string | null = null;
   let picking = false;
 
@@ -181,7 +254,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         onPreparing(resolved);
         // The renderer's current look prepares the recording, so the prepared
         // scene matches what the player shows.
-        session = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
+        prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
         videoPath = resolved;
         log(`loaded: ${resolved}`);
         return { ok: true };
@@ -192,7 +265,13 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         picking = false;
       }
     },
-    getSession: () => session,
+    getSession: () => prepared?.session ?? null,
     videoPath: () => videoPath,
+    saveTelemetryJson(file: string, range: FrameRange | null): void {
+      if (!prepared) throw new Error('no recording loaded');
+      const doc = buildTelemetryDocument(segmentTelemetryInput(prepared.telemetry, range));
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, serializeTelemetryDocument(doc));
+    },
   };
 }
