@@ -4,11 +4,15 @@
 
 Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux AppImage) from [GitHub Releases](https://github.com/MrManny/drone-path/releases), or run `npm run build && npm run app` from a checkout.
 
+## The menu bar
+
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…**, **Settings** and **Exit**; **View** holds **Swap** (`S`); **Help**, at the right edge, holds **Documentation**, which opens this manual. Items that cannot act right now — export, telemetry, Settings and Swap without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+
 ## Loading a recording
 
-Launching the app lands in the review workspace with no recording loaded: the transport, timeline and export controls sit disabled, and the map pane reads *No telemetry yet*.
+Launching the app lands in the review workspace with no recording loaded: the transport, timeline and export menu items sit disabled, and the map pane reads *No telemetry yet*.
 
-To load a recording, use the **Open…** button in the footage pane — the header's **Open…** and `Ctrl+O` do the same. The dialog starts in the folder the last recording was opened from.
+To load a recording, use the **Open…** button in the footage pane — **File → Open…** and `Ctrl+O` do the same. The dialog starts in the folder the last recording was opened from.
 
 Picking a drone video opens the player as soon as the recording is probed, its telemetry is loaded and the view is planned — no tile warm-up in between. The map draws the flight trail immediately and loads its tiles on demand, and playback is ready right away. Changing the map style, zoom or view in [Map appearance](#map-appearance) starts loading the tiles for the new view instead.
 
@@ -20,7 +24,7 @@ Picking a drone video opens the player as soon as the recording is probed, its t
 
 The review workspace shows the footage and the synchronized flight map at once: the video fills the preview beside the map pane, which keeps the flight trail, drone position and HUD chips and shares the playhead with the video.
 
-**Swap** in the footer (or `S`) turns the map into a corner overlay on the footage when you want the full frame for the video. Play, pause and scrubbing drive both panes from one timeline, so the map and the footage never drift apart. Every playback control has a [keyboard shortcut](keyboard-shortcuts.md).
+**View → Swap** in the menu bar (or `S`) turns the map into a corner overlay on the footage when you want the full frame for the video. Play, pause and scrubbing drive both panes from one timeline, so the map and the footage never drift apart. Every playback control has a [keyboard shortcut](keyboard-shortcuts.md).
 
 ![Footage and synchronized flight map side by side in the review workspace](../images/app-review-split.jpg)
 
@@ -48,7 +52,7 @@ Press `I` to mark the loop in point and `O` the out point, or drag the band's en
 
 ## Export
 
-The **Export…** button in the header is the export entry point; it stays disabled until a recording is loaded. The dialog opens with an **Output preview** beside the form: the preview shows the exact map output — the very scene the export captures, planned at the output size — and states the rule under the frame: *Export renders the map, not the source video.*
+The **Export video…** item in the File menu is the export entry point; it stays disabled until a recording is loaded. The dialog opens with an **Output preview** beside the form: the preview shows the exact map output — the very scene the export captures, planned at the output size — and states the rule under the frame: *Export renders the map, not the source video.*
 
 With a loop set, the form groups into *What* and *How*:
 
@@ -61,7 +65,7 @@ Press **Start export**, pick the destination file, and follow the progress besid
 
 ![The export dialog with the output preview beside the What and How form](../images/app-export-form.jpg)
 
-*The Export dialog: the output preview shows the exact map output beside the What and How form.*
+*The Export video dialog: the output preview shows the exact map output beside the What and How form.*
 
 ![Export running with progress beside the frozen output preview](../images/app-export-running.jpg)
 
@@ -75,19 +79,19 @@ At the compact 1024×600 minimum window size the preview shrinks and the form st
 
 ![Export dialog at the compact 1024x600 window size](../images/app-export-compact.jpg)
 
-*The Export dialog at the compact 1024×600 window size.*
+*The Export video dialog at the compact 1024×600 window size.*
 
-## Saving telemetry JSON
+## Exporting telemetry
 
-The **Save telemetry JSON…** button in the header — right of **Export…** — writes the same per-frame telemetry document as the CLI's `--telemetry-json`, straight from the loaded recording and without rendering anything. One record per source frame covers the time, position, altitude, body and gimbal attitude, heading and camera exposure.
+The **Export telemetry…** item in the File menu writes the same per-frame telemetry document as the CLI's `--telemetry-json`, straight from the loaded recording and without rendering anything. One record per source frame covers the time, position, altitude, body and gimbal attitude, heading and camera exposure.
 
-The scope follows the loop points automatically: with a loop set the document covers just the In–Out segment — the same frames the segment export renders, keeping the recording's own frame numbers — and without one the full recording. The button's tooltip states the scope before you click.
+The scope follows the loop points automatically: with a loop set the document covers just the In–Out segment — the same frames the segment export renders, keeping the recording's own frame numbers — and without one the full recording. The item's tooltip states the scope before you choose it.
 
-Clicking opens the native save dialog, which suggests `<recording>.telemetry.json` in the export folder; cancelling it starts nothing and leaves the workspace untouched. On confirm a compact dialog reports the save and then names the kept file and the scope it covers, with **Reveal in folder** opening its folder. For the same recording and range the file is byte-identical to the CLI output (see [CLI usage](cli.md)).
+Choosing it opens the native save dialog, which suggests `<recording>.telemetry.json` in the export folder; cancelling it starts nothing and leaves the workspace untouched. On confirm a compact dialog reports the export and then names the kept file and the scope it covers, with **Reveal in folder** opening its folder. For the same recording and range the file is byte-identical to the CLI output (see [CLI usage](cli.md)).
 
 ## Map appearance
 
-The **Map settings** button in the footer opens the *Map appearance* popover with the map look settings:
+The **File → Settings** menu item opens the *Map appearance* popover with the map look settings:
 
 - **Map style** — satellite or topographic.
 - **View** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it.
@@ -107,7 +111,7 @@ Packaged builds update themselves: when a newer [release](https://github.com/MrM
 
 ## Help
 
-The **Help** icon in the footer opens this manual inside the app. It is bundled with the app, so it works offline.
+The **Help → Documentation** menu item opens this manual inside the app. It is bundled with the app, so it works offline.
 
 ## Notes
 

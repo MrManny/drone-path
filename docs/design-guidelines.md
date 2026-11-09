@@ -35,7 +35,7 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--warning` / `--info` | `#f0a967` / `#7fa3c4` | Warning and info notices only |
 | `--loop` / `--loop-text` | `#ecc9a8` / `#f4e2d2` | Loop band and ring / loop readout |
 
-- **Accent** marks the primary action, the selected segment, a checked toggle, the playhead, the played part of the timeline and the progress fills. **Loop** colors mark only the loop band, its handles and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
+- **Accent** marks the primary action, the selected segment, a checked toggle, the playhead, the played part of the timeline and the progress fills. In the menu bar accent additionally carries menu state: the open top-level label and the hovered or keyboard-focused row (see [Menu bar](#menu-bar)). **Loop** colors mark only the loop band, its handles and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
 - **The flight trail is the accent:** `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent` and derives the trail glow.
 - **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
@@ -43,11 +43,31 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 
 ## Player workspace
 
-Rows are flush, one column: header, stage, transport, timeline, and status footer.
+Rows are flush, one column: menu bar, header, stage, transport, timeline, and status footer.
+
+## Menu bar
+
+The top row of every workspace is a slim menu bar — window chrome, not a control row: 32px plus a 1px `--hairline` bottom border on `--page`, flat 14px text labels ("File" and "View" left, "Help" right) as 24px pills (`--radius-control`, 0 10px padding). It owns every workspace command; the header keeps only brand and project identity, the status footer only its status text.
+
+Dropdowns reuse the map-popover floating-panel anatomy: `--surface-1` fill, 1px `--hairline-strong` border, `--radius-panel`, `--shadow-float`, hung directly under their label. Item rows are 32px high — a deliberate deviation from the 36px `--control-h` recipe, matching Windows menu density — borderless at `--radius-control` with 8px side padding: 16px icon, 12px gap, 14px `--text` label, right-aligned 13px shortcut hint. Separators sit on the `--hairline` tier; disabled rows use the `button:disabled` treatment; menus open instantly, with no motion.
+
+**Accent's extended role: menu state color.** Per the approved "accent forward" scheme, accent marks where the user is (the open top-level label) and where they are about to go (the hovered or keyboard-focused row) — never resting rows, never decoration:
+
+| Role | Value |
+|---|---|
+| Open label pill | `rgba(232, 127, 84, 0.16)` over `--page`, label in `--accent-text` |
+| Hovered/keyboard-focused row fill | `rgba(232, 127, 84, 0.14)` over `--surface-1` |
+| Row selection bar | `--accent`, 3×16px pill at the row's left inset |
+| Icon and shortcut hint on the live row | `--accent-text` |
+| Row labels (all rows) | `--text`; resting icons and hints `--text-3` |
+
+Measured contrast (WCAG): open label 6.1:1, hover label 8.9:1, hover hint/icon 5.5:1, selection bar 4.0:1 against the row fill and 4.9:1 against the panel, resting label 11.1:1, resting hint/icon 6.0:1, disabled label 3.5:1 (WCAG-exempt). The tinted open pill measures 1.3:1 against the bar; following the tone-ladder convention, state is never a fill alone — the accent-text label carries it too.
 
 ## Keyboard
 
 Player shortcuts (`ui/lib/hotkeys.ts`): Space or K play and pause; 1–4 set speed; Left and Right step one frame, Shift jumps a second; Home and End seek; I and O set loop points; S swaps the stage layouts; Ctrl+O opens a recording; Escape closes the open dialog or the map appearance popover, or clears the loop. Only the arrow keys repeat when held.
+
+Menu keys: Alt opens the menu bar (File first) and a second Alt closes it; Alt+F, Alt+V and Alt+H open File, View and Help directly; the arrow keys move through items and between open menus; Enter and Space activate; Escape closes without action. While a menu is open it owns the keyboard and the player shortcuts stay inert.
 
 ## Components, copy and errors
 

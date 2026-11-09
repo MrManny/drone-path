@@ -9,7 +9,7 @@ import process from 'node:process';
 import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 'electron';
 
 import { resolveAppAsset } from '../dist/appassets.js';
 import { APP_ORIGIN, appStateFile, uiExportRoot } from '../dist/apppaths.js';
@@ -312,7 +312,7 @@ function registerIpcHandlers(state) {
       ? path.resolve(path.dirname(video), state.config.outDir)
       : null;
     const options = {
-      title: 'Export flight map',
+      title: 'Export video',
       defaultPath: outputPathFor(video, { ...state.config, outDir }),
       filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
     };
@@ -337,7 +337,7 @@ function registerIpcHandlers(state) {
       : null;
     const exportDefault = outputPathFor(video, { ...state.config, outDir });
     const options = {
-      title: 'Save telemetry JSON',
+      title: 'Export telemetry',
       defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
       filters: [{ name: 'JSON document', extensions: ['json'] }],
     };
@@ -412,6 +412,11 @@ function registerIpcHandlers(state) {
     assertTrusted(event);
     return { ready: state.updateReady };
   });
+  ipcMain.handle('dronepath:window:close', (event) => {
+    assertTrusted(event);
+    // The window's close handler runs the running-export guard.
+    if (state.win && !state.win.isDestroyed()) state.win.close();
+  });
 }
 
 function installProtocolHandler(state) {
@@ -430,6 +435,9 @@ function ensureUiExport() {
 }
 
 function createWindow(state) {
+  // The in-app menu bar owns all workspace commands; a native Alt/F10 menu
+  // would compete with it, so none is installed (Windows and Linux).
+  Menu.setApplicationMenu(null);
   state.win = new BrowserWindow({
     width: 1600,
     height: 950,
@@ -439,7 +447,6 @@ function createWindow(state) {
     minHeight: 600,
     // Match --page in ui/app/globals.css so startup shows one background.
     backgroundColor: '#232323',
-    autoHideMenuBar: true,
     // The loaded page's <title> takes over after load (ui/app/layout.tsx).
     title: 'Drone Path',
     // Windows renders an ICO best, Linux a PNG (Electron docs); both are

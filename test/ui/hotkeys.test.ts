@@ -232,3 +232,21 @@ describe('mapKey Esc over a focused select (#93)', () => {
     expect(mapSequence(events, ctx)).toEqual(want);
   });
 });
+
+describe('mapKey while a menu is open', () => {
+  const MENU: HotkeyContext = { modalOpen: false, menuOpen: true };
+
+  it.for<{ name: string; event: HotkeyEvent }>([
+    { name: 'Space', event: { key: ' ' } },
+    { name: 'K', event: { key: 'k' } },
+    { name: 'speed digits', event: { key: '2' } },
+    { name: 'arrows', event: { key: 'ArrowRight' } },
+    { name: 'loop keys', event: { key: 'i' } },
+    { name: 'swap', event: { key: 's' } },
+    { name: 'Ctrl+O', event: { key: 'o', ctrlKey: true } },
+    { name: 'Escape', event: { key: 'Escape' } },
+    { name: 'Escape over a text field', event: { key: 'Escape', target: input } },
+  ])('$name yields to the menu', ({ event }) => {
+    expect(mapKey(event, MENU).action).toBeNull();
+  });
+});

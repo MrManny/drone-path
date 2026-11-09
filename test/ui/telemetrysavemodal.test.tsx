@@ -35,20 +35,20 @@ function actions(): HTMLElement {
 describe('TelemetrySaveModal saving phase', () => {
   it('says the write is in flight and offers no action yet', () => {
     renderModal({ phase: { kind: 'saving' } });
-    expect(screen.getByText('Saving telemetry JSON…')).toBeTruthy();
+    expect(screen.getByText('Exporting telemetry…')).toBeTruthy();
     expect(document.querySelector('.dialog-actions')).toBeNull();
   });
 
   it('names the dialog', () => {
     renderModal({ phase: { kind: 'saving' } });
-    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
   });
 
   it('refuses every dismissal while the machine pins the write', () => {
     const { onClose } = renderModal({ phase: { kind: 'saving' }, dismissible: false });
     const headerClose = screen.getByRole<HTMLButtonElement>('button', { name: 'Close' });
     expect(headerClose.disabled).toBe(true);
-    expect(headerClose.title).toBe('Saving telemetry JSON. Wait for it to finish.');
+    expect(headerClose.title).toBe('Exporting telemetry. Wait for it to finish.');
     fireEvent.click(document.querySelector('.settings-overlay') as HTMLElement);
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -57,7 +57,7 @@ describe('TelemetrySaveModal saving phase', () => {
 describe('TelemetrySaveModal done phase', () => {
   it('reports the kept file and the scope captured at save time', () => {
     renderModal();
-    expect(screen.getByText('Telemetry JSON saved.')).toBeTruthy();
+    expect(screen.getByText('Telemetry exported.')).toBeTruthy();
     expect(screen.getByText('/exports/flight.telemetry.json')).toBeTruthy();
     expect(screen.getByText('Scope: In–Out segment (0:04–0:10 · 181 frames)')).toBeTruthy();
   });
@@ -75,7 +75,7 @@ describe('TelemetrySaveModal done phase', () => {
       phase: { ...DONE, error: 'the app backend went away' },
     });
     expect(screen.getByText('the app backend went away')).toBeTruthy();
-    expect(screen.getByText('Telemetry JSON saved.')).toBeTruthy();
+    expect(screen.getByText('Telemetry exported.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal in folder' })).toBeTruthy();
   });
 });

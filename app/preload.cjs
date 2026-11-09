@@ -30,4 +30,5 @@ contextBridge.exposeInMainWorld('dronepath', {
     subscribe('dronepath:update:restart-failed', (message) => cb(message)),
   getUpdateState: () => ipcRenderer.invoke('dronepath:update:state'),
   restartToUpdate: () => ipcRenderer.invoke('dronepath:update:restart'),
+  closeWindow: () => ipcRenderer.invoke('dronepath:window:close'),
 });
