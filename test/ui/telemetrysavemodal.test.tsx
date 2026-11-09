@@ -7,13 +7,19 @@ import { TelemetrySaveModal } from '../../ui/components/TelemetrySaveModal.js';
 
 afterEach(cleanup);
 
+const DONE = {
+  kind: 'done' as const,
+  path: '/exports/flight.telemetry.json',
+  scope: 'In–Out segment (0:04–0:10 · 181 frames)',
+};
+
 function renderModal(overrides: Partial<TelemetrySaveModalProps> = {}) {
   const onReveal = vi.fn();
   const onClose = vi.fn();
   render(
     <TelemetrySaveModal
-      scope="In–Out segment (0:04–0:10 · 181 frames)"
-      phase={{ kind: 'done', path: '/exports/flight.telemetry.json' }}
+      phase={DONE}
+      dismissible
       {...overrides}
       onReveal={overrides.onReveal ?? onReveal}
       onClose={overrides.onClose ?? onClose}
@@ -38,10 +44,21 @@ describe('TelemetrySaveModal saving phase', () => {
     renderModal({ phase: { kind: 'saving' } });
     expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
   });
+
+  // A late write failure must surface here, so while the machine pins the
+  // dialog (dismissible = false) nothing may close it.
+  it('refuses every dismissal while the machine pins the write', () => {
+    const { onClose } = renderModal({ phase: { kind: 'saving' }, dismissible: false });
+    const headerClose = screen.getByRole<HTMLButtonElement>('button', { name: 'Close' });
+    expect(headerClose.disabled).toBe(true);
+    expect(headerClose.title).toBe('Saving telemetry JSON. Wait for it to finish.');
+    fireEvent.click(document.querySelector('.settings-overlay') as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe('TelemetrySaveModal done phase', () => {
-  it('reports the kept file and the scope it covers', () => {
+  it('reports the kept file and the scope captured at save time', () => {
     renderModal();
     expect(screen.getByText('Telemetry JSON saved.')).toBeTruthy();
     expect(screen.getByText('/exports/flight.telemetry.json')).toBeTruthy();
@@ -58,11 +75,7 @@ describe('TelemetrySaveModal done phase', () => {
 
   it('surfaces a reveal failure above the done content', () => {
     renderModal({
-      phase: {
-        kind: 'done',
-        path: '/exports/flight.telemetry.json',
-        error: 'the app backend went away',
-      },
+      phase: { ...DONE, error: 'the app backend went away' },
     });
     expect(screen.getByText('the app backend went away')).toBeTruthy();
     expect(screen.getByText('Telemetry JSON saved.')).toBeTruthy();

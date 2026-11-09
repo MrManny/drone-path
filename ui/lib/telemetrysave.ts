@@ -21,10 +21,12 @@ export type TelemetrySaveEvent =
   | { type: 'saved'; path: string }
   | { type: 'failed'; message: string };
 
-/** The compact dialog's phases: the write in flight, then its outcome. */
+/** The compact dialog's phases: the write in flight, then its outcome. The
+ * done phase carries the scope captured when the save started, so a later
+ * loop edit cannot rewrite what the document already covers. */
 export type TelemetrySavePhase =
   | { kind: 'saving' }
-  | { kind: 'done'; path: string; error?: string }
+  | { kind: 'done'; path: string; scope: string; error?: string }
   | { kind: 'error'; message: string };
 
 // The one scope vocabulary for the button's title and the done dialog: an

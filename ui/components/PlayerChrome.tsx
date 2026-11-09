@@ -157,15 +157,21 @@ export function PlayerChrome({
           opened = true;
           setTelemetrySave({ kind: 'saving' });
           dispatchDialog({ type: 'openTelemetrySave' });
+          // The machine pins the dialog while the write is in flight, so a
+          // late failure can never close into silence.
+          dispatchDialog({ type: 'telemetrySaveStarted' });
         },
       );
       // A canceled save dialog starts nothing and stays silent; every other
-      // outcome surfaces in the compact dialog, pick failures included.
+      // outcome surfaces in the compact dialog, pick failures included. The
+      // scope is captured here at click time, so a later loop edit cannot
+      // rewrite what the document already covers.
       if (event.type === 'canceled') return;
-      if (!opened) dispatchDialog({ type: 'openTelemetrySave' });
+      if (opened) dispatchDialog({ type: 'telemetrySaveFinished' });
+      else dispatchDialog({ type: 'openTelemetrySave' });
       setTelemetrySave(
         event.type === 'saved'
-          ? { kind: 'done', path: event.path }
+          ? { kind: 'done', path: event.path, scope }
           : { kind: 'error', message: event.message },
       );
     })();
@@ -174,18 +180,18 @@ export function PlayerChrome({
   // The done dialog's reveal reuses the export reveal handler; its failure
   // surfaces above the done content instead of closing it.
   const revealTelemetry = (): void => {
-    const path = telemetrySave?.kind === 'done' ? telemetrySave.path : null;
-    if (path === null) return;
+    const done = telemetrySave?.kind === 'done' ? telemetrySave : null;
+    if (done === null) return;
     void (async () => {
       try {
-        const ack = await appBridge().revealExportOutput({ out: path });
+        const ack = await appBridge().revealExportOutput({ out: done.path });
         setTelemetrySave(
           ack.ok
-            ? { kind: 'done', path }
-            : { kind: 'done', path, error: ack.error ?? 'the file could not be revealed' },
+            ? done
+            : { ...done, error: ack.error ?? 'the file could not be revealed' },
         );
       } catch (e) {
-        setTelemetrySave({ kind: 'done', path, error: errorMessage(e) });
+        setTelemetrySave({ ...done, error: errorMessage(e) });
       }
     })();
   };
@@ -260,8 +266,8 @@ export function PlayerChrome({
       />
       {telemetrySaveOpen && telemetrySave ? (
         <TelemetrySaveModal
-          scope={scope}
           phase={telemetrySave}
+          dismissible={dismissible}
           onReveal={revealTelemetry}
           onClose={() => dispatchDialog({ type: 'close' })}
         />

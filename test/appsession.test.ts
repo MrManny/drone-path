@@ -480,6 +480,12 @@ describe('parseTelemetrySaveRequest', () => {
     ).toThrow('unknown telemetry save request key surprise');
   });
 
+  it('rejects a non-.json destination, like the export request rejects non-.mp4', () => {
+    expect(() => parseTelemetrySaveRequest({ outPath: '/exports/flight.txt' })).toThrow(
+      'outPath must be a .json file',
+    );
+  });
+
   it('rejects an invalid range through the shared frame-range rule', () => {
     expect(() =>
       parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 2, end: 2 } }),

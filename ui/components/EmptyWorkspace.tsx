@@ -11,7 +11,6 @@ import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { LoopState } from '../lib/loop.js';
 import type { PickState } from '../lib/pickstate.js';
-import { telemetryScope } from '../lib/telemetrysave.js';
 import { EmptyStage } from './EmptyStage.js';
 import { StatusBar } from './StatusBar.js';
 import { TimelinePanel } from './TimelinePanel.js';
@@ -29,8 +28,9 @@ export interface EmptyWorkspaceProps {
 
 const NOOP = (): void => {};
 const NO_LOOP: LoopState = { in: null, out: null };
-// No recording, no scope: the disabled button still names what it would save.
-const NO_SCOPE = telemetryScope(null, 0, 0);
+// Nothing is loaded yet: the disabled button's title names the future scope
+// without inventing a duration.
+const NO_SCOPE = 'loaded recording';
 
 export function EmptyWorkspace({
   state,

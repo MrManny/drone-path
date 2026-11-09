@@ -354,6 +354,8 @@ function registerIpcHandlers(state) {
   ipcMain.handle('dronepath:telemetry:save', (event, raw) => {
     assertTrusted(event);
     try {
+      const video = state.session ? state.session.videoPath() : null;
+      if (!video) return { ok: false, error: 'no recording loaded' };
       const request = parseTelemetrySaveRequest(raw);
       state.session.saveTelemetryJson(request.outPath, request.range);
       state.lastTelemetryOut = request.outPath;

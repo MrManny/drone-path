@@ -75,6 +75,20 @@ describe('useDialogs', () => {
     expect(result.current.dismissible).toBe(true);
   });
 
+  it('pins the telemetry save dialog while the write runs and releases it on the outcome', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openTelemetrySave' });
+    send({ type: 'telemetrySaveStarted' });
+    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.dismissible).toBe(false);
+    send({ type: 'close' });
+    expect(result.current.telemetrySaveOpen).toBe(true);
+    send({ type: 'telemetrySaveFinished' });
+    expect(result.current.dismissible).toBe(true);
+    send({ type: 'close' });
+    expect(result.current.modalOpen).toBe(false);
+  });
+
   it('opens the help overlay as a dismissable modal', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openHelp' });

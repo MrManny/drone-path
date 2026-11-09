@@ -27,7 +27,7 @@ export function useDialogs(): Dialogs {
     modalOpen: dialog !== 'closed',
     helpOpen: dialog === 'help',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
-    telemetrySaveOpen: dialog === 'telemetry-save',
+    telemetrySaveOpen: dialog === 'telemetry-save' || dialog === 'telemetry-saving',
     updateOpen: dialog === 'update-prompt',
     dismissible: canDismiss(dialog),
     dispatchDialog,

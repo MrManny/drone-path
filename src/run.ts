@@ -289,10 +289,11 @@ export interface PipelineOptions {
   onCapture?: (progress: CaptureProgress) => void;
 }
 
-// A segment export renders source frames start..end inclusive; the guard
-// keeps the render and the verification honest about what the source has.
-function resolveRange(
-  range: FrameRange | undefined,
+// The one frame-range guard, shared by the segment render and the desktop's
+// telemetry segment save: source frames start..end inclusive, all inside the
+// recording, so the two can never disagree about what a range means.
+export function resolveRange(
+  range: FrameRange | null | undefined,
   frames: number,
 ): FrameRange | null {
   if (!range) return null;

@@ -9,6 +9,7 @@ const STATES: DialogState[] = [
   'export-form',
   'export-running',
   'telemetry-save',
+  'telemetry-saving',
   'update-prompt',
 ];
 
@@ -16,6 +17,8 @@ const EVENTS: DialogEvent[] = [
   { type: 'openHelp' },
   { type: 'openExport' },
   { type: 'openTelemetrySave' },
+  { type: 'telemetrySaveStarted' },
+  { type: 'telemetrySaveFinished' },
   { type: 'exportStarted' },
   { type: 'exportFinished' },
   { type: 'updateReady' },
@@ -23,17 +26,28 @@ const EVENTS: DialogEvent[] = [
 ];
 
 // The full transition table: one row per state and event, derived from the
-// machine's three rules (open is refused over a running export or the update
-// prompt, updateReady needs a quiet UI, close is refused while running).
+// machine's rules (open is refused over work in flight or the update prompt,
+// updateReady needs a quiet UI, close is refused while work is in flight).
+function busy(state: DialogState): boolean {
+  return state === 'export-running' || state === 'telemetry-saving';
+}
+
+function pinned(state: DialogState): boolean {
+  return busy(state) || state === 'update-prompt';
+}
+
 function expected(state: DialogState, event: DialogEvent): DialogState {
-  const pinned = state === 'export-running' || state === 'update-prompt';
   switch (event.type) {
     case 'openHelp':
-      return pinned ? state : 'help';
+      return pinned(state) ? state : 'help';
     case 'openExport':
-      return pinned ? state : 'export-form';
+      return pinned(state) ? state : 'export-form';
     case 'openTelemetrySave':
-      return pinned ? state : 'telemetry-save';
+      return pinned(state) ? state : 'telemetry-save';
+    case 'telemetrySaveStarted':
+      return state === 'telemetry-save' ? 'telemetry-saving' : state;
+    case 'telemetrySaveFinished':
+      return state === 'telemetry-saving' ? 'telemetry-save' : state;
     case 'exportStarted':
       return state === 'export-form' ? 'export-running' : state;
     case 'exportFinished':
@@ -41,7 +55,7 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
     case 'updateReady':
       return state === 'closed' ? 'update-prompt' : state;
     case 'close':
-      return state === 'export-running' ? state : 'closed';
+      return busy(state) ? state : 'closed';
   }
 }
 
@@ -64,9 +78,9 @@ describe.each<DialogState>(['closed', 'help', 'export-form', 'telemetry-save', '
   },
 );
 
-describe('canDismiss(export-running)', () => {
-  it('is false, so the running job keeps its dialog on screen', () => {
-    expect(canDismiss('export-running')).toBe(false);
+describe.each<DialogState>(['export-running', 'telemetry-saving'])('canDismiss(%s)', (state) => {
+  it('is false, so the running work keeps its dialog on screen', () => {
+    expect(canDismiss(state)).toBe(false);
   });
 });
 
@@ -79,6 +93,22 @@ describe('the export run round trip', () => {
     expect(canDismiss(state)).toBe(false);
     expect(dialogReducer(state, { type: 'close' })).toBe('export-running');
     state = dialogReducer(state, { type: 'exportFinished' });
+    expect(canDismiss(state)).toBe(true);
+    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
+  });
+});
+
+describe('the telemetry save round trip', () => {
+  it('pins the dialog while the write runs, so a late failure can never close into silence', () => {
+    let state: DialogState = 'closed';
+    state = dialogReducer(state, { type: 'openTelemetrySave' });
+    expect(state).toBe('telemetry-save');
+    expect(canDismiss(state)).toBe(true);
+    state = dialogReducer(state, { type: 'telemetrySaveStarted' });
+    expect(canDismiss(state)).toBe(false);
+    expect(dialogReducer(state, { type: 'close' })).toBe('telemetry-saving');
+    expect(dialogReducer(state, { type: 'openExport' })).toBe('telemetry-saving');
+    state = dialogReducer(state, { type: 'telemetrySaveFinished' });
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');
   });

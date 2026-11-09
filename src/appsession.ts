@@ -10,7 +10,6 @@ import {
   VIEW_VALUES,
   asNumber,
   asTrailColor,
-  assertValidFrameRange,
   parseFrameRange,
 } from './config.js';
 import type { FrameRange, LookSettings, RenderConfig, Style, View } from './config.js';
@@ -20,7 +19,12 @@ import type { Bbox } from './geo.js';
 import { isRecordingName } from './inputs.js';
 import { buildSceneData } from './page.js';
 import type { SceneData } from './renderer/scene.js';
-import { prepareSession, recordingPageOpts, telemetryExportInput } from './run.js';
+import {
+  prepareSession,
+  recordingPageOpts,
+  resolveRange,
+  telemetryExportInput,
+} from './run.js';
 import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
 import { buildTelemetryDocument, serializeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
@@ -125,6 +129,11 @@ export function parseTelemetrySaveRequest(raw: unknown): TelemetrySaveRequest {
   if (typeof r.outPath !== 'string' || !r.outPath) {
     throw new Error('invalid telemetry save request: outPath');
   }
+  // Like parseExportRequest's container check: the .json suffix fixes the
+  // document format whatever the renderer typed.
+  if (!r.outPath.toLowerCase().endsWith('.json')) {
+    throw new Error(`invalid telemetry save request: outPath must be a .json file: ${r.outPath}`);
+  }
   const range =
     r.range === undefined || r.range === null ? null : parseFrameRange(r.range);
   return { outPath: r.outPath, range };
@@ -211,24 +220,20 @@ function isReadableVideo(filePath: string): boolean {
 
 // The segment save's input: rows and headings sliced onto the requested
 // source-frame range, with frameStart keeping the record numbers on the
-// recording's own frame indices. One validation home for every save.
+// recording's own frame indices. The range guard is the pipeline's own
+// resolveRange, so the save and the segment render agree by construction.
 function segmentTelemetryInput(
   input: TelemetryDocumentInput,
   range: FrameRange | null,
 ): TelemetryDocumentInput {
-  if (!range) return input;
-  assertValidFrameRange(range);
-  if (range.end >= input.frameCount) {
-    throw new Error(
-      `frame range ${range.start}-${range.end} is beyond the recording (${input.frameCount} frames)`,
-    );
-  }
+  const segment = resolveRange(range, input.frameCount);
+  if (!segment) return input;
   return {
     ...input,
-    frameCount: range.end - range.start + 1,
-    frames: input.frames.slice(range.start, range.end + 1),
-    headingDeg: input.headingDeg.slice(range.start, range.end + 1),
-    frameStart: range.start,
+    frameCount: segment.end - segment.start + 1,
+    frames: input.frames.slice(segment.start, segment.end + 1),
+    headingDeg: input.headingDeg.slice(segment.start, segment.end + 1),
+    frameStart: segment.start,
   };
 }
 
