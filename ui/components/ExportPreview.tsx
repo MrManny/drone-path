@@ -27,16 +27,16 @@ export function ExportPreview({ session, config, size, frame }: ExportPreviewPro
   const { width, height } = size;
   // Keyed on the fields the scene plan actually reads: encoder edits never
   // re-plan the scene.
-  const { style, view, zoom, zoomOut, introSec, outroSec, hud } = config;
+  const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = config;
   const data = useMemo(
     () =>
       restyleSceneData(
         session.scene,
-        { style, view, zoom, zoomOut, introSec, outroSec, hud },
+        { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud },
         restyleMeta(session),
         { width, height },
       ),
-    [session, style, view, zoom, zoomOut, introSec, outroSec, hud, width, height],
+    [session, style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud, width, height],
   );
   const hostRef = useSceneIsland({ data, frame });
 

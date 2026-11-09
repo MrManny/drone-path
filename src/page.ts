@@ -25,6 +25,8 @@ export interface PageOpts {
   width: number;
   height: number;
   style: Style;
+  /** null = the map style's theme trail color. */
+  trailColor: string | null;
   view: View;
   center: LatLon;
   zoom: number;
@@ -51,7 +53,7 @@ export function planPageOpts(opts: {
   height: number;
   config: Pick<
     RenderConfig,
-    'style' | 'view' | 'zoom' | 'zoomOut' | 'introSec' | 'outroSec' | 'hud'
+    'style' | 'view' | 'zoom' | 'zoomOut' | 'introSec' | 'outroSec' | 'hud' | 'trailColor'
   >;
   source: { fps: number; frames: number };
   frames: Pick<PageOpts, 'lat' | 'lon' | 'alt' | 'speed' | 'headingDeg'>;
@@ -78,6 +80,7 @@ export function planPageOpts(opts: {
     width,
     height,
     style: config.style,
+    trailColor: config.trailColor,
     view: config.view,
     center: unproject(overview.centerPx.x, overview.centerPx.y, overview.zoom),
     zoom: overview.zoom,
@@ -98,12 +101,13 @@ export function planPageOpts(opts: {
 // window.__DATA, the app delivers it as the session payload. Tile URLs are
 // rooted at the consumer's serving base ("/tiles" or "app://bundle/tiles").
 export function buildSceneData(opts: PageOpts, tileBase: string): SceneData {  const {
-    width, height, style, view, center, zoom, attribution,
+    width, height, style, trailColor, view, center, zoom, attribution,
     lat, lon, alt, speed, headingDeg, hud, decimated,
     introN = 0, outroN = 0,
   } = opts;
   return {
     style,
+    trailColor,
     tileUrl: tileBase + '/' + style + '/{z}/{x}/{y}.png',
     view,
     width,

@@ -31,6 +31,7 @@ vi.mock('leaflet', () => ({ default: {} }));
 
 const DATA: SceneData = {
   style: 'satellite',
+  trailColor: null,
   tileUrl: 'app://bundle/tiles/satellite/{z}/{x}/{y}.png',
   view: 'follow',
   width: 768,

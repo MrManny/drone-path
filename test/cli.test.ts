@@ -74,6 +74,24 @@ describe('parseCliArgs', () => {
     expect(() => parseCliArgs(['x.mp4', '--trail', 'full'])).toThrow(/unknown option/);
   });
 
+  it('parses --trail-color and canonicalizes it', () => {
+    expect(parseCliArgs(['x.mp4', '--trail-color', '41f0ff']).cli.trailColor).toBe('#41f0ff');
+    expect(parseCliArgs(['x.mp4', '--trail-color', '#E63946CC']).cli.trailColor).toBe('#e63946cc');
+  });
+
+  it.for(['neon', '#12345', 'rgb(1,2,3)'])(
+    'rejects the invalid trail color %s naming the flag',
+    (value) => {
+      expect(() => parseCliArgs(['x.mp4', '--trail-color', value])).toThrow(
+        /invalid value for --trail-color/,
+      );
+    },
+  );
+
+  it('lists --trail-color in the help output', () => {
+    expect(buildProgram().helpInformation()).toMatch(/--trail-color <hex>/);
+  });
+
   it.for(['wide', '', '0x10'])('rejects the invalid number %s naming the flag', (value) => {
     expect(() => parseCliArgs(['x.mp4', '--width', value])).toThrow(
       /invalid number for --width/,
@@ -87,6 +105,7 @@ describe('parseCliArgs', () => {
     // default outDir is 'out', resolved against the working directory
     expect(config.outDir).toBe(path.resolve(os.tmpdir(), 'out'));
     expect(config.browser).toBeNull();
+    expect(config.trailColor).toBeNull();
   });
 
   it('lets config-file values win over defaults on a bare invocation', () => {

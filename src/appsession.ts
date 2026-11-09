@@ -9,6 +9,7 @@ import {
   STYLE_VALUES,
   VIEW_VALUES,
   asNumber,
+  asTrailColor,
   assertValidFrameRange,
   parseFrameRange,
 } from './config.js';
@@ -85,6 +86,7 @@ export function parsePickRequest(raw: unknown): PickRequest {
   const outroSec = asNumber(look.outroSec, 'outro');
   if (!(introSec >= 0)) throw new Error('intro must be 0 or more');
   if (!(outroSec >= 0)) throw new Error('outro must be 0 or more');
+  const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
   const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
   return {
     settings: {
@@ -95,6 +97,7 @@ export function parsePickRequest(raw: unknown): PickRequest {
       hud: { heading: !!chips.heading, alt: !!chips.alt, speed: !!chips.speed },
       introSec,
       outroSec,
+      trailColor,
     },
   };
 }

@@ -102,15 +102,15 @@ export function PlayerChrome({
   // One settings -> scene mapping for the preview and the export: the same
   // pure planners the pipeline runs, keyed on the fields the plan reads so
   // encoder edits never re-plan the scene.
-  const { style, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
+  const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
   const sceneData = useMemo(
     () =>
       restyleSceneData(
         session.scene,
-        { style, view, zoom, zoomOut, introSec, outroSec, hud },
+        { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud },
         restyleMeta(session),
       ),
-    [session, style, view, zoom, zoomOut, introSec, outroSec, hud],
+    [session, style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud],
   );
 
   const dispatch = usePlayerHotkeys(

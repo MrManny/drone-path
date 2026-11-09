@@ -28,6 +28,7 @@ const PATCH: SettingsPatch = {
   hud: { heading: true, alt: true, speed: true },
   introSec: 1.5,
   outroSec: 0,
+  trailColor: '#e63946',
   codec: 'h265',
   quality: 'low',
   preset: 'veryfast',
@@ -57,6 +58,10 @@ const INVALID_CASES: Array<[string, unknown]> = [
   [
     'an invalid look value',
     { version: APP_STATE_VERSION, settings: { ...PATCH, style: 'neon' } },
+  ],
+  [
+    'an unreadable trail color',
+    { version: APP_STATE_VERSION, settings: { ...PATCH, trailColor: 'neon' } },
   ],
   [
     'an invalid look constraint',
@@ -119,14 +124,20 @@ describe('tolerant settings reading', () => {
     outroSec: 0,
   };
 
-  it('loads a v1 state without encoder settings at the default encoder choices', () => {
+  it('loads a v1 state without encoder settings or a trail color at the defaults', () => {
     const state = parseAppState({ version: 1, settings: V1_SETTINGS });
     expect(state.settings).toEqual({
       ...PATCH,
+      trailColor: null,
       codec: 'h264',
       quality: 'high',
       preset: 'medium',
     });
+  });
+
+  it('reads an explicit null trail color as the theme default', () => {
+    const state = parseAppState({ version: 1, settings: { ...V1_SETTINGS, trailColor: null } });
+    expect(state.settings?.trailColor).toBeNull();
   });
 
   it('loads a minimal settings object with every setting at its default', () => {

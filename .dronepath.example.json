@@ -9,6 +9,7 @@
   "zoomOut": 1,
   "introSec": 2,
   "outroSec": 2,
+  "trailColor": null,
   "hud": "heading,alt,speed",
   "workers": 4,
   "capture": "jpeg",

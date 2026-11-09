@@ -28,6 +28,7 @@ const DATA = {
   style: 'satellite',
   tileUrl: '/tiles/satellite/{z}/{x}/{y}.png',
   view: 'overview',
+  trailColor: null,
   width: 768,
   height: 768,
   zoom: 15,

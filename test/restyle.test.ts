@@ -100,6 +100,10 @@ describe('restyleSceneData', () => {
 
     const overview = restyleSceneData(scene, testConfig({ view: 'overview' }), meta);
     expect(overview.view).toBe('overview');
+
+    const colored = restyleSceneData(scene, testConfig({ trailColor: '#41f0ff' }), meta);
+    expect(colored.trailColor).toBe('#41f0ff');
+    expect(colored.trailLat).toBe(scene.trailLat);
   });
 
   it('re-decimates the trail only when the planned zoom changes', async () => {
