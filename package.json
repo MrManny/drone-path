@@ -28,6 +28,7 @@
     "build:manual": "npm run build:cli && node dist/manual/build.js",
     "build:ui": "next build ui --webpack",
     "docs:reference": "npm run build:cli && node dist/manual/reference.js",
+    "docs:schema": "npm run build:cli && node dist/telemetry-json-schema.js",
     "changeset": "changeset",
     "changeset:version": "changeset version && npm install --package-lock-only",
     "test": "npm run build:manual && npm run typecheck:test && vitest run",
@@ -66,7 +67,8 @@
     "commander": "~15.0.0",
     "electron-updater": "~6.8.11",
     "leaflet": "~1.9.4",
-    "playwright-core": "~1.65.0"
+    "playwright-core": "~1.65.0",
+    "zod": "~4.6.7"
   },
   "optionalDependencies": {
     "ffmpeg-ffprobe-static": "~7.1.0-rc.1"

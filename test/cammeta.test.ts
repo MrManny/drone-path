@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   decodePacketSamples,
   decodeProductMeta,
+  decodeProvenance,
   parseCamMeta,
   scanGpsPair,
 } from '../src/cammeta.js';
@@ -71,40 +72,110 @@ function fldBytes(num: number, payload: Buffer): Buffer {
   return Buffer.concat([tag(num, 2), varint(payload.length), payload]);
 }
 
+interface EulerSpec {
+  pitch?: number;
+  roll?: number;
+  yaw?: number;
+}
+
 interface Meta {
   lat: number;
   lon: number;
   relAltMm: number;
   absAltM?: number;
-  pitch?: number;
-  roll?: number;
-  yaw?: number;
+  /** Body attitude; zero members are wire-omitted (proto3 zero-omission). */
+  attitude?: EulerSpec;
   gpsAltMm?: number;
+  iso?: number;
+  ct?: number;
+  gimbal?: EulerSpec & {
+    device?: {
+      id: number;
+      type: number;
+      subType: number;
+      name: string;
+      frequency: number;
+      timestampMs?: number;
+    };
+  };
+  clip?: { protoFile: string; productProtoVersion: string };
 }
 
-// ProductMeta { 3 frame_meta { 2 camera, 4 drone } } per the verified field map.
+// A proto3 serializer never writes default values: scalar zeros and empty
+// strings are absent on the wire, and a set-but-default message field rides
+// as a ZERO-LENGTH submessage - the exact forms a real encoder produces.
+function eulerMessage(spec: EulerSpec): Buffer {
+  const parts: Buffer[] = [];
+  if (spec.pitch) parts.push(fldVarint(1, spec.pitch));
+  if (spec.roll) parts.push(fldVarint(2, spec.roll));
+  if (spec.yaw) parts.push(fldVarint(3, spec.yaw));
+  return Buffer.concat(parts);
+}
+
+// ProductMeta { 1 clip_meta, 3 frame_meta { 2 camera, 4 drone, 5 gimbal } }
+// per the verified field map; members are coded only when non-default and
+// set-but-default message fields are zero-length.
 function buildProductMeta(m: Meta): Buffer {
   const coord = Buffer.concat([fldDouble(2, m.lat), fldDouble(3, m.lon)]);
   const gpsParts = [fldBytes(1, coord)];
-  if (m.gpsAltMm !== undefined) gpsParts.push(fldVarint(2, m.gpsAltMm));
+  if (m.gpsAltMm) gpsParts.push(fldVarint(2, m.gpsAltMm));
   const gps = fldBytes(4, Buffer.concat(gpsParts));
-  const rel = fldBytes(5, fldFloat(1, m.relAltMm));
-  const euler = fldBytes(
-    3,
-    Buffer.concat([
-      fldVarint(1, m.pitch ?? 0),
-      fldVarint(2, m.roll ?? 0),
-      fldVarint(3, m.yaw ?? 0),
-    ]),
-  );
-  const drone = fldBytes(4, Buffer.concat([euler, gps, rel]));
-  const cam =
-    m.absAltM !== undefined
-      ? fldBytes(2, fldBytes(11, fldFloat(1, m.absAltM)))
-      : Buffer.alloc(0);
-  const frameMeta = Buffer.concat([cam, drone]);
-  return fldBytes(3, frameMeta);
+  const rel = fldBytes(5, m.relAltMm ? fldFloat(1, m.relAltMm) : Buffer.alloc(0));
+
+  const droneParts = [gps, rel];
+  if (m.attitude) droneParts.unshift(fldBytes(3, eulerMessage(m.attitude)));
+  const drone = fldBytes(4, Buffer.concat(droneParts));
+
+  const camParts: Buffer[] = [];
+  if (m.iso !== undefined) {
+    camParts.push(fldBytes(3, m.iso ? fldVarint(1, m.iso) : Buffer.alloc(0)));
+  }
+  if (m.ct !== undefined) {
+    camParts.push(fldBytes(6, m.ct ? fldVarint(1, m.ct) : Buffer.alloc(0)));
+  }
+  if (m.absAltM !== undefined) {
+    camParts.push(fldBytes(11, m.absAltM ? fldFloat(1, m.absAltM) : Buffer.alloc(0)));
+  }
+
+  const frameParts = camParts.length > 0 ? [fldBytes(2, Buffer.concat(camParts))] : [];
+  frameParts.push(drone);
+  if (m.gimbal) {
+    const gimbalParts: Buffer[] = [];
+    const device = m.gimbal.device;
+    if (device) {
+      const headerParts: Buffer[] = [];
+      if (device.id) headerParts.push(fldVarint(1, device.id));
+      if (device.type) headerParts.push(fldVarint(2, device.type));
+      if (device.subType) headerParts.push(fldVarint(3, device.subType));
+      if (device.name) headerParts.push(fldBytes(4, Buffer.from(device.name, 'utf8')));
+      if (device.frequency) headerParts.push(fldFloat(5, device.frequency));
+      if (device.timestampMs) headerParts.push(fldVarint(6, device.timestampMs));
+      gimbalParts.push(fldBytes(1, Buffer.concat(headerParts)));
+    }
+    gimbalParts.push(fldBytes(2, eulerMessage(m.gimbal)));
+    frameParts.push(fldBytes(5, Buffer.concat(gimbalParts)));
+  }
+
+  const parts: Buffer[] = [];
+  if (m.clip) {
+    const clipHeader = Buffer.concat([
+      fldBytes(1, Buffer.from(m.clip.protoFile, 'utf8')),
+      fldBytes(3, Buffer.from(m.clip.productProtoVersion, 'utf8')),
+    ]);
+    parts.push(fldBytes(1, fldBytes(1, clipHeader)));
+  }
+  parts.push(fldBytes(3, Buffer.concat(frameParts)));
+  return Buffer.concat(parts);
 }
+
+const GIMBAL_DEVICE = {
+  id: 0,
+  type: 1,
+  subType: 3,
+  name: 'gimbal',
+  frequency: 200,
+  timestampMs: 1234,
+};
 
 describe('decodeProductMeta', () => {
   it('decodes GPS, altitudes and Euler angles from a synthetic message', () => {
@@ -113,9 +184,7 @@ describe('decodeProductMeta', () => {
       lon: 14.262388,
       relAltMm: 3300,
       absAltM: 313.227,
-      pitch: 123,
-      roll: 456,
-      yaw: 2700,
+      attitude: { pitch: 123, roll: 456, yaw: 2700 },
       gpsAltMm: 313227,
     });
     const m = decodeProductMeta(buf);
@@ -187,6 +256,150 @@ describe('decodeProductMeta', () => {
       yawDeg: null,
       pitchDeg: null,
       rollDeg: null,
+      gpsAltMm: null,
+      gimbalPitchDeg: null,
+      gimbalRollDeg: null,
+      gimbalYawDeg: null,
+      gimbalDeviceTimestampMs: null,
+      iso: null,
+      whiteBalanceCctK: null,
+    });
+  });
+
+  it('decodes camera exposure fields and the raw GPS altitude', () => {
+    const buf = buildProductMeta({
+      lat: 46.61307,
+      lon: 14.262388,
+      relAltMm: 3300,
+      iso: 340,
+      ct: 4435,
+      gpsAltMm: 313227,
+    });
+    const m = decodeProductMeta(buf);
+    expect(m.iso).toBe(340);
+    expect(m.whiteBalanceCctK).toBe(4435);
+    expect(m.gpsAltMm).toBe(313227);
+  });
+
+  it('decodes the gimbal attitude and device timestamp', () => {
+    const buf = buildProductMeta({
+      lat: 46.6,
+      lon: 14.3,
+      relAltMm: 0,
+      gimbal: { pitch: -122, roll: 4, yaw: 1085, device: GIMBAL_DEVICE },
+    });
+    const m = decodeProductMeta(buf);
+    expect(m.gimbalPitchDeg).toBeCloseTo(-12.2, 6);
+    expect(m.gimbalRollDeg).toBeCloseTo(0.4, 6);
+    expect(m.gimbalYawDeg).toBeCloseTo(108.5, 6);
+    expect(m.gimbalDeviceTimestampMs).toBe(1234);
+  });
+
+  // proto3 zero-omission: a wire-missing member of a present EulerAngle is a
+  // known 0.0, not an unknown value - for the gimbal block and the body.
+  it('exports a wire-missing Euler member of a present message as 0.0', () => {
+    const buf = buildProductMeta({
+      lat: 46.6,
+      lon: 14.3,
+      relAltMm: 0,
+      attitude: { yaw: 2700 },
+      gimbal: { pitch: -122, device: GIMBAL_DEVICE },
+    });
+    const m = decodeProductMeta(buf);
+    expect(m.pitchDeg).toBe(0);
+    expect(m.rollDeg).toBe(0);
+    expect(m.yawDeg).toBeCloseTo(270, 6);
+    expect(m.gimbalPitchDeg).toBeCloseTo(-12.2, 6);
+    expect(m.gimbalRollDeg).toBe(0);
+    expect(m.gimbalYawDeg).toBe(0);
+  });
+
+  it('omits the gimbal attitude when the gimbal block is absent', () => {
+    const buf = buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0, attitude: { yaw: 900 } });
+    const m = decodeProductMeta(buf);
+    expect(m.gimbalPitchDeg).toBeNull();
+    expect(m.gimbalRollDeg).toBeNull();
+    expect(m.gimbalYawDeg).toBeNull();
+    expect(m.gimbalDeviceTimestampMs).toBeNull();
+  });
+
+  // Touchdown frames: rel_alt rides as a zero-length submessage when the
+  // value is exactly 0.0 mm - the known 0.0, not an unknown.
+  it('exports the known 0.0 for a set-but-default RelativeAltitude', () => {
+    const m = decodeProductMeta(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0 }));
+    expect(m.relAlt).toBe(0);
+  });
+
+  // Sea-level clips: a set-but-default AbsoluteAltitude is the known 0.0 m;
+  // the GPS altitude fallback must not take its place.
+  it('never falls back to the GPS altitude where the camera says 0.0', () => {
+    const m = decodeProductMeta(
+      buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300, absAltM: 0, gpsAltMm: 313227 }),
+    );
+    expect(m.absAlt).toBe(0);
+  });
+
+  it('zero-defaults a wire-missing gps_altitude_mm of a present GpsBasic', () => {
+    const m = decodeProductMeta(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300 }));
+    expect(m.gpsAltMm).toBe(0);
+    expect(m.absAlt).toBe(0); // the fallback reads the same known 0
+  });
+
+  it('zero-defaults wire-missing ISO and CCT values', () => {
+    const m = decodeProductMeta(
+      buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 3300, iso: 0, ct: 0 }),
+    );
+    expect(m.iso).toBe(0);
+    expect(m.whiteBalanceCctK).toBe(0);
+  });
+});
+
+describe('decodeProvenance', () => {
+  it('decodes the declared proto schema and the gimbal device constants', () => {
+    const p = decodeProvenance(
+      buildProductMeta({
+        lat: 46.6,
+        lon: 14.3,
+        relAltMm: 0,
+        clip: { protoFile: 'dvtm_NEO2.proto', productProtoVersion: 'v02.00.07' },
+        gimbal: { device: GIMBAL_DEVICE },
+      }),
+    );
+    expect(p.protoFile).toBe('dvtm_NEO2.proto v02.00.07');
+    expect(p.gimbalDevice).toEqual({
+      id: 0,
+      type: 1,
+      subType: 3,
+      name: 'gimbal',
+      frequency: 200,
+    });
+  });
+
+  it('reports absent constants as null, never guessed', () => {
+    expect(decodeProvenance(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0 }))).toEqual({
+      protoFile: null,
+      gimbalDevice: null,
+    });
+  });
+
+  // The regression: a real proto3 encoder omits zero-valued constants (a
+  // device_id of 0 is never coded), so a present header with nothing on the
+  // wire still carries the known defaults.
+  it('zero-defaults wire-missing constants of a present device header', () => {
+    const p = decodeProvenance(
+      buildProductMeta({
+        lat: 46.6,
+        lon: 14.3,
+        relAltMm: 0,
+        gimbal: { device: { id: 0, type: 0, subType: 0, name: '', frequency: 0 } },
+      }),
+    );
+    expect(p.gimbalDevice).toEqual({
+      id: 0,
+      type: 0,
+      subType: 0,
+      name: '',
+      frequency: 0,
     });
   });
 });
@@ -289,6 +502,24 @@ describe('decodePacketSamples', () => {
     expect(samples[0].noLock).toBe(true);
     expect(samples[0].fix).toBeNull();
     expect(samples[1].fix?.lat).toBe(46.6);
+  });
+
+  it('collects clip constants while keeping fix-less packets frame-aligned', () => {
+    const { buf, packets } = packetsOf([
+      buildProductMeta({
+        lat: 0,
+        lon: 0,
+        relAltMm: 0,
+        clip: { protoFile: 'dvtm_NEO2.proto', productProtoVersion: 'v02.00.07' },
+        gimbal: { device: GIMBAL_DEVICE },
+      }),
+      buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0 }),
+    ]);
+    const { samples, noLock, provenance } = decodePacketSamples(buf, packets, true);
+    expect(noLock).toBe(1);
+    expect(samples).toHaveLength(2);
+    expect(provenance.protoFile).toBe('dvtm_NEO2.proto v02.00.07');
+    expect(provenance.gimbalDevice?.name).toBe('gimbal');
   });
 });
 

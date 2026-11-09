@@ -6,15 +6,23 @@
 //     assume a fixed stride; split the raw dump by ffprobe packet sizes so
 //     each message aligns to its packet PTS (= frame time).
 //   * ProductMeta { 1 clip_meta, 2 stream_meta, 3 frame_meta } (clip/stream
-//     meta appear only in the first sample).
+//     meta appear only in the first sample); clip_meta { 1 clip_meta_header
+//     { 1 proto_file_name, 3 product_proto_version } } names the schema.
 //   * frame_meta { 1 header, 2 camera, 3 imu (absent on Neo 2), 4 drone,
 //     5 gimbal }:
+//       - camera.3   ISO { 1 varint } (SRT `iso`)
+//       - camera.6   WhiteBalanceCCT { 1 varint } (SRT `ct`)
 //       - camera.11 AbsoluteAltitude { 1 float32 meters MSL }
 //       - drone.3   EulerAngle { 1 pitch, 2 roll, 3 yaw } varint deci-degrees
 //                   (yaw = drone heading, valid even while hovering)
 //       - drone.4   GpsBasic { 1 PositionCoord { 2 lat, 3 lon } doubles WGS84,
 //                             2 gps_altitude_mm varint }
 //       - drone.5   RelativeAltitude { 1 float32 millimeters above takeoff }
+//       - gimbal.1  MetaHeaderOfDevice { 1 device_id, 2 device_type,
+//                   3 device_sub_type, 4 device_name, 5 device_frequency,
+//                   6 device_timestamp } (constants + per-frame timestamp)
+//       - gimbal.2  EulerAngle { 1 pitch, 2 roll, 3 yaw } = stabilized camera
+//                   attitude, same encoding as drone.3
 //   * No epoch timestamp in-stream (frame_timestamp is microseconds since
 //     power-up); sample index == frame index.
 //   * Schemas: recovered DJI .proto files in AdrianEddy/telemetry-parser
@@ -39,6 +47,7 @@ import type { LatLon } from './geo.js';
 import {
   firstDouble,
   firstFloat,
+  firstString,
   firstVarint,
   parseProtoFields,
   subMessage,
@@ -57,6 +66,15 @@ export interface ProductMeta {
   yawDeg: number | null;
   pitchDeg: number | null;
   rollDeg: number | null;
+  /** Raw gps_altitude_mm (GpsBasic.2). */
+  gpsAltMm: number | null;
+  /** Stabilized camera attitude (gimbal.2); null = no gimbal attitude. */
+  gimbalPitchDeg: number | null;
+  gimbalRollDeg: number | null;
+  gimbalYawDeg: number | null;
+  gimbalDeviceTimestampMs: number | null;
+  iso: number | null;
+  whiteBalanceCctK: number | null;
 }
 
 export interface CamSample extends ProductMeta {
@@ -65,16 +83,39 @@ export interface CamSample extends ProductMeta {
 
 export type CamMetaMethod = 'dvtm-packets' | 'cammeta-scan';
 
+export interface GimbalDeviceConstants {
+  id: number;
+  type: number;
+  subType: number;
+  name: string;
+  frequency: number;
+}
+
+/** The clip-level constants a ProductMeta can declare. */
+export interface ClipProvenance {
+  /** "proto_file_name product_proto_version" as declared, null when absent. */
+  protoFile: string | null;
+  gimbalDevice: GimbalDeviceConstants | null;
+}
+
 export interface CamMetaResult {
   samples: CamSample[];
   /** No-lock positions; the byte-scan fallback reports 0 (fix pairs only). */
   noLock: number;
   method: CamMetaMethod;
+  protoFile: string | null;
+  gimbalDevice: GimbalDeviceConstants | null;
 }
 
 // DVTM field numbers (see the module comment for the message layout).
+const CLIP_META = 1;
+const CLIP_META_HEADER = 1;
+const PROTO_FILE_NAME = 1;
+const PRODUCT_PROTO_VERSION = 3;
 const FRAME_META = 3;
 const CAMERA = 2;
+const ISO = 3;
+const WHITE_BALANCE_CCT = 6;
 const ABSOLUTE_ALTITUDE = 11;
 const DRONE = 4;
 const GPS_BASIC = 4;
@@ -82,6 +123,15 @@ const POSITION_COORD = 1;
 const GPS_ALTITUDE_MM = 2;
 const RELATIVE_ALTITUDE = 5;
 const EULER_ANGLE = 3;
+const GIMBAL = 5;
+const GIMBAL_DEVICE_HEADER = 1;
+const GIMBAL_EULER_ANGLE = 2;
+const DEVICE_ID = 1;
+const DEVICE_TYPE = 2;
+const DEVICE_SUB_TYPE = 3;
+const DEVICE_NAME = 4;
+const DEVICE_FREQUENCY = 5;
+const DEVICE_TIMESTAMP = 6;
 const VALUE = 1;
 const PITCH = 1;
 const ROLL = 2;
@@ -103,6 +153,13 @@ function emptyProductMeta(): ProductMeta {
     yawDeg: null,
     pitchDeg: null,
     rollDeg: null,
+    gpsAltMm: null,
+    gimbalPitchDeg: null,
+    gimbalRollDeg: null,
+    gimbalYawDeg: null,
+    gimbalDeviceTimestampMs: null,
+    iso: null,
+    whiteBalanceCctK: null,
   };
 }
 
@@ -140,30 +197,62 @@ export function decodeProductMeta(
 ): ProductMeta {
   const top = parseProtoFields(buf, start, end);
   const frameMeta = subMessage(buf, top, FRAME_META);
-  const absAlt = frameMeta ? decodeAbsoluteAltitude(buf, frameMeta) : null;
+  const camera = frameMeta ? subMessage(buf, frameMeta, CAMERA) : null;
   const drone = frameMeta ? subMessage(buf, frameMeta, DRONE) : null;
+  const gimbal = frameMeta ? subMessage(buf, frameMeta, GIMBAL) : null;
+  const absAlt = camera ? decodeAbsoluteAltitude(buf, camera) : null;
   const gps = drone ? decodeGps(buf, drone) : null;
-  const euler = drone ? decodeEulerAngles(buf, drone) : null;
+  const euler = drone ? decodeEulerAngles(buf, drone, EULER_ANGLE) : null;
+  const gimbalEuler = gimbal
+    ? decodeEulerAngles(buf, gimbal, GIMBAL_EULER_ANGLE)
+    : null;
+  const gimbalHeader = gimbal
+    ? subMessage(buf, gimbal, GIMBAL_DEVICE_HEADER)
+    : null;
   return {
     fix: gps?.fix ?? null,
     noLock: gps?.noLock ?? false,
     relAlt: drone ? decodeRelativeAltitude(buf, drone) : null,
     // camera.11 is authoritative; gps_altitude_mm is its fallback.
-    absAlt: absAlt ?? gps?.gpsAltM ?? null,
+    absAlt: absAlt ?? gpsAltMeters(gps?.gpsAltMm ?? null),
     yawDeg: euler?.yawDeg ?? null,
     pitchDeg: euler?.pitchDeg ?? null,
     rollDeg: euler?.rollDeg ?? null,
+    gpsAltMm: gps?.gpsAltMm ?? null,
+    gimbalPitchDeg: gimbalEuler?.pitchDeg ?? null,
+    gimbalRollDeg: gimbalEuler?.rollDeg ?? null,
+    gimbalYawDeg: gimbalEuler?.yawDeg ?? null,
+    gimbalDeviceTimestampMs: gimbalHeader
+      ? (firstVarint(gimbalHeader, DEVICE_TIMESTAMP) ?? 0)
+      : null,
+    iso: camera ? decodeCameraVarint(buf, camera, ISO) : null,
+    whiteBalanceCctK: camera ? decodeCameraVarint(buf, camera, WHITE_BALANCE_CCT) : null,
   };
 }
 
-// camera.11 AbsoluteAltitude { 1 float32 meters MSL }.
+// camera.3 ISO { 1 varint } and camera.6 WhiteBalanceCCT { 1 varint }. The
+// proto3 zero-omission rule: a present message with a wire-missing value is
+// the known 0, never an unknown.
+function decodeCameraVarint(
+  buf: Buffer,
+  camera: ProtoFieldMap,
+  fieldNumber: number,
+): number | null {
+  const message = subMessage(buf, camera, fieldNumber);
+  return message ? (firstVarint(message, VALUE) ?? 0) : null;
+}
+
+// camera.11 AbsoluteAltitude { 1 float32 meters MSL }. A present message
+// with a wire-missing value is the known 0.0 m - the GPS fallback must not
+// take its place (that would be another sensor's reading).
 function decodeAbsoluteAltitude(
   buf: Buffer,
-  frameMeta: ProtoFieldMap,
+  camera: ProtoFieldMap,
 ): number | null {
-  const camera = subMessage(buf, frameMeta, CAMERA);
-  const absoluteAltitude = camera && subMessage(buf, camera, ABSOLUTE_ALTITUDE);
-  return absoluteAltitude ? firstFloat(absoluteAltitude, VALUE) : null;
+  const absoluteAltitude = subMessage(buf, camera, ABSOLUTE_ALTITUDE);
+  if (!absoluteAltitude) return null;
+  const meters = firstFloat(absoluteAltitude, VALUE) ?? 0;
+  return Number.isFinite(meters) ? meters : null;
 }
 
 // drone.4 GpsBasic: WGS84 lat/lon doubles plus gps_altitude_mm (the
@@ -173,12 +262,16 @@ interface GpsDecode {
   fix: LatLon | null;
   /** Position pair present but not a real fix (see isGpsFix). */
   noLock: boolean;
-  /** gps_altitude_mm as meters; the absolute-altitude fallback. */
-  gpsAltM: number | null;
+  /** Raw gps_altitude_mm; a present GpsBasic carries the known 0 when omitted. */
+  gpsAltMm: number | null;
+}
+
+function gpsAltMeters(gpsAltMm: number | null): number | null {
+  return gpsAltMm !== null ? gpsAltMm / 1000 : null;
 }
 
 function decodeGps(buf: Buffer, drone: ProtoFieldMap): GpsDecode {
-  const out: GpsDecode = { fix: null, noLock: false, gpsAltM: null };
+  const out: GpsDecode = { fix: null, noLock: false, gpsAltMm: null };
   const gps = subMessage(buf, drone, GPS_BASIC);
   if (!gps) return out;
 
@@ -193,40 +286,98 @@ function decodeGps(buf: Buffer, drone: ProtoFieldMap): GpsDecode {
       else out.noLock = true;
     }
   }
-  const altitudeMm = firstVarint(gps, GPS_ALTITUDE_MM);
-  if (altitudeMm !== null) out.gpsAltM = altitudeMm / 1000;
+  out.gpsAltMm = firstVarint(gps, GPS_ALTITUDE_MM) ?? 0;
   return out;
 }
 
-// drone.5 RelativeAltitude { 1 float32 millimeters above takeoff }.
+// drone.5 RelativeAltitude { 1 float32 millimeters above takeoff }. A
+// present message with a wire-missing value is the known 0.0 - the touchdown
+// frame's rel_alt, not an unknown.
 function decodeRelativeAltitude(
   buf: Buffer,
   drone: ProtoFieldMap,
 ): number | null {
   const relative = subMessage(buf, drone, RELATIVE_ALTITUDE);
-  const millimeters = relative ? firstFloat(relative, VALUE) : null;
-  return millimeters !== null && Number.isFinite(millimeters)
-    ? millimeters / 1000
-    : null;
+  if (!relative) return null;
+  const millimeters = firstFloat(relative, VALUE) ?? 0;
+  return Number.isFinite(millimeters) ? millimeters / 1000 : null;
 }
 
-// drone.3 EulerAngle { 1 pitch, 2 roll, 3 yaw } varint deci-degrees.
+// drone.3 / gimbal.2 EulerAngle { 1 pitch, 2 roll, 3 yaw } varint
+// deci-degrees. proto3 zero-omission: a present message with a wire-missing
+// member carries the known default 0.0; only an absent message means "no
+// attitude here".
 interface EulerDecode {
-  pitchDeg: number | null;
-  rollDeg: number | null;
-  yawDeg: number | null;
+  pitchDeg: number;
+  rollDeg: number;
+  yawDeg: number;
 }
 
-function decodeEulerAngles(buf: Buffer, drone: ProtoFieldMap): EulerDecode {
-  const euler = subMessage(buf, drone, EULER_ANGLE);
-  if (!euler) return { pitchDeg: null, rollDeg: null, yawDeg: null };
-  const pitch = firstVarint(euler, PITCH);
-  const roll = firstVarint(euler, ROLL);
-  const yaw = firstVarint(euler, YAW);
+function decodeEulerAngles(
+  buf: Buffer,
+  fields: ProtoFieldMap,
+  fieldNumber: number,
+): EulerDecode | null {
+  const euler = subMessage(buf, fields, fieldNumber);
+  if (!euler) return null;
   return {
-    pitchDeg: pitch !== null ? pitch / 10 : null,
-    rollDeg: roll !== null ? roll / 10 : null,
-    yawDeg: yaw !== null ? yaw / 10 : null,
+    pitchDeg: (firstVarint(euler, PITCH) ?? 0) / 10,
+    rollDeg: (firstVarint(euler, ROLL) ?? 0) / 10,
+    yawDeg: (firstVarint(euler, YAW) ?? 0) / 10,
+  };
+}
+
+// The clip-level constants one ProductMeta can declare: the schema the clip
+// header names and the gimbal device header. Anything not fully declared is
+// reported absent - never guessed.
+export function decodeProvenance(
+  buf: Buffer,
+  start = 0,
+  end = buf.length,
+): ClipProvenance {
+  const top = parseProtoFields(buf, start, end);
+  return {
+    protoFile: decodeProtoFile(buf, top),
+    gimbalDevice: decodeGimbalDevice(buf, top),
+  };
+}
+
+function decodeProtoFile(buf: Buffer, top: ProtoFieldMap): string | null {
+  const clipMeta = subMessage(buf, top, CLIP_META);
+  const header = clipMeta && subMessage(buf, clipMeta, CLIP_META_HEADER);
+  if (!header) return null;
+  const name = nonEmptyString(buf, header, PROTO_FILE_NAME);
+  const version = nonEmptyString(buf, header, PRODUCT_PROTO_VERSION);
+  if (!name) return null;
+  return version ? `${name} ${version}` : name;
+}
+
+// proto3 zero-omission: an empty string is the default, not a declaration.
+function nonEmptyString(
+  buf: Buffer,
+  fields: ProtoFieldMap,
+  fieldNumber: number,
+): string | null {
+  const value = firstString(buf, fields, fieldNumber)?.trim() ?? '';
+  return value === '' ? null : value;
+}
+
+function decodeGimbalDevice(
+  buf: Buffer,
+  top: ProtoFieldMap,
+): GimbalDeviceConstants | null {
+  const frameMeta = subMessage(buf, top, FRAME_META);
+  const gimbal = frameMeta && subMessage(buf, frameMeta, GIMBAL);
+  const header = gimbal && subMessage(buf, gimbal, GIMBAL_DEVICE_HEADER);
+  if (!header) return null;
+  // proto3 zero-omission, the EulerAngle rule: a present header with
+  // wire-missing members carries their known defaults.
+  return {
+    id: firstVarint(header, DEVICE_ID) ?? 0,
+    type: firstVarint(header, DEVICE_TYPE) ?? 0,
+    subType: firstVarint(header, DEVICE_SUB_TYPE) ?? 0,
+    name: firstString(buf, header, DEVICE_NAME) ?? '',
+    frequency: firstFloat(header, DEVICE_FREQUENCY) ?? 0,
   };
 }
 
@@ -318,17 +469,25 @@ function toCamSample(meta: ProductMeta, tSec: number): CamSample {
 // Primary path: walk the dump packet by packet so each ProductMeta message
 // aligns to its packet PTS. No-lock packets are counted like SRT counts
 // no-lock cues so summaries agree across telemetry sources; they join the
-// samples only under keepAll.
+// samples only under keepAll. Clip-level constants (first declaration wins)
+// ride along for the telemetry JSON export header.
 export function decodePacketSamples(
   buf: Buffer,
   packets: PacketInfo[],
   keepAll: boolean,
-): { samples: CamSample[]; noLock: number } {
+): { samples: CamSample[]; noLock: number; provenance: ClipProvenance } {
   const samples: CamSample[] = [];
   let noLock = 0;
   let offset = 0;
+  let protoFile: string | null = null;
+  let gimbalDevice: GimbalDeviceConstants | null = null;
   for (const packet of packets) {
     const end = offset + packet.size;
+    if (protoFile === null || gimbalDevice === null) {
+      const declared = decodeProvenance(buf, offset, end);
+      protoFile ??= declared.protoFile;
+      gimbalDevice ??= declared.gimbalDevice;
+    }
     let meta = decodeProductMeta(buf, offset, end);
     if (meta.fix === null) {
       const hit = scanGpsPair(buf, offset, end);
@@ -343,7 +502,7 @@ export function decodePacketSamples(
     }
     offset = end;
   }
-  return { samples, noLock };
+  return { samples, noLock, provenance: { protoFile, gimbalDevice } };
 }
 
 // Fallback path: no frame alignment.
@@ -397,8 +556,8 @@ export async function parseCamMeta(
     0,
   );
   if (packets.length > 0 && sizeSum === buf.length) {
-    const { samples, noLock } = decodePacketSamples(buf, packets, keepAll);
-    return { samples, noLock, method: 'dvtm-packets' };
+    const { samples, noLock, provenance } = decodePacketSamples(buf, packets, keepAll);
+    return { samples, noLock, method: 'dvtm-packets', ...provenance };
   }
 
   const samples = scanBufferForGpsPairs(buf);
@@ -406,5 +565,11 @@ export async function parseCamMeta(
   spreadSampleTimes(samples, durationSec);
   // The scan sees complete fix pairs only - a no-lock placeholder is
   // indistinguishable from absent bytes in raw data.
-  return { samples, noLock: 0, method: 'cammeta-scan' };
+  return {
+    samples,
+    noLock: 0,
+    method: 'cammeta-scan',
+    protoFile: null,
+    gimbalDevice: null,
+  };
 }

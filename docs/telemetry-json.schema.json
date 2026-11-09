@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "protoFile": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "srt",
+        "cammeta"
+      ]
+    },
+    "headingMode": {
+      "type": "string",
+      "enum": [
+        "yaw",
+        "cog"
+      ]
+    },
+    "frameCount": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "gimbalDevice": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "type": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "subType": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "name": {
+          "type": "string"
+        },
+        "frequency": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "subType",
+        "name",
+        "frequency"
+      ],
+      "additionalProperties": false
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "frame": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "gimbalDeviceTimestampMs": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lng": {
+            "type": "number"
+          },
+          "altAbs": {
+            "type": "number"
+          },
+          "altRel": {
+            "type": "number"
+          },
+          "gpsAltMm": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "pitchDeg": {
+            "type": "number"
+          },
+          "rollDeg": {
+            "type": "number"
+          },
+          "yawDeg": {
+            "type": "number"
+          },
+          "gimbalPitchDeg": {
+            "type": "number"
+          },
+          "gimbalRollDeg": {
+            "type": "number"
+          },
+          "gimbalYawDeg": {
+            "type": "number"
+          },
+          "headingDeg": {
+            "type": "number"
+          },
+          "headingSource": {
+            "type": "string",
+            "enum": [
+              "yaw",
+              "cog"
+            ]
+          },
+          "iso": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "shutterTime": {
+            "type": "number"
+          },
+          "whiteBalanceCctK": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fNumber": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "frame",
+          "headingDeg",
+          "headingSource"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "source",
+    "headingMode",
+    "frameCount",
+    "frames"
+  ],
+  "additionalProperties": false
+}

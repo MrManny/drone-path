@@ -44,6 +44,8 @@ export interface RenderConfig {
   ffprobe: string | null;
   skipExisting: boolean;
   recurse: boolean;
+  /** null = no telemetry JSON document; the doc goes only to this file. */
+  telemetryJson: string | null;
   json: boolean;
   quiet: boolean;
 }
@@ -324,6 +326,15 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
     normalize: (v, name) => ({ recurse: asBool(v, name) }),
   },
   {
+    key: 'telemetryJson',
+    cli: {
+      flags: '--telemetry-json <file>',
+      help: 'write one JSON document with per-frame telemetry to <file> (one recording per run)',
+    },
+    default: null,
+    normalize: (v, name) => ({ telemetryJson: asNullableString(v, name) }),
+  },
+  {
     key: 'json',
     cli: { flags: '--json', help: 'print one NDJSON summary line per recording on stdout' },
     default: false,
@@ -565,7 +576,7 @@ function parseHudObject(value: unknown, name: string): HudSpec {
 // cache, the browser, the worker count or the CLI-only switches.
 const MAIN_OWNED_KEYS = [
   'outDir', 'outSuffix', 'tileCache', 'browser', 'ffmpeg', 'ffprobe', 'workers', 'capture',
-  'skipExisting', 'recurse', 'json', 'quiet',
+  'skipExisting', 'recurse', 'telemetryJson', 'json', 'quiet',
 ] as const;
 
 // The renderer sends the look and the export dimensions; everything else comes
