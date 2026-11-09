@@ -18,6 +18,7 @@ function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
     modalOpen: false,
     helpOpen: false,
     exportOpen: false,
+    telemetrySaveOpen: false,
     updateOpen: false,
     dismissible: true,
     dispatchDialog: vi.fn(),

@@ -672,3 +672,104 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
     });
   },
 );
+
+describe('PlayerChrome save telemetry JSON', () => {
+  afterEach(() => {
+    delete (window as { dronepath?: unknown }).dronepath;
+  });
+
+  function installTelemetryBridge(overrides: Record<string, unknown> = {}) {
+    const bridge = {
+      pickTelemetryOutput: vi.fn(async () => ({ ok: true, path: '/exports/flight.telemetry.json' })),
+      saveTelemetryJson: vi.fn(async () => ({ ok: true })),
+      revealExportOutput: vi.fn(async () => ({ ok: true })),
+      ...overrides,
+    };
+    (window as { dronepath?: unknown }).dronepath = bridge;
+    return bridge;
+  }
+
+  // Drains the flow's awaited stages deterministically before asserting.
+  async function settle(): Promise<void> {
+    await act(async () => {
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    });
+  }
+
+  // Rainy (mandated): a canceled save dialog starts nothing - no save call,
+  // no dialog, the workspace untouched.
+  it('starts nothing when the save dialog is canceled', async () => {
+    const bridge = installTelemetryBridge({
+      pickTelemetryOutput: vi.fn(async () => ({ ok: false, canceled: true })),
+    });
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    await settle();
+
+    expect(bridge.saveTelemetryJson).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('opens the error dialog when the pick fails, so the failure is never silent', async () => {
+    const bridge = installTelemetryBridge({
+      pickTelemetryOutput: vi.fn(async () => ({ ok: false, error: 'the dialog went away' })),
+    });
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    await settle();
+
+    expect(bridge.saveTelemetryJson).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+    expect(screen.getByText('the dialog went away')).toBeTruthy();
+  });
+
+  // The silent-failure hole: dismissing "Saving telemetry JSON…" must not
+  // swallow a late write failure, so the machine pins the dialog open.
+  it('keeps the dialog up during the write and surfaces a late failure', async () => {
+    // An assertion initializer: the resolver runs inside the Promise executor,
+    // and control-flow analysis cannot see assignments made in closures.
+    let finish = null as ((ack: { ok: boolean; error?: string }) => void) | null;
+    installTelemetryBridge({
+      saveTelemetryJson: vi.fn(
+        () =>
+          new Promise<{ ok: boolean; error?: string }>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    });
+    render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    await settle();
+    expect(screen.getByText('Saving telemetry JSON…')).toBeTruthy();
+
+    key(window, { key: 'Escape' });
+    await settle();
+    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+
+    if (finish) finish({ ok: false, error: 'disk full' });
+    await settle();
+    expect(screen.getByText('disk full')).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+  });
+
+  it('reports the scope captured at save time, not a later loop edit', async () => {
+    let finish = null as ((ack: { ok: boolean; error?: string }) => void) | null;
+    installTelemetryBridge({
+      saveTelemetryJson: vi.fn(
+        () =>
+          new Promise<{ ok: boolean; error?: string }>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    });
+    await renderPlayer();
+    setLoopRegion(10, 60);
+    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    await settle();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));
+    if (finish) finish({ ok: true });
+    await settle();
+    expect(screen.getByText('Scope: In–Out segment (0:00–0:02 · 51 frames)')).toBeTruthy();
+  });
+});

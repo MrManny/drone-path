@@ -20,13 +20,14 @@ import {
   rememberOpenedFile,
   writeAppState,
 } from '../dist/appstate.js';
-import { createAppSession, parsePickRequest } from '../dist/appsession.js';
+import { createAppSession, parsePickRequest, parseTelemetrySaveRequest } from '../dist/appsession.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
 import { resolveConfig } from '../dist/configfile.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
 import { createExportRunner } from '../dist/exportjob.js';
 import { requireTools } from '../dist/ff.js';
 import { resolveFfTools } from '../dist/fftools.js';
+import { videoBaseName } from '../dist/inputs.js';
 import { rangePlan } from '../dist/range.js';
 import { outputPathFor } from '../dist/run.js';
 import { createTileTraffic } from '../dist/tiles.js';
@@ -72,9 +73,10 @@ function createShellState() {
     updates: null,
     // A downloaded update waits even if its announcement raced the renderer.
     updateReady: false,
-    // The destination of the last successful export: the only path the
-    // renderer may reveal or open.
+    // The destinations of the last successful export and the last telemetry
+    // JSON save: the only paths the renderer may reveal or open.
     lastExportOut: null,
+    lastTelemetryOut: null,
     closePromptOpen: false,
     pendingClose: false,
   };
@@ -198,12 +200,34 @@ function assertTrusted(event) {
   }
 }
 
-function exportOutputOf(state, payload) {
+// The reveal/open guard: the renderer may only name a file this shell wrote
+// (the last export or the last telemetry document, both set only by trusted
+// handlers), never an arbitrary path.
+function knownOutputOf(state, payload) {
   const out = payload && typeof payload === 'object' ? payload.out : null;
-  if (typeof out !== 'string' || out !== state.lastExportOut) {
-    throw new Error('unknown export output');
+  if (typeof out !== 'string' || (out !== state.lastExportOut && out !== state.lastTelemetryOut)) {
+    throw new Error('unknown output');
   }
   return out;
+}
+
+// The native dialog confirmed the name as typed, but the extension may have
+// been appended after it: re-check the final path on every platform so an
+// existing file is never replaced without a confirmation.
+async function confirmReplace(state, chosen) {
+  if (!fs.existsSync(chosen)) return true;
+  const box = {
+    type: 'warning',
+    buttons: ['Replace', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    message: `Replace ${path.basename(chosen)}?`,
+    detail: chosen,
+  };
+  const confirm = state.win
+    ? await dialog.showMessageBox(state.win, box)
+    : await dialog.showMessageBox(box);
+  return confirm.response === 0;
 }
 
 // The backing services behind the window: tool check, config, tile cache and
@@ -299,24 +323,47 @@ function registerIpcHandlers(state) {
     const chosen = result.filePath.toLowerCase().endsWith('.mp4')
       ? result.filePath
       : `${result.filePath}.mp4`;
-    // The native dialog confirmed the name as typed, but `.mp4` may have been
-    // appended after it: re-check the final path on every platform so an
-    // existing file is never replaced without a confirmation.
-    if (fs.existsSync(chosen)) {
-      const box = {
-        type: 'warning',
-        buttons: ['Replace', 'Cancel'],
-        defaultId: 1,
-        cancelId: 1,
-        message: `Replace ${path.basename(chosen)}?`,
-        detail: chosen,
-      };
-      const confirm = state.win
-        ? await dialog.showMessageBox(state.win, box)
-        : await dialog.showMessageBox(box);
-      if (confirm.response !== 0) return { ok: false, canceled: true };
-    }
+    if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
     return { ok: true, path: chosen };
+  });
+  ipcMain.handle('dronepath:telemetry:pick-output', async (event) => {
+    assertTrusted(event);
+    const video = state.session ? state.session.videoPath() : null;
+    if (!video) return { ok: false, error: 'no recording loaded' };
+    // The export dialog's default folder, named after the recording
+    // (<basename>.telemetry.json).
+    const outDir = state.config.outDir
+      ? path.resolve(path.dirname(video), state.config.outDir)
+      : null;
+    const exportDefault = outputPathFor(video, { ...state.config, outDir });
+    const options = {
+      title: 'Save telemetry JSON',
+      defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
+      filters: [{ name: 'JSON document', extensions: ['json'] }],
+    };
+    const result = state.win
+      ? await dialog.showSaveDialog(state.win, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    const chosen = result.filePath.toLowerCase().endsWith('.json')
+      ? result.filePath
+      : `${result.filePath}.json`;
+    if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
+    return { ok: true, path: chosen };
+  });
+  ipcMain.handle('dronepath:telemetry:save', (event, raw) => {
+    assertTrusted(event);
+    try {
+      const video = state.session ? state.session.videoPath() : null;
+      if (!video) return { ok: false, error: 'no recording loaded' };
+      const request = parseTelemetrySaveRequest(raw);
+      state.session.saveTelemetryJson(request.outPath, request.range);
+      state.lastTelemetryOut = request.outPath;
+      log(`telemetry JSON: wrote ${request.outPath}`);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: errorMessage(e) };
+    }
   });
   ipcMain.handle('dronepath:export:start', (event, raw) => {
     assertTrusted(event);
@@ -337,7 +384,7 @@ function registerIpcHandlers(state) {
   ipcMain.handle('dronepath:export:reveal', (event, payload) => {
     assertTrusted(event);
     try {
-      shell.showItemInFolder(exportOutputOf(state, payload));
+      shell.showItemInFolder(knownOutputOf(state, payload));
       return { ok: true };
     } catch (e) {
       return { ok: false, error: errorMessage(e) };
@@ -346,7 +393,7 @@ function registerIpcHandlers(state) {
   ipcMain.handle('dronepath:export:open', async (event, payload) => {
     assertTrusted(event);
     try {
-      const error = await shell.openPath(exportOutputOf(state, payload));
+      const error = await shell.openPath(knownOutputOf(state, payload));
       return error ? { ok: false, error } : { ok: true };
     } catch (e) {
       return { ok: false, error: errorMessage(e) };

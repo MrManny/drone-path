@@ -230,6 +230,43 @@ describe('buildTelemetryDocument', () => {
   });
 });
 
+describe('buildTelemetryDocument with a frameStart', () => {
+  it('numbers records from the source frame index of row 0', () => {
+    const doc = buildTelemetryDocument(
+      docInput({
+        frameCount: 2,
+        frames: [fullRow(), fullRow()],
+        headingDeg: [90, 90.5],
+        frameStart: 120,
+      }),
+    );
+    expect(doc.frameCount).toBe(2);
+    expect(doc.frames.map((f) => f.frame)).toEqual([120, 121]);
+    expect(TelemetryDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it('keeps each row on the record numbered frameStart + i', () => {
+    const doc = buildTelemetryDocument(
+      docInput({
+        frameCount: 2,
+        frames: [{ lat: 46.6, lng: 14.2 }, { altRel: 3.4 }],
+        headingDeg: [90, 90.5],
+        frameStart: 5,
+      }),
+    );
+    expect(doc.frames[0]).toMatchObject({ frame: 5, lat: 46.6, headingDeg: 90 });
+    expect(doc.frames[1]).toMatchObject({ frame: 6, altRel: 3.4, headingDeg: 90.5 });
+    expect(doc.frames[1]).not.toHaveProperty('lat');
+  });
+
+  it('defaults to source frame 0 and stays byte-identical to the plain input', () => {
+    const explicit = serializeTelemetryDocument(
+      buildTelemetryDocument(docInput({ frameStart: 0 })),
+    );
+    expect(explicit).toBe(serializeTelemetryDocument(buildTelemetryDocument(docInput())));
+  });
+});
+
 describe('TelemetryDocumentSchema', () => {
   it('accepts the built document', () => {
     const doc = buildTelemetryDocument(docInput());

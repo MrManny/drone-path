@@ -71,6 +71,9 @@ export interface TelemetryDocumentInput {
   source: TelemetrySource;
   headingMode: HeadingMode;
   frameCount: number;
+  /** Source frame index of row 0 (default 0): segment documents keep the
+   * recording's frame numbers, so records read frameStart + row index. */
+  frameStart?: number;
   gimbalDevice?: TelemetryGimbalDevice | null;
   /** Per-source-frame values; fewer entries than frameCount is fine. */
   frames: readonly TelemetryFrameInput[];
@@ -121,17 +124,19 @@ function copyValue(
   record[key] = INTEGER_VALUE_KEYS.has(key) ? Math.round(value) : value;
 }
 
-// One record per source frame: frame i's decoded values plus the pipeline's
+// One record per source frame: row i's decoded values plus the pipeline's
 // heading for that frame. Frames without source values carry frame + heading
 // only - unknown values are omitted, never guessed.
 function buildRecord(
   input: TelemetryDocumentInput,
-  frame: number,
+  index: number,
 ): TelemetryRecord {
-  const row = input.frames[frame] ?? {};
-  const record: Record<string, number | string | undefined> = { frame };
+  const row = input.frames[index] ?? {};
+  const record: Record<string, number | string | undefined> = {
+    frame: (input.frameStart ?? 0) + index,
+  };
   for (const key of BEFORE_HEADING_KEYS) copyValue(record, key, row[key]);
-  record.headingDeg = input.headingDeg[frame];
+  record.headingDeg = input.headingDeg[index];
   record.headingSource = input.headingMode;
   for (const key of EXPOSURE_KEYS) copyValue(record, key, row[key]);
   return record as TelemetryRecord;
@@ -144,8 +149,8 @@ export function buildTelemetryDocument(
     throw new Error('telemetry JSON: heading count does not match the frame count');
   }
   const frames: TelemetryRecord[] = [];
-  for (let frame = 0; frame < input.frameCount; frame++) {
-    frames.push(buildRecord(input, frame));
+  for (let index = 0; index < input.frameCount; index++) {
+    frames.push(buildRecord(input, index));
   }
   return {
     schemaVersion: TELEMETRY_JSON_SCHEMA_VERSION,

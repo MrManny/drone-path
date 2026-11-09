@@ -5,21 +5,27 @@ import { useCallback, useMemo, useState } from 'react';
 import type { UiSession } from '../../src/appsession.js';
 import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
+import { errorMessage } from '../../src/errors.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import { restyleMeta } from '../lib/restylemeta.js';
+import { appBridge } from '../lib/backend.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { StageLayout } from '../lib/layout.js';
+import { engagedLoop } from '../lib/loop.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
+import type { TelemetrySavePhase } from '../lib/telemetrysave.js';
+import { telemetryScope, telemetrySaveFlow } from '../lib/telemetrysave.js';
 import { ExportHost } from './ExportHost.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
 import { Popover } from './Popover.js';
 import { SettingsPanel } from './SettingsPanel.js';
 import { StatusBar } from './StatusBar.js';
+import { TelemetrySaveModal } from './TelemetrySaveModal.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
@@ -69,11 +75,14 @@ export function PlayerChrome({
     timeRef,
     playheadRef,
   } = usePlayback(video, durationSec);
-  const { modalOpen, exportOpen, dismissible, dispatchDialog } = dialogs;
+  const { modalOpen, exportOpen, telemetrySaveOpen, dismissible, dispatchDialog } = dialogs;
   // Side-by-side panes are the default: dedicated, simultaneously visible
   // video and map panes. Swap view flips to the overlay layout, where the map
   // is a corner card over the footage for immersive review.
   const [layout, setLayout] = useState<StageLayout>('split');
+  // The Save telemetry JSON dialog's phase: the write in flight, then its
+  // outcome. The dialog opens only once the native save dialog confirmed.
+  const [telemetrySave, setTelemetrySave] = useState<TelemetrySavePhase | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
   const {
     open: mapAppearanceOpen,
@@ -126,13 +135,76 @@ export function PlayerChrome({
       <OpenNotice state={openState} onDismiss={onDismissOpenState} />
     ) : null;
 
+  // The telemetry save follows the loop points automatically: an engaged loop
+  // saves its In-Out segment — the same frames the segment export renders —
+  // and without one the whole recording.
+  const loopPoints = engagedLoop(loop);
+  const telemetryRange = loopPoints
+    ? { start: loopPoints.in, end: loopPoints.out }
+    : null;
+  const scope = telemetryScope(telemetryRange, video.fps, durationSec);
+
+  const saveTelemetryJson = (): void => {
+    void (async () => {
+      let opened = false;
+      const event = await telemetrySaveFlow(
+        {
+          pickTelemetryOutput: () => appBridge().pickTelemetryOutput(),
+          saveTelemetryJson: (request) => appBridge().saveTelemetryJson(request),
+        },
+        telemetryRange,
+        () => {
+          opened = true;
+          setTelemetrySave({ kind: 'saving' });
+          dispatchDialog({ type: 'openTelemetrySave' });
+          // The machine pins the dialog while the write is in flight, so a
+          // late failure can never close into silence.
+          dispatchDialog({ type: 'telemetrySaveStarted' });
+        },
+      );
+      // A canceled save dialog starts nothing and stays silent; every other
+      // outcome surfaces in the compact dialog, pick failures included. The
+      // scope is captured here at click time, so a later loop edit cannot
+      // rewrite what the document already covers.
+      if (event.type === 'canceled') return;
+      if (opened) dispatchDialog({ type: 'telemetrySaveFinished' });
+      else dispatchDialog({ type: 'openTelemetrySave' });
+      setTelemetrySave(
+        event.type === 'saved'
+          ? { kind: 'done', path: event.path, scope }
+          : { kind: 'error', message: event.message },
+      );
+    })();
+  };
+
+  // The done dialog's reveal reuses the export reveal handler; its failure
+  // surfaces above the done content instead of closing it.
+  const revealTelemetry = (): void => {
+    const done = telemetrySave?.kind === 'done' ? telemetrySave : null;
+    if (done === null) return;
+    void (async () => {
+      try {
+        const ack = await appBridge().revealExportOutput({ out: done.path });
+        setTelemetrySave(
+          ack.ok
+            ? done
+            : { ...done, error: ack.error ?? 'the file could not be revealed' },
+        );
+      } catch (e) {
+        setTelemetrySave({ ...done, error: errorMessage(e) });
+      }
+    })();
+  };
+
   return (
     <div className="workspace">
       <WorkspaceHeader
         durationSec={durationSec}
         opening={opening}
+        telemetryScope={scope}
         onOpen={onOpen}
         onExport={() => dispatchDialog({ type: 'openExport' })}
+        onTelemetrySave={saveTelemetryJson}
       />
       <PlayerStage
         video={video}
@@ -192,6 +264,14 @@ export function PlayerChrome({
         onRunEvent={dispatchDialog}
         onSettingsChange={onSettingsChange}
       />
+      {telemetrySaveOpen && telemetrySave ? (
+        <TelemetrySaveModal
+          phase={telemetrySave}
+          dismissible={dismissible}
+          onReveal={revealTelemetry}
+          onClose={() => dispatchDialog({ type: 'close' })}
+        />
+      ) : null}
     </div>
   );
 }

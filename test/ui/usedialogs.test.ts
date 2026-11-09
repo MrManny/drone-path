@@ -24,6 +24,7 @@ describe('useDialogs', () => {
       modalOpen: false,
       helpOpen: false,
       exportOpen: false,
+      telemetrySaveOpen: false,
       updateOpen: false,
       dismissible: true,
       dispatchDialog: result.current.dispatchDialog,
@@ -61,6 +62,28 @@ describe('useDialogs', () => {
     send({ type: 'exportStarted' });
     send({ type: 'exportFinished' });
     expect(result.current.exportOpen).toBe(true);
+    expect(result.current.dismissible).toBe(true);
+    send({ type: 'close' });
+    expect(result.current.modalOpen).toBe(false);
+  });
+
+  it('opens the telemetry save dialog as a dismissable modal', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openTelemetrySave' });
+    expect(result.current.modalOpen).toBe(true);
+    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.dismissible).toBe(true);
+  });
+
+  it('pins the telemetry save dialog while the write runs and releases it on the outcome', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openTelemetrySave' });
+    send({ type: 'telemetrySaveStarted' });
+    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.dismissible).toBe(false);
+    send({ type: 'close' });
+    expect(result.current.telemetrySaveOpen).toBe(true);
+    send({ type: 'telemetrySaveFinished' });
     expect(result.current.dismissible).toBe(true);
     send({ type: 'close' });
     expect(result.current.modalOpen).toBe(false);

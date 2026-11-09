@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('dronepath', {
   getSettings: () => ipcRenderer.invoke('dronepath:settings'),
   saveSettings: (patch) => ipcRenderer.invoke('dronepath:settings:save', patch),
   pickExportOutput: () => ipcRenderer.invoke('dronepath:export:pick-output'),
+  pickTelemetryOutput: () => ipcRenderer.invoke('dronepath:telemetry:pick-output'),
+  saveTelemetryJson: (request) => ipcRenderer.invoke('dronepath:telemetry:save', request),
   startExport: (request) => ipcRenderer.invoke('dronepath:export:start', request),
   cancelExport: () => ipcRenderer.invoke('dronepath:export:cancel'),
   revealExportOutput: (payload) => ipcRenderer.invoke('dronepath:export:reveal', payload),

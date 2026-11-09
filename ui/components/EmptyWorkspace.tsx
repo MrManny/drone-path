@@ -28,6 +28,9 @@ export interface EmptyWorkspaceProps {
 
 const NOOP = (): void => {};
 const NO_LOOP: LoopState = { in: null, out: null };
+// Nothing is loaded yet: the disabled button's title names the future scope
+// without inventing a duration.
+const NO_SCOPE = 'loaded recording';
 
 export function EmptyWorkspace({
   state,
@@ -62,8 +65,10 @@ export function EmptyWorkspace({
         durationSec={0}
         opening={state.kind === 'preparing'}
         disabled
+        telemetryScope={NO_SCOPE}
         onOpen={onPick}
         onExport={NOOP}
+        onTelemetrySave={NOOP}
       />
       <EmptyStage state={state} onPick={onPick} onDismiss={onDismiss} />
       <TransportBar
