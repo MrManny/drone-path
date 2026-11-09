@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { MenuBarProps } from '../../ui/components/MenuBar.js';
@@ -43,7 +43,11 @@ function releaseKey(init: KeyboardEventInit): void {
 }
 
 function openFile(): void {
-  fireEvent.click(screen.getByRole('button', { name: 'File' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+}
+
+function fileRows(): HTMLElement[] {
+  return within(screen.getByRole('menu', { name: 'File' })).getAllByRole('menuitem');
 }
 
 describe('MenuBar', () => {
@@ -55,75 +59,93 @@ describe('MenuBar', () => {
     expect(slots[slots.length - 1].className).toContain('end');
   });
 
-  it('opens the File dropdown on its label and closes it on a second click', () => {
+  it('carries the ARIA menubar structure', () => {
     renderBar();
-    const file = screen.getByRole('button', { name: 'File' });
+    expect(screen.getByRole('menubar')).toBeTruthy();
+    const file = screen.getByRole('menuitem', { name: 'File' });
+    expect(file.getAttribute('aria-haspopup')).toBe('menu');
+    expect(file.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(file);
     expect(file.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('group', { name: 'File' })).toBeTruthy();
+    const panel = screen.getByRole('menu', { name: 'File' });
+    const names = within(panel)
+      .getAllByRole('menuitem')
+      .map((row) => row.textContent);
+    expect(names).toEqual(['Open…Ctrl+O', 'Export video…', 'Export telemetry…', 'Settings', 'Exit']);
+  });
+
+  it('marks disabled rows with aria-disabled', () => {
+    renderBar({ hasRecording: false });
+    openFile();
+    const row = screen.getByRole('menuitem', { name: 'Export video…' });
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('opens the File dropdown on its label and closes it on a second click', () => {
+    renderBar();
+    const file = screen.getByRole('menuitem', { name: 'File' });
     fireEvent.click(file);
-    expect(screen.queryByRole('group', { name: 'File' })).toBeNull();
+    expect(screen.getByRole('menu', { name: 'File' })).toBeTruthy();
+    fireEvent.click(file);
+    expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
   });
 
   it('runs the item flows and closes the menu', () => {
     const handlers = renderBar();
     openFile();
-    fireEvent.click(screen.getByRole('button', { name: 'Open…' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open…' }));
     expect(handlers.onOpen).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('group', { name: 'File' })).toBeNull();
+    expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
 
     openFile();
-    fireEvent.click(screen.getByRole('button', { name: 'Export video…' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Export video…' }));
     expect(handlers.onExportVideo).toHaveBeenCalledTimes(1);
 
     openFile();
-    fireEvent.click(screen.getByRole('button', { name: 'Export telemetry…' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Export telemetry…' }));
     expect(handlers.onExportTelemetry).toHaveBeenCalledTimes(1);
 
     openFile();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }));
     expect(handlers.onSettings).toHaveBeenCalledTimes(1);
 
     openFile();
-    fireEvent.click(screen.getByRole('button', { name: 'Exit' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Exit' }));
     expect(handlers.onExit).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'View' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Swap' }));
     expect(handlers.onSwap).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Documentation' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
     expect(handlers.onDocumentation).toHaveBeenCalledTimes(1);
   });
 
   it('disables the recording-bound items without a recording', () => {
     renderBar({ hasRecording: false });
     openFile();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export video…' }).disabled).toBe(
-      true,
-    );
-    expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Export telemetry…' }).disabled,
-    ).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Settings' }).disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(false);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Exit' }).disabled).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: 'View' }));
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Swap' }).disabled).toBe(true);
+    for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
+      expect(screen.getByRole<HTMLButtonElement>('menuitem', { name }).disabled).toBe(true);
+    }
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Swap' }).disabled).toBe(true);
   });
 
   it('holds Open while a recording is opening', () => {
     renderBar({ opening: true });
     openFile();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Exit' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(false);
   });
 
   it('passes item tooltips through to the rows', () => {
     renderBar({ itemTitles: { exportTelemetry: 'Exports telemetry for the full recording (0:03)' } });
     openFile();
-    expect(screen.getByRole('button', { name: 'Export telemetry…' }).title).toBe(
+    expect(screen.getByRole('menuitem', { name: 'Export telemetry…' }).title).toBe(
       'Exports telemetry for the full recording (0:03)',
     );
   });
@@ -131,24 +153,54 @@ describe('MenuBar', () => {
   it('switches open menus on label hover and closes on an outside click', () => {
     renderBar();
     openFile();
-    fireEvent.mouseEnter(screen.getByRole('button', { name: 'View' }));
-    expect(screen.getByRole('group', { name: 'View' })).toBeTruthy();
+    fireEvent.mouseEnter(screen.getByRole('menuitem', { name: 'View' }));
+    expect(screen.getByRole('menu', { name: 'View' })).toBeTruthy();
     fireEvent.mouseDown(document.body);
-    expect(screen.queryByRole('group', { name: 'View' })).toBeNull();
+    expect(screen.queryByRole('menu', { name: 'View' })).toBeNull();
+  });
+
+  it('keeps one highlighted row when the mouse and the keyboard mix', () => {
+    renderBar();
+    openFile();
+    const rows = fileRows();
+    fireEvent.mouseEnter(rows[0]);
+    expect(document.querySelectorAll('.menu-row.active')).toHaveLength(1);
+    expect(rows[0].className).toContain('active');
+    pressKey({ key: 'ArrowDown' });
+    const active = [...document.querySelectorAll('.menu-row.active')];
+    expect(active).toHaveLength(1);
+    expect(active[0]).toBe(rows[1]);
+    expect(rows[0].className).not.toContain('active');
+  });
+
+  it('moves DOM focus with the live row so screen readers announce it', () => {
+    renderBar();
+    pressKey({ key: 'f', altKey: true });
+    const rows = fileRows();
+    expect(document.activeElement).toBe(rows[0]);
+    pressKey({ key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rows[1]);
+  });
+
+  it('returns focus to the label when the menu closes', () => {
+    renderBar();
+    pressKey({ key: 'f', altKey: true });
+    pressKey({ key: 'Escape' });
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'File' }));
   });
 
   it('opens File on a bare Alt press-and-release and reports the open state', () => {
     const handlers = renderBar();
     pressKey({ key: 'Alt' });
     releaseKey({ key: 'Alt' });
-    expect(screen.getByRole('group', { name: 'File' })).toBeTruthy();
+    expect(screen.getByRole('menu', { name: 'File' })).toBeTruthy();
     expect(handlers.onMenuOpenChange).toHaveBeenLastCalledWith(true);
   });
 
   it('opens menus on their Alt mnemonics', () => {
     renderBar();
     pressKey({ key: 'h', altKey: true });
-    expect(screen.getByRole('group', { name: 'Help' })).toBeTruthy();
+    expect(screen.getByRole('menu', { name: 'Help' })).toBeTruthy();
   });
 
   it('walks the rows with the keyboard and activates the highlighted one', () => {
@@ -164,7 +216,7 @@ describe('MenuBar', () => {
     const handlers = renderBar();
     pressKey({ key: 'f', altKey: true });
     pressKey({ key: 'Escape' });
-    expect(screen.queryByRole('group', { name: 'File' })).toBeNull();
+    expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
     expect(handlers.onOpen).not.toHaveBeenCalled();
     expect(handlers.onExit).not.toHaveBeenCalled();
   });

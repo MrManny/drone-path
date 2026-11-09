@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 
 import { ExportIcon } from '../icons/ExportIcon.js';
@@ -41,8 +41,17 @@ export function MenuPanel({
   onHoverRow,
   onActivateRow,
 }: MenuPanelProps) {
+  const rowRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Roving focus: the live row holds DOM focus so a screen reader announces
+  // every selection move the highlight shows.
+  useEffect(() => {
+    if (active === null) return;
+    rowRefs.current[active]?.focus();
+  }, [active]);
+
   return (
-    <div className="menu-panel" role="group" aria-label={menu.label}>
+    <div className="menu-panel" role="menu" aria-label={menu.label}>
       {menu.items.map((item, index) => (
         <Fragment key={item.id}>
           {item.separatorBefore ? <div className="menu-separator" role="separator" /> : null}
@@ -55,6 +64,9 @@ export function MenuPanel({
             disabled={!itemEnabled(item.id, flags)}
             onHover={() => onHoverRow(index)}
             onActivate={() => onActivateRow(index)}
+            buttonRef={(node) => {
+              rowRefs.current[index] = node;
+            }}
           />
         </Fragment>
       ))}

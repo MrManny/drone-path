@@ -788,11 +788,16 @@ button.primary {
   text-align: left;
   transition: none;
 }
-.menu-panel .menu-row:hover:not(:disabled),
-.menu-panel .menu-row.active,
-.menu-panel .menu-row:active:not(:disabled) {
+/* One live row at a time: hover feeds the same model slot as the keyboard
+   (hoverRow in ui/lib/menustate.ts), so mouse and arrows can never light two
+   rows — the recipe's accent marks one "where you are about to go". */
+.menu-panel .menu-row.active {
   background: rgba(232, 127, 84, 0.14);
   border-color: transparent;
+}
+/* The pressed row already carries the live-row treatment; cancel the global
+   pressed transform only. */
+.menu-panel .menu-row:active:not(:disabled) {
   transform: none;
 }
 .menu-panel .menu-item-icon {
@@ -808,8 +813,6 @@ button.primary {
   line-height: 18px;
   color: var(--text-3);
 }
-.menu-panel .menu-row:hover:not(:disabled) .menu-item-icon,
-.menu-panel .menu-row:hover:not(:disabled) .menu-item-hint,
 .menu-panel .menu-row.active .menu-item-icon,
 .menu-panel .menu-row.active .menu-item-hint {
   color: var(--accent-text);
@@ -824,7 +827,6 @@ button.primary {
   border-radius: 1.5px;
   background: transparent;
 }
-.menu-panel .menu-row:hover:not(:disabled) .menu-selbar,
 .menu-panel .menu-row.active .menu-selbar {
   background: var(--accent);
 }

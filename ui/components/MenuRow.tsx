@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 export interface MenuRowProps {
   label: string;
@@ -12,6 +12,8 @@ export interface MenuRowProps {
   disabled: boolean;
   onHover: () => void;
   onActivate: () => void;
+  /** Roving focus target for the live row (aria-activedescendant is not used). */
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
 export function MenuRow({
@@ -23,10 +25,14 @@ export function MenuRow({
   disabled,
   onHover,
   onActivate,
+  buttonRef,
 }: MenuRowProps) {
   return (
     <button
       type="button"
+      ref={buttonRef}
+      role="menuitem"
+      aria-disabled={disabled || undefined}
       className={`menu-row${active ? ' active' : ''}`}
       disabled={disabled}
       title={title}

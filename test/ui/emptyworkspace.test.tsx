@@ -81,13 +81,13 @@ describe('EmptyWorkspace skeleton', () => {
 
   it('disables the recording-bound menu items while keeping Open live', () => {
     renderWorkspace();
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
-    const open = within(menu()).getByRole<HTMLButtonElement>('button', { name: 'Open…' });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    const open = within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' });
     expect(open.disabled).toBe(false);
     for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
-      expect(within(menu()).getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
+      expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name }).disabled).toBe(true);
     }
-    expect(within(menu()).getByRole<HTMLButtonElement>('button', { name: 'Exit' }).disabled).toBe(
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(
       false,
     );
   });
@@ -112,19 +112,19 @@ describe('EmptyWorkspace skeleton', () => {
 
   it('disables Settings and Swap in the menu while Documentation stays available', () => {
     const { onHelp, onExit } = renderWorkspace();
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
-    expect(within(menu()).getByRole<HTMLButtonElement>('button', { name: 'Settings' }).disabled).toBe(
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Settings' }).disabled).toBe(
       true,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'View' }));
-    expect(within(menu()).getByRole<HTMLButtonElement>('button', { name: 'Swap' }).disabled).toBe(
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Swap' }).disabled).toBe(
       true,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Documentation' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
     expect(onHelp).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
-    fireEvent.click(within(menu()).getByRole('button', { name: 'Exit' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Exit' }));
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 });
@@ -172,11 +172,11 @@ describe('EmptyWorkspace keyboard', () => {
 describe('EmptyWorkspace open states', () => {
   it('disables the menu Open item while the flow prepares', () => {
     renderWorkspace({ kind: 'preparing', progress: { stage: 'probe', done: 0, total: 3 } });
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
-    expect(within(menu()).getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(
       true,
     );
-    expect(within(menu()).getByRole<HTMLButtonElement>('button', { name: 'Exit' }).disabled).toBe(
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(
       false,
     );
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' }).disabled).toBe(

@@ -79,7 +79,7 @@ describe('PlayerChrome workspace structure', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('File');
     for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Settings', 'Exit']) {
-      expect(within(menuBar()).getByRole('button', { name })).toBeTruthy();
+      expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
     }
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
@@ -130,7 +130,7 @@ describe('PlayerChrome workspace structure', () => {
   it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('View');
-    expect(within(menuBar()).getByRole('button', { name: 'Swap' })).toBeTruthy();
+    expect(within(menuBar()).getByRole('menuitem', { name: 'Swap' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
     const card = document.querySelector('.map-card') as HTMLElement;
@@ -243,7 +243,8 @@ describe('PlayerChrome map appearance popover', () => {
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     clickMenuItem('Settings');
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    expect(document.activeElement).toBe(menuBar());
+    // Menu actions return focus to their menu's label, the home of the item.
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'File' }));
   });
 
   it('applies settings changes from the popover', () => {
@@ -326,12 +327,12 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
 };
 
 function openMenu(label: 'File' | 'View' | 'Help'): void {
-  fireEvent.click(screen.getByRole('button', { name: label }));
+  fireEvent.click(screen.getByRole('menuitem', { name: label }));
 }
 
 function clickMenuItem(label: string): void {
   openMenu(MENU_OF_ITEM[label]);
-  fireEvent.click(within(menuBar()).getByRole('button', { name: label }));
+  fireEvent.click(within(menuBar()).getByRole('menuitem', { name: label }));
 }
 
 async function renderPlayer(onOpen: () => void = () => {}): Promise<FakePlayback> {
@@ -655,7 +656,7 @@ describe('PlayerChrome open notice', () => {
     expect(screen.getByText('Probing the recording…')).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Preparation progress' })).toBeTruthy();
     openMenu('File');
-    expect(within(menuBar()).getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(
+    expect(within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(
       true,
     );
   });
@@ -678,7 +679,7 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
       expect(screen.queryByRole('status')).toBeNull();
       openMenu('File');
       expect(
-        within(menuBar()).getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled,
+        within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled,
       ).toBe(false);
     });
   },

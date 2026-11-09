@@ -31,7 +31,7 @@ function renderPanel(overrides: Partial<MenuPanelProps> = {}) {
 describe('MenuPanel', () => {
   it('lays the File rows out in acceptance order with separators', () => {
     renderPanel();
-    const panel = screen.getByRole('group', { name: 'File' });
+    const panel = screen.getByRole('menu', { name: 'File' });
     const rows = [...panel.querySelectorAll('.menu-row')].map((row) => row.textContent);
     expect(rows).toEqual([
       'Open…Ctrl+O',
@@ -56,7 +56,7 @@ describe('MenuPanel', () => {
 
   it('disables the recording-bound rows without a recording and keeps the rest live', () => {
     renderPanel({ flags: EMPTY });
-    const panel = screen.getByRole('group', { name: 'File' });
+    const panel = screen.getByRole('menu', { name: 'File' });
     const state = Object.fromEntries(
       [...panel.querySelectorAll<HTMLButtonElement>('.menu-row')].map((row) => [
         row.textContent,
@@ -74,14 +74,14 @@ describe('MenuPanel', () => {
 
   it('marks only the active row', () => {
     renderPanel({ active: 1 });
-    const panel = screen.getByRole('group', { name: 'File' });
+    const panel = screen.getByRole('menu', { name: 'File' });
     const active = [...panel.querySelectorAll('.menu-row.active')].map((row) => row.textContent);
     expect(active).toEqual(['Export video…']);
   });
 
   it('reports the hovered and clicked row index', () => {
     const { onHoverRow, onActivateRow } = renderPanel();
-    const panel = screen.getByRole('group', { name: 'File' });
+    const panel = screen.getByRole('menu', { name: 'File' });
     const rows = [...panel.querySelectorAll('.menu-row')];
     fireEvent.mouseEnter(rows[2]);
     fireEvent.click(rows[2]);
@@ -91,9 +91,9 @@ describe('MenuPanel', () => {
 
   it('passes per-item tooltips through', () => {
     renderPanel({ titles: { exportTelemetry: 'Exports telemetry for the full recording (0:03)' } });
-    expect(screen.getByRole('button', { name: 'Export telemetry…' }).title).toBe(
+    expect(screen.getByRole('menuitem', { name: 'Export telemetry…' }).title).toBe(
       'Exports telemetry for the full recording (0:03)',
     );
-    expect(screen.getByRole('button', { name: 'Export video…' }).title).toBe('');
+    expect(screen.getByRole('menuitem', { name: 'Export video…' }).title).toBe('');
   });
 });

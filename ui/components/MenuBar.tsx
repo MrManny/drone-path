@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { useMenuKeys } from '../hooks/useMenuKeys.js';
-import type { MenuFlags, MenuItemId } from '../lib/menumodel.js';
+import type { MenuFlags, MenuItemId, MenuId } from '../lib/menumodel.js';
 import { MENU_BAR } from '../lib/menumodel.js';
 import { MenuPanel } from './MenuPanel.js';
 
@@ -99,16 +99,44 @@ export function MenuBar({
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [dispatch]);
 
+  const labelRefs = useRef<Partial<Record<MenuId, HTMLButtonElement | null>>>({});
+  const wasOpen = useRef<MenuId | null>(null);
+  // Closing must not strand focus on a removed row: return it to the label of
+  // the menu that closed, unless an outside click already moved it away.
+  useEffect(() => {
+    const previous = wasOpen.current;
+    wasOpen.current = state.open;
+    if (state.open !== null || previous === null) return;
+    // A click elsewhere has already moved focus to a live element: leave it.
+    // A removed row (unmounted panel) counts as no focus and gets restored.
+    const held = document.activeElement;
+    const movedAway =
+      held instanceof HTMLElement &&
+      held.isConnected &&
+      held !== document.body &&
+      !rootRef.current?.contains(held);
+    if (movedAway) return;
+    labelRefs.current[previous]?.focus();
+  }, [state.open]);
+
   return (
-    <div className="menu-bar" ref={setRoot} tabIndex={-1}>
+    <div className="menu-bar" role="menubar" ref={setRoot} tabIndex={-1}>
       {MENU_BAR.map((menu) => {
         const open = state.open === menu.id;
         return (
-          <div className={`menu-bar-slot${menu.align === 'end' ? ' end' : ''}`} key={menu.id}>
+          <div
+            className={`menu-bar-slot${menu.align === 'end' ? ' end' : ''}`}
+            role="presentation"
+            key={menu.id}
+          >
             <button
               type="button"
+              ref={(node) => {
+                labelRefs.current[menu.id] = node;
+              }}
+              role="menuitem"
               className={`menu-bar-label${open ? ' open' : ''}`}
-              aria-haspopup="true"
+              aria-haspopup="menu"
               aria-expanded={open}
               onClick={() => dispatch({ type: 'toggle', menu: menu.id })}
               onMouseEnter={() => dispatch({ type: 'hoverMenu', menu: menu.id })}

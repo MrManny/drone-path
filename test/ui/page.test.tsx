@@ -127,7 +127,7 @@ function menuBar(): HTMLElement {
 }
 
 function menuItem(name: string): HTMLButtonElement {
-  return within(menuBar()).getByRole<HTMLButtonElement>('button', { name });
+  return within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name });
 }
 
 const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
@@ -141,7 +141,7 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
 };
 
 function clickMenuItem(name: string): void {
-  fireEvent.click(screen.getByRole('button', { name: MENU_OF_ITEM[name] }));
+  fireEvent.click(screen.getByRole('menuitem', { name: MENU_OF_ITEM[name] }));
   fireEvent.click(menuItem(name));
 }
 
@@ -191,7 +191,7 @@ describe('the empty workspace at launch', () => {
     ]);
     expect(stageCta().textContent).toContain('Open…');
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     expect(menuItem('Open…').disabled).toBe(false);
     expect(menuItem('Export video…').disabled).toBe(true);
     for (const name of ['Jump to start', 'Play', 'Jump to end', '1×', '2×', '3×', '4×']) {
@@ -200,9 +200,9 @@ describe('the empty workspace at launch', () => {
     expect(
       screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
     ).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(menuItem('Swap').disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     expect(menuItem('Documentation').disabled).toBe(false);
     expect(screen.getByText('No telemetry yet')).toBeTruthy();
     expect(screen.getByText('No recording loaded')).toBeTruthy();
@@ -304,12 +304,12 @@ describe('accent discipline', () => {
     const harness = installBridge();
     openWorkspace();
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     expect(document.querySelector('.menu-row.primary')).toBeNull();
     await commitLoaded(harness);
     expect(document.querySelector('.workspace button.primary')).toBeNull();
     expect(document.querySelector('.workspace button.dialog-primary')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'File' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     expect(document.querySelector('.menu-row.primary')).toBeNull();
   });
 });
