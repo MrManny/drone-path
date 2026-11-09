@@ -7,6 +7,7 @@ import { ExportIcon } from '../icons/ExportIcon.js';
 import { ExitIcon } from '../icons/ExitIcon.js';
 import { FolderOpenIcon } from '../icons/FolderOpenIcon.js';
 import { HelpIcon } from '../icons/HelpIcon.js';
+import { InfoIcon } from '../icons/InfoIcon.js';
 import { SettingsIcon } from '../icons/SettingsIcon.js';
 import { SwapIcon } from '../icons/SwapIcon.js';
 import { TelemetryIcon } from '../icons/TelemetryIcon.js';
@@ -22,6 +23,7 @@ const ICONS: Record<MenuIconId, () => ReactElement> = {
   exit: ExitIcon,
   swap: SwapIcon,
   help: HelpIcon,
+  info: InfoIcon,
 };
 
 export interface MenuPanelProps {

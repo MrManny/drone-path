@@ -162,6 +162,13 @@ describe('reduceMenu activation rules', () => {
     expect(state).toEqual(opened);
     expect(commands).toEqual([]);
   });
+
+  it('activates About in the Help menu without a recording', () => {
+    const onAbout: MenuState = { open: 'help', active: 1, altPending: false };
+    const { state, commands } = run([{ type: 'keyDown', key: 'Enter' }], EMPTY, onAbout);
+    expect(state.open).toBeNull();
+    expect(commands).toEqual([{ type: 'activate', item: 'about' }]);
+  });
 });
 
 describe('reduceMenu Alt behavior', () => {

@@ -138,6 +138,7 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   Exit: 'File',
   Swap: 'View',
   Documentation: 'Help',
+  About: 'Help',
 };
 
 function clickMenuItem(name: string): void {
@@ -335,6 +336,29 @@ describe('menu bar commands', () => {
     clickMenuItem('Open…');
     expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
     expect(document.querySelector('.menu-panel')).toBeNull();
+  });
+
+  it('opens the About dialog from Help → About and closes it on Escape', async () => {
+    const { BUILD_VERSION } = await import('../../ui/lib/buildinfo/generated/buildinfo.js');
+    openWorkspace();
+    clickMenuItem('About');
+    const dialog = screen.getByRole('dialog', { name: 'About' });
+    const version = within(dialog).getByText(/^Version /).textContent ?? '';
+    expect(version.startsWith(`Version ${BUILD_VERSION}`)).toBe(true);
+    const link = within(dialog).getByRole('link', { name: 'MrManny/drone-path' });
+    expect(link.getAttribute('href')).toBe('https://github.com/MrManny/drone-path');
+    expect(link.getAttribute('target')).toBe('_blank');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'About' })).toBeNull();
+    expect(document.querySelector('.workspace')).not.toBeNull();
+  });
+
+  it('reaches About through the Help mnemonic and the arrow keys', () => {
+    openWorkspace();
+    fireEvent.keyDown(window, { key: 'h', altKey: true });
+    fireEvent.keyDown(window, { key: 'ArrowDown' });
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(screen.getByRole('dialog', { name: 'About' })).toBeTruthy();
   });
 });
 

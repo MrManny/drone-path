@@ -7,7 +7,8 @@ export type MenuItemId =
   | 'settings'
   | 'exit'
   | 'swap'
-  | 'documentation';
+  | 'documentation'
+  | 'about';
 
 export type MenuIconId =
   | 'folderOpen'
@@ -16,7 +17,8 @@ export type MenuIconId =
   | 'settings'
   | 'exit'
   | 'swap'
-  | 'help';
+  | 'help'
+  | 'info';
 
 export interface MenuItemDef {
   id: MenuItemId;
@@ -63,7 +65,10 @@ export const MENU_BAR: readonly MenuDef[] = [
     label: 'Help',
     mnemonic: 'h',
     align: 'end',
-    items: [{ id: 'documentation', label: 'Documentation', icon: 'help' }],
+    items: [
+      { id: 'documentation', label: 'Documentation', icon: 'help' },
+      { id: 'about', label: 'About', icon: 'info', separatorBefore: true },
+    ],
   },
 ];
 
@@ -83,6 +88,7 @@ export function itemEnabled(id: MenuItemId, flags: MenuFlags): boolean {
       return flags.hasRecording;
     case 'exit':
     case 'documentation':
+    case 'about':
       return true;
   }
 }

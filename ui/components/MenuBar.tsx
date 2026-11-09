@@ -21,6 +21,7 @@ export interface MenuBarProps {
   onSettings: () => void;
   onSwap: () => void;
   onDocumentation: () => void;
+  onAbout: () => void;
   onExit: () => void;
   onMenuOpenChange: (open: boolean) => void;
   /** Element the map appearance popover treats as its trigger. */
@@ -38,6 +39,7 @@ export function MenuBar({
   onSettings,
   onSwap,
   onDocumentation,
+  onAbout,
   onExit,
   onMenuOpenChange,
   barRef,
@@ -67,12 +69,15 @@ export function MenuBar({
         case 'documentation':
           onDocumentation();
           return;
+        case 'about':
+          onAbout();
+          return;
         case 'exit':
           onExit();
           return;
       }
     },
-    [onOpen, onExportVideo, onExportTelemetry, onSettings, onSwap, onDocumentation, onExit],
+    [onOpen, onExportVideo, onExportTelemetry, onSettings, onSwap, onDocumentation, onAbout, onExit],
   );
   const { state, dispatch } = useMenuKeys(flags, {
     modalOpen,

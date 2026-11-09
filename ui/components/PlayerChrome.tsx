@@ -190,6 +190,7 @@ export function PlayerChrome({
         onSettings={toggleMapAppearance}
         onSwap={swap}
         onDocumentation={onHelp}
+        onAbout={() => dispatchDialog({ type: 'openAbout' })}
         onExit={onExit}
         onMenuOpenChange={setMenuOpen}
         barRef={appearanceButtonRef}

@@ -1,6 +1,7 @@
 export type DialogState =
   | 'closed'
   | 'help'
+  | 'about'
   | 'export-form'
   | 'export-running'
   | 'telemetry-save'
@@ -9,6 +10,7 @@ export type DialogState =
 
 export type DialogEvent =
   | { type: 'openHelp' }
+  | { type: 'openAbout' }
   | { type: 'openExport' }
   | { type: 'openTelemetrySave' }
   | { type: 'telemetrySaveStarted' }
@@ -32,6 +34,8 @@ export function dialogReducer(state: DialogState, event: DialogEvent): DialogSta
   switch (event.type) {
     case 'openHelp':
       return pinned(state) ? state : 'help';
+    case 'openAbout':
+      return pinned(state) ? state : 'about';
     case 'openExport':
       return pinned(state) ? state : 'export-form';
     case 'openTelemetrySave':

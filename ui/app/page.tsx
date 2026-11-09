@@ -5,12 +5,15 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
+import { AboutDialog } from '../components/AboutDialog.js';
 import { EmptyWorkspace } from '../components/EmptyWorkspace.js';
 import { HelpOverlay } from '../components/HelpOverlay.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';
 import { UpdatePrompt } from '../components/UpdatePrompt.js';
 import { useDialogs } from '../hooks/useDialogs.js';
+import { aboutContent } from '../lib/abouttext.js';
 import { appBridge } from '../lib/backend.js';
+import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
@@ -202,6 +205,9 @@ export default function Page() {
         />
       ) : null}
       {helpOpen ? <HelpOverlay bundle={MANUAL} onClose={closeOverlay} /> : null}
+      {dialogs.aboutOpen ? (
+        <AboutDialog content={aboutContent(BUILD_VERSION, BUILD_GIT)} onClose={closeOverlay} />
+      ) : null}
     </>
   );
 }

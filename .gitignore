@@ -6,6 +6,7 @@ dist/
 dist-electron/
 ui/.next/
 ui/next-env.d.ts
+ui/lib/buildinfo/generated/
 ui/lib/manual/generated/
 ui/public/
 *.tsbuildinfo

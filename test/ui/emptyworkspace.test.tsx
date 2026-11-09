@@ -17,6 +17,7 @@ function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
   return {
     modalOpen: false,
     helpOpen: false,
+    aboutOpen: false,
     exportOpen: false,
     telemetrySaveOpen: false,
     updateOpen: false,
@@ -126,6 +127,15 @@ describe('EmptyWorkspace skeleton', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Exit' }));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens About from the Help menu without a recording', () => {
+    const { dialogs } = renderWorkspace();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    const about = within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'About' });
+    expect(about.disabled).toBe(false);
+    fireEvent.click(about);
+    expect(dialogs.dispatchDialog).toHaveBeenCalledWith({ type: 'openAbout' });
   });
 });
 
