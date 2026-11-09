@@ -26,6 +26,7 @@ import {
   byName,
   cleanupTmpDirs,
   durationMs,
+  loadedTelemetry,
   probeFixture,
   stubDeps,
   telemetryFixture,
@@ -573,7 +574,7 @@ describe('tool threading', () => {
       },
       loadTelemetry: async (_video, spec) => {
         seen.push(['loadTelemetry', spec.tools]);
-        return telemetryFixture();
+        return loadedTelemetry({ telemetry: telemetryFixture() });
       },
       renderVideo: async (opts) => {
         seen.push(['renderVideo', opts.tools]);
@@ -741,5 +742,107 @@ describe('recording summary mapping', () => {
         'zoomOut',
       ].sort(),
     );
+  });
+});
+
+describe('telemetry JSON export', () => {
+  function exportDeps() {
+    return stubDeps({
+      loaded: loadedTelemetry({
+        telemetry: telemetryFixture(),
+        frameValues: [
+          { lat: 46.6, lng: 14.2, altRel: 3.3 },
+          { altRel: 3.4 },
+          { lat: 46.62, lng: 14.22, altRel: 3.5 },
+        ],
+        protoFile: 'dvtm_NEO2.proto v02.00.07',
+        gimbalDevice: { id: 0, type: 1, subType: 3, name: 'gimbal', frequency: 200 },
+      }),
+    });
+  }
+
+  it('writes one document per recording to the given file', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'telemetry.json');
+    await processRecording(
+      VIDEO,
+      testConfig({ telemetryJson: file }),
+      () => {},
+      path.join(dir, 'out.mp4'),
+      { deps: exportDeps() },
+    );
+
+    const doc = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
+    expect(doc).toEqual({
+      schemaVersion: 1,
+      protoFile: 'dvtm_NEO2.proto v02.00.07',
+      source: 'srt',
+      headingMode: 'cog',
+      frameCount: 3,
+      gimbalDevice: { id: 0, type: 1, subType: 3, name: 'gimbal', frequency: 200 },
+      frames: [
+        {
+          frame: 0,
+          lat: 46.6,
+          lng: 14.2,
+          altRel: 3.3,
+          headingDeg: 90,
+          headingSource: 'cog',
+        },
+        { frame: 1, altRel: 3.4, headingDeg: 91, headingSource: 'cog' },
+        {
+          frame: 2,
+          lat: 46.62,
+          lng: 14.22,
+          altRel: 3.5,
+          headingDeg: 92,
+          headingSource: 'cog',
+        },
+      ],
+    });
+  });
+
+  it('writes byte-identical documents on rerun', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'telemetry.json');
+    const config = testConfig({ telemetryJson: file });
+    await processRecording(VIDEO, config, () => {}, path.join(dir, 'out.mp4'), {
+      deps: exportDeps(),
+    });
+    const first = fs.readFileSync(file);
+    await processRecording(VIDEO, config, () => {}, path.join(dir, 'out.mp4'), {
+      deps: exportDeps(),
+    });
+    expect(fs.readFileSync(file)).toEqual(first);
+  });
+
+  it('writes no document for a recording the run skips', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'telemetry.json');
+    const deps = stubDeps({ outputMatchesSource: async () => true });
+    const result = await runBatch(
+      [VIDEO],
+      testConfig({ telemetryJson: file, skipExisting: true }),
+      () => {},
+      () => {},
+      { deps },
+    );
+    expect(result.skipped).toBe(1);
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it('rejects a multi-recording run instead of overwriting the document', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'telemetry.json');
+    await expect(
+      runBatch(
+        [VIDEO, path.join('clips', 'other.mp4')],
+        testConfig({ telemetryJson: file }),
+        () => {},
+        () => {},
+        { deps: stubDeps() },
+      ),
+    ).rejects.toThrow('--telemetry-json writes one document per run');
+    expect(fs.existsSync(file)).toBe(false);
   });
 });

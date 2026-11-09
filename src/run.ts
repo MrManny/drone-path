@@ -7,6 +7,7 @@ import { outputMatchesSource, probeVideo, verifyOutput } from './ff.js';
 import { resolveFfTools } from './fftools.js';
 import type { FfToolPaths } from './fftools.js';
 import type { VideoProbe } from './ff.js';
+import type { GimbalDeviceConstants } from './cammeta.js';
 import { videoBaseName } from './inputs.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
@@ -16,6 +17,11 @@ import type {
   TelemetryMethod,
   TelemetrySource,
 } from './telemetry-math.js';
+import {
+  buildTelemetryDocument,
+  serializeTelemetryDocument,
+} from './telemetry-json.js';
+import type { TelemetryFrameInput } from './telemetry-json.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats, WarmOptions } from './tiles.js';
 import { planIntroOutroFrames, planView } from './plan.js';
@@ -304,6 +310,10 @@ export interface PreparedRecording {
   height: number;
   probe: VideoProbe;
   tel: Telemetry;
+  /** Per-source-frame values for the telemetry JSON export. */
+  frameValues: TelemetryFrameInput[];
+  protoFile: string | null;
+  gimbalDevice: GimbalDeviceConstants | null;
   hud: HudSpec;
   introOutro: IntroOutroFrames;
   overview: Overview;
@@ -365,24 +375,31 @@ async function probeStage(
 async function telemetryStage(
   env: PrepareStageEnv,
   probe: VideoProbe,
-): Promise<{ tel: Telemetry; hud: HudSpec }> {
+): Promise<{
+  tel: Telemetry;
+  frameValues: TelemetryFrameInput[];
+  protoFile: string | null;
+  gimbalDevice: GimbalDeviceConstants | null;
+  hud: HudSpec;
+}> {
   const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
   report('telemetry');
-  const tel = await stage(tracer, 'telemetry.load', parent, {}, async (span) => {
-    const loaded = await deps.loadTelemetry(videoPath, {
+  const loaded = await stage(tracer, 'telemetry.load', parent, {}, async (span) => {
+    const result = await deps.loadTelemetry(videoPath, {
       frames: probe.frames,
       fpsValue: probe.fps.value,
       durationSec: probe.durationSec,
       tools,
     });
     span.setAttributes({
-      'telemetry.source': loaded.source,
-      'telemetry.method': loaded.method,
-      'telemetry.fix.count': loaded.fixCount,
-      'telemetry.noLock.count': loaded.noLock,
+      'telemetry.source': result.telemetry.source,
+      'telemetry.method': result.telemetry.method,
+      'telemetry.fix.count': result.telemetry.fixCount,
+      'telemetry.noLock.count': result.telemetry.noLock,
     });
-    return loaded;
+    return result;
   });
+  const tel = loaded.telemetry;
   const summary = telemetrySummary(tel);
   log(
     `telemetry: ${summary.source} (${summary.method}), ${fixesLabel(summary.fixes)}, ` +
@@ -390,7 +407,13 @@ async function telemetryStage(
       (summary.noLock ? `, ${noLockCuesLabel(summary.noLock)}` : ''),
   );
   const hud = resolveHud(config, tel, log);
-  return { tel, hud };
+  return {
+    tel,
+    frameValues: loaded.frameValues,
+    protoFile: loaded.protoFile,
+    gimbalDevice: loaded.gimbalDevice,
+    hud,
+  };
 }
 
 async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Overview> {
@@ -465,7 +488,10 @@ export async function prepareSession(
   const { width, height } = config;
 
   const { probe, introOutro } = await probeStage(env);
-  const { tel, hud } = await telemetryStage(env, probe);
+  const { tel, frameValues, protoFile, gimbalDevice, hud } = await telemetryStage(
+    env,
+    probe,
+  );
   const overview = await viewPlanStage(env, tel);
   const frames = frameArrays(tel);
 
@@ -474,6 +500,9 @@ export async function prepareSession(
     height,
     probe,
     tel,
+    frameValues,
+    protoFile,
+    gimbalDevice,
     hud,
     introOutro,
     overview,
@@ -618,6 +647,28 @@ async function renderToOutput(env: RenderStageEnv): Promise<void> {
   });
 }
 
+// The telemetry JSON export: one complete document per recording, written
+// alongside the render (it only depends on the telemetry load, so a later
+// render failure cannot invalidate it).
+function writeTelemetryExport(
+  file: string,
+  prep: PreparedRecording,
+  log: LogFn,
+): void {
+  const doc = buildTelemetryDocument({
+    source: prep.tel.source,
+    headingMode: prep.tel.headingMode,
+    frameCount: prep.probe.frames,
+    protoFile: prep.protoFile,
+    gimbalDevice: prep.gimbalDevice,
+    frames: prep.frameValues,
+    headingDeg: prep.tel.frames.map((frame) => frame.headingDeg),
+  });
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, serializeTelemetryDocument(doc));
+  log(`telemetry JSON: wrote ${file}`);
+}
+
 // Throws on failure (the caller decides policy). outPath may be pre-planned by
 // runBatch (collision-free); it defaults to the plain output path for direct
 // callers. One trace per recording: the root span wraps the pipeline stages
@@ -659,6 +710,10 @@ export async function processRecording(
         'telemetry.source': prep.tel.source,
       });
 
+      if (config.telemetryJson) {
+        writeTelemetryExport(config.telemetryJson, prep, log);
+      }
+
       const tileStats = await tileWarmStage(deps, config, prep.overview, log, tracer, root);
       const range = resolveRange(options.range, prep.probe.frames);
       const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
@@ -689,6 +744,12 @@ export async function runBatch(
   const result: BatchResult = { ok: 0, skipped: 0, failed: 0 };
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfTools(config);
+
+  // --telemetry-json names one document file; a batch would overwrite it
+  // recording by recording, so a multi-recording run is a usage error.
+  if (config.telemetryJson && videos.length > 1) {
+    throw new Error('--telemetry-json writes one document per run: give a single recording');
+  }
 
   // Collision-free outputs up front: two same-basename recordings must not
   // silently overwrite each other in a shared --out-dir.

@@ -17,6 +17,7 @@
   "browser": null,
   "skipExisting": false,
   "recurse": false,
+  "telemetryJson": null,
   "json": false,
   "quiet": false
 }

@@ -80,6 +80,18 @@ describe('normalizeOverrides', () => {
   it('skips null and undefined values', () => {
     expect(normalizeOverrides({ outDir: null, zoom: undefined }, 'test')).toEqual({});
   });
+
+  it('normalizes the telemetry JSON path as a nullable string', () => {
+    expect(normalizeOverrides({ telemetryJson: 'telemetry.json' }, 'test')).toEqual({
+      telemetryJson: 'telemetry.json',
+    });
+    expect(normalizeOverrides({ telemetryJson: '' }, 'test')).toEqual({
+      telemetryJson: null,
+    });
+    expect(() => normalizeOverrides({ telemetryJson: 5 }, 'test')).toThrow(
+      /invalid value for test: telemetryJson/,
+    );
+  });
 });
 
 describe('validateRenderConfig', () => {
@@ -283,14 +295,14 @@ describe('export request boundary', () => {
         outPath: '/exports/a.mp4',
         config: {
           tileCache: '/attacker', browser: '/evil.exe', workers: 64, outDir: '/elsewhere',
-          ffmpeg: '/evil/ffmpeg', ffprobe: '/evil/ffprobe',
+          ffmpeg: '/evil/ffmpeg', ffprobe: '/evil/ffprobe', telemetryJson: '/evil/telemetry.json',
         },
       },
       base,
     );
     expect(request.config).toMatchObject({
       tileCache: '/main/cache', browser: null, workers: 4, outDir: '/recs',
-      ffmpeg: null, ffprobe: null,
+      ffmpeg: null, ffprobe: null, telemetryJson: null,
     });
   });
 

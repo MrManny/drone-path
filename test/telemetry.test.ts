@@ -49,7 +49,7 @@ describe('loadTelemetry (SRT source)', () => {
     fs.writeFileSync(video, '');
     writeSrt(video, SRT_SAMPLE);
 
-    const tel = await loadTelemetry(video, {
+    const { telemetry: tel } = await loadTelemetry(video, {
       frames: 3,
       fpsValue: 30,
       durationSec: 0.1,
@@ -84,7 +84,7 @@ describe('loadTelemetry (SRT source)', () => {
     fs.writeFileSync(video, '');
     writeSrt(video, SRT_SAMPLE_MIXED);
 
-    const tel = await loadTelemetry(video, {
+    const { telemetry: tel } = await loadTelemetry(video, {
       frames: 4,
       fpsValue: 30,
       durationSec: 0.133,
@@ -224,7 +224,7 @@ describe('cross-source fix classification', () => {
     fs.writeFileSync(video, '');
     writeSrt(video, srtCueText([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]));
 
-    const tel = await loadTelemetry(video, {
+    const { telemetry: tel } = await loadTelemetry(video, {
       frames: 3,
       fpsValue: 30,
       durationSec: 0.1,
@@ -232,5 +232,88 @@ describe('cross-source fix classification', () => {
     });
     expect(tel.fixCount).toBe(3);
     expect(tel.noLock).toBe(0);
+  });
+});
+
+// The telemetry JSON export gets one row per source frame with what that
+// source decoded - and nothing it does not carry.
+describe('telemetry JSON export values', () => {
+  it('maps SRT cues to frame rows without attitude or device timestamps', async () => {
+    const dir = tmpDir();
+    const video = path.join(dir, 'clip.mp4');
+    fs.writeFileSync(video, '');
+    writeSrt(video, SRT_SAMPLE);
+
+    const loaded = await loadTelemetry(video, {
+      frames: 3,
+      fpsValue: 30,
+      durationSec: 0.1,
+      tools: TOOLS,
+    });
+    expect(loaded.telemetry.headingMode).toBe('cog'); // SRT carries no yaw
+    expect(loaded.protoFile).toBeNull();
+    expect(loaded.gimbalDevice).toBeNull();
+    expect(loaded.frameValues).toHaveLength(3);
+    expect(loaded.frameValues[0]).toEqual({
+      lat: 46.61307,
+      lng: 14.262388,
+      altAbs: 313.227,
+      altRel: 3.3,
+      iso: 340,
+      shutterTime: 0.0025,
+      whiteBalanceCctK: 4435,
+      fNumber: 2.2,
+    });
+    // Cue 2: no GPS fix and no exposure fields beyond iso.
+    expect(loaded.frameValues[1].lat).toBeNull();
+    expect(loaded.frameValues[1].lng).toBeNull();
+    expect(loaded.frameValues[1].iso).toBe(340);
+    expect(loaded.frameValues[1].shutterTime).toBeNull();
+    expect(loaded.frameValues[1].altRel).toBeCloseTo(3.4, 6);
+  });
+
+  it('keeps the pipeline on fix-bearing samples while rows cover every frame', async () => {
+    const dir = tmpDir();
+    const video = path.join(dir, 'clip.mp4');
+    fs.writeFileSync(video, '');
+
+    const parts = [
+      productMetaPacket(46.6, 14.3),
+      productMetaPacket(0, 0),
+      productMetaPacket(46.61, 14.31),
+    ];
+    const dump = Buffer.concat(parts);
+    mocks.ffprobeJson
+      .mockResolvedValueOnce({
+        streams: [{ index: 3, tags: { handler_name: 'CAM meta' } }],
+      })
+      .mockResolvedValueOnce({
+        packets: parts.map((part, i) => ({
+          pts_time: String(i / 30),
+          size: String(part.length),
+        })),
+      });
+    mocks.execFile.mockImplementation(
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
+        fs.writeFileSync(args[args.length - 1], dump);
+        cb(null);
+      },
+    );
+
+    const loaded = await loadTelemetry(video, {
+      frames: 3,
+      fpsValue: 30,
+      durationSec: 0.1,
+      tools: TOOLS,
+    });
+    // The overlay pipeline still sees only fix-bearing samples.
+    expect(loaded.telemetry.sampleCount).toBe(2);
+    expect(loaded.telemetry.fixCount).toBe(2);
+    expect(loaded.telemetry.noLock).toBe(1);
+    // The export rows cover every source frame, fix or not.
+    expect(loaded.frameValues).toHaveLength(3);
+    expect(loaded.frameValues[0].lat).toBeCloseTo(46.6, 6);
+    expect(loaded.frameValues[1].lat).toBeNull();
+    expect(loaded.frameValues[2].lat).toBeCloseTo(46.61, 6);
   });
 });

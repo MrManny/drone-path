@@ -11,6 +11,7 @@ import type { VideoProbe } from '../src/ff.js';
 import { videoBaseName } from '../src/inputs.js';
 import type { PipelineDeps } from '../src/run.js';
 import type { Telemetry } from '../src/telemetry-math.js';
+import type { LoadedTelemetry } from '../src/telemetry.js';
 import { createTracing } from '../src/tracing.js';
 import type { Tracer, Tracing } from '../src/tracing.js';
 
@@ -178,20 +179,36 @@ export function statsTelemetry(overrides: Partial<Telemetry> = {}): Telemetry {
   };
 }
 
+// A loader result with no telemetry JSON export payload; tests with export
+// data override just those fields.
+export function loadedTelemetry(
+  overrides: Partial<LoadedTelemetry> = {},
+): LoadedTelemetry {
+  return {
+    telemetry: telemetryFixture(),
+    frameValues: [],
+    protoFile: null,
+    gimbalDevice: null,
+    ...overrides,
+  };
+}
+
 export type StubDepsOptions = Partial<PipelineDeps> & {
   probe?: VideoProbe;
   telemetry?: Telemetry;
+  loaded?: LoadedTelemetry;
 };
 
 export function stubDeps(options: StubDepsOptions = {}): PipelineDeps {
   const {
     probe = probeFixture(),
     telemetry = telemetryFixture(),
+    loaded = loadedTelemetry({ telemetry }),
     ...overrides
   } = options;
   return {
     probeVideo: async () => probe,
-    loadTelemetry: async () => telemetry,
+    loadTelemetry: async () => loaded,
     prefetchTiles: async () => ({ downloaded: 2, failed: 1, total: 5 }),
     renderVideo: async () => ({ profile: { evalMs: 10, captureMs: 20, emitMs: 30 } }),
     // Keyed on the probe so the verified frame count can never drift from the

@@ -53,6 +53,45 @@ describe('parseSrtText', () => {
   });
 });
 
+describe('cue exposure fields', () => {
+  const r = parseSrtText(SRT_SAMPLE);
+
+  it('parses iso, shutter time, f-number and color temperature', () => {
+    const c = r.cues[0];
+    expect(c.iso).toBe(340);
+    expect(c.shutterTime).toBeCloseTo(0.0025, 9);
+    expect(c.fNumber).toBeCloseTo(2.2, 6);
+    expect(c.whiteBalanceCctK).toBe(4435);
+  });
+
+  it('leaves cue fields the sidecar does not carry as null', () => {
+    const c = r.cues[1];
+    expect(c.iso).toBe(340);
+    expect(c.shutterTime).toBeNull();
+    expect(c.fNumber).toBeNull();
+    expect(c.whiteBalanceCctK).toBeNull();
+  });
+
+  it.for([
+    { text: '1/400.0', seconds: 0.0025 },
+    { text: '1/30', seconds: 1 / 30 },
+    { text: '0.5', seconds: 0.5 },
+  ])('reads shutter "$text" as $seconds seconds', ({ text, seconds }) => {
+    const cue = parseSrtText(
+      ['1', '00:00:00,000 --> 00:00:00,033', `[shutter: ${text}]`].join('\n'),
+    ).cues[0];
+    expect(cue.shutterTime).toBeCloseTo(seconds, 9);
+  });
+
+  it('never guesses an unreadable shutter value', () => {
+    const cue = parseSrtText(
+      ['1', '00:00:00,000 --> 00:00:00,033', '[shutter: wide open] [fnum: x]'].join('\n'),
+    ).cues[0];
+    expect(cue.shutterTime).toBeNull();
+    expect(cue.fNumber).toBeNull();
+  });
+});
+
 function cueText(lat: number, lon: number): string {
   return [
     '1',

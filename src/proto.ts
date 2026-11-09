@@ -153,3 +153,12 @@ export function firstDouble(
   const value = fields.get(fieldNumber)?.[0]?.doubleValue;
   return value ?? null;
 }
+
+export function firstString(
+  buf: Buffer,
+  fields: ProtoFieldMap,
+  fieldNumber: number,
+): string | null {
+  const span = fields.get(fieldNumber)?.[0]?.bytesSpan;
+  return span ? buf.toString('utf8', span[0], span[1]) : null;
+}

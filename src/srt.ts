@@ -15,6 +15,11 @@ export interface SrtCue {
   fix: LatLon | null;
   relAlt: number | null;
   absAlt: number | null;
+  iso: number | null;
+  /** Shutter time in seconds ("1/400.0" on the wire). */
+  shutterTime: number | null;
+  whiteBalanceCctK: number | null;
+  fNumber: number | null;
 }
 
 export interface SrtParseResult {
@@ -28,10 +33,27 @@ const RX_TIMING = /^(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->/;
 const RX_LATLON =
   /\[latitude:\s*(-?\d+\.?\d*)\]\s*\[longitude:\s*(-?\d+\.?\d*)\]/;
 const RX_ALT = /\[rel_alt:\s*(-?\d+\.?\d*)\s+abs_alt:\s*(-?\d+\.?\d*)\]/;
+const RX_ISO = /\[iso:\s*(-?\d+\.?\d*)\]/;
+const RX_SHUTTER = /\[shutter:\s*([^\]]+)\]/;
+const RX_CT = /\[ct:\s*(-?\d+\.?\d*)\]/;
+const RX_FNUM = /\[fnum:\s*(-?\d+\.?\d*)\]/;
+const RX_FRACTION = /^(\d+\.?\d*)\s*\/\s*(\d+\.?\d*)$/;
 
 function parseNumber(text: string): number | null {
   const value = Number.parseFloat(text);
   return Number.isFinite(value) ? value : null;
+}
+
+// The shutter cue is a fraction ("1/400.0") or a plain second count; the
+// export wants seconds and an unreadable value is never guessed.
+function parseShutter(text: string): number | null {
+  const fraction = RX_FRACTION.exec(text.trim());
+  if (fraction) {
+    const denominator = parseNumber(fraction[2]);
+    const numerator = parseNumber(fraction[1]);
+    return denominator && numerator !== null ? numerator / denominator : null;
+  }
+  return parseNumber(text);
 }
 
 function stripFontTags(line: string): string {
@@ -53,6 +75,10 @@ function newCue(tSec: number): SrtCue {
     fix: null,
     relAlt: null,
     absAlt: null,
+    iso: null,
+    shutterTime: null,
+    whiteBalanceCctK: null,
+    fNumber: null,
   };
 }
 
@@ -98,6 +124,16 @@ export function parseSrtText(text: string): SrtParseResult {
       cue.relAlt = parseNumber(alt[1]);
       cue.absAlt = parseNumber(alt[2]);
     }
+
+    // First occurrence wins, like the altitude line above.
+    const iso = cue.iso === null ? RX_ISO.exec(line) : null;
+    if (iso) cue.iso = parseNumber(iso[1]);
+    const shutter = cue.shutterTime === null ? RX_SHUTTER.exec(line) : null;
+    if (shutter) cue.shutterTime = parseShutter(shutter[1]);
+    const ct = cue.whiteBalanceCctK === null ? RX_CT.exec(line) : null;
+    if (ct) cue.whiteBalanceCctK = parseNumber(ct[1]);
+    const fnum = cue.fNumber === null ? RX_FNUM.exec(line) : null;
+    if (fnum) cue.fNumber = parseNumber(fnum[1]);
   }
 
   return { cues, noLock, count: cues.length };
