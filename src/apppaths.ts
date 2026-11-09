@@ -6,7 +6,7 @@ import path from 'node:path';
 
 export const APP_ORIGIN = 'app://bundle';
 export const MEDIA_PATH = '/media/video';
-export const MEDIA_URL = APP_ORIGIN + MEDIA_PATH;
+const MEDIA_URL = APP_ORIGIN + MEDIA_PATH;
 export const TILE_BASE = APP_ORIGIN + '/tiles';
 
 /** The media URL for one recording: the query names the file, so a reload

@@ -31,7 +31,7 @@ function run(command, args) {
   return true;
 }
 
-export function runSafePush() {
+function runSafePush() {
   for (const [ok, command, args] of steps) {
     if (!run(command, args)) return 1;
     console.log(ok);

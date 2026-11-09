@@ -3,12 +3,12 @@
 
 const MAX_VARINT_BYTES = 10;
 
-export interface Varint {
+interface Varint {
   value: bigint;
   next: number;
 }
 
-export interface ProtoField {
+interface ProtoField {
   wireType: number;
   fieldNumber: number;
   varintValue?: bigint;

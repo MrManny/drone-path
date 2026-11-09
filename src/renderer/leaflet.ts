@@ -5,7 +5,7 @@
 
 export type LatLngTuple = [number, number];
 
-export interface LatLng {
+interface LatLng {
   lat: number;
   lng: number;
 }
@@ -17,7 +17,7 @@ export interface Point {
   y: number;
 }
 
-export interface MapOptions {
+interface MapOptions {
   zoomControl: boolean;
   attributionControl: boolean;
   dragging: boolean;
@@ -47,7 +47,7 @@ export interface LayerHandle {
   remove(): void;
 }
 
-export interface TileLayerOptions {
+interface TileLayerOptions {
   maxZoom: number;
   maxNativeZoom?: number;
 }
@@ -57,7 +57,7 @@ export interface TileLayerHandle extends LayerHandle {
   setUrl(url: string): void;
 }
 
-export interface PolylineOptions {
+interface PolylineOptions {
   color: string;
   weight: number;
   opacity: number;
@@ -72,7 +72,7 @@ export interface PolylineHandle extends LayerHandle {
   setLatLngs(points: LatLngTuple[]): void;
 }
 
-export interface CircleMarkerOptions {
+interface CircleMarkerOptions {
   radius: number;
   color: string;
   weight: number;
@@ -80,13 +80,13 @@ export interface CircleMarkerOptions {
   fillOpacity: number;
 }
 
-export interface MarkerOptions {
+interface MarkerOptions {
   icon: unknown;
   interactive: boolean;
   keyboard: boolean;
 }
 
-export interface DivIconOptions {
+interface DivIconOptions {
   className: string;
   html: string;
   iconSize: [number, number];
