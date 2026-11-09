@@ -1,6 +1,6 @@
 ---
 name: github-etiquette
-description: GitHub working conventions for the neo2-flightpath repository - issue templates, gh CLI usage, branch and commit style, PR etiquette. Load when a session interacts with GitHub (filing or refining issues, creating branches, opening or updating pull requests, releases)
+description: GitHub working conventions for the drone-path repository - issue templates, gh CLI usage, branch and commit style, PR etiquette. Load when a session interacts with GitHub (filing or refining issues, creating branches, opening or updating pull requests, releases)
 ---
 
 # GitHub etiquette
@@ -30,6 +30,7 @@ Load before any GitHub interaction: issues, branches, pull requests, releases.
 - Branch naming: `<type>/<issue-number>-<slug>`, e.g. `docs/3-agent-instructions`; release branches are exempt and use `release/vX.Y.Z`
 - Commit messages follow Conventional Commits style, e.g. `docs: GitHub issue templates`, `refactor: restructure code base along Fowler/Clean Code lines`
 - Release commits use the `release` type, e.g. `release: v0.2.0` — custom types are valid per the Conventional Commits spec (rule 14), so keep them as-is instead of "correcting" them to `chore(...)`
+- Historic: `neo2-flightpath` (npm package and command) at `https://github.com/MrManny/neo2-flightpath` was the working title before the rebrand to `drone-path`; old URLs redirect to `https://github.com/MrManny/drone-path`
 
 ## Recommendations
 
