@@ -1,9 +1,3 @@
-// The option vocabulary: the option types (Style, View, Capture, Codec,
-// Quality, Preset, HudSpec), their defaults and the parsing/normalizing rules.
-// Feature modules import them from here, and this module stays free of I/O so
-// the app UI can share the vocabulary in its browser bundle. File discovery
-// and the precedence of the config layers live in src/configfile.ts.
-
 export type Style = 'satellite' | 'topo';
 export type View = 'follow' | 'overview';
 export type Capture = 'jpeg' | 'png';

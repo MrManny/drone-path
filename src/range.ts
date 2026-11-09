@@ -1,6 +1,3 @@
-// HTTP byte-range parsing and response planning (RFC 7233) shared by the
-// headless render server and the app's custom-scheme handler.
-
 export interface ByteRange {
   start: number;
   end: number;

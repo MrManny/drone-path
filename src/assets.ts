@@ -1,8 +1,3 @@
-// Pure URL-to-file routing shared by the render server and the app bundle:
-// maps a request pathname to the resource that backs it. The route guards
-// and the tile acceptance policy live here so they stay unit-testable; the
-// servers only perform the I/O.
-
 import path from 'node:path';
 
 import type { Style } from './config.js';

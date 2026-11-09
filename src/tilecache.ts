@@ -1,7 +1,3 @@
-// The one tile cache layout and tile URL parsing, shared by the prefetcher,
-// the render server and the app server so they can never disagree about
-// where a tile lives or which URLs are tiles at all.
-
 import path from 'node:path';
 
 import type { Style } from './config.js';

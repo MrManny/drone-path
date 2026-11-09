@@ -1,5 +1,5 @@
-// Pure viewport and timeline math for the shared renderer. Kept free of DOM
-// and Leaflet so the frame-exact behaviors stay unit-testable.
+// Pure viewport and timeline math for the shared renderer. Keep free of DOM
+// and Leaflet so the frame-exact behaviors stay testable.
 
 export function computeScale(width: number, height: number): number {
   return Math.max(0.7, Math.min(2.2, Math.min(width, height) / 1024));

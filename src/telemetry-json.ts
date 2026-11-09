@@ -1,9 +1,3 @@
-// The per-frame telemetry JSON export ("--telemetry-json"): the document's
-// field vocabulary in one home - a zod schema that types the emitter via
-// z.infer and generates the checked-in docs/telemetry-json.schema.json via
-// z.toJSONSchema ("npm run docs:schema"). Pure so the CLI and the desktop app
-// can write the identical document; I/O lives in the shells.
-
 import { z } from 'zod';
 
 import type { HeadingMode, TelemetrySource } from './telemetry-math.js';

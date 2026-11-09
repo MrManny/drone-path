@@ -1,4 +1,4 @@
-// The shared map renderer: it receives all telemetry inline (no fetch), paints
+// The shared map renderer: it receives all telemetry inline, paints
 // the map once, and exposes setFrame(i) for per-frame marker/trail updates.
 // Headless capture workers (via the generated page's window.__setFrame bridge)
 // and the app's React map island both drive this one implementation;
@@ -8,9 +8,7 @@
 //
 // Views:
 //   overview - static map fitted to the whole track (trail grows with time)
-//   follow   - drone marker stays in the frame center and the map slides under
-//              it (all tiles are loaded once up-front; the per-frame move is a
-//              pure CSS transform, so no tile loads happen mid-render)
+//   follow   - drone marker stays in the center and the map slides under it
 
 import type { HudSpec, Style, View } from '../config.js';
 import type { LatLon } from '../geo.js';
@@ -105,9 +103,6 @@ function setChipText(
   chip.textContent = value === null || value === undefined ? '--' : format(value);
 }
 
-// Per-scene style scope: the app mounts two scenes at once (the player island
-// and the export preview), and one scene's scale values must never restyle the
-// other's elements.
 let scopeCount = 0;
 
 class SceneState implements Scene {
@@ -238,7 +233,6 @@ class SceneState implements Scene {
     map.setView(data.view === 'follow' ? this.bb.getCenter() : [data.center.lat, data.center.lon], data.zoom);
     const c0 = map.project(map.getCenter(), data.zoom);
 
-    // Static scale bar (the map never zooms during a render).
     const latC = data.view === 'follow' ? this.bb.getCenter().lat : data.center.lat;
     const mPerPx = metersPerPixel(latC, data.zoom);
     const bestM = scaleBarMeters(mPerPx, 110 * this.scale());
@@ -413,9 +407,7 @@ class SceneState implements Scene {
     const k = introOutroScale(i, this.data.introN, this.data.outroN, this.data.lat.length);
     this.updateTransform(i, k);
     this.updateHud(i);
-    // Canvas painting is deferred to requestAnimationFrame; the headless
-    // capture awaits this barrier so screenshots never catch the previous
-    // frame.
+    // Canvas painting is deferred to requestAnimationFrame
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => resolve());

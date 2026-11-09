@@ -1,8 +1,3 @@
-// The generated CLI/config reference: one table over the option vocabulary in
-// src/config.ts, plus the config-file flag. The result is checked in as
-// docs/user/cli-reference.md so GitHub renders it; a unit test compares the
-// checked-in file against this generator so the two cannot drift.
-
 import { CONFIG_FILE_OPTION, CONFIG_OPTIONS, cliDefaultOf } from '../config.js';
 import type { ConfigOption, RenderConfig } from '../config.js';
 
@@ -13,8 +8,7 @@ function defaultCell(key: keyof RenderConfig): string {
 }
 
 function describe(row: ConfigOption): string {
-  // Angle brackets in help text would read as HTML on GitHub; the entity form
-  // renders back to "<" and ">" everywhere.
+  // Angle brackets in help text would read as HTML on GitHub
   const help = row.cli.help.replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return row.cli.choices ? `${help} (choices: ${row.cli.choices.join(', ')})` : help;
 }

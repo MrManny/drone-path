@@ -1,7 +1,3 @@
-// A minimal PNG encoder: just enough (IHDR/IDAT/IEND, 8-bit RGB rows) to
-// emit valid solid-color tiles for the placeholder fallback, with no
-// dependencies beyond zlib.
-
 import zlib from 'node:zlib';
 
 const CRC_TABLE = (() => {

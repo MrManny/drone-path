@@ -1,7 +1,3 @@
-// Pure routing for the app's custom-scheme server: maps a request pathname to
-// the resource that backs it. The Electron glue performs the I/O; the
-// path-traversal guard lives here so it stays unit-testable.
-
 import path from 'node:path';
 
 import { mimeFor, resolveTileRoute } from './assets.js';
@@ -10,10 +6,8 @@ import type { Style } from './config.js';
 import type { TileCoord } from './plan.js';
 
 export interface AppRoutes {
-  /** Next.js static export root (ui/out), possibly inside app.asar. */
   exportRoot: string;
   tileCache: string;
-  /** Absolute path of the loaded recording, or null when none is loaded. */
   videoPath: string | null;
 }
 

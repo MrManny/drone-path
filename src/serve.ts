@@ -1,7 +1,3 @@
-// Static assets and video streaming shared by the headless render server and
-// the app's session server. URL routing and its guards live in src/assets.ts;
-// this shell performs the I/O and writes the resolved result.
-
 import fs from 'node:fs';
 import type http from 'node:http';
 import path from 'node:path';

@@ -1,7 +1,3 @@
-// Writes the checked-in telemetry JSON schema from the zod vocabulary in
-// src/telemetry-json.ts. Run "npm run docs:schema" after changing it; a unit
-// test fails when the checked-in file no longer matches the generator.
-
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

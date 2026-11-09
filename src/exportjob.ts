@@ -1,8 +1,3 @@
-// The desktop app's export job runner, free of Electron APIs like
-// src/appsession.ts: one blocking job at a time that renders to a working
-// file and replaces the destination only after the output is verified, so a
-// failed export never destroys a pre-existing file.
-
 import fs from 'node:fs';
 import path from 'node:path';
 

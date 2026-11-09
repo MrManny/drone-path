@@ -1,14 +1,7 @@
-// Trail growth state machine shared by the headless renderer and the app: at
-// frame i the trail is the flown path so far - the decimated prefix before i
-// plus the live tip at the frame's own position. The tip tracks the drone so
-// the trail grows every frame (a prefix of decimated points alone stays empty
-// for whole flights whenever the geometry collapses, #95), while the kept
-// prefix stays bounded by the decimation budget. A changed frame pushes one
-// setLatLngs per layer; repeated frames and empty tracks stay quiet.
+import type { LatLngTuple } from "./leaflet.js";
 
 export interface TrailLayer {
-  /** Leaflet's setLatLngs takes one point list of <LatLng> ([lat, lon]). */
-  setLatLngs(points: Array<[number, number]>): void;
+  setLatLngs(points: LatLngTuple[]): void;
 }
 
 export interface TrailController {

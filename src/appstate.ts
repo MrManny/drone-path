@@ -1,8 +1,3 @@
-// The desktop app's per-user state: the settings panel's last look in
-// option-vocabulary values and the folder the last recording was opened from.
-// Parsing and merging stay pure; the file I/O below them is the thin shell the
-// app seeds from and flushes to.
-
 import fs from 'node:fs';
 import path from 'node:path';
 

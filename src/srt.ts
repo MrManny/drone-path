@@ -1,8 +1,3 @@
-// One cue per video frame; the cue index equals the video frame index. Cues
-// whose latitude/longitude line is not a real GPS fix (src/geo.ts's
-// gpsFix - the (0, 0) placeholder or worse) are kept with fix = null so
-// alignment is never lost.
-
 import { readFile } from 'node:fs/promises';
 
 import { gpsFix } from './geo.js';

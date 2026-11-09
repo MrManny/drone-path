@@ -1,6 +1,3 @@
-// Session vocabulary and state machine for the desktop app, free of Electron
-// APIs: pick -> validate -> prepare -> hold one prepared recording.
-
 import fs from 'node:fs';
 import path from 'node:path';
 

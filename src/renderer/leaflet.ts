@@ -1,8 +1,3 @@
-// The minimal Leaflet surface the shared renderer touches. Consumers pass the
-// real namespace in (the generated page takes window.L, the app its bundled
-// module import), so this code stays free of bundler and global assumptions
-// and tests can drive it with a fake.
-
 export type LatLngTuple = [number, number];
 
 interface LatLng {

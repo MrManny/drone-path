@@ -1,5 +1,3 @@
-// All coordinates are WGS84 decimal degrees; distances in meters.
-
 export interface LatLon {
   lat: number;
   lon: number;

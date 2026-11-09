@@ -1,6 +1,3 @@
-// ffmpeg and ffprobe invocation: the resolved tool paths come from
-// src/fftools.ts (override, embedded binary, then PATH).
-
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 

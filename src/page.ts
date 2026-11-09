@@ -1,15 +1,3 @@
-// The generated headless page receives all telemetry inline (no fetch) and
-// exposes window.__setFrame(i) for per-frame marker/trail updates; it resolves
-// after the canvas has painted so screenshots are frame-exact. The map scene
-// itself lives in src/renderer/ - one shared implementation with the app's
-// React map island.
-//
-// Views:
-//   overview - static map fitted to the whole track (trail grows with time)
-//   follow   - drone marker stays in the frame center and the map slides under
-//              it (all tiles are loaded once up-front; the per-frame move is a
-//              pure CSS transform, so no tile loads happen mid-render)
-
 import { hasAltitude, resolveHudSpec } from './config.js';
 import type { HudSpec, LookSettings, Style, View } from './config.js';
 import { decimateTrack } from './decimate.js';

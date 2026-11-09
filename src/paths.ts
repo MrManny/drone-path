@@ -1,11 +1,3 @@
-// Path identity and collision-free output naming have exactly one home.
-// Identity follows the platform's own file-name rules: Windows file names
-// are case-insensitive, POSIX file names are case-sensitive. The same
-// inputs can therefore plan different names per platform, deterministic
-// and idempotent on each. Case-insensitive macOS volumes are treated like
-// POSIX: folding darwin too would merge two genuinely distinct files on
-// case-sensitive volumes, and the desktop matrix is Windows + Linux.
-
 import path from 'node:path';
 
 // Resolved so separator and `..` spellings of one file share a key;

@@ -1,8 +1,3 @@
-// Up-front trail simplification: Douglas-Peucker in Web Mercator pixel space
-// at the working zoom, so the drawn trail deviates from the flown track by
-// less than about one pixel while its point count stays bounded regardless
-// of flight length. Input arrays are index-aligned to video frames.
-
 import { project } from './geo.js';
 import type { Pixel } from './geo.js';
 

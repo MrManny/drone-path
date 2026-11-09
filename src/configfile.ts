@@ -1,8 +1,3 @@
-// Config file discovery and layer resolution: the imperative side of the
-// option precedence (CLI flags > config file > built-in defaults). The config
-// file is discovered upward from the working directory unless --config names
-// one. The vocabulary itself stays pure in src/config.ts.
-
 import fs from 'node:fs';
 import path from 'node:path';
 

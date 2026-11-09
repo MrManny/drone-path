@@ -1,8 +1,3 @@
-// Per-style renderer colors. One mapping so the generated page and the app's
-// map island can never drift apart. The trail core is the palette accent (#147)
-// unless a trail color replaces it; the glow and the casing are then derived
-// from the chosen color so the layered trail stays readable on both styles.
-
 import type { Style } from '../config.js';
 
 export interface Theme {
@@ -29,7 +24,6 @@ interface Rgb {
   a: number;
 }
 
-// The canonical form the option vocabulary hands over: #rrggbb or #rrggbbaa.
 function parseHexColor(hex: string): Rgb {
   const m = /^#([0-9a-f]{6}|[0-9a-f]{8})$/i.exec(hex);
   if (!m) throw new Error(`invalid trail color: ${hex}`);
@@ -39,12 +33,10 @@ function parseHexColor(hex: string): Rgb {
   return { r, g, b, a: a / 255 };
 }
 
-// Four decimals keep every derived color string deterministic.
 function rgba(c: Rgb, alpha: number): string {
   return `rgba(${c.r},${c.g},${c.b},${Math.round(alpha * 10000) / 10000})`;
 }
 
-// WCAG relative luminance, the readability rule's measure of "how light".
 function luminance(c: Rgb): number {
   const linear = (v: number): number => {
     const s = v / 255;
@@ -58,10 +50,6 @@ function mix(base: Rgb, tint: Rgb, amount: number): Rgb {
   return { r: k(base.r, tint.r), g: k(base.g, tint.g), b: k(base.b, tint.b), a: 1 };
 }
 
-// The casing is the contrast anchor under the core stroke: the style's proven
-// neutral, tinted toward the chosen color so it follows it, flipped to the
-// opposite neutral when the core sits too close to the anchor to separate the
-// trail from it.
 const CASING_ANCHORS: Record<
   Style,
   { anchor: Rgb; opposite: Rgb; alpha: number }

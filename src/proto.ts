@@ -1,6 +1,3 @@
-// Just enough of the format for the DJI DVTM messages: varint, fixed64,
-// fixed32 and length-delimited fields, one nesting level at a time.
-
 const MAX_VARINT_BYTES = 10;
 
 interface Varint {

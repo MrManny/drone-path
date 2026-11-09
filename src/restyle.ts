@@ -1,9 +1,3 @@
-// Settings -> scene mapping for the app's live restyle. It runs the very
-// planning the pipeline runs (page.planPageOpts over the telemetry's fix
-// bbox), so a preview and an export from the same settings agree frame for
-// frame. Pure (no DOM, no I/O): the browser UI and unit tests drive it
-// directly.
-
 import type { LookSettings } from './config.js';
 import type { Bbox } from './geo.js';
 import { buildSceneData, planPageOpts } from './page.js';

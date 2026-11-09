@@ -1,6 +1,3 @@
-// URL and path layout for the desktop app: the custom-scheme vocabulary,
-// build-artifact locations and the per-user state file have exactly one home.
-
 import os from 'node:os';
 import path from 'node:path';
 

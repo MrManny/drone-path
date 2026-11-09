@@ -1,7 +1,5 @@
 // The manual build: reads docs/user/*.md and docs/images, validates the
-// corpus, then emits the typed UI module and the bundled images. Imperative
-// shell over the pure compiler; paths are injectable so tests run it against
-// a temporary corpus.
+// corpus, then emits the typed UI module and the bundled images.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,13 +13,9 @@ import { navFromIndex } from './nav.js';
 import { pageSlugOf, sourceNameOf, validateCorpus } from './links.js';
 
 export interface ManualBuildPaths {
-  /** docs/user: the Markdown corpus. */
   userDir: string;
-  /** docs/images: image sources referenced as ../images/<file>. */
   imagesDir: string;
-  /** The generated module, e.g. ui/lib/manual/generated/manual.ts. */
   moduleFile: string;
-  /** Where referenced images are copied, e.g. ui/public/manual/images. */
   assetDir: string;
 }
 

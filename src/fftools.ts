@@ -1,9 +1,3 @@
-// Where the ffmpeg and ffprobe executables come from at runtime: an explicit
-// override, then the embedded binaries (the packaged app's extraResources, or
-// the optional ffmpeg-ffprobe-static package in dev/CLI installs), then PATH.
-// Pure decision core with an injectable environment so the resolution order is
-// testable without touching the filesystem or spawning anything.
-
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';

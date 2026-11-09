@@ -1,9 +1,3 @@
-// The telemetry I/O shell: discovers and parses a recording's telemetry
-// sources (.SRT sidecar, embedded CAM meta) and hands the samples to the pure
-// pipeline in src/telemetry-math.ts, plus the per-source-frame values and clip
-// constants the telemetry JSON export (src/telemetry-json.ts) needs. The math
-// is reachable without files so unit tests can drive it with in-memory samples.
-
 import { parseSrt } from './srt.js';
 import type { SrtCue } from './srt.js';
 import { parseCamMeta } from './cammeta.js';

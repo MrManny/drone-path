@@ -1,6 +1,3 @@
-// Without an endpoint no OpenTelemetry package is ever imported, so untraced
-// runs keep their exact output and pay no overhead.
-
 import type { Span as ApiSpan, Tracer as ApiTracer } from '@opentelemetry/api';
 import type * as OtelApiModule from '@opentelemetry/api';
 import type { SpanExporter } from '@opentelemetry/sdk-trace';

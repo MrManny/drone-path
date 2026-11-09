@@ -1,8 +1,3 @@
-// Pure telemetry math: turns time-stamped samples into per-frame values
-// (position, speed, heading) plus the track statistics. No I/O lives here,
-// so the loader shell and the unit tests drive it directly with in-memory
-// samples.
-
 import { bearingDeg, circularMeanDeg, haversineM } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
 import type { CamMetaMethod } from './cammeta.js';

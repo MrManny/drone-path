@@ -1,9 +1,5 @@
-// GitHub-compatible heading anchors: the same slug GitHub derives for a
-// heading so in-repo links and in-app links resolve to the same anchor.
-
 const SLUG_STRIP = /[^\p{L}\p{N}\s_-]/gu;
 
-/** The anchor GitHub gives a heading of plain `text`. */
 export function githubSlug(text: string): string {
   return text
     .toLowerCase()

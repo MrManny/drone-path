@@ -1,7 +1,3 @@
-// Writes the checked-in CLI/config reference from the option vocabulary.
-// Run "npm run docs:reference" after changing src/config.ts; a unit test
-// fails when the checked-in file no longer matches the generator.
-
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -1,8 +1,3 @@
-// Pure planning shared by the headless pipeline and the app UI: which zoom,
-// center and tiles cover a track at a given frame size, and how intro/outro
-// timing maps to frames. No I/O lives here, so the browser bundle can import
-// it; the preview and an export therefore always plan identically.
-
 import type { RenderConfig } from './config.js';
 import { project } from './geo.js';
 import type { Bbox, Pixel } from './geo.js';

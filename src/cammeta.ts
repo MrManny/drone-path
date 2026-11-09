@@ -1,39 +1,3 @@
-// Format (reverse-engineered and verified value-by-value against .SRT data):
-//   * the MP4 carries a `data` stream, sample-entry fourcc `djmd`, handler
-//     "CAM meta"; its payload is DJI's internal "DVTM" (DJI Video Metadata)
-//     protobuf: one ProductMeta message per MP4 sample = one video frame.
-//     Messages are VARIABLE length (e.g. 299-563 B on DJI Neo 2) - never
-//     assume a fixed stride; split the raw dump by ffprobe packet sizes so
-//     each message aligns to its packet PTS (= frame time).
-//   * ProductMeta { 1 clip_meta, 2 stream_meta, 3 frame_meta } (clip/stream
-//     meta appear only in the first sample); clip_meta { 1 clip_meta_header
-//     { 1 proto_file_name, 3 product_proto_version } } names the schema.
-//   * frame_meta { 1 header, 2 camera, 3 imu (absent on Neo 2), 4 drone,
-//     5 gimbal }:
-//       - camera.3   ISO { 1 varint } (SRT `iso`)
-//       - camera.6   WhiteBalanceCCT { 1 varint } (SRT `ct`)
-//       - camera.11 AbsoluteAltitude { 1 float32 meters MSL }
-//       - drone.3   EulerAngle { 1 pitch, 2 roll, 3 yaw } varint deci-degrees
-//                   (yaw = drone heading, valid even while hovering)
-//       - drone.4   GpsBasic { 1 PositionCoord { 2 lat, 3 lon } doubles WGS84,
-//                             2 gps_altitude_mm varint }
-//       - drone.5   RelativeAltitude { 1 float32 millimeters above takeoff }
-//       - gimbal.1  MetaHeaderOfDevice { 1 device_id, 2 device_type,
-//                   3 device_sub_type, 4 device_name, 5 device_frequency,
-//                   6 device_timestamp } (constants + per-frame timestamp)
-//       - gimbal.2  EulerAngle { 1 pitch, 2 roll, 3 yaw } = stabilized camera
-//                   attitude, same encoding as drone.3
-//   * No epoch timestamp in-stream (frame_timestamp is microseconds since
-//     power-up); sample index == frame index.
-//   * Schemas: recovered DJI .proto files in AdrianEddy/telemetry-parser
-//     (MIT/Apache-2.0, dvtm_library.proto / dvtm_eagle4_wa530.proto);
-//     there is no official DJI spec and no public dvtm_NEO2.proto, but the
-//     Neo 2 layout matches those schemas.
-//
-// Robustness: a per-packet protobuf walk is the primary path; a whole-buffer
-// byte scan of the GPS double pair (tag 0x11 lat / 0x19 lon) is the fallback
-// for firmware layouts we do not understand.
-
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';

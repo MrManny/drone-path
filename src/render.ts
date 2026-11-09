@@ -1,7 +1,3 @@
-// Frames are captured by N parallel pages and streamed to ffmpeg's stdin in
-// exact frame order (no scratch frame files on disk). The headless browser is
-// the system Chrome/Edge via playwright-core - no browser download.
-
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
