@@ -6,8 +6,8 @@ description: Launch, drive and instrument the Drone Path Electron app from an ag
 # Automating the Electron App
 
 How an agent session can launch and operate the Electron desktop app
-programmatically, e.g. to verify UI work or take screenshots. Re-check
-`package.json` and `app/main.mjs` before relying on exact flags.
+programmatically. Re-check `package.json` and `app/main.mjs` before relying
+on exact flags.
 
 ## How the app launches
 
@@ -22,18 +22,16 @@ programmatically, e.g. to verify UI work or take screenshots. Re-check
 - The shell (`app/main.mjs`) is thin: one window, a privileged `app://bundle`
   scheme serving `ui/out` plus media and tiles, and three IPC handlers
   (`dronepath:pick`, `-:session`, `-:settings`) bridged through
-  `app/preload.cjs` as `window.dronepath`. Session logic lives in the
-  Electron-free state machine `src/appsession.ts` (`pick -> validate ->
-  prepare`).
-- Startup tool check: ffmpeg/ffprobe resolve via `src/fftools.ts` (config
-  override, embedded binaries, then PATH); `requireTools()` kills startup with
-  a native error box when neither runs.
+  `app/preload.cjs` as `window.dronepath`.
+- **Tool check at startup:** ffmpeg/ffprobe resolve via `src/fftools.ts`
+  (`requireTools()`: config override, embedded binaries, then PATH); without a
+  runnable pair the app dies at startup behind a native error box. Check first
+  (`where.exe ffmpeg` / `where.exe ffprobe` or the bundled pair).
 
 ## Recommended: Playwright's Electron launcher
 
-`playwright-core` is already a runtime dependency (headless rendering in
-`src/render.ts`) and exports the `_electron` launcher — **zero new
-dependencies**:
+`playwright-core` (a runtime dependency for headless rendering in
+`src/render.ts`) exports the `_electron` launcher — **zero new dependencies**:
 
 ```js
 import { _electron } from 'playwright-core';
@@ -41,7 +39,7 @@ import { _electron } from 'playwright-core';
 const app = await _electron.launch({
   executablePath: 'node_modules/electron/dist/electron.exe', // explicit is safest on Windows
   args: ['app/main.mjs'], // add '--dev-url', 'http://localhost:3210' for dev mode
-  cwd: 'E:/DJI_001/scripts/neo2-flightpath', // local folder name predates the rename; the repository is MrManny/drone-path
+  cwd: 'E:/DJI_001/scripts/neo2-flightpath', // repo root
   // Harness shells may export ELECTRON_RUN_AS_NODE; see the notes below.
   env: Object.fromEntries(
     Object.entries(process.env).filter(([k]) => k !== 'ELECTRON_RUN_AS_NODE'),
@@ -55,18 +53,16 @@ await app.evaluate(({ dialog }) => {
 
 const page = await app.firstWindow();
 await page.waitForLoadState('networkidle');
-await page.screenshot({ path: 'shot.png' }); // visual verification
-await page.locator('...').click(); // operate the UI like a normal page
+await page.screenshot({ path: 'shot.png' });
+await page.locator('...').click();
 page.on('console', (m) => console.log('renderer:', m.text()));
 const session = await page.evaluate(() => window.dronepath.getSession());
 await app.close(); // window-all-closed quits the app
 ```
 
-This covers implementation sessions: launch, click and type, read app state
-via the preload bridge (`getSession()`), capture screenshots, collect renderer
-console output. `app.evaluate()` also reaches the main process (e.g.
+`app.evaluate()` also reaches the main process — e.g.
 `BrowserWindow.getAllWindows()[0].webContents.capturePage()` for a
-window-level screenshot).
+window-level screenshot.
 
 ## The one real obstacle: the native file dialog
 
@@ -82,7 +78,7 @@ dialogs). Two solutions:
    (or an env var) so `pickFile` skips the dialog when a path is supplied —
    ideal for CI-style smoke tests.
 
-The stub can be re-armed mid-run: have it read a driver-swapped global (e.g.
+Re-arm the stub mid-run: have it read a driver-swapped global (e.g.
 `globalThis.__pickVideo`) at call time, so one session can open several
 recordings in sequence.
 
@@ -91,69 +87,66 @@ recordings in sequence.
 If the app is already running (or the Playwright driver misbehaves), launch
 with `electron app/main.mjs --remote-debugging-port=9223` and attach with
 `chromium.connectOverCDP('http://127.0.0.1:9223')` from `playwright-core`.
-Same page-driving capabilities, slightly less convenient for main-process
-access. The IPC trust check accepts both `app://bundle/...` frames and the dev
-URL, so the preload bridge works in either mode.
+Same page driving, less convenient for main-process access. The IPC trust
+check accepts both `app://bundle/...` frames and the dev URL, so the preload
+bridge works in either mode.
 
 ## Instrumenting request traffic and timing
 
 For timing evidence (e.g. tile request-rate checks), wrap `globalThis.fetch`
-in the main process via `app.evaluate`: record `Date.now()` and the URL for
-the requests under study and resolve a tiny local response (a base64 PNG
-suffices for tile images) instead of touching the network. The app's request
-gate sits in front of `fetch`, so recorded call times *are* request-start
-times; pass every other URL through to the real fetch. Push phase markers into
-the same timeline and write raw JSON out for offline analysis.
+in the main process via `app.evaluate`: record `Date.now()` and URL per
+request under study and resolve a tiny local response (a base64 PNG suffices
+for tiles) instead of touching the network. The request gate sits in front of
+`fetch`, so recorded call times *are* request-start times; pass every other
+URL through to the real fetch. Push phase markers into the same timeline and
+write raw JSON for offline analysis.
 
-Timing assertions need the right clock model. Fake timers cannot produce late
-wakes: `vi.setSystemTime` shifts pending timer deadlines with it, and nothing
-models thread starvation. To reproduce production jitter (a busy event loop
+Timing assertions need the right clock model: fake timers cannot produce late
+wakes (`vi.setSystemTime` shifts pending timer deadlines with it, and nothing
+models thread starvation). To reproduce production jitter (a busy event loop
 delaying a scheduled wake), drive on real timers and stall with a spun
 busy-wait (`while (Date.now() < until) {}`) inside the intercepted request,
 then assert *lower bounds* — every start at least the gate interval after the
-previous one plus its wake lateness — not exact values. Slot- or
-release-based gates otherwise show millisecond-level jitter (single pairs can
-dip 1–2 ms below the nominal interval), so judge rate budgets by sustained
-rate and absence of cross-lane interleave. Plan-sized at 2 requests/s, runs
-take tens of seconds per lane: give generous timeouts and measure the
-timeline over wall-clock guesses.
+previous one plus its wake lateness — not exact values. Slot- or release-based
+gates show millisecond-level jitter (single pairs can dip 1–2 ms below the
+nominal interval), so judge rate budgets by sustained rate and absence of
+cross-lane interleave. Plan-sized at 2 requests/s, runs take tens of seconds
+per lane: give generous timeouts and measure the timeline over wall-clock
+guesses.
 
 ## Operational notes
 
 - **Logs:** progress and errors go to stderr as `[drone-path] <msg>` /
-  `[drone-path] ERROR: <message>`; parse these for `loaded:`
-  confirmations. `ELECTRON_ENABLE_LOGGING=1` adds Chromium-level logs.
-  `app.process().stderr.on('data', ...)` captures the lines for assertions.
+  `[drone-path] ERROR: <message>`; parse these for `loaded:` confirmations.
+  `ELECTRON_ENABLE_LOGGING=1` adds Chromium-level logs; capture lines via
+  `app.process().stderr.on('data', ...)`.
 - **Quit/kill:** closing the window quits (`window-all-closed ->
   app.quit()`). When launched via `npm run app`, kill the process tree
   (`taskkill /PID <pid> /T /F` or `Stop-Process -Name electron`); a killed
   `npm`/`pwsh` wrapper can orphan `electron.exe`.
-- **Dev vs. prod:** dev mode (`--dev-url`) for iteration (hot reload);
-  production (`ui/out`) is deterministic and is what users run.
+- **Dev vs. prod:** iterate in dev (`--dev-url`, hot reload); verify in
+  production (`ui/out`) — deterministic and what users run.
 - **Missing electron binary:** `node_modules/electron` can exist without
-  `dist/electron.exe` (postinstall download some environments skip). Run
+  `dist/electron.exe` (some environments skip the postinstall download). Run
   `node install.js` inside the package to fetch it; the cache in
   `%LOCALAPPDATA%\electron\Cache` makes repeats fast, and one extracted
   runtime drives any checkout or worktree via `executablePath` + `cwd`.
 - **`app.evaluate` argument position:** the callback gets the electron module
-  as its *first* parameter and the caller's argument second —
-  `app.evaluate(({ dialog }, arg) => ...)`. A single-parameter callback
-  silently receives the electron module (circular), surfacing later as
-  `Received an instance of Object` or "Converting circular structure to
-  JSON". `page.evaluate(fn, arg)` is the normal Playwright convention.
-- **Prerequisite check before launch:** bundled ffmpeg/ffprobe (or
-  `where.exe ffmpeg`/`where.exe ffprobe`); without a runnable pair the app
-  dies at startup behind a native error box.
+  first and the caller's argument second — `app.evaluate(({ dialog }, arg) => ...)`.
+  A single-parameter callback silently receives the electron module
+  (circular), surfacing as `Received an instance of Object` or "Converting
+  circular structure to JSON". `page.evaluate(fn, arg)` is the normal
+  Playwright convention.
 
 ## Notes for automated sessions under the DSH harness
 
-- Spawning Electron with piped stdio from a Node driver can hit the
-  EPERM-on-piped-stdio restriction in confined sandbox modes. Run the driver
+- Spawning Electron with piped stdio from a Node driver hits the
+  EPERM-on-piped-stdio restriction in confined sandbox modes; run the driver
   under at least workspace-write (FullLanguage on Windows) or as a background
   job.
 - **`ELECTRON_RUN_AS_NODE` trap:** harness shells and some IDE terminals
-  export `ELECTRON_RUN_AS_NODE=1`; every spawned `electron.exe` then behaves
-  like plain Node (`SyntaxError: ... does not provide an export named
+  export `ELECTRON_RUN_AS_NODE=1`; spawned `electron.exe` then behaves like
+  plain Node (`SyntaxError: ... does not provide an export named
   'BrowserWindow'`, or `_electron.launch` reporting `Process failed to
   launch!`). Clear it in the driving shell *and* pass an `env` without it to
   `_electron.launch`.
@@ -165,16 +158,8 @@ timeline over wall-clock guesses.
   own output and exit status.
 - **Long inline scripts:** a multi-line `node -e` through PowerShell can come
   out mangled and fail silently; write to a scratch file and run that.
-- Expect a **visible window** on the desktop: Electron has no true headless
-  mode on Windows, convenient for supervision. CDP/Playwright traffic is
-  plain TCP loopback, unaffected by the named-pipe restriction.
-- There is no e2e harness in `test/` (unit tests are vitest-only and offline
-  per `AGENTS.md`); a Playwright driver is a separate, non-unit concern.
-
-## Bottom line
-
-Launching is `npm run app` (or `_electron.launch`), operating is normal
-Playwright page automation plus the `window.dronepath` bridge, and the
-only friction point — the native file picker — is solvable today with a
-`dialog.showOpenDialog` stub via `app.evaluate`, and cleanly later with a tiny
-`--open <path>` flag.
+- Expect a **visible window** on the desktop (Electron has no true headless
+  mode on Windows); CDP/Playwright traffic is plain TCP loopback, unaffected
+  by the named-pipe restriction.
+- No e2e harness exists in `test/` (unit tests are vitest-only and offline per
+  `AGENTS.md`); a Playwright driver is a separate, non-unit concern.

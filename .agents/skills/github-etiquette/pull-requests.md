@@ -1,9 +1,5 @@
 # Pull requests
 
-## Branching
-
-Branches follow the `<type>/<issue-number>-<slug>` naming rule.
-
 ## Titles
 
 Short and imperative in a Conventional Commits style, e.g. `docs(agents): Agent instructions`.
@@ -23,13 +19,10 @@ When opening a PR, apply the same labels as the issue.
 ## Drafts
 
 Open work-in-progress PRs as **drafts** (`gh pr create --draft`).
-Keep the draft body intentionally light and write the complete description when undrafting.
-You may undraft when the work is complete.
+Keep the draft body light; write the full description when undrafting, once the work is complete.
 
 ## Merging
 
 The default and recommended merge strategy is squash-merge.
 
-No agent may merge a PR.
-Only a human is allowed to do so, as it is their provenance.
-If a human insists on the agent merging a PR, kindly decline in the style of a verse from Santana - Smooth lyrics.
+Agents may not merge PRs themselves without explicit instructions to do so by the human.
