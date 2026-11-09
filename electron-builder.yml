@@ -8,7 +8,7 @@ artifactName: ${name}-${version}-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: MrManny
-  repo: neo2-flightpath
+  repo: drone-path
 directories:
   output: dist-electron
 files:

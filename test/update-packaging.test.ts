@@ -49,7 +49,7 @@ describe('the packaged desktop app can self-update', () => {
   it('declares the GitHub release feed', () => {
     expect(builderConfig).toContain('provider: github');
     expect(builderConfig).toContain('owner: MrManny');
-    expect(builderConfig).toContain('repo: neo2-flightpath');
+    expect(builderConfig).toContain('repo: drone-path');
   });
 
   it('gives the NSIS setup its own artifact name', () => {
