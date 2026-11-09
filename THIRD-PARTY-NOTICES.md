@@ -75,3 +75,10 @@ the npm install. The `ffmpeg-ffprobe-static` wrapper code itself is not part of
 the desktop distribution; its LICENSE file is BSD-3-Clause (Copyright (c) 2020,
 Eugene Ware and contributors) while its npm metadata declares
 GPL-3.0-or-later.
+
+## GitHub mark
+
+`ui/icons/GitHubIcon.tsx` draws the GitHub octocat mark, used nominatively and
+solely to link to the project's own GitHub repository from the About dialog.
+The mark is a trademark of GitHub, Inc.; this use implies no affiliation with
+or endorsement by GitHub.

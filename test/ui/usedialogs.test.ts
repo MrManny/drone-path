@@ -23,6 +23,7 @@ describe('useDialogs', () => {
     expect(result.current).toEqual({
       modalOpen: false,
       helpOpen: false,
+      aboutOpen: false,
       exportOpen: false,
       telemetrySaveOpen: false,
       updateOpen: false,
@@ -95,6 +96,26 @@ describe('useDialogs', () => {
     expect(result.current.modalOpen).toBe(true);
     expect(result.current.helpOpen).toBe(true);
     expect(result.current.dismissible).toBe(true);
+  });
+
+  it('opens the About dialog as a dismissable modal', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openAbout' });
+    expect(result.current.modalOpen).toBe(true);
+    expect(result.current.aboutOpen).toBe(true);
+    expect(result.current.dismissible).toBe(true);
+    send({ type: 'close' });
+    expect(result.current.aboutOpen).toBe(false);
+    expect(result.current.modalOpen).toBe(false);
+  });
+
+  it('keeps a running job between About and the workspace', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openExport' });
+    send({ type: 'exportStarted' });
+    send({ type: 'openAbout' });
+    expect(result.current.aboutOpen).toBe(false);
+    expect(result.current.exportOpen).toBe(true);
   });
 
   it('closes an open dialog', () => {

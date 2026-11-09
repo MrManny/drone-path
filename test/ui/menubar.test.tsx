@@ -15,6 +15,7 @@ function renderBar(overrides: Partial<MenuBarProps> = {}) {
     onSettings: vi.fn(),
     onSwap: vi.fn(),
     onDocumentation: vi.fn(),
+    onAbout: vi.fn(),
     onExit: vi.fn(),
     onMenuOpenChange: vi.fn(),
   };
@@ -121,6 +122,10 @@ describe('MenuBar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
     expect(handlers.onDocumentation).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'About' }));
+    expect(handlers.onAbout).toHaveBeenCalledTimes(1);
   });
 
   it('disables the recording-bound items without a recording', () => {
@@ -133,6 +138,8 @@ describe('MenuBar', () => {
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(false);
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Swap' }).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'About' }).disabled).toBe(false);
   });
 
   it('holds Open while a recording is opening', () => {
@@ -201,6 +208,19 @@ describe('MenuBar', () => {
     renderBar();
     pressKey({ key: 'h', altKey: true });
     expect(screen.getByRole('menu', { name: 'Help' })).toBeTruthy();
+  });
+
+  it('reaches About with the keyboard, under its separator', () => {
+    const handlers = renderBar();
+    pressKey({ key: 'h', altKey: true });
+    expect(within(screen.getByRole('menu', { name: 'Help' })).getAllByRole('separator')).toHaveLength(
+      1,
+    );
+    pressKey({ key: 'ArrowDown' });
+    pressKey({ key: 'Enter' });
+    expect(handlers.onAbout).toHaveBeenCalledTimes(1);
+    expect(handlers.onDocumentation).not.toHaveBeenCalled();
+    expect(handlers.onMenuOpenChange).toHaveBeenLastCalledWith(false);
   });
 
   it('walks the rows with the keyboard and activates the highlighted one', () => {

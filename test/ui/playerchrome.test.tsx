@@ -118,6 +118,32 @@ describe('PlayerChrome workspace structure', () => {
     expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
+  it('opens About from the Help menu', () => {
+    const dispatchDialog = vi.fn();
+    render(
+      <PlayerChrome
+        session={SESSION}
+        settings={SETTINGS}
+        onSettingsChange={() => {}}
+        onOpen={() => {}}
+        onHelp={() => {}}
+        onExit={() => {}}
+        dialogs={{
+          modalOpen: false,
+          helpOpen: false,
+          aboutOpen: false,
+          exportOpen: false,
+          telemetrySaveOpen: false,
+          updateOpen: false,
+          dismissible: true,
+          dispatchDialog,
+        }}
+      />,
+    );
+    clickMenuItem('About');
+    expect(dispatchDialog).toHaveBeenCalledWith({ type: 'openAbout' });
+  });
+
   it('gates playback until the scene is ready', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const play = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
@@ -324,6 +350,7 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   Exit: 'File',
   Swap: 'View',
   Documentation: 'Help',
+  About: 'Help',
 };
 
 function openMenu(label: 'File' | 'View' | 'Help'): void {

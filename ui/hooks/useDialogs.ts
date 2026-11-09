@@ -8,6 +8,7 @@ import { canDismiss, dialogReducer } from '../lib/dialogstate.js';
 export interface Dialogs {
   modalOpen: boolean;
   helpOpen: boolean;
+  aboutOpen: boolean;
   exportOpen: boolean;
   telemetrySaveOpen: boolean;
   updateOpen: boolean;
@@ -20,6 +21,7 @@ export function useDialogs(): Dialogs {
   return {
     modalOpen: dialog !== 'closed',
     helpOpen: dialog === 'help',
+    aboutOpen: dialog === 'about',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
     telemetrySaveOpen: dialog === 'telemetry-save' || dialog === 'telemetry-saving',
     updateOpen: dialog === 'update-prompt',

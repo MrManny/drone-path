@@ -64,6 +64,7 @@ export function EmptyWorkspace({
         onSettings={NOOP}
         onSwap={NOOP}
         onDocumentation={onHelp}
+        onAbout={() => dialogs.dispatchDialog({ type: 'openAbout' })}
         onExit={onExit}
         onMenuOpenChange={setMenuOpen}
       />

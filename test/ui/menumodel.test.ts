@@ -28,9 +28,10 @@ describe('MENU_BAR', () => {
     ]);
   });
 
-  it('offers Documentation in Help', () => {
+  it('offers Documentation and About in Help, About under a separator', () => {
     expect(menuOf('help').items).toEqual([
       { id: 'documentation', label: 'Documentation', icon: 'help' },
+      { id: 'about', label: 'About', icon: 'info', separatorBefore: true },
     ]);
   });
 
@@ -97,6 +98,12 @@ describe('itemEnabled', () => {
     {
       name: 'Documentation never disables',
       id: 'documentation',
+      flags: { hasRecording: false, opening: true },
+      want: true,
+    },
+    {
+      name: 'About never disables',
+      id: 'about',
       flags: { hasRecording: false, opening: true },
       want: true,
     },

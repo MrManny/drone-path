@@ -7,7 +7,8 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 
 - Node.js 24 or 26, npm. Use `npm ci` to install dependencies.
 - `npm run build` compiles the CLI (`dist/`), compiles the user manual into
-  the UI (`npm run build:manual`), and builds the UI export (`ui/out/`);
+  the UI (`npm run build:manual`), injects the build identity shown by
+  Help → About (`npm run build:info`), and builds the UI export (`ui/out/`);
   `npm run app` starts the Electron desktop app against it (packaging uses
   `electron-builder`). `npm run docs:reference` regenerates the checked-in
   `docs/user/cli-reference.md` from the option vocabulary in `src/config.ts`.

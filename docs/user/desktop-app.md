@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## The menu bar
 
-Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…**, **Settings** and **Exit**; **View** holds **Swap** (`S`); **Help**, at the right edge, holds **Documentation**, which opens this manual. Items that cannot act right now — export, telemetry, Settings and Swap without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…**, **Settings** and **Exit**; **View** holds **Swap** (`S`); **Help**, at the right edge, holds **Documentation**, which opens this manual, and **About** under a separator. Items that cannot act right now — export, telemetry, Settings and Swap without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
 
 ## Loading a recording
 
@@ -112,6 +112,8 @@ Packaged builds update themselves: when a newer [release](https://github.com/MrM
 ## Help
 
 The **Help → Documentation** menu item opens this manual inside the app. It is bundled with the app, so it works offline.
+
+**Help → About** opens a small dialog with the app's identity: the *drone / path* lockup, the installed version below it, the MIT license line and a link to the project repository, which opens in the default browser. The version reads `MAJOR.MINOR.PATCH` in a release build (like `0.8.1`) and adds `+` with the short commit (like `0.8.1+cb40df32`) in every other build, so a support answer names the exact build; release builds never carry the commit suffix.
 
 ## Notes
 

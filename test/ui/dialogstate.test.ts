@@ -6,6 +6,7 @@ import type { DialogEvent, DialogState } from '../../ui/lib/dialogstate.js';
 const STATES: DialogState[] = [
   'closed',
   'help',
+  'about',
   'export-form',
   'export-running',
   'telemetry-save',
@@ -15,6 +16,7 @@ const STATES: DialogState[] = [
 
 const EVENTS: DialogEvent[] = [
   { type: 'openHelp' },
+  { type: 'openAbout' },
   { type: 'openExport' },
   { type: 'openTelemetrySave' },
   { type: 'telemetrySaveStarted' },
@@ -37,6 +39,8 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
   switch (event.type) {
     case 'openHelp':
       return pinned(state) ? state : 'help';
+    case 'openAbout':
+      return pinned(state) ? state : 'about';
     case 'openExport':
       return pinned(state) ? state : 'export-form';
     case 'openTelemetrySave':
@@ -66,14 +70,18 @@ describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) =>
   });
 });
 
-describe.each<DialogState>(['closed', 'help', 'export-form', 'telemetry-save', 'update-prompt'])(
-  'canDismiss(%s)',
-  (state) => {
-    it('is true, so Escape, the backdrop and the close may dismiss', () => {
-      expect(canDismiss(state)).toBe(true);
-    });
-  },
-);
+describe.each<DialogState>([
+  'closed',
+  'help',
+  'about',
+  'export-form',
+  'telemetry-save',
+  'update-prompt',
+])('canDismiss(%s)', (state) => {
+  it('is true, so Escape, the backdrop and the close may dismiss', () => {
+    expect(canDismiss(state)).toBe(true);
+  });
+});
 
 describe.each<DialogState>(['export-running', 'telemetry-saving'])('canDismiss(%s)', (state) => {
   it('is false, so the running work keeps its dialog on screen', () => {
