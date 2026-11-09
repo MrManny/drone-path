@@ -1,26 +1,18 @@
 # Drone Path
 
-This handy little tool allows you to render flight-path map videos
-from DJI drone recordings (DJI Neo 2 and similar).
+This handy little tool renders flight-path map videos from DJI drone
+recordings (DJI Neo 2 and similar): the actual flight path on a 2D map,
+ready to overlay in your drone flight footage.
 
-I wanted a tool to render the actual flight-path on a 2d map,
-so that I can overlay it in the actual footage of my drone flight
-videos.
-
-Currently, it supports two main ways to acquire the geo-coordinates from
-DJI's telemetry:
+It reads geo-coordinates from DJI's telemetry in two ways:
 
 - if an `.SRT` sidecar is available, that will be used,
-- otherwise it tries to parse the embedded `CAM` meta stream (DJI's protobuf format).
+- otherwise it tries to parse the embedded CAM meta (DVTM) stream
+  (DJI's protobuf format).
 
-It is a CLI tool, since I plan to support agentic use cases.
-Meaning, if an agent wants to use it to help you create flight-path videos,
-that's all cool with me.
-
-For us humans, there is a desktop app (see *Desktop app*): it opens a window
-where you pick a recording and watch its flight path on the map in sync with
-the footage. The player opens as soon as the map tiles around the drone are
-ready and the rest of the map keeps loading in the background.
+It is a CLI tool first, so agents can drive it too — that's all cool with me.
+For us humans, there is a [desktop app](docs/user/desktop-app.md): pick a
+recording and watch its flight path on the map in sync with the footage.
 
 ## Quick start
 
@@ -39,9 +31,9 @@ npx drone-path "my-flight.mp4" --telemetry-json "my-flight.telemetry.json"
 ```
 
 Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder
-and the name are configurable. This needs Node.js 24 or newer and
+and the name are configurable. Requirements: Node.js 24 or 26 and
 ffmpeg/ffprobe — bundled with the desktop app and the npm package,
-overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback; all
+overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback. All
 requirements and install options are in
 [Getting started](docs/user/getting-started.md).
 
@@ -80,8 +72,6 @@ with the flight trail, drone position and HUD chips on one shared timeline.*
 
 If you want or need specific features, feel free to open an issue in this
 repository's issue tracker.
-I plan to maintain this project for a good bit, and hopefully making it more
-useful for people in the long run.
 
 ## License
 

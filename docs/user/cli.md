@@ -18,8 +18,8 @@ drone-path "flight.mp4"
 # (heading arrow + altitude + speed chips)
 drone-path "flight.mp4" --style topo --hud heading,alt,speed
 
-# custom trail color: RGB or RGBA hex (the # is optional), e.g. for footage
-# the default trail color blends into
+# custom trail color: RGB or RGBA hex (the # is optional), e.g. when
+# the default trail color blends into the footage
 drone-path "flight.mp4" --trail-color e63946
 drone-path "flight.mp4" --style topo --trail-color "#e63946cc"
 ```
@@ -40,11 +40,18 @@ All frames below are from the same recording:
 
 *`--style topo --hud heading,alt,speed` (third command): topographic map with heading, altitude and speed chips.*
 
-The heading arrow shows drone yaw when the `CAM meta` stream provides it, otherwise the yaw is computed from the track.
+The heading arrow shows drone yaw when the CAM meta (DVTM) stream provides it; otherwise the yaw is computed from the track.
 
 ## Telemetry JSON export
 
-`--telemetry-json <file>` writes one JSON document with the raw per-frame telemetry alongside the render: a schema header (declared proto schema, source, heading mode, frame count, gimbal device constants) plus exactly one record per source frame with the time, position, altitude, body and gimbal attitude, heading and camera exposure values the telemetry source decoded. Values the source does not carry are omitted from the record — absent keys, never `null` — and zero-valued attitudes the wire skipped (proto3 zero-omission) are exported as `0.0`. The one exception is `headingDeg`: it keeps the same back-filled heading the map arrow renders, and `headingSource` says whether the heading came from drone yaw or was derived from the track. The document follows the checked-in `docs/telemetry-json.schema.json`; `SensorTemperature` and the semantics-undecoded DVTM fields are deliberately excluded. The run must cover a single recording; skipped recordings (`--skip-existing`) write no document.
+`--telemetry-json <file>` writes one JSON document with the raw per-frame telemetry alongside the render. The document contains:
+
+- a schema header (declared proto schema, source, heading mode, frame count, gimbal device constants);
+- exactly one record per source frame with the time, position, altitude, body and gimbal attitude, heading and camera exposure values the telemetry source decoded.
+
+Values the source does not carry are omitted from the record — absent keys, never `null` — and zero-valued attitudes the wire skipped (proto3 zero-omission) are exported as `0.0`. The one exception is `headingDeg`: it keeps the same back-filled heading the map arrow renders, and `headingSource` says whether the heading came from drone yaw or was derived from the track.
+
+The document follows the checked-in `docs/telemetry-json.schema.json`; `SensorTemperature` and the semantics-undecoded DVTM fields are deliberately excluded. The run must cover a single recording; skipped recordings (`--skip-existing`) write no document.
 
 ## Options and reference
 
