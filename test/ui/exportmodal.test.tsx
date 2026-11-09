@@ -163,11 +163,11 @@ async function reachPhase(phase: Phase, emitDone: (outcome: ExportOutcome) => vo
 }
 
 function dialogFooter(): HTMLElement {
-  return screen.getByRole('dialog', { name: 'Export' }).querySelector('.dialog-actions') as HTMLElement;
+  return screen.getByRole('dialog', { name: 'Export video' }).querySelector('.dialog-actions') as HTMLElement;
 }
 
 function headerClose(): HTMLButtonElement {
-  const header = screen.getByRole('dialog', { name: 'Export' }).querySelector('.settings-header') as HTMLElement;
+  const header = screen.getByRole('dialog', { name: 'Export video' }).querySelector('.settings-header') as HTMLElement;
   return within(header).getByRole<HTMLButtonElement>('button', { name: 'Close' });
 }
 
@@ -342,8 +342,8 @@ describe('ExportModal backdrop dismissal', () => {
     const { emitDone } = installBridge();
     await reachPhase('running', emitDone);
     await waitFor(() => expect(headerClose().disabled).toBe(true));
-    fireEvent.click(screen.getByRole('dialog', { name: 'Export' }).parentElement as HTMLElement);
-    expect(screen.getByRole('dialog', { name: 'Export' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('dialog', { name: 'Export video' }).parentElement as HTMLElement);
+    expect(screen.getByRole('dialog', { name: 'Export video' })).toBeTruthy();
   });
 
   it('closes on a backdrop click once the job has settled', async () => {
@@ -356,8 +356,8 @@ describe('ExportModal backdrop dismissal', () => {
     await waitFor(() =>
       expect(events).toEqual([{ type: 'exportStarted' }, { type: 'exportFinished' }]),
     );
-    fireEvent.click(screen.getByRole('dialog', { name: 'Export' }).parentElement as HTMLElement);
-    expect(screen.queryByRole('dialog', { name: 'Export' })).toBeNull();
+    fireEvent.click(screen.getByRole('dialog', { name: 'Export video' }).parentElement as HTMLElement);
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
   });
 });
 

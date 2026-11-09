@@ -244,7 +244,7 @@ button.primary {
   height: 100vh;
 }
 
-/* Header bar: brand, project identity and the app's actions. */
+/* Header bar: brand and project identity. */
 .workspace-header {
   flex: none;
   height: var(--header-h);
@@ -284,9 +284,6 @@ button.primary {
   display: block;
   font-size: 12px;
   color: var(--text-3);
-}
-.header-spacer {
-  flex: 1 1 auto;
 }
 
 /* Caption rows: the timeline heading and the export preview's caption share
@@ -688,8 +685,7 @@ button.primary {
   border: 0;
 }
 
-/* Status bar: readiness, telemetry and duration at the left, Help at the
-   right. Its small Help button follows the notice-dismiss size. */
+/* Status bar: readiness and telemetry notes at the left. */
 .status-bar {
   flex: none;
   height: var(--status-h);
@@ -706,14 +702,142 @@ button.primary {
 .status-item {
   white-space: nowrap;
 }
-.status-bar button {
-  min-height: 28px;
+
+/* Menu bar: slim window chrome carrying every workspace command, with
+   floating dropdowns (docs/design-guidelines.md). Accent marks menu state
+   only ("accent forward"): the open label pill and the live row's tint fill,
+   selection bar and accent icon and hint. */
+.menu-bar {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 33px;
   padding: 0 8px;
-  font-size: 12px;
+  box-sizing: border-box;
+  background: var(--page);
+  border-bottom: 1px solid var(--hairline);
+}
+.menu-bar-slot {
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+.menu-bar-slot.end {
+  margin-left: auto;
+}
+.menu-bar .menu-bar-label {
+  height: 24px;
+  min-height: 0;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text);
+  transition: none;
+}
+/* Flat window chrome: only the open pill marks a label. */
+.menu-bar .menu-bar-label:hover:not(:disabled),
+.menu-bar .menu-bar-label:active:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  transform: none;
+}
+.menu-bar .menu-bar-label.open {
+  background: rgba(232, 127, 84, 0.16);
+  color: var(--accent-text);
+}
+/* The dropdown hangs under its label like the map popover floats, 32px rows
+   over the 36px control recipe (see docs/design-guidelines.md). */
+.menu-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1500;
+  width: 256px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+}
+.menu-bar-slot.end .menu-panel {
+  left: auto;
+  right: 0;
+}
+.menu-panel .menu-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  height: 32px;
+  min-height: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  line-height: 20px;
+  text-align: left;
+  transition: none;
+}
+/* One live row at a time: hover feeds the same model slot as the keyboard
+   (hoverRow in ui/lib/menustate.ts), so mouse and arrows can never light two
+   rows — the recipe's accent marks one "where you are about to go". */
+.menu-panel .menu-row.active {
+  background: rgba(232, 127, 84, 0.14);
+  border-color: transparent;
+}
+/* The pressed row already carries the live-row treatment; cancel the global
+   pressed transform only. */
+.menu-panel .menu-row:active:not(:disabled) {
+  transform: none;
+}
+.menu-panel .menu-item-icon {
+  display: flex;
+  color: var(--text-3);
+}
+.menu-panel .menu-item-label {
+  margin-left: 12px;
+}
+.menu-panel .menu-item-hint {
+  margin-left: auto;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-3);
+}
+.menu-panel .menu-row.active .menu-item-icon,
+.menu-panel .menu-row.active .menu-item-hint {
+  color: var(--accent-text);
+}
+.menu-panel .menu-selbar {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 1.5px;
+  background: transparent;
+}
+.menu-panel .menu-row.active .menu-selbar {
+  background: var(--accent);
+}
+.menu-panel .menu-separator {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--hairline);
 }
 
-/* The map appearance popover: a non-modal panel anchored above the footer's
-   Map settings button, below dialogs in the stacking order. */
+/* The map appearance popover: a non-modal panel at the lower right, beside
+   the map it affects, below dialogs in the stacking order. */
 .map-popover {
   position: fixed;
   bottom: calc(var(--status-h) + 8px);

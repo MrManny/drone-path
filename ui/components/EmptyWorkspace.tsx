@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { LoopState } from '../lib/loop.js';
 import type { PickState } from '../lib/pickstate.js';
 import { EmptyStage } from './EmptyStage.js';
+import { MenuBar } from './MenuBar.js';
 import { StatusBar } from './StatusBar.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
@@ -16,24 +17,26 @@ export interface EmptyWorkspaceProps {
   state: PickState;
   onPick: () => void;
   onHelp: () => void;
+  onExit: () => void;
   onDismiss?: () => void;
   dialogs: Dialogs;
 }
 
 const NOOP = (): void => {};
 const NO_LOOP: LoopState = { in: null, out: null };
-const NO_SCOPE = 'loaded recording';
 
 export function EmptyWorkspace({
   state,
   onPick,
   onHelp,
+  onExit,
   onDismiss,
   dialogs,
 }: EmptyWorkspaceProps) {
   const timeRef = useRef<HTMLSpanElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const dispatch = usePlayerHotkeys(
     {
       togglePlay: NOOP,
@@ -46,20 +49,25 @@ export function EmptyWorkspace({
       openRecording: onPick,
       closeOverlay: () => dialogs.dispatchDialog({ type: 'close' }),
     },
-    { modalOpen: dialogs.modalOpen, popoverOpen: false, fps: 0, frames: 0 },
+    { modalOpen: dialogs.modalOpen, popoverOpen: false, menuOpen, fps: 0, frames: 0 },
   );
 
   return (
     <div className="workspace">
-      <WorkspaceHeader
-        durationSec={0}
+      <MenuBar
+        hasRecording={false}
         opening={state.kind === 'preparing'}
-        disabled
-        telemetryScope={NO_SCOPE}
+        modalOpen={dialogs.modalOpen}
         onOpen={onPick}
-        onExport={NOOP}
-        onTelemetrySave={NOOP}
+        onExportVideo={NOOP}
+        onExportTelemetry={NOOP}
+        onSettings={NOOP}
+        onSwap={NOOP}
+        onDocumentation={onHelp}
+        onExit={onExit}
+        onMenuOpenChange={setMenuOpen}
       />
+      <WorkspaceHeader durationSec={0} />
       <EmptyStage state={state} onPick={onPick} onDismiss={onDismiss} />
       <TransportBar
         dispatch={dispatch}
@@ -85,14 +93,7 @@ export function EmptyWorkspace({
         playheadRef={playheadRef}
         src=""
       />
-      <StatusBar
-        disabled
-        hasTelemetry={false}
-        onMapSettings={NOOP}
-        mapSettingsOpen={false}
-        onSwap={NOOP}
-        onHelp={onHelp}
-      />
+      <StatusBar disabled hasTelemetry={false} />
     </div>
   );
 }

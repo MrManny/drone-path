@@ -157,6 +157,18 @@ export default function Page() {
   const openHelp = useCallback(() => dispatchDialog({ type: 'openHelp' }), [dispatchDialog]);
   const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
+  // Exit closes the window through the app shell's close path, so a running
+  // export still gets its confirmation prompt.
+  const handleExit = useCallback(() => {
+    try {
+      void appBridge()
+        .closeWindow()
+        .catch(() => {});
+    } catch {
+      // Outside the app shell there is no window to close.
+    }
+  }, []);
+
   return (
     <>
       {loaded ? (
@@ -167,6 +179,7 @@ export default function Page() {
           onSettingsChange={handleSettingsChange}
           onOpen={handlePick}
           onHelp={openHelp}
+          onExit={handleExit}
           dialogs={sharedDialogs}
           openState={pickState}
           onDismissOpenState={dismissOpen}
@@ -176,6 +189,7 @@ export default function Page() {
           state={pickState}
           onPick={handlePick}
           onHelp={openHelp}
+          onExit={handleExit}
           onDismiss={dismissOpen}
           dialogs={sharedDialogs}
         />

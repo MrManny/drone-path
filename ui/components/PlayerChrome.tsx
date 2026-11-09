@@ -20,6 +20,7 @@ import type { PickState } from '../lib/pickstate.js';
 import type { TelemetrySavePhase } from '../lib/telemetrysave.js';
 import { telemetryScope, telemetrySaveFlow } from '../lib/telemetrysave.js';
 import { ExportHost } from './ExportHost.js';
+import { MenuBar } from './MenuBar.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
 import { Popover } from './Popover.js';
@@ -36,6 +37,7 @@ export interface PlayerChromeProps {
   onSettingsChange: (config: RenderConfig) => void;
   onOpen: () => void;
   onHelp: () => void;
+  onExit: () => void;
   dialogs: Dialogs;
   openState?: PickState;
   onDismissOpenState?: () => void;
@@ -49,6 +51,7 @@ export function PlayerChrome({
   onSettingsChange,
   onOpen,
   onHelp,
+  onExit,
   dialogs,
   openState = IDLE_OPEN,
   onDismissOpenState,
@@ -75,6 +78,7 @@ export function PlayerChrome({
   } = usePlayback(video, durationSec);
   const { modalOpen, exportOpen, telemetrySaveOpen, dismissible, dispatchDialog } = dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [telemetrySave, setTelemetrySave] = useState<TelemetrySavePhase | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
   const {
@@ -113,7 +117,7 @@ export function PlayerChrome({
       openRecording: onOpen,
       closeOverlay,
     },
-    { modalOpen, popoverOpen: mapAppearanceOpen, fps: video.fps, frames: video.frames },
+    { modalOpen, popoverOpen: mapAppearanceOpen, menuOpen, fps: video.fps, frames: video.frames },
   );
 
   const maxFrame = Math.max(0, video.frames - 1);
@@ -175,14 +179,22 @@ export function PlayerChrome({
 
   return (
     <div className="workspace">
-      <WorkspaceHeader
-        durationSec={durationSec}
+      <MenuBar
+        hasRecording
         opening={opening}
-        telemetryScope={scope}
+        modalOpen={modalOpen}
+        itemTitles={{ exportTelemetry: `Exports telemetry for the ${scope}` }}
         onOpen={onOpen}
-        onExport={() => dispatchDialog({ type: 'openExport' })}
-        onTelemetrySave={saveTelemetryJson}
+        onExportVideo={() => dispatchDialog({ type: 'openExport' })}
+        onExportTelemetry={saveTelemetryJson}
+        onSettings={toggleMapAppearance}
+        onSwap={swap}
+        onDocumentation={onHelp}
+        onExit={onExit}
+        onMenuOpenChange={setMenuOpen}
+        barRef={appearanceButtonRef}
       />
+      <WorkspaceHeader durationSec={durationSec} />
       <PlayerStage
         video={video}
         sceneData={sceneData}
@@ -214,14 +226,7 @@ export function PlayerChrome({
         playheadRef={playheadRef}
         src={video.src}
       />
-      <StatusBar
-        hasTelemetry={session.scene.lat.length > 0}
-        onMapSettings={toggleMapAppearance}
-        mapSettingsOpen={mapAppearanceOpen}
-        settingsButtonRef={appearanceButtonRef}
-        onSwap={swap}
-        onHelp={onHelp}
-      />
+      <StatusBar hasTelemetry={session.scene.lat.length > 0} />
       {mapAppearanceOpen ? (
         <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
           <SettingsPanel

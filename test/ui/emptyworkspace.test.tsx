@@ -29,26 +29,33 @@ function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
 function renderWorkspace(state: PickState = { kind: 'idle' }, dialogs = fakeDialogs()) {
   const onPick = vi.fn();
   const onHelp = vi.fn();
+  const onExit = vi.fn();
   const onDismiss = vi.fn();
   render(
     <EmptyWorkspace
       state={state}
       onPick={onPick}
       onHelp={onHelp}
+      onExit={onExit}
       onDismiss={onDismiss}
       dialogs={dialogs}
     />,
   );
-  return { onPick, onHelp, onDismiss, dialogs };
+  return { onPick, onHelp, onExit, onDismiss, dialogs };
+}
+
+function menu(): HTMLElement {
+  return document.querySelector('.menu-bar') as HTMLElement;
 }
 
 describe('EmptyWorkspace skeleton', () => {
-  it('keeps the five workspace rows in the player order and geometry', () => {
+  it('keeps the six workspace rows in the player order and geometry', () => {
     renderWorkspace();
     const rows = [...(document.querySelector('.workspace') as HTMLElement).children].map(
       (row) => row.className,
     );
     expect(rows).toEqual([
+      'menu-bar',
       'workspace-header',
       'stage stage-split',
       'transport',
@@ -72,14 +79,17 @@ describe('EmptyWorkspace skeleton', () => {
     expect(primaries[0].textContent).toContain('Open…');
   });
 
-  it('disables Export while keeping Open live in the header', () => {
+  it('disables the recording-bound menu items while keeping Open live', () => {
     renderWorkspace();
-    const header = document.querySelector('.workspace-header') as HTMLElement;
-    const open = within(header).getByRole<HTMLButtonElement>('button', { name: 'Open…' });
-    const exportButton = within(header).getByRole<HTMLButtonElement>('button', { name: 'Export…' });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    const open = within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' });
     expect(open.disabled).toBe(false);
-    expect(open.className).not.toContain('primary');
-    expect(exportButton.disabled).toBe(true);
+    for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
+      expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name }).disabled).toBe(true);
+    }
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(
+      false,
+    );
   });
 
   it('disables the transport cluster and the speed group', () => {
@@ -100,16 +110,22 @@ describe('EmptyWorkspace skeleton', () => {
     }
   });
 
-  it('disables map settings and swap while Help stays available', () => {
-    const { onHelp } = renderWorkspace();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Map settings' }).disabled).toBe(
+  it('disables Settings and Swap in the menu while Documentation stays available', () => {
+    const { onHelp, onExit } = renderWorkspace();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Settings' }).disabled).toBe(
       true,
     );
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Swap' }).disabled).toBe(true);
-    const help = screen.getByRole<HTMLButtonElement>('button', { name: 'Help' });
-    expect(help.disabled).toBe(false);
-    fireEvent.click(help);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Swap' }).disabled).toBe(
+      true,
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
     expect(onHelp).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Exit' }));
+    expect(onExit).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -154,11 +170,14 @@ describe('EmptyWorkspace keyboard', () => {
 });
 
 describe('EmptyWorkspace open states', () => {
-  it('disables the header Open button while the flow prepares', () => {
+  it('disables the menu Open item while the flow prepares', () => {
     renderWorkspace({ kind: 'preparing', progress: { stage: 'probe', done: 0, total: 3 } });
-    const header = document.querySelector('.workspace-header') as HTMLElement;
-    expect(within(header).getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(
       true,
+    );
+    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(
+      false,
     );
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' }).disabled).toBe(
       true,

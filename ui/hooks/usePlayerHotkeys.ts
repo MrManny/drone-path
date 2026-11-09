@@ -21,6 +21,7 @@ export interface PlayerActionHandlers {
 export interface PlayerActionContext {
   modalOpen: boolean;
   popoverOpen: boolean;
+  menuOpen: boolean;
   fps: number;
   frames: number;
 }
@@ -76,7 +77,7 @@ export function usePlayerHotkeys(
     hotkeyHandlerRef.current = (e: KeyboardEvent): void => {
       const { action, session } = mapKey(
         e,
-        { modalOpen: ctx.modalOpen, popoverOpen: ctx.popoverOpen },
+        { modalOpen: ctx.modalOpen, popoverOpen: ctx.popoverOpen, menuOpen: ctx.menuOpen },
         sessionRef.current,
       );
       sessionRef.current = session;

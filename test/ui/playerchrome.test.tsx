@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../../src/config.js';
@@ -35,10 +34,14 @@ const SETTINGS: RenderConfig = { ...DEFAULT_CONFIG };
 
 function Chrome({
   onHelp = () => {},
+  onExit = () => {},
   ...props
-}: Omit<PlayerChromeProps, 'dialogs' | 'onHelp'> & { onHelp?: () => void }) {
+}: Omit<PlayerChromeProps, 'dialogs' | 'onHelp' | 'onExit'> & {
+  onHelp?: () => void;
+  onExit?: () => void;
+}) {
   const dialogs = useDialogs();
-  return <PlayerChrome {...props} onHelp={onHelp} dialogs={dialogs} />;
+  return <PlayerChrome {...props} onHelp={onHelp} onExit={onExit} dialogs={dialogs} />;
 }
 
 beforeEach(() => {
@@ -60,22 +63,24 @@ describe('PlayerChrome export form memory', () => {
     fireEvent.change(scrub, { target: { value: '60' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set loop out' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    clickMenuItem('Export video…');
     expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
     fireEvent.change(screen.getByLabelText('Width'), { target: { value: '1024' } });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    clickMenuItem('Export video…');
     expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
     expect(screen.getByLabelText<HTMLInputElement>('Width').value).toBe('1024');
   });
 });
 
 describe('PlayerChrome workspace structure', () => {
-  it('keeps the header, transport, timeline and status bar actions reachable', () => {
+  it('keeps the menu, transport, timeline and status bar actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export…' })).toBeTruthy();
+    openMenu('File');
+    for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Settings', 'Exit']) {
+      expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
+    }
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
@@ -85,10 +90,10 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Set loop out' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Map settings' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Help' })).toBeTruthy();
     expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
+    // The moved commands live in the menu bar only.
+    expect(document.querySelectorAll('.workspace-header button')).toHaveLength(0);
+    expect(document.querySelectorAll('.status-bar button')).toHaveLength(0);
   });
 
   it('keeps the transport row after the stage row, so it can mirror the stage layout', () => {
@@ -98,7 +103,7 @@ describe('PlayerChrome workspace structure', () => {
     expect(stage.nextElementSibling).toBe(document.querySelector('.transport'));
   });
 
-  it('opens help from the status bar', () => {
+  it('opens help from the Help menu', () => {
     const onHelp = vi.fn();
     render(
       <Chrome
@@ -109,7 +114,7 @@ describe('PlayerChrome workspace structure', () => {
         onHelp={onHelp}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    clickMenuItem('Documentation');
     expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
@@ -124,7 +129,8 @@ describe('PlayerChrome workspace structure', () => {
 
   it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Swap' })).toBeTruthy();
+    openMenu('View');
+    expect(within(menuBar()).getByRole('menuitem', { name: 'Swap' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
     const card = document.querySelector('.map-card') as HTMLElement;
@@ -189,9 +195,9 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const card = document.querySelector('.map-card') as HTMLElement;
     expect(card.className).toContain('map-card-split');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    clickMenuItem('Swap');
     expect(card.className).toContain('map-card-overlay');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    clickMenuItem('Swap');
     expect(card.className).toContain('map-card-split');
   });
 
@@ -199,17 +205,17 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const stage = document.querySelector('.stage') as HTMLElement;
     expect(stage.className).toContain('stage-split');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    clickMenuItem('Swap');
     expect(stage.className).toContain('stage-overlay');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    clickMenuItem('Swap');
     expect(stage.className).toContain('stage-split');
   });
 
   it('keeps the map island mounted across the swap, so playback stays synchronized', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const island = screen.getByTestId('map-island');
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Swap' }));
+    clickMenuItem('Swap');
+    clickMenuItem('Swap');
     expect(screen.getByTestId('map-island')).toBe(island);
   });
 
@@ -222,29 +228,23 @@ describe('PlayerChrome view swap', () => {
 });
 
 describe('PlayerChrome map appearance popover', () => {
-  it('opens from the footer button and closes with Escape', async () => {
-    const user = userEvent.setup();
+  it('opens from the File menu and closes with Escape', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    const toggle = screen.getByRole('button', { name: 'Map settings' });
-    await user.click(toggle);
+    clickMenuItem('Settings');
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('closes on a second toggle press instead of flapping open', async () => {
-    const user = userEvent.setup();
+  it('closes on a second Settings run instead of flapping open', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    const toggle = screen.getByRole('button', { name: 'Map settings' });
-    await user.click(toggle);
+    clickMenuItem('Settings');
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
-    await user.click(toggle);
+    clickMenuItem('Settings');
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(toggle);
+    // Menu actions return focus to their menu's label, the home of the item.
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'File' }));
   });
 
   it('applies settings changes from the popover', () => {
@@ -257,7 +257,7 @@ describe('PlayerChrome map appearance popover', () => {
         onOpen={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(onSettingsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ style: 'topo' }),
@@ -310,6 +310,29 @@ function key(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
     target.dispatchEvent(event);
   });
   return event;
+}
+
+function menuBar(): HTMLElement {
+  return document.querySelector('.menu-bar') as HTMLElement;
+}
+
+const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
+  'Open…': 'File',
+  'Export video…': 'File',
+  'Export telemetry…': 'File',
+  Settings: 'File',
+  Exit: 'File',
+  Swap: 'View',
+  Documentation: 'Help',
+};
+
+function openMenu(label: 'File' | 'View' | 'Help'): void {
+  fireEvent.click(screen.getByRole('menuitem', { name: label }));
+}
+
+function clickMenuItem(label: string): void {
+  openMenu(MENU_OF_ITEM[label]);
+  fireEvent.click(within(menuBar()).getByRole('menuitem', { name: label }));
 }
 
 async function renderPlayer(onOpen: () => void = () => {}): Promise<FakePlayback> {
@@ -500,7 +523,7 @@ describe('PlayerChrome loop region', () => {
   it('closes the popover on Esc first and clears the loop on the second', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
@@ -549,7 +572,7 @@ describe('PlayerChrome shortcut guard rails', () => {
   it('keeps player keys inert while a dialog is open', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    clickMenuItem('Export video…');
     key(window, { key: ' ' });
     key(window, { key: '2' });
     key(window, { key: 'ArrowRight' });
@@ -563,7 +586,7 @@ describe('PlayerChrome shortcut guard rails', () => {
   it('keeps player keys inert while typing in a popover field', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     const field = document.querySelector('input[type="number"]') as HTMLInputElement;
     key(field, { key: '3' });
     key(field, { key: ' ' });
@@ -576,14 +599,14 @@ describe('PlayerChrome shortcut guard rails', () => {
 
   it('keeps player keys live while the popover is open', async () => {
     const fake = await renderPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     key(window, { key: ' ' });
     expect(fake.play).toHaveBeenCalledTimes(1);
   });
 
   it('leaves Esc on an open select dropdown to the select', async () => {
     await renderPlayer();
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     const select = document.querySelector('select') as HTMLSelectElement;
     key(select, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
@@ -632,7 +655,10 @@ describe('PlayerChrome open notice', () => {
     );
     expect(screen.getByText('Probing the recording…')).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Preparation progress' })).toBeTruthy();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(true);
+    openMenu('File');
+    expect(within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(
+      true,
+    );
   });
 });
 
@@ -651,12 +677,15 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
       );
       expect(screen.queryByRole('alert')).toBeNull();
       expect(screen.queryByRole('status')).toBeNull();
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(false);
+      openMenu('File');
+      expect(
+        within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled,
+      ).toBe(false);
     });
   },
 );
 
-describe('PlayerChrome save telemetry JSON', () => {
+describe('PlayerChrome export telemetry', () => {
   afterEach(() => {
     delete (window as { dronepath?: unknown }).dronepath;
   });
@@ -683,7 +712,7 @@ describe('PlayerChrome save telemetry JSON', () => {
       pickTelemetryOutput: vi.fn(async () => ({ ok: false, canceled: true })),
     });
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    clickMenuItem('Export telemetry…');
     await settle();
 
     expect(bridge.saveTelemetryJson).not.toHaveBeenCalled();
@@ -695,11 +724,11 @@ describe('PlayerChrome save telemetry JSON', () => {
       pickTelemetryOutput: vi.fn(async () => ({ ok: false, error: 'the dialog went away' })),
     });
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    clickMenuItem('Export telemetry…');
     await settle();
 
     expect(bridge.saveTelemetryJson).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
     expect(screen.getByText('the dialog went away')).toBeTruthy();
   });
 
@@ -714,18 +743,18 @@ describe('PlayerChrome save telemetry JSON', () => {
       ),
     });
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    clickMenuItem('Export telemetry…');
     await settle();
-    expect(screen.getByText('Saving telemetry JSON…')).toBeTruthy();
+    expect(screen.getByText('Exporting telemetry…')).toBeTruthy();
 
     key(window, { key: 'Escape' });
     await settle();
-    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
 
     if (finish) finish({ ok: false, error: 'disk full' });
     await settle();
     expect(screen.getByText('disk full')).toBeTruthy();
-    expect(screen.getByRole('dialog', { name: 'Save telemetry JSON' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
   });
 
   it('reports the scope captured at save time, not a later loop edit', async () => {
@@ -740,7 +769,7 @@ describe('PlayerChrome save telemetry JSON', () => {
     });
     await renderPlayer();
     setLoopRegion(10, 60);
-    fireEvent.click(screen.getByRole('button', { name: 'Save telemetry JSON…' }));
+    clickMenuItem('Export telemetry…');
     await settle();
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));

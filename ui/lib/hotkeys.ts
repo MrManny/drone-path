@@ -27,6 +27,8 @@ export interface HotkeyEvent {
 export interface HotkeyContext {
   modalOpen: boolean;
   popoverOpen?: boolean;
+  /** An open menu owns the keyboard; player shortcuts stay inert. */
+  menuOpen?: boolean;
 }
 
 export interface HotkeySession {
@@ -102,6 +104,8 @@ function mapAction(
   const shift = event.shiftKey === true;
   const tag = tagNameOf(event.target);
   const { key } = event;
+
+  if (ctx.menuOpen === true) return null;
 
   if (key === 'Escape') {
     if (tag === 'SELECT' && !selectEscaped) return null;

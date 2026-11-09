@@ -175,7 +175,7 @@ export function ExportModal({
 
   return (
     <DialogShell
-      title="Export"
+      title="Export video"
       panelClass="export-panel"
       onClose={onClose}
       closeOnBackdrop={dismissible}

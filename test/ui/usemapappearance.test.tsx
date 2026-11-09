@@ -8,9 +8,17 @@ function Harness() {
   const { open, triggerRef, toggle, close } = useMapAppearance();
   return (
     <>
-      <button ref={triggerRef} onClick={toggle}>
-        Map appearance
-      </button>
+      {/* The real trigger is the menu bar container, so the harness one is a
+          focusable element of a different tag than a button. */}
+      <div
+        ref={(node) => {
+          triggerRef.current = node;
+        }}
+        tabIndex={-1}
+        data-testid="trigger"
+      >
+        <button onClick={toggle}>Map appearance</button>
+      </div>
       <span data-testid="state">{open ? 'open' : 'closed'}</span>
       <button onClick={close}>Close</button>
     </>
@@ -25,7 +33,7 @@ function mount() {
     toggle: () => fireEvent.click(screen.getByRole('button', { name: 'Map appearance' })),
     close: () => fireEvent.click(screen.getByRole('button', { name: 'Close' })),
     state: () => screen.getByTestId('state').textContent,
-    trigger: () => screen.getByRole('button', { name: 'Map appearance' }),
+    trigger: () => screen.getByTestId('trigger'),
   };
 }
 

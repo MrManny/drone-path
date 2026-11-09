@@ -81,6 +81,7 @@ function installBridge() {
     }),
     getUpdateState: vi.fn(async () => ({ ready: false })),
     restartToUpdate: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
+    closeWindow: vi.fn(async () => {}),
   };
   (window as { dronepath?: unknown }).dronepath = bridge;
   return {
@@ -121,9 +122,27 @@ function stageCta(): HTMLButtonElement {
   ) as HTMLButtonElement;
 }
 
-function headerButton(name: string): HTMLButtonElement {
-  const header = document.querySelector('.workspace-header') as HTMLElement;
-  return within(header).getByRole<HTMLButtonElement>('button', { name });
+function menuBar(): HTMLElement {
+  return document.querySelector('.menu-bar') as HTMLElement;
+}
+
+function menuItem(name: string): HTMLButtonElement {
+  return within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name });
+}
+
+const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
+  'Open…': 'File',
+  'Export video…': 'File',
+  'Export telemetry…': 'File',
+  Settings: 'File',
+  Exit: 'File',
+  Swap: 'View',
+  Documentation: 'Help',
+};
+
+function clickMenuItem(name: string): void {
+  fireEvent.click(screen.getByRole('menuitem', { name: MENU_OF_ITEM[name] }));
+  fireEvent.click(menuItem(name));
 }
 
 function openWorkspace() {
@@ -131,7 +150,7 @@ function openWorkspace() {
   return stageCta();
 }
 
-const ROWS = ['.workspace-header', '.stage', '.transport', '.timeline', '.status-bar'];
+const ROWS = ['.menu-bar', '.workspace-header', '.stage', '.transport', '.timeline', '.status-bar'];
 
 function rowGeometry(): string[] {
   return ROWS.map((selector) => {
@@ -159,10 +178,11 @@ afterEach(() => {
 });
 
 describe('the empty workspace at launch', () => {
-  it('lands in the five-row skeleton with disabled controls and one accent CTA', () => {
+  it('lands in the six-row skeleton with disabled controls and one accent CTA', () => {
     installBridge();
     openWorkspace();
     expect(rowGeometry().map((row) => row.split(' @ ')[0])).toEqual([
+      'menu-bar',
       'workspace-header',
       'stage stage-split',
       'transport',
@@ -171,19 +191,19 @@ describe('the empty workspace at launch', () => {
     ]);
     expect(stageCta().textContent).toContain('Open…');
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
-    expect(headerButton('Open…').disabled).toBe(false);
-    expect(headerButton('Export…').disabled).toBe(true);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(menuItem('Open…').disabled).toBe(false);
+    expect(menuItem('Export video…').disabled).toBe(true);
     for (const name of ['Jump to start', 'Play', 'Jump to end', '1×', '2×', '3×', '4×']) {
       expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
     }
     expect(
       screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
     ).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Map settings' }).disabled).toBe(
-      true,
-    );
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Swap' }).disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Help' }).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    expect(menuItem('Swap').disabled).toBe(true);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
+    expect(menuItem('Documentation').disabled).toBe(false);
     expect(screen.getByText('No telemetry yet')).toBeTruthy();
     expect(screen.getByText('No recording loaded')).toBeTruthy();
     expect(screen.getByText(/SRT sidecar/)).toBeTruthy();
@@ -284,12 +304,37 @@ describe('accent discipline', () => {
     const harness = installBridge();
     openWorkspace();
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
-    expect(headerButton('Open…').className).not.toContain('primary');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(document.querySelector('.menu-row.primary')).toBeNull();
     await commitLoaded(harness);
     expect(document.querySelector('.workspace button.primary')).toBeNull();
     expect(document.querySelector('.workspace button.dialog-primary')).toBeNull();
-    expect(headerButton('Open…').className).not.toContain('primary');
-    expect(headerButton('Export…').className).not.toContain('primary');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(document.querySelector('.menu-row.primary')).toBeNull();
+  });
+});
+
+describe('menu bar commands', () => {
+  it('closes the app from File → Exit through the shell close path', () => {
+    const harness = installBridge();
+    openWorkspace();
+    clickMenuItem('Exit');
+    expect(harness.bridge.closeWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing on File → Exit outside the app shell', () => {
+    openWorkspace();
+    clickMenuItem('Exit');
+    expect(document.querySelector('.workspace')).not.toBeNull();
+    expect(document.querySelector('.menu-panel')).toBeNull();
+  });
+
+  it('opens the recording dialog from File → Open…', () => {
+    const harness = installBridge();
+    openWorkspace();
+    clickMenuItem('Open…');
+    expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.menu-panel')).toBeNull();
   });
 });
 
@@ -334,7 +379,7 @@ describe('Open flow over the player', () => {
     openWorkspace();
     await commitLoaded(harness);
 
-    fireEvent.click(headerButton('Open…'));
+    clickMenuItem('Open…');
     await harness.settle({ ok: false, error: 'not a readable .mp4 file: C:\\Windows\\win.ini' });
     expect(screen.getByRole('alert').textContent).toContain(
       '"win.ini" is not a readable .mp4 recording.',
@@ -358,7 +403,7 @@ describe('settings persistence', () => {
 
   it('seeds the map appearance popover from the persisted look', async () => {
     await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
     expect(
       screen.getByRole('button', { name: 'Overview' }).getAttribute('aria-pressed'),
@@ -369,7 +414,7 @@ describe('settings persistence', () => {
   it('persists every panel change through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Map settings' }));
+    clickMenuItem('Settings');
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -382,7 +427,7 @@ describe('settings persistence', () => {
   it('persists an encoder change from the export modal through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+    clickMenuItem('Export video…');
     fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ codec: 'h265' }),
@@ -404,7 +449,7 @@ describe('update prompt', () => {
     openWorkspace();
     await commitLoaded(harness);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Help' }));
+    clickMenuItem('Documentation');
     harness.updateReady();
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
 

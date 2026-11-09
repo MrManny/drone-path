@@ -50,6 +50,7 @@ export interface AppBridge {
   onUpdateRestartFailed(cb: (message: string) => void): () => void;
   getUpdateState(): Promise<UpdateState>;
   restartToUpdate(): Promise<ExportAck>;
+  closeWindow(): Promise<void>;
 }
 
 declare global {

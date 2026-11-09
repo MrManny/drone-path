@@ -20,17 +20,17 @@ export function TelemetrySaveModal({
 }: TelemetrySaveModalProps) {
   return (
     <DialogShell
-      title="Save telemetry JSON"
+      title="Export telemetry"
       onClose={onClose}
       closeOnBackdrop={dismissible}
-      blockedReason={dismissible ? undefined : 'Saving telemetry JSON. Wait for it to finish.'}
+      blockedReason={dismissible ? undefined : 'Exporting telemetry. Wait for it to finish.'}
     >
-      {phase.kind === 'saving' ? <Notice tone="info">Saving telemetry JSON…</Notice> : null}
+      {phase.kind === 'saving' ? <Notice tone="info">Exporting telemetry…</Notice> : null}
 
       {phase.kind === 'done' ? (
         <>
           {phase.error ? <ErrorNotice message={phase.error} /> : null}
-          <Notice tone="info">Telemetry JSON saved.</Notice>
+          <Notice tone="info">Telemetry exported.</Notice>
           <p className="export-path">{phase.path}</p>
           <p className="export-path">{`Scope: ${phase.scope}`}</p>
           <div className="dialog-actions">

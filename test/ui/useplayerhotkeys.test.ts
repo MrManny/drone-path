@@ -11,7 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const CTX = { modalOpen: false, popoverOpen: false, fps: 30, frames: 90 };
+const CTX = { modalOpen: false, popoverOpen: false, menuOpen: false, fps: 30, frames: 90 };
 
 function fakeHandlers(): PlayerActionHandlers {
   return {
