@@ -1,5 +1,12 @@
 # drone-path
 
+## 0.8.1
+
+- **Fixed:** The GitHub repository moved to `MrManny/drone-path`:
+  `npx github:` commands, links and the desktop app's update feed point
+  at the new home, and old URLs redirect.
+- **Internal:** Routine dependency updates.
+
 ## 0.8.0
 
 - **New:** The tool is now called **Drone Path**. The rename is a clean
