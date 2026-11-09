@@ -10,7 +10,7 @@ import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { RecordingSummary } from '../../src/run.js';
 
-export type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
+type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
 
 // Only the tail is ever shown, so the reducer keeps a bounded window instead
 // of copying an ever-growing log on every progress line.

@@ -91,15 +91,14 @@ function deriveCasing(style: Style, core: Rgb): string {
 const GLOW_ALPHA: Record<Style, number> = { satellite: 0.32, topo: 0.26 };
 
 function trailGlow(alpha: number): string {
-  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(TRAIL_COLOR.slice(i, i + 2), 16));
-  return `rgba(${r},${g},${b},${alpha})`;
+  return rgba(parseHexColor(TRAIL_COLOR), alpha);
 }
 
 const THEMES: Record<Style, Theme> = {
   satellite: {
     core: TRAIL_COLOR,
     trailCore: TRAIL_COLOR,
-    glow: trailGlow(0.32),
+    glow: trailGlow(GLOW_ALPHA.satellite),
     casing: 'rgba(10,14,20,0.9)',
     ghost: '#ffffff',
     ghostOpacity: 0.85,
@@ -110,7 +109,7 @@ const THEMES: Record<Style, Theme> = {
   topo: {
     core: TRAIL_COLOR,
     trailCore: TRAIL_COLOR,
-    glow: trailGlow(0.26),
+    glow: trailGlow(GLOW_ALPHA.topo),
     casing: '#ffffff',
     ghost: '#6b6252',
     ghostOpacity: 0.7,

@@ -41,7 +41,7 @@ function assignPrToMe() {
   }
 }
 
-export function runOpenPr(argv) {
+function runOpenPr(argv) {
   const [title, bodyPath, base = 'main'] = argv;
   if (!title || !bodyPath) {
     console.error(`${ERROR_PREFIX}usage: node scripts/open-pr.mjs <title> <body_path> [base]`);

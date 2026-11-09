@@ -13,7 +13,7 @@ export type TelemetrySource = 'srt' | 'cammeta';
 export type TelemetryMethod = 'srt-cues' | CamMetaMethod;
 export type HeadingMode = 'yaw' | 'cog';
 
-export interface FrameData {
+interface FrameData {
   fix: LatLon | null;
   alt: number | null;
   speed: number | null;
@@ -321,15 +321,9 @@ function fillHeadingGaps(rawHeading: (number | null)[]): void {
     if (rawHeading[k] !== null) last = rawHeading[k];
     else rawHeading[k] = last;
   }
-  const firstKnown = firstKnownHeading(rawHeading);
-  if (firstKnown !== null) {
-    for (let k = 0; k < rawHeading.length; k++) {
-      if (rawHeading[k] === null) rawHeading[k] = firstKnown;
-      else break;
-    }
-  }
+  const fallback = firstKnownHeading(rawHeading) ?? 0;
   for (let k = 0; k < rawHeading.length; k++) {
-    rawHeading[k] ??= firstKnown ?? 0;
+    rawHeading[k] ??= fallback;
   }
 }
 

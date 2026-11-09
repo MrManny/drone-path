@@ -540,7 +540,6 @@ export async function parseCamMeta(
   durationSec: number,
   opts: { keepAll?: boolean } = {},
 ): Promise<CamMetaResult | null> {
-  const keepAll = opts.keepAll === true;
   // Null returns below mark a genuine absence ("no CAM meta stream"); tool
   // failures have already thrown with their cause by this point.
   const streamIndex = await findCamMetaIndex(tools, videoPath);
@@ -556,7 +555,7 @@ export async function parseCamMeta(
     0,
   );
   if (packets.length > 0 && sizeSum === buf.length) {
-    const { samples, noLock, provenance } = decodePacketSamples(buf, packets, keepAll);
+    const { samples, noLock, provenance } = decodePacketSamples(buf, packets, opts.keepAll === true);
     return { samples, noLock, method: 'dvtm-packets', ...provenance };
   }
 

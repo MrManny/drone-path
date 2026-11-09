@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { generateCliReference } from './cliref.js';
 
-export function writeReference(file: string): void {
+function writeReference(file: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, generateCliReference());
 }

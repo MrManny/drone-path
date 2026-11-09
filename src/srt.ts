@@ -99,7 +99,6 @@ export function parseSrtText(text: string): SrtParseResult {
     if (timing) {
       const ms = timingLineToMs(timing);
       baseMs ??= ms;
-      // A timing line always starts a new cue.
       cues.push(newCue((ms - baseMs) / 1000));
       cueSawLatLon = false;
       continue;

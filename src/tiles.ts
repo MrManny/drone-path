@@ -126,9 +126,9 @@ function createPlaceholderSource(): (style: Style) => Buffer {
   };
 }
 
-export type TileStatus = 'cached' | 'downloaded' | 'failed';
+type TileStatus = 'cached' | 'downloaded' | 'failed';
 
-export interface TileFetchResult {
+interface TileFetchResult {
   /** The file to serve: the real tile, or its placeholder after a failure. */
   file: string;
   status: TileStatus;
@@ -166,7 +166,7 @@ async function fetchTileToCache(
  * two never share a download, so a canceled pre-warm cannot abort an
  * on-demand fetch.
  */
-export type TilePriority = 'now' | 'background';
+type TilePriority = 'now' | 'background';
 
 interface QueuedTile {
   style: Style;

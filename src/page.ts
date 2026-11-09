@@ -11,7 +11,7 @@
 //              pure CSS transform, so no tile loads happen mid-render)
 
 import { hasAltitude, resolveHudSpec } from './config.js';
-import type { HudSpec, RenderConfig, Style, View } from './config.js';
+import type { HudSpec, LookSettings, Style, View } from './config.js';
 import { decimateTrack } from './decimate.js';
 import type { DecimatedTrack } from './decimate.js';
 import { unproject } from './geo.js';
@@ -51,10 +51,7 @@ export function planPageOpts(opts: {
   bbox: Bbox;
   width: number;
   height: number;
-  config: Pick<
-    RenderConfig,
-    'style' | 'view' | 'zoom' | 'zoomOut' | 'introSec' | 'outroSec' | 'hud' | 'trailColor'
-  >;
+  config: LookSettings;
   source: { fps: number; frames: number };
   frames: Pick<PageOpts, 'lat' | 'lon' | 'alt' | 'speed' | 'headingDeg'>;
   /**

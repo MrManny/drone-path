@@ -20,8 +20,8 @@ export interface DecimateOptions {
   maxPoints?: number;
 }
 
-export const DEFAULT_EPSILON_PX = 1;
-export const DEFAULT_MAX_POINTS = 3000;
+const DEFAULT_EPSILON_PX = 1;
+const DEFAULT_MAX_POINTS = 3000;
 
 export function decimateTrack(
   lat: readonly number[],

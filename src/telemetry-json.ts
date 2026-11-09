@@ -53,11 +53,11 @@ export const TelemetryDocumentSchema = z.strictObject({
   frames: z.array(TelemetryRecordSchema),
 });
 
-export type TelemetryRecord = z.infer<typeof TelemetryRecordSchema>;
-export type TelemetryGimbalDevice = z.infer<typeof GimbalDeviceSchema>;
+type TelemetryRecord = z.infer<typeof TelemetryRecordSchema>;
+type TelemetryGimbalDevice = z.infer<typeof GimbalDeviceSchema>;
 export type TelemetryDocument = z.infer<typeof TelemetryDocumentSchema>;
 
-export type TelemetryValueKey = Exclude<
+type TelemetryValueKey = Exclude<
   keyof TelemetryRecord,
   'frame' | 'headingDeg' | 'headingSource'
 >;

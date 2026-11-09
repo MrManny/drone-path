@@ -12,7 +12,7 @@ import { setIssueStatus } from './lib/project.mjs';
 import { execOrThrow } from './lib/exec.mjs';
 import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
 
-export function runStartWork(argv) {
+function runStartWork(argv) {
   const branch = argv[0];
   const issue = branch ? /^[\w.-]+\/(\d+)-/.exec(branch)?.[1] : undefined;
   if (!issue) {
