@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_OPTIONS,
   DEFAULT_CONFIG,
+  asTrailColor,
   cliDefaultOf,
   formatHud,
   normalizeDimensions,
@@ -81,6 +82,14 @@ describe('normalizeOverrides', () => {
     expect(normalizeOverrides({ outDir: null, zoom: undefined }, 'test')).toEqual({});
   });
 
+  it('carries an explicit null for keys whose default is null (a reset to default)', () => {
+    expect(normalizeOverrides({ trailColor: null, browser: null }, 'test')).toEqual({
+      trailColor: null,
+      browser: null,
+    });
+    expect(normalizeOverrides({ zoom: null }, 'test')).toEqual({});
+  });
+
   it('normalizes the telemetry JSON path as a nullable string', () => {
     expect(normalizeOverrides({ telemetryJson: 'telemetry.json' }, 'test')).toEqual({
       telemetryJson: 'telemetry.json',
@@ -92,6 +101,30 @@ describe('normalizeOverrides', () => {
       /invalid value for test: telemetryJson/,
     );
   });
+});
+
+describe('asTrailColor', () => {
+  it.each([
+    ['#e63946', '#e63946'],
+    ['41f0ff', '#41f0ff'],
+    ['#E63946', '#e63946'],
+    ['#f00', '#ff0000'],
+    ['#f00c', '#ff0000cc'],
+    ['#41f0ffcc', '#41f0ffcc'],
+    ['', null],
+    [null, null],
+  ] as Array<[unknown, string | null]>)('canonicalizes %s', (raw, want) => {
+    expect(asTrailColor(raw, 'trail color')).toBe(want);
+  });
+
+  it.each([['neon'], ['#12345'], ['rgb(1,2,3)'], ['#gggggg'], ['#e63946ee00'], [5], [true]])(
+    'rejects %s with one clear error naming the flag',
+    (raw) => {
+      expect(() => asTrailColor(raw, '--trail-color')).toThrow(
+        /invalid value for --trail-color: .* \(use hex like #e63946 or #e63946cc\)/,
+      );
+    },
+  );
 });
 
 describe('validateRenderConfig', () => {
@@ -314,6 +347,20 @@ describe('export request boundary', () => {
     expect(request.config).toMatchObject({ style: 'topo', width: 1024, height: 576 });
   });
 
+  it('applies a renderer-owned trail color and lets null reset it to the default', () => {
+    const coloredBase = { ...base, trailColor: '#e63946' };
+    const applied = parseExportRequest(
+      { outPath: '/exports/a.mp4', config: { trailColor: '#41f0ff' } },
+      coloredBase,
+    );
+    expect(applied.config.trailColor).toBe('#41f0ff');
+    const reset = parseExportRequest(
+      { outPath: '/exports/a.mp4', config: { trailColor: null } },
+      coloredBase,
+    );
+    expect(reset.config.trailColor).toBeNull();
+  });
+
   it('still applies renderer-owned encoder settings', () => {
     const request = parseExportRequest(
       {
@@ -335,6 +382,7 @@ describe('parseSettingsPatch', () => {
     hud: { heading: true, alt: false, speed: true },
     introSec: 1.5,
     outroSec: 0,
+    trailColor: null,
     codec: 'h265',
     quality: 'low',
     preset: 'veryfast',
@@ -342,6 +390,15 @@ describe('parseSettingsPatch', () => {
 
   it('accepts the object HUD form the renderer sends', () => {
     expect(parseSettingsPatch(complete, 'test')).toEqual(complete);
+  });
+
+  it('accepts a chosen trail color and canonicalizes it', () => {
+    const withColor = { ...complete, trailColor: '#41f0ff' };
+    expect(parseSettingsPatch(withColor, 'test')).toEqual(withColor);
+    expect(parseSettingsPatch({ ...complete, trailColor: '41FF00CC' }, 'test')).toEqual({
+      ...complete,
+      trailColor: '#41ff00cc',
+    });
   });
 
   it('accepts the CLI-string HUD form JSON files use', () => {
@@ -365,6 +422,8 @@ describe('parseSettingsPatch', () => {
     ['an unknown hud component', { ...complete, hud: 'heading,bogus' }],
     ['a look value the pipeline would reject', { ...complete, zoom: -1 }],
     ['a mistyped flag', { ...complete, outroSec: '2' }],
+    ['an unreadable trail color', { ...complete, trailColor: 'neon' }],
+    ['a mistyped trail color', { ...complete, trailColor: 5 }],
   ])('rejects %s', (_label, raw) => {
     expect(() => parseSettingsPatch(raw, 'test')).toThrow();
   });

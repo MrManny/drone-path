@@ -1,8 +1,9 @@
 'use client';
 
-import { STYLE_VALUES } from '../../src/config.js';
+import { asTrailColor, STYLE_VALUES } from '../../src/config.js';
 import type { RenderConfig, Style, View } from '../../src/config.js';
 import { patchConfig, setHudChip, STYLE_LABELS, VIEW_LABELS } from '../lib/settings.js';
+import { ColorField } from './ColorField.js';
 import { Notice } from './Notice.js';
 import { NumberField } from './NumberField.js';
 import { SelectField } from './SelectField.js';
@@ -49,6 +50,14 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
           options={STYLE_VALUES.map((value) => ({ value, label: STYLE_LABELS[value] }))}
           hint="Satellite imagery"
           onValue={(style) => apply({ style: style as Style })}
+        />
+        <ColorField
+          label="Trail color"
+          value={config.trailColor}
+          parse={(raw) => asTrailColor(raw, 'trail color')}
+          rule="hex like #e63946"
+          hint="empty = map style's color"
+          onValue={(trailColor) => apply({ trailColor })}
         />
         <div className="settings-row">
           <span className="settings-label">View</span>

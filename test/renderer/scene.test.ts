@@ -10,6 +10,7 @@ interface PolylineRecord {
   points: Array<[number, number]>;
   sets: Array<Array<[number, number]>>;
   adds: Array<[number, number]>;
+  color: string;
 }
 
 interface MarkerRecord {
@@ -93,8 +94,8 @@ function fakeL(host: HTMLElement): {
         getSouthEast: () => ({ lat: Math.min(...lats), lng: Math.max(...lngs) }),
       };
     },
-    polyline: (points): PolylineHandle => {
-      const rec: PolylineRecord = { points, sets: [], adds: [] };
+    polyline: (points, options): PolylineHandle => {
+      const rec: PolylineRecord = { points, sets: [], adds: [], color: options.color };
       polylines.push(rec);
       return {
         addTo: () => {},
@@ -144,6 +145,7 @@ function fakeL(host: HTMLElement): {
 function sceneData(overrides: Partial<SceneData> = {}): SceneData {
   return {
     style: 'satellite',
+    trailColor: null,
     tileUrl: '/tiles/satellite/{z}/{x}/{y}.png',
     view: 'overview',
     width: 768,
@@ -215,6 +217,17 @@ describe('createScene', () => {
     expect(tile.url).toBe('/tiles/satellite/{z}/{x}/{y}.png');
     expect(document.head.textContent).toContain('#map-frame');
     expect(document.head.textContent).toContain('#e87f54');
+  });
+
+  it('paints the chosen trail color with its derived glow and casing', () => {
+    const { host } = mount();
+    const { L, polylines } = fakeL(host);
+    createScene(host, sceneData({ trailColor: '#41f0ff' }), { L });
+    const colors = polylines.map((p) => p.color);
+    expect(colors).toContain('#41f0ff');
+    expect(colors).toContain('rgba(65,240,255,0.32)');
+    expect(colors).toContain('rgba(21,59,67,0.9)');
+    expect(document.head.textContent).toContain('rgba(65,240,255,1)');
   });
 
   it('centers the overview view on the configured center', () => {
@@ -412,6 +425,10 @@ describe('Scene.update', () => {
     {
       name: 'the frame track changes',
       next: { lat: [46.61], lon: [14.26] },
+    },
+    {
+      name: 'the trail color changes',
+      next: { trailColor: '#41f0ff' },
     },
   ])('rebuilds the decorations when $name', async ({ next }) => {
     const { host } = mount();

@@ -35,6 +35,8 @@ import type { TrailController } from './trail.js';
 
 export interface SceneData {
   style: Style;
+  /** null = the map style's theme trail color. */
+  trailColor: string | null;
   /** Leaflet tile URL template, e.g. "/tiles/satellite/{z}/{x}/{y}.png". */
   tileUrl: string;
   view: View;
@@ -203,7 +205,7 @@ class SceneState implements Scene {
   private applyChrome(): void {
     this.styleEl.textContent = sceneCss(
       TILE_SOURCES[this.data.style],
-      themeFor(this.data.style),
+      themeFor(this.data.style, this.data.trailColor),
       this.data.width,
       this.data.height,
       this.scale(),
@@ -298,7 +300,7 @@ class SceneState implements Scene {
     });
     trailCasing.addTo(this.map);
     const trail: PolylineHandle = this.L.polyline([], {
-      color: theme.core,
+      color: theme.trailCore,
       weight: wCore,
       opacity: 1,
       lineCap: 'round',
@@ -333,7 +335,7 @@ class SceneState implements Scene {
   }
 
   private buildDecor(): Decor {
-    const theme = themeFor(this.data.style);
+    const theme = themeFor(this.data.style, this.data.trailColor);
     const s = this.scale();
     const ghostLatlngs: LatLngTuple[] = this.data.trailLat.map(
       (la, i): LatLngTuple => [la, this.data.trailLon[i]],
@@ -435,6 +437,7 @@ class SceneState implements Scene {
     }
     const chromeChanged =
       next.style !== prev.style ||
+      next.trailColor !== prev.trailColor ||
       next.width !== prev.width ||
       next.height !== prev.height ||
       next.attribution !== prev.attribution;
@@ -450,6 +453,7 @@ class SceneState implements Scene {
     }
     const decorInvalidated =
       next.style !== prev.style ||
+      next.trailColor !== prev.trailColor ||
       next.trailLat !== prev.trailLat ||
       next.lat !== prev.lat ||
       next.width !== prev.width ||

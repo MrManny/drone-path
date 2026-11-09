@@ -35,6 +35,7 @@ const REQUEST: PickRequest = {
     hud: { heading: true, alt: false, speed: false },
     introSec: 0,
     outroSec: 0,
+    trailColor: null,
   },
 };
 
@@ -280,10 +281,22 @@ describe('parsePickRequest', () => {
     hud: { heading: false, alt: true, speed: true },
     introSec: 1.5,
     outroSec: 0,
+    trailColor: null,
   };
 
   it('takes the look settings off the renderer request', () => {
     expect(parsePickRequest({ settings })).toEqual({ settings });
+  });
+
+  it('takes the trail color along', () => {
+    const withColor = { ...settings, trailColor: '#41f0ff' };
+    expect(parsePickRequest({ settings: withColor })).toEqual({ settings: withColor });
+  });
+
+  it('rejects an unreadable trail color', () => {
+    expect(() => parsePickRequest({ settings: { ...settings, trailColor: 'neon' } })).toThrow(
+      'invalid value for trail color',
+    );
   });
 
   it('rejects an unknown map style', () => {

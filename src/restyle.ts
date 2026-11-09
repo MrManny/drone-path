@@ -13,7 +13,7 @@ import type { SceneData } from './renderer/scene.js';
 // callers can key memoized scene data on exactly these.
 export type SceneConfig = Pick<
   RenderConfig,
-  'style' | 'view' | 'zoom' | 'zoomOut' | 'introSec' | 'outroSec' | 'hud'
+  'style' | 'view' | 'zoom' | 'zoomOut' | 'introSec' | 'outroSec' | 'hud' | 'trailColor'
 >;
 
 export interface RestyleMeta {

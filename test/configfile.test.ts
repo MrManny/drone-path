@@ -40,6 +40,24 @@ describe('loadConfigFile', () => {
     expect(() => loadConfigFile(file)).toThrow(/unknown config key/);
   });
 
+  it('rejects the removed trail key even alongside trailColor', () => {
+    const file = path.join(tmpDir(), 'c.json');
+    fs.writeFileSync(file, '{"trailColor": "#fff", "trail": "incr"}');
+    expect(() => loadConfigFile(file)).toThrow(/unknown config key/);
+  });
+
+  it('accepts the trail color key', () => {
+    const file = path.join(tmpDir(), 'c.json');
+    fs.writeFileSync(file, '{"trailColor": "41f0ff"}');
+    expect(loadConfigFile(file)).toEqual({ trailColor: '#41f0ff' });
+  });
+
+  it('rejects an unreadable trail color, naming the key', () => {
+    const file = path.join(tmpDir(), 'c.json');
+    fs.writeFileSync(file, '{"trailColor": "neon"}');
+    expect(() => loadConfigFile(file)).toThrow(/invalid value for .*trailColor/);
+  });
+
   it('rejects invalid JSON', () => {
     const file = path.join(tmpDir(), 'c.json');
     fs.writeFileSync(file, '{oops');
@@ -88,6 +106,18 @@ describe('resolveConfig', () => {
   it('fills the per-user tile cache when no layer sets one', () => {
     const { config } = resolveConfig({ configPath: null, cwd: tmpDir() });
     expect(config.tileCache).toBe(defaultTileCache());
+  });
+
+  it('layers the trail color like every other option', () => {
+    const root = tmpDir();
+    const file = path.join(root, '.dronepath.json');
+    fs.writeFileSync(file, JSON.stringify({ trailColor: '#41f0ff' }));
+    expect(resolveConfig({ configPath: file, cwd: root }).config.trailColor).toBe('#41f0ff');
+    expect(
+      resolveConfig({ cli: { trailColor: '#e63946' }, configPath: file, cwd: root }).config
+        .trailColor,
+    ).toBe('#e63946');
+    expect(resolveConfig({ configPath: null, cwd: tmpDir() }).config.trailColor).toBeNull();
   });
 
   it('validates ranges', () => {

@@ -30,6 +30,8 @@ export interface RenderConfig {
   zoomOut: number;
   introSec: number;
   outroSec: number;
+  /** null = the map style's theme trail color. */
+  trailColor: string | null;
   hud: HudSpec;
   workers: number;
   capture: Capture;
@@ -160,6 +162,26 @@ function asNullableString(value: unknown, name: string): string | null {
   return asString(value, name);
 }
 
+// A trail color as canonical lowercase hex, #rrggbb or #rrggbbaa. Shorthand
+// #rgb/#rgba expands and the leading # is optional, so CLI callers never need
+// shell quoting; empty is the unset default like the other nullable options,
+// and anything else is one clear error naming the input.
+const TRAIL_COLOR_RX = /^#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+export function asTrailColor(value: unknown, name: string): string | null {
+  const bad = (): Error =>
+    new Error(
+      `invalid value for ${name}: ${String(value)} (use hex like #e63946 or #e63946cc)`,
+    );
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string') throw bad();
+  const match = TRAIL_COLOR_RX.exec(value.trim());
+  if (!match) throw bad();
+  let hex = match[1].toLowerCase();
+  if (hex.length <= 4) hex = [...hex].map((c) => c + c).join('');
+  return `#${hex}`;
+}
+
 // How one option appears on the command line: the flags (with any value
 // placeholder), the help text, the accepted choices for enum flags, and how
 // commander's string-y value becomes the typed one.
@@ -246,6 +268,16 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
     cli: { flags: '--outro-sec <s>', help: 'outro: zoom back out over s seconds', parse: cliNumber },
     default: 2,
     normalize: (v, name) => ({ outroSec: asNumber(v, name) }),
+  },
+  {
+    key: 'trailColor',
+    cli: {
+      flags: '--trail-color <hex>',
+      help:
+        'trail color as hex, RGB or RGBA (e.g. e63946 or #e63946cc; default: the map style\'s color)',
+    },
+    default: null,
+    normalize: (v, name) => ({ trailColor: asTrailColor(v, name) }),
   },
   {
     key: 'hud',
@@ -390,7 +422,11 @@ export function normalizeOverrides(
       : null;
     if (!normalize) throw new Error(`unknown config key ${key} in ${origin}`);
     const value = raw[key];
-    if (value === undefined || value === null) continue;
+    if (value === undefined) continue;
+    // An explicit null means "unset to default" where the vocabulary's default
+    // is null (so a nullable override can reset a non-null base); elsewhere a
+    // null is a mistyped value this layer historically ignores.
+    if (value === null && DEFAULT_CONFIG[key as keyof RenderConfig] !== null) continue;
     Object.assign(out, normalize(value, `${origin}: ${key}`));
   }
   return out;
@@ -406,7 +442,7 @@ export type EncodeSettings = Pick<RenderConfig, 'codec' | 'quality' | 'preset'>;
 /** The look settings: what the map shows. */
 export type LookSettings = Pick<
   RenderConfig,
-  'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec'
+  'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec' | 'trailColor'
 >;
 
 /** The persisted settings: the look the settings panel owns and the encoder choices the export modal owns. */
@@ -421,6 +457,7 @@ export function settingsPatchOf(config: RenderConfig): SettingsPatch {
     hud: config.hud,
     introSec: config.introSec,
     outroSec: config.outroSec,
+    trailColor: config.trailColor,
     codec: config.codec,
     quality: config.quality,
     preset: config.preset,
@@ -437,6 +474,7 @@ export const SETTINGS_KEYS = [
   'hud',
   'introSec',
   'outroSec',
+  'trailColor',
   'codec',
   'quality',
   'preset',
