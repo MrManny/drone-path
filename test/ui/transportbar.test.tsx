@@ -200,8 +200,12 @@ describe('TransportBar centering contract', () => {
   );
 
   it.for([
-    { layout: 'split' as const, columns: 'minmax(0, 1fr) var(--rail-w)', speedColumn: '2' },
-    { layout: 'overlay' as const, columns: 'minmax(0, 1fr)', speedColumn: '1' },
+    {
+      layout: 'split' as const,
+      columns: 'minmax(0px, 1fr) clamp(280px, 28%, 372px)',
+      speedColumn: '2',
+    },
+    { layout: 'overlay' as const, columns: 'minmax(0px, 1fr)', speedColumn: '1' },
   ])('mirrors the stage columns in the $layout layout', ({ layout, columns, speedColumn }) => {
     const transport = mountTransport(layout);
     expect(getComputedStyle(transport).gridTemplateColumns).toBe(columns);
@@ -211,9 +215,9 @@ describe('TransportBar centering contract', () => {
 
   it('reads the rail width from one shared token', () => {
     const transport = mountTransport('split');
-    expect(getComputedStyle(transport).gridTemplateColumns).toContain('var(--rail-w)');
+    expect(getComputedStyle(transport).gridTemplateColumns).toContain('clamp(280px, 28%, 372px)');
     const rail = document.querySelector('.map-card-split') as HTMLElement;
-    expect(getComputedStyle(rail).width).toContain('var(--rail-w)');
+    expect(getComputedStyle(rail).width).toContain('clamp(280px, 28%, 372px)');
     expect(getComputedStyle(document.documentElement).getPropertyValue('--rail-w')).toMatch(
       /clamp\(280px,\s*28%,\s*372px\)/,
     );
