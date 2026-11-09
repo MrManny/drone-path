@@ -41,7 +41,7 @@ import { _electron } from 'playwright-core';
 const app = await _electron.launch({
   executablePath: 'node_modules/electron/dist/electron.exe', // explicit is safest on Windows
   args: ['app/main.mjs'], // add '--dev-url', 'http://localhost:3210' for dev mode
-  cwd: 'E:/DJI_001/scripts/neo2-flightpath',
+  cwd: 'E:/DJI_001/scripts/neo2-flightpath', // local folder name predates the rename; the repository is MrManny/drone-path
   // Harness shells may export ELECTRON_RUN_AS_NODE; see the notes below.
   env: Object.fromEntries(
     Object.entries(process.env).filter(([k]) => k !== 'ELECTRON_RUN_AS_NODE'),

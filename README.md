@@ -26,7 +26,7 @@ ready and the rest of the map keeps loading in the background.
 
 ```sh
 # from GitHub
-npx github:MrManny/neo2-flightpath "my-flight.mp4"
+npx github:MrManny/drone-path "my-flight.mp4"
 
 # from npm
 npx drone-path "my-flight.mp4"
@@ -59,7 +59,7 @@ ships the same pages as offline help. Highlights:
 
 For reviewing flights without the terminal, grab the packaged desktop app
 (Windows NSIS installer or portable exe, Linux AppImage) from
-[GitHub Releases](https://github.com/MrManny/neo2-flightpath/releases), or run
+[GitHub Releases](https://github.com/MrManny/drone-path/releases), or run
 `npm run build && npm run app` from a checkout.
 
 The app shows the footage and the synchronized flight map side by side —

@@ -2,7 +2,7 @@
 
 ## Getting the app
 
-Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux AppImage) from [GitHub Releases](https://github.com/MrManny/neo2-flightpath/releases), or run `npm run build && npm run app` from a checkout.
+Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux AppImage) from [GitHub Releases](https://github.com/MrManny/drone-path/releases), or run `npm run build && npm run app` from a checkout.
 
 ## Loading a recording
 
@@ -74,7 +74,7 @@ The **Map settings** button in the footer opens the *Map appearance* popover wit
 
 ## Updates
 
-Packaged builds update themselves: when a newer [release](https://github.com/MrManny/neo2-flightpath/releases) exists, the app downloads it in the background and asks once whether to **Restart now** into it or keep working with **Later**; the update then installs when you quit.
+Packaged builds update themselves: when a newer [release](https://github.com/MrManny/drone-path/releases) exists, the app downloads it in the background and asks once whether to **Restart now** into it or keep working with **Later**; the update then installs when you quit.
 
 ## Help
 

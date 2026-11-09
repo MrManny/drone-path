@@ -52,12 +52,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MrManny/neo2-flightpath.git"
+    "url": "git+https://github.com/MrManny/drone-path.git"
   },
   "bugs": {
-    "url": "https://github.com/MrManny/neo2-flightpath/issues"
+    "url": "https://github.com/MrManny/drone-path/issues"
   },
-  "homepage": "https://github.com/MrManny/neo2-flightpath#readme",
+  "homepage": "https://github.com/MrManny/drone-path#readme",
   "dependencies": {
     "@opentelemetry/api": "~1.10.0",
     "@opentelemetry/exporter-trace-otlp-proto": "~0.301.0",
