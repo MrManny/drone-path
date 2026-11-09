@@ -4,10 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-// The generated page loads src/renderer as browser ESM from /renderer/; a
-// runtime import outside the directory would resolve outside that route and
-// break the headless render. Type-only imports are erased at compile time and
-// may leave the directory.
 const RENDERER_DIR = fileURLToPath(new URL('../../src/renderer/', import.meta.url));
 const files = fs.readdirSync(RENDERER_DIR).filter((f) => f.endsWith('.ts'));
 

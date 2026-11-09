@@ -36,9 +36,7 @@ export interface PlayerChromeProps {
   onSettingsChange: (config: RenderConfig) => void;
   onOpen: () => void;
   onHelp: () => void;
-  /** The app's one dialog machine, shared with the update prompt at page level. */
   dialogs: Dialogs;
-  /** The Open flow: only preparing and failures show over the player. */
   openState?: PickState;
   onDismissOpenState?: () => void;
 }
@@ -76,12 +74,7 @@ export function PlayerChrome({
     playheadRef,
   } = usePlayback(video, durationSec);
   const { modalOpen, exportOpen, telemetrySaveOpen, dismissible, dispatchDialog } = dialogs;
-  // Side-by-side panes are the default: dedicated, simultaneously visible
-  // video and map panes. Swap view flips to the overlay layout, where the map
-  // is a corner card over the footage for immersive review.
   const [layout, setLayout] = useState<StageLayout>('split');
-  // The Save telemetry JSON dialog's phase: the write in flight, then its
-  // outcome. The dialog opens only once the native save dialog confirmed.
   const [telemetrySave, setTelemetrySave] = useState<TelemetrySavePhase | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
   const {
@@ -91,17 +84,12 @@ export function PlayerChrome({
     triggerRef: appearanceButtonRef,
   } = useMapAppearance();
 
-  // Escape closes the topmost overlay: a dialog above the popover above the
-  // loop clear; dialogs keep their own rule through the dialog machine.
   const closeOverlay = useCallback(() => {
     const target = closeOverlayTarget({ modalOpen, popoverOpen: mapAppearanceOpen });
     if (target === 'modal') dispatchDialog({ type: 'close' });
     else if (target === 'popover') closeMapAppearance();
   }, [modalOpen, mapAppearanceOpen, dispatchDialog, closeMapAppearance]);
 
-  // One settings -> scene mapping for the preview and the export: the same
-  // pure planners the pipeline runs, keyed on the fields the plan reads so
-  // encoder edits never re-plan the scene.
   const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
   const sceneData = useMemo(
     () =>
@@ -135,9 +123,6 @@ export function PlayerChrome({
       <OpenNotice state={openState} onDismiss={onDismissOpenState} />
     ) : null;
 
-  // The telemetry save follows the loop points automatically: an engaged loop
-  // saves its In-Out segment — the same frames the segment export renders —
-  // and without one the whole recording.
   const loopPoints = engagedLoop(loop);
   const telemetryRange = loopPoints
     ? { start: loopPoints.in, end: loopPoints.out }
@@ -157,15 +142,9 @@ export function PlayerChrome({
           opened = true;
           setTelemetrySave({ kind: 'saving' });
           dispatchDialog({ type: 'openTelemetrySave' });
-          // The machine pins the dialog while the write is in flight, so a
-          // late failure can never close into silence.
           dispatchDialog({ type: 'telemetrySaveStarted' });
         },
       );
-      // A canceled save dialog starts nothing and stays silent; every other
-      // outcome surfaces in the compact dialog, pick failures included. The
-      // scope is captured here at click time, so a later loop edit cannot
-      // rewrite what the document already covers.
       if (event.type === 'canceled') return;
       if (opened) dispatchDialog({ type: 'telemetrySaveFinished' });
       else dispatchDialog({ type: 'openTelemetrySave' });
@@ -177,8 +156,6 @@ export function PlayerChrome({
     })();
   };
 
-  // The done dialog's reveal reuses the export reveal handler; its failure
-  // surfaces above the done content instead of closing it.
   const revealTelemetry = (): void => {
     const done = telemetrySave?.kind === 'done' ? telemetrySave : null;
     if (done === null) return;

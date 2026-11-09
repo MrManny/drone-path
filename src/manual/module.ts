@@ -1,7 +1,3 @@
-// Serialization of the manual bundle into the typed module the UI bundles.
-// The output is deterministic (stable JSON, fixed header) so regeneration is
-// idempotent and a drift check can byte-compare.
-
 import type { ManualBundle } from './model.js';
 
 export function bundleModuleSource(bundle: ManualBundle): string {

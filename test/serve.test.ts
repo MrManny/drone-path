@@ -35,8 +35,6 @@ async function startHost(
   const port = addr && typeof addr === 'object' ? addr.port : 0;
   return {
     url: `http://127.0.0.1:${port}`,
-    // Streams release their file handles asynchronously; cleanup (tmpDir
-    // removal on Windows) must wait for them.
     close: async () => {
       await Promise.allSettled(streams);
       server.closeAllConnections();

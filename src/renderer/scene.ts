@@ -1,17 +1,3 @@
-// The shared map renderer: it receives all telemetry inline (no fetch), paints
-// the map once, and exposes setFrame(i) for per-frame marker/trail updates.
-// Headless capture workers (via the generated page's window.__setFrame bridge)
-// and the app's React map island both drive this one implementation;
-// setFrame resolves after the canvas has painted so screenshots are
-// frame-exact. update(data) restyles in place for the app's settings panel,
-// rebuilding only the decorations the new settings actually invalidate.
-//
-// Views:
-//   overview - static map fitted to the whole track (trail grows with time)
-//   follow   - drone marker stays in the frame center and the map slides under
-//              it (all tiles are loaded once up-front; the per-frame move is a
-//              pure CSS transform, so no tile loads happen mid-render)
-
 import type { HudSpec, Style, View } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
@@ -35,9 +21,7 @@ import type { TrailController } from './trail.js';
 
 export interface SceneData {
   style: Style;
-  /** null = the map style's theme trail color. */
   trailColor: string | null;
-  /** Leaflet tile URL template, e.g. "/tiles/satellite/{z}/{x}/{y}.png". */
   tileUrl: string;
   view: View;
   width: number;
@@ -59,15 +43,10 @@ export interface SceneData {
 }
 
 export interface Scene {
-  /** Aligns everything with frame i; resolves after the canvas has painted. */
   setFrame(i: number): Promise<void>;
-  /** Re-lays out after a frame size change and repaints the current frame. */
   relayout(): void;
-  /** Applies new settings-derived data in place; repaints the current frame. */
   update(data: SceneData): Promise<void>;
-  /** Resolves once the first tile pass finished (or the warm-up timeout hit). */
   ready: Promise<void>;
-  /** Tears the scene down: its styles and map must not outlive the host. */
   dispose(): void;
 }
 
@@ -105,9 +84,6 @@ function setChipText(
   chip.textContent = value === null || value === undefined ? '--' : format(value);
 }
 
-// Per-scene style scope: the app mounts two scenes at once (the player island
-// and the export preview), and one scene's scale values must never restyle the
-// other's elements.
 let scopeCount = 0;
 
 class SceneState implements Scene {
@@ -172,9 +148,7 @@ class SceneState implements Scene {
     this.scalelineEl = el<HTMLElement>(host, '#scaleline');
     this.scaletextEl = el<HTMLElement>(host, '#scaletext');
 
-    // Before the decorations below: Leaflet defers marker DOM creation until
-    // the map has a view, so the arrow/wrap elements only exist after this
-    // first call.
+    // Leaflet only creates marker DOM once the map has a view: layoutMap() must precede buildDecor() so the arrow/wrap elements exist.
     this.layoutMap();
     this.decor = this.buildDecor();
     this.rebuildHud();
@@ -215,8 +189,6 @@ class SceneState implements Scene {
     quietAttributionLinks(this.attrEl);
   }
 
-  // The map fills its frame at any size (headless: the export canvas; app:
-  // the pane currently holding it), so every frame size change re-lays out.
   private layoutMap(): void {
     const { data, map, mapEl, frameEl } = this;
     const vw = frameEl.clientWidth || data.width;
@@ -238,7 +210,6 @@ class SceneState implements Scene {
     map.setView(data.view === 'follow' ? this.bb.getCenter() : [data.center.lat, data.center.lon], data.zoom);
     const c0 = map.project(map.getCenter(), data.zoom);
 
-    // Static scale bar (the map never zooms during a render).
     const latC = data.view === 'follow' ? this.bb.getCenter().lat : data.center.lat;
     const mPerPx = metersPerPixel(latC, data.zoom);
     const bestM = scaleBarMeters(mPerPx, 110 * this.scale());
@@ -275,11 +246,9 @@ class SceneState implements Scene {
     return layers;
   }
 
-  // The live trail layers (empty until the controller fills them): glow,
-  // casing and core, thickest first so the core stays on top.
+  // Creation order sets stacking: thickest first so the core stays on top.
   private buildTrailLayers(theme: Theme): PolylineHandle[] {
-    // All geometry is pre-decimated (smoothFactor 0 skips Leaflet's own
-    // simplification) and the canvas renderer keeps redraws rAF-batched.
+    // smoothFactor 0 keeps Leaflet from re-simplifying the pre-decimated path.
     const wCore = Math.max(3, 5.5 * this.scale());
     const trailGlow: PolylineHandle = this.L.polyline([], {
       color: theme.glow,
@@ -413,9 +382,7 @@ class SceneState implements Scene {
     const k = introOutroScale(i, this.data.introN, this.data.outroN, this.data.lat.length);
     this.updateTransform(i, k);
     this.updateHud(i);
-    // Canvas painting is deferred to requestAnimationFrame; the headless
-    // capture awaits this barrier so screenshots never catch the previous
-    // frame.
+    // Canvas painting is deferred to requestAnimationFrame
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => resolve());
@@ -443,8 +410,7 @@ class SceneState implements Scene {
       next.attribution !== prev.attribution;
     if (chromeChanged) this.applyChrome();
     if (next.style !== prev.style) {
-      // The zoom constraints are per source (topo tiles are native to z17),
-      // so a style switch swaps the layer instead of only its URL.
+      // Zoom constraints are per tile layer (topo is native to z17), so a style switch swaps the layer instead of only its URL.
       this.tiles.remove();
       this.tiles = this.makeTileLayer(next.tileUrl, next.style);
       this.tiles.addTo(this.map);

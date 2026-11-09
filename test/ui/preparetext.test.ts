@@ -44,8 +44,6 @@ describe('preparePercent', () => {
     expect(preparePercent(progress(overrides))).toBe(percent);
   });
 
-  // The IPC boundary is untyped at runtime, so a stage this mapping does not
-  // know can still arrive; the raw step ratio keeps the bar bounded.
   it('renders the raw step ratio for a stage it does not know', () => {
     const unknown = { stage: 'mystery', done: 3, total: 4 } as unknown as PrepareProgress;
     expect(preparePercent(unknown)).toBe(75);

@@ -1,29 +1,19 @@
-// Frame/time quantization and the shared time text formats. Pure so every
-// formatted readout, loop label and segment string stays unit-testable
-// without a DOM.
-
 import type { LoopPoints, LoopState } from './loop.js';
 import { hasLoop } from './loop.js';
 
-// requestVideoFrameCallback reports mediaTime quantized to the microsecond,
-// so a frame whose PTS falls between those ticks arrives up to ~1e-6 s before
-// its exact start (10.977633 for frame 329 at 30000/1001) and the product
-// lands just under its integer. The slack spans more than any such
-// quantization error in frame units while staying far below the half frame
-// that separates a mid-frame clock sample from the next frame's start.
+// requestVideoFrameCallback quantizes mediaTime to the microsecond, so the
+// product can land just under frame i's integer; the slack covers that error
+// in frame units but stays below half a frame.
 const QUANTIZATION_SLACK_SEC = 1.25e-6;
 
 export function frameFromMediaTime(mediaTime: number, fps: number, frames: number): number {
   return clampFrame(Math.floor((mediaTime + QUANTIZATION_SLACK_SEC) * fps), frames);
 }
 
-/** The one clamp rule for frame indices: 0..frames-1. */
 export function clampFrame(i: number, frames: number): number {
   return Math.max(0, Math.min(frames - 1, i));
 }
 
-// Jumps stay frame-quantized: one second is round(fps) frames even for
-// fractional rates like 29.97 fps.
 export function framesForSeconds(fps: number, seconds: number): number {
   return Math.round(fps * seconds);
 }
@@ -33,13 +23,10 @@ export function formatTime(sec: number): string {
   return Math.floor(total / 60) + ':' + ('0' + (total % 60)).slice(-2);
 }
 
-// A zero rate stands for "no recording loaded" (the empty workspace has no
-// fps yet); it reads as frame zero instead of a NaN time.
 export function timeAt(frame: number, fps: number): number {
   return fps > 0 ? frame / fps : 0;
 }
 
-/** The time readout: the presented position over the recording's duration. */
 export function formatTimeReadout(frame: number, fps: number, durationSec: number): string {
   return `${formatTime(timeAt(frame, fps))} / ${formatTime(durationSec)}`;
 }
@@ -58,19 +45,12 @@ export function formatFrameRange(points: LoopPoints, fps: number): string {
   return `${formatFrameSpan(points.in, points.out, fps)} · ${points.out - points.in + 1} frames`;
 }
 
-/** The loop readout; empty until any point is set. */
 export function formatLoopReadout(loop: LoopState, fps: number): string {
   return hasLoop(loop) ? `loop ${formatFrameSpan(loop.in, loop.out, fps)}` : '';
 }
 
-// Ruler ticks use one of these whole-second steps; 60 keeps the minute
-// marks, 300 the five-minute ones for long recordings.
 const TICK_STEPS_SEC = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600];
 
-/**
- * The ruler tick times for a recording: the smallest whole step that keeps
- * the tick count near six, always starting at 0 and ending at the duration.
- */
 export function timelineTicks(durationSec: number): number[] {
   if (!(durationSec > 0)) return [];
   const step = TICK_STEPS_SEC.find((s) => durationSec / s <= 6) ?? 600;

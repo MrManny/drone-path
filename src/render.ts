@@ -1,7 +1,3 @@
-// Frames are captured by N parallel pages and streamed to ffmpeg's stdin in
-// exact frame order (no scratch frame files on disk). The headless browser is
-// the system Chrome/Edge via playwright-core - no browser download.
-
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -35,9 +31,6 @@ function startServer({
   tileCache: string;
 }): Promise<ServerHandle> {
   const server = http.createServer((req, res) => {
-    // A malformed request URL (e.g. "GET /%") must not crash the render:
-    // decodeURIComponent throws URIError, which would surface as an
-    // uncaughtException inside this handler.
     let url: string;
     try {
       url = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -76,8 +69,6 @@ async function launchBrowser(
   const { chromium } = await import('playwright-core');
   const attempts: LaunchAttempt[] = [];
   if (browserPath) attempts.push({ executablePath: browserPath });
-  // System Chrome/Edge first (nothing to download), then the Playwright
-  // browser registry (usable after `npx playwright install chromium`).
   attempts.push({ channel: 'chrome' }, { channel: 'msedge' }, {});
   const attemptErrors: unknown[] = [];
   for (const opt of attempts) {
@@ -89,8 +80,6 @@ async function launchBrowser(
       attemptErrors.push(e);
     }
   }
-  // Every attempt's failure survives in the cause chain; the message keeps
-  // the final attempt's detail and the remediation steps.
   throw new Error(
     `could not launch a Chromium browser (tried explicit path, channel=chrome, channel=msedge, playwright registry): ${errorMessage(attemptErrors[attemptErrors.length - 1])}. ` +
       'Install Google Chrome or Microsoft Edge, run "npx playwright install chromium", ' +
@@ -101,18 +90,13 @@ async function launchBrowser(
 
 interface Encoder {
   stdin: Writable;
-  /** Resolves once writes must stop: the encoder died or its stdin broke. */
   stopped: Promise<string>;
-  /** Resolves with the exit code once the encoder process is gone. */
   closed: Promise<number | null>;
   stderrText(): string;
   kill(): void;
 }
 
-// The quality level as an encoder CRF per codec (lower is better): x265's
-// CRF scale sits about five points above x264's for the same perceived
-// quality. h264 "high" is the CRF 18 that shipped before quality became
-// configurable.
+// x265's CRF scale sits ~5 points above x264's for the same perceived quality.
 const CRF: Record<Codec, Record<Quality, number>> = {
   h264: { 'near-lossless': 16, high: 18, medium: 21, low: 26 },
   h265: { 'near-lossless': 20, high: 22, medium: 25, low: 30 },
@@ -124,8 +108,7 @@ function spawnEncoder(
   encode: EncodeSettings,
   outPath: string,
 ): Encoder {
-  // h265 gets the hvc1 sample tag: the ffmpeg-default hev1 tag is refused by
-  // QuickTime and some NLEs.
+  // h265 gets hvc1: the ffmpeg-default hev1 tag is refused by QuickTime and some NLEs.
   const codecArgs =
     encode.codec === 'h265' ? ['-c:v', 'libx265', '-tag:v', 'hvc1'] : ['-c:v', 'libx264'];
   const ffmpegProcess = spawn(ffmpeg, [
@@ -143,9 +126,7 @@ function spawnEncoder(
     stderr += d.toString();
   });
 
-  // ffmpeg's stdin must never surface an unhandled 'error' (EPIPE when the
-  // encoder exits early), and a worker parked on 'drain' must wake up when it
-  // dies instead of waiting forever. `closed` also resolves for late waits.
+  // ffmpeg's stdin must never surface an unhandled 'error' (EPIPE on early exit); a drain-waiter must wake when the encoder dies.
   const closed = new Promise<number | null>((resolve) => {
     ffmpegProcess.once('close', (code) => resolve(code));
   });
@@ -212,8 +193,6 @@ function screenshotOptions(capture: Capture) {
       };
 }
 
-// The typed capture-progress event, emitted beside the "frames: N/M
-// captured" log line so progress displays never scrape log text.
 export interface CaptureProgress {
   done: number;
   total: number;
@@ -226,23 +205,19 @@ export interface RenderOpts {
   width: number;
   height: number;
   frames: number;
-  /** First source frame to capture; a segment export starts mid-recording. */
   frameStart?: number;
   fpsStr: string;
   workers: number;
   outPath: string;
   log?: (msg: string) => void;
   browserPath?: string | null;
-  /** The resolved ffmpeg/ffprobe commands (src/fftools.ts). */
   tools: FfToolPaths;
   capture: Capture;
   codec: Codec;
   quality: Quality;
   preset: Preset;
-  /** Aborting kills the encoder and stops the workers at the next frame. */
   signal?: AbortSignal;
   trace?: TraceContext;
-  /** Typed capture progress at the log line's cadence. */
   onCapture?: (progress: CaptureProgress) => void;
 }
 
@@ -252,15 +227,12 @@ export interface RenderProfile {
   emitMs: number;
 }
 
-// Coarse stage timing summed over all workers (time awaiting each stage).
 interface StageTiming {
   evalMs: number;
   captureMs: number;
   emitMs: number;
 }
 
-// The resolved settings of one render, in the shape the capture/encode and
-// profile stages consume (cf. run.ts's RenderContext).
 interface RenderContext {
   width: number;
   height: number;
@@ -278,9 +250,6 @@ interface RenderContext {
   tools: FfToolPaths;
 }
 
-// What the render's stages share, passed as one object so captureAndEncode
-// and reportProfile stay top-level instead of closing over renderVideo
-// (cf. run.ts's RenderStageEnv).
 interface RenderStageEnv {
   ctx: RenderContext;
   tracer: Tracer;
@@ -290,8 +259,6 @@ interface RenderStageEnv {
   workerCount: number;
 }
 
-// The state the racing workers share: frame claiming, the captured-frame
-// count behind the exactly-once progress events, and the doomed-run flag.
 interface FrameLoopState {
   cursor: number;
   capturesDone: number;
@@ -315,17 +282,12 @@ interface WorkerRun {
   captureSpan: Span;
 }
 
-// One frame: evaluate, screenshot, record and stream it into ffmpeg in
-// order.
 async function captureFrame(
   run: WorkerRun,
   loop: FrameLoopState,
   page: Page,
   idx: number,
 ): Promise<void> {
-  // __setFrame resolves after the canvas painted (canvas drawing is
-  // deferred to requestAnimationFrame); awaiting it keeps every
-  // screenshot on the current frame.
   const evalStart = Date.now();
   await page.evaluate(
     (frame: number) =>
@@ -339,8 +301,6 @@ async function captureFrame(
   const captureMs = Date.now() - captureStart;
   run.timing.captureMs += captureMs;
 
-  // The local count (not the shared one read after an await) keeps every
-  // boundary event exactly-once under worker races.
   const done = ++loop.capturesDone;
   run.batches.recordFrame(done, captureMs);
 
@@ -354,7 +314,6 @@ async function captureFrame(
   }
 }
 
-// One worker's page and frame loop.
 async function workerLoop(
   run: WorkerRun,
   loop: FrameLoopState,
@@ -368,8 +327,6 @@ async function workerLoop(
     await page.goto(run.url, { waitUntil: 'domcontentloaded', timeout: PAGE_LOAD_TIMEOUT_MS });
     await page.waitForFunction('window.__READY === true', null, { timeout: PAGE_LOAD_TIMEOUT_MS });
     for (;;) {
-      // A doomed render stops at the next frame: survivors have to settle
-      // before the batch and capture spans are wound down.
       if (loop.failed) return;
       if (run.signal?.aborted) throw new Error('render canceled');
       const idx = loop.cursor++;
@@ -382,9 +339,6 @@ async function workerLoop(
   run.log(`worker ${workerId} done`);
 }
 
-// The frame loop: workers race for frame indices and stream every capture
-// into ffmpeg in exact order. allSettled, not all: the batch spans and the
-// captured-frame count must be final before the capture span is wound down.
 async function runWorkers(run: WorkerRun, workerCount: number): Promise<void> {
   const loop: FrameLoopState = { cursor: 0, capturesDone: 0, failed: false };
 
@@ -413,7 +367,6 @@ async function finishEncode(
 ): Promise<void> {
   await stream.flushReady();
   stream.end();
-  // `closed` (not `once(ffmpeg, 'close')`): ffmpeg may already have exited.
   const code = await encoder.closed;
   encodeSpan.setAttribute('render.ffmpeg.exitCode', code ?? -1);
   if (code !== 0) {
@@ -429,9 +382,6 @@ function formatProfile(profile: RenderProfile, workerCount: number): string {
   );
 }
 
-// One `render.capture.batch` subspan per cadence of captured frames, carrying
-// the per-frame capture spread of that batch. Per-frame spans would bury the
-// trace in thousands of near-identical spans and overflow the exporter queue.
 export class FrameBatchRecorder {
   private openSpan: Span | null = null;
   private durations: number[] = [];
@@ -445,8 +395,6 @@ export class FrameBatchRecorder {
   ) {}
 
   recordFrame(capturedSoFar: number, captureMs: number): void {
-    // close() is permanent: a straggling frame must not re-open a batch under
-    // the already-ended capture span.
     if (this.closed) return;
     this.openSpan ??= this.tracer.startSpan('render.capture.batch', {
       parent: this.parent,
@@ -469,7 +417,6 @@ export class FrameBatchRecorder {
     span.end();
   }
 
-  // A half-open batch at close time is normal (nothing in flight).
   close(error?: unknown): void {
     if (this.closed) return;
     this.closed = true;
@@ -481,9 +428,6 @@ export class FrameBatchRecorder {
   }
 }
 
-// The encode span encloses the capture span on purpose: frames stream into
-// ffmpeg while they are still being captured, and the trace must show that
-// overlap.
 async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<void> {
   const { ctx, tracer, renderSpan, url, timing, workerCount } = env;
   const {
@@ -491,8 +435,6 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
     width, height, frames, frameStart, capture, log, onCapture, tools,
   } = ctx;
   const encoder = spawnEncoder(tools.ffmpeg, fpsStr, { codec, quality, preset }, outPath);
-  // A cancel must reach the encoder directly: a worker parked on stdin
-  // backpressure would otherwise never notice the abort.
   const killOnAbort = (): void => encoder.kill();
   signal?.addEventListener('abort', killOnAbort, { once: true });
   const stream = new OrderedFrameStream(encoder);
@@ -533,8 +475,6 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
   }
 }
 
-// The profile stage: fold the summed stage timings into what the caller gets,
-// mirrored on the render span and in the log.
 function reportProfile(env: RenderStageEnv): { profile: RenderProfile } {
   const { ctx, timing, renderSpan, workerCount } = env;
   const profile: RenderProfile = {
@@ -551,11 +491,6 @@ function reportProfile(env: RenderStageEnv): { profile: RenderProfile } {
   return { profile };
 }
 
-// Every output frame gets its own capture (held frames judder whenever the map
-// moves, so there is no frame-step option), streamed to ffmpeg in exact frame
-// order.
-// Traced as `render` over `render.capture` (+ batch subspans) and
-// `render.encode`; capture and encode overlap by design.
 export async function renderVideo(
   opts: RenderOpts,
 ): Promise<{ profile: RenderProfile }> {
@@ -603,8 +538,6 @@ export async function renderVideo(
       const { server, url } = await startServer({ html, style, tileCache });
       const env: RenderStageEnv = { ctx, tracer, renderSpan, url, timing, workerCount };
 
-      // The try spans startup as well: a browser-launch failure must still
-      // close the server, whose listening socket would keep the process alive.
       let browser: Browser | null = null;
       try {
         browser = await launchBrowser(log, browserPath);

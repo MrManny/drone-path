@@ -1,15 +1,3 @@
-// The generated headless page receives all telemetry inline (no fetch) and
-// exposes window.__setFrame(i) for per-frame marker/trail updates; it resolves
-// after the canvas has painted so screenshots are frame-exact. The map scene
-// itself lives in src/renderer/ - one shared implementation with the app's
-// React map island.
-//
-// Views:
-//   overview - static map fitted to the whole track (trail grows with time)
-//   follow   - drone marker stays in the frame center and the map slides under
-//              it (all tiles are loaded once up-front; the per-frame move is a
-//              pure CSS transform, so no tile loads happen mid-render)
-
 import { hasAltitude, resolveHudSpec } from './config.js';
 import type { HudSpec, LookSettings, Style, View } from './config.js';
 import { decimateTrack } from './decimate.js';
@@ -25,7 +13,6 @@ export interface PageOpts {
   width: number;
   height: number;
   style: Style;
-  /** null = the map style's theme trail color. */
   trailColor: string | null;
   view: View;
   center: LatLon;
@@ -42,11 +29,6 @@ export interface PageOpts {
   outroN?: number;
 }
 
-// The one settings + telemetry -> page mapping. The pipeline's recording
-// mapping and the app's live restyle both plan through here, so a preview and
-// an export from the same settings agree frame for frame. The bbox must be
-// the telemetry's fix bbox (what the tile prefetch warms), never the smaller
-// frame-sample bbox.
 export function planPageOpts(opts: {
   bbox: Bbox;
   width: number;
@@ -54,21 +36,13 @@ export function planPageOpts(opts: {
   config: LookSettings;
   source: { fps: number; frames: number };
   frames: Pick<PageOpts, 'lat' | 'lon' | 'alt' | 'speed' | 'headingDeg'>;
-  /**
-   * Precomputed planning results (the pipeline plans once and passes its
-   * values down); omit to compute them here, like the app's live restyle.
-   */
   planned?: { overview: Overview; introOutro: IntroOutroFrames; hud: HudSpec };
-  /** Reuse the previous decimated track when the planned zoom matches it. */
   previous?: { zoom: number; decimated: DecimatedTrack };
 }): PageOpts {
   const { bbox, width, height, config, source, frames, planned, previous } = opts;
   const overview = planned?.overview ?? planView(bbox, width, height, config);
   const introOutro = planned?.introOutro ?? planIntroOutroFrames(config, source);
   const hud = planned?.hud ?? resolveHudSpec(config.hud, hasAltitude(frames.alt));
-  // Decimation depends only on the track and the working zoom, so an
-  // unchanged zoom keeps the identical arrays and consumers can tell that no
-  // trail work is needed.
   const decimated =
     previous && previous.zoom === overview.zoom
       ? previous.decimated
@@ -94,9 +68,6 @@ export function planPageOpts(opts: {
   };
 }
 
-// The scene data both consumers drive: the generated page inlines it as
-// window.__DATA, the app delivers it as the session payload. Tile URLs are
-// rooted at the consumer's serving base ("/tiles" or "app://bundle/tiles").
 export function buildSceneData(opts: PageOpts, tileBase: string): SceneData {  const {
     width, height, style, trailColor, view, center, zoom, attribution,
     lat, lon, alt, speed, headingDeg, hud, decimated,
@@ -122,9 +93,6 @@ export function buildSceneData(opts: PageOpts, tileBase: string): SceneData {  c
   };
 }
 
-// The module boot: boots the shared scene and bridges the globals the
-// headless capture uses. Runs after the DOM is parsed (module semantics), so
-// the scene always finds its host element.
 function bootScript(dataJson: string): string {
   return `import { bootScene } from '/renderer/boot.js';
 var D = window.__DATA = ${dataJson};

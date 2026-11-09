@@ -1,10 +1,5 @@
 'use client';
 
-// The workspace before a recording loads: the full row skeleton in its
-// disabled quiet state with the open call to action in the stage. The rows
-// and the hotkey wiring match the player, so committing a recording swaps
-// the content without moving anything.
-
 import { useRef } from 'react';
 
 import type { Dialogs } from '../hooks/useDialogs.js';
@@ -22,14 +17,11 @@ export interface EmptyWorkspaceProps {
   onPick: () => void;
   onHelp: () => void;
   onDismiss?: () => void;
-  /** The app's one dialog machine, shared with the update prompt at page level. */
   dialogs: Dialogs;
 }
 
 const NOOP = (): void => {};
 const NO_LOOP: LoopState = { in: null, out: null };
-// Nothing is loaded yet: the disabled button's title names the future scope
-// without inventing a duration.
 const NO_SCOPE = 'loaded recording';
 
 export function EmptyWorkspace({
@@ -42,8 +34,6 @@ export function EmptyWorkspace({
   const timeRef = useRef<HTMLSpanElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
-  // Same wiring as the player: Ctrl+O opens a recording, every playback
-  // shortcut no-ops until one is loaded, Escape closes the topmost dialog.
   const dispatch = usePlayerHotkeys(
     {
       togglePlay: NOOP,

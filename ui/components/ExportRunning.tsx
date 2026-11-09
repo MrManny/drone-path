@@ -4,7 +4,6 @@ import { ErrorNotice } from './ErrorNotice.js';
 import { ProgressBar } from './ProgressBar.js';
 
 export interface ExportRunningProps {
-  /** Latest typed capture fraction; null until the job reports frames. */
   fraction: number | null;
   canceling: boolean;
   error: string | null;

@@ -65,8 +65,6 @@ describe('rangePlan', () => {
     { name: 'zero suffix', header: 'bytes=-0', want: notSatisfiable },
     { name: 'inverted range', header: 'bytes=5-2', want: notSatisfiable },
     { name: 'malformed range is ignored', header: 'bytes=abc', want: full },
-    // RFC 7233 lets a server ignore the header; the parser reads no comma
-    // lists, so multi-range requests fall back to the full body.
     { name: 'in-header multi-range is ignored', header: 'bytes=1-2,3-4', want: full },
     {
       name: 'the first header wins when several arrive',

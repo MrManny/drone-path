@@ -1,8 +1,3 @@
-// Pure URL-to-file routing shared by the render server and the app bundle:
-// maps a request pathname to the resource that backs it. The route guards
-// and the tile acceptance policy live here so they stay unit-testable; the
-// servers only perform the I/O.
-
 import path from 'node:path';
 
 import type { Style } from './config.js';
@@ -25,11 +20,6 @@ export function mimeFor(filePath: string): string {
   return MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 }
 
-/**
- * Which tile styles a route accepts: the render server serves its one
- * configured style, the app any vocabulary style (live restyle switches
- * styles without a reload).
- */
 export type TilePolicy = { style: Style } | { anyStyle: true };
 
 export interface TileRoute {
@@ -57,31 +47,22 @@ export function resolveTileRoute(
 }
 
 export interface AssetRoutes {
-  /** Where the Leaflet distribution lives (node_modules). */
   leafletDir: string;
-  /** The one tile style this server serves; see TilePolicy. */
   style: Style;
   tileCache: string;
   rendererDir: string;
 }
 
 export type AssetResolution =
-  /** The URL belongs to one of the routes and names a file to serve. */
   | {
       kind: 'file';
       filePath: string;
       mime: string;
-      /** Served when filePath is absent (missing tiles fall back to it). */
       fallbackPath?: string;
     }
-  /** The URL belongs to one of the routes but names no servable resource. */
   | { kind: 'missing' }
-  /** The URL is not one of these routes; the caller routes it. */
   | { kind: 'unrouted' };
 
-// Serves /leaflet/*, /tiles/* and /renderer/*: the whitelist guards decide
-// what may be served, and every /tiles/ URL is claimed (missing tiles are the
-// caller's 404).
 export function resolveAsset(
   url: string,
   routes: AssetRoutes,

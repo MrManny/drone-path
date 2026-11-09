@@ -10,17 +10,13 @@ import { SkipBackIcon } from '../icons/SkipBackIcon.js';
 import { SkipForwardIcon } from '../icons/SkipForwardIcon.js';
 
 export interface TransportBarProps {
-  /** The player's action map: buttons and hotkeys drive the same actions. */
   dispatch: (action: HotkeyAction) => void;
-  /** No recording is loaded: the whole cluster and speed group are off. */
   disabled?: boolean;
   ready: boolean;
   playing: boolean;
   speed: 1 | 2 | 3 | 4;
-  /** Raw timeline values; the bar formats its own readouts from them. */
   fps: number;
   durationSec: number;
-  /** The imperative "position / duration" readout. */
   timeRef: RefObject<HTMLSpanElement | null>;
 }
 

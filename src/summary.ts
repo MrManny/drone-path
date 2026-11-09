@@ -1,7 +1,3 @@
-// The shared value vocabulary of a recording's telemetry summary: one mapping
-// from Telemetry, consumed by the batch summary and the CLI log line, so their
-// numbers cannot drift apart.
-
 import type {
   HeadingMode,
   Telemetry,
@@ -15,7 +11,6 @@ export interface TelemetrySummary {
   headingMode: HeadingMode;
   fixes: number;
   noLock: number;
-  /** Meters, rounded the way every user-facing surface reports them. */
   trackDistanceM: number;
 }
 

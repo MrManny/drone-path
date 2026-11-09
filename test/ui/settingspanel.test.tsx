@@ -110,7 +110,7 @@ describe('SettingsPanel', () => {
     expect(screen.queryByText('Must be 0 or more.')).toBeNull();
 
     fireEvent.change(intro, { target: { value: '1.5' } });
-    expect(intro.value).toBe('1.5'); // the committed value stays editable
+    expect(intro.value).toBe('1.5');
   });
 
   it('shows the effective chip state when the alt chip cannot render', () => {
@@ -119,7 +119,7 @@ describe('SettingsPanel', () => {
       false,
     );
     const alt = screen.getByLabelText<HTMLInputElement>('Altitude (ALT)');
-    expect(alt.checked).toBe(false); // the chip would not show
+    expect(alt.checked).toBe(false);
     expect(alt.disabled).toBe(true);
   });
 

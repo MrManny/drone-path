@@ -46,7 +46,6 @@ function resourcesDir(withMetadata: boolean): string {
   const dir = path.join(tmpDir(), 'resources');
   fs.mkdirSync(dir, { recursive: true });
   if (withMetadata) fs.writeFileSync(path.join(dir, 'app-update.yml'), 'provider: github\n');
-  // The property is read-only under an Electron host: redefine it outright.
   Object.defineProperty(process, 'resourcesPath', { value: dir, configurable: true });
   return dir;
 }
@@ -137,7 +136,6 @@ describe('initUpdates with update metadata', () => {
     const { controller } = start();
     const onError = vi.fn();
     expect(controller.restart({ onError })).toEqual({ ok: true });
-    // electron-updater swallows the failure onto 'error' and keeps running.
     harness.emit('error', new Error('spawn failed'));
     expect(onError).toHaveBeenCalledWith('spawn failed');
   });

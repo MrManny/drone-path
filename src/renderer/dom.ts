@@ -1,9 +1,3 @@
-// Renderer markup and styling, shared verbatim by the generated page and the
-// app's map islands so both look and measure identically. Element ids are the
-// renderer's DOM contract. The styles are scoped to one scene host each: the
-// app mounts two scenes at once (player island and export preview), so bare
-// selectors would let one scene's scale values restyle the other.
-
 import type { HudSpec } from '../config.js';
 import type { TileSource } from './tilesources.js';
 import type { Theme } from './theme.js';
@@ -145,7 +139,6 @@ export function droneMarkerMarkup(coreColor: string): string {
   );
 }
 
-/** Returns the element the renderer's DOM contract guarantees. */
 export function el<T extends Element>(root: ParentNode, selector: string): T {
   const found = root.querySelector<T>(selector);
   if (!found) throw new Error(`renderer element missing: ${selector}`);

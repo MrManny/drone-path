@@ -65,7 +65,6 @@ describe('planOutputs', () => {
       path.join('out', 'maps', 'clip_map-3.mp4'),
     ]);
     expect(new Set(plans.map((p) => p.out)).size).toBe(3);
-    // renamed plans remember the plain path they deviate from
     expect(plans.map((p) => p.plain)).toEqual(videos.map((v) => outputPathFor(v, config)));
   });
 
@@ -73,11 +72,9 @@ describe('planOutputs', () => {
     const videos = [path.join('a', 'CLIP.mp4'), path.join('b', 'clip.mp4')];
     const plans = planOutputs(videos, config);
     if (process.platform === 'win32') {
-      // Windows file names are case-insensitive: the outputs collide.
       expect(plans[0].out).toBe(plans[0].plain);
       expect(plans[1].out).not.toBe(plans[1].plain);
     } else {
-      // POSIX file names are case-sensitive: both keep their plain names.
       expect(plans[0].out).toBe(plans[0].plain);
       expect(plans[1].out).toBe(plans[1].plain);
     }
@@ -142,7 +139,6 @@ describe('prepareSession', () => {
     const prep = await prepareSession(VIDEO, config, (msg) => lines.push(msg), {
       deps: stubDeps(),
     });
-    // The page mapping reuses the prepared planning, so the note stays single.
     recordingPageOpts(prep, config);
     expect(lines.filter((l) => l.startsWith('intro/outro shortened'))).toEqual([
       'intro/outro shortened to 1/1 frames for this clip',
@@ -208,7 +204,6 @@ describe('processRecording tile pre-warm', () => {
     const out = path.join(tmpDir(), 'out.mp4');
     const summary = await processRecording(VIDEO, config, () => {}, out, { deps });
 
-    // The render path waits for the plan the view stage computed, not a gate.
     expect(warmed).toHaveLength(1);
     expect(warmed[0]).toEqual(
       planView(telemetryFixture().bbox, config.width, config.height, config).tiles,
@@ -294,7 +289,6 @@ describe('processRecording deps overrides', () => {
 
     expect(fetchStub).toHaveBeenCalledTimes(summary.tilesDownloaded ?? 0);
     expect(summary.tilesDownloaded).toBeGreaterThan(0);
-    // The seam names no cache; the default warm binds the run's own cache.
     const first = planView(telemetryFixture().bbox, config.width, config.height, config).tiles[0];
     expect(fs.existsSync(tilePaths(config.tileCache, config.style, first).file)).toBe(true);
   });
@@ -318,7 +312,6 @@ describe('processRecording deps overrides', () => {
             loadTelemetry: stubs.loadTelemetry,
             renderVideo: stubs.renderVideo,
             verifyOutput: stubs.verifyOutput,
-            // The cast mirrors untyped shell code, which can legally send null.
             prefetchTiles: nullish as unknown as PipelineDeps['prefetchTiles'],
           },
         },
@@ -709,7 +702,6 @@ describe('recording summary mapping', () => {
       trackDistanceM: 42,
     });
 
-    // The NDJSON line stays flat: exactly the declared fields, nothing more.
     const jsonKeys = Object.keys(
       JSON.parse(JSON.stringify(summary)) as Record<string, unknown>,
     ).sort();

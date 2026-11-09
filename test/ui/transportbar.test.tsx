@@ -11,8 +11,6 @@ import { TransportBar } from '../../ui/components/TransportBar.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// jsdom does no layout, so the styling pins read the real stylesheet's
-// computed values: deterministic and offline.
 let stylesheet: HTMLStyleElement;
 
 beforeAll(() => {
@@ -149,8 +147,6 @@ const PLAY_STATES = [
 ];
 
 describe('TransportBar play button width', () => {
-  // jsdom does no layout, so the pin is the shared width floor from the real
-  // stylesheet: it must not depend on which label the button shows.
   it.for(PLAY_STATES)('reserves a width floor while showing $label', ({ ready, playing, label }) => {
     renderBar({ ready, playing });
     const button = screen.getByRole('button', { name: label });
@@ -181,8 +177,6 @@ describe('TransportBar centering contract', () => {
     workspace.className = 'workspace';
     document.body.append(workspace);
     renderBar({}, workspace);
-    // The render takes over the container's children, so the stage mounts
-    // around the transport afterwards to stay its preceding sibling.
     const stage = document.createElement('div');
     stage.className = `stage stage-${layout}`;
     stage.innerHTML = `<div class="map-card map-card-${layout}"></div>`;

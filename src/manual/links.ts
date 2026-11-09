@@ -1,14 +1,7 @@
-// Manual reference rules: what an internal link or image may point at, and
-// the pure validation that keeps the checked-in corpus consistent. The
-// compiler rewrites what parses here; validation then proves every reference
-// resolves inside the corpus.
-
 import type { ManualPage } from './model.js';
 
 export interface PageLink {
-  /** The raw Markdown target, kept for error messages. */
   raw: string;
-  /** The link's plain-text label (the navigation label when indexed). */
   label: string;
   slug: string;
   anchor: string | null;
@@ -16,26 +9,22 @@ export interface PageLink {
 
 export interface ImageRef {
   raw: string;
-  /** The file name under docs/images. */
   file: string;
 }
 
 export interface CompiledRefs {
   links: PageLink[];
   images: ImageRef[];
-  /** Raw targets that match no known reference shape; validation rejects them. */
   unknown: string[];
 }
 
 const SCHEME_RX = /^[a-z][a-z0-9+.-]*:/i;
 
-/** README.md is the index page "index"; foo.md is "foo". */
 export function pageSlugOf(file: string): string {
   const base = file.split('/').pop() ?? file;
   return base === 'README.md' ? 'index' : base.replace(/\.md$/, '');
 }
 
-/** True for links that leave the manual (web, mail). */
 export function isExternalTarget(raw: string): boolean {
   return SCHEME_RX.test(raw);
 }
@@ -45,10 +34,6 @@ export interface PageTarget {
   anchor: string | null;
 }
 
-/**
- * Parses an internal Markdown link target: "foo.md", "foo.md#bar", "#bar"
- * (same page). Anything else returns null and counts as unknown.
- */
 export function parsePageLink(raw: string, currentSlug: string): PageTarget | null {
   const [path, hash, ...rest] = raw.split('#');
   if (rest.length > 0) return null;
@@ -59,7 +44,6 @@ export function parsePageLink(raw: string, currentSlug: string): PageTarget | nu
   return { slug: pageSlugOf(clean), anchor };
 }
 
-/** Parses an image target: "../images/foo.jpg" becomes "foo.jpg". */
 export function parseImageRef(raw: string): string | null {
   const match = /^\.\.\/images\/([^/?#]+)$/.exec(raw);
   return match ? (match[1] ?? null) : null;
@@ -70,11 +54,6 @@ export interface CorpusIssue {
   message: string;
 }
 
-/**
- * Validates every reference of every compiled page against the corpus:
- * internal links resolve to a page, anchors to a heading in that page, images
- * to a file in `imageFiles`. Unknown targets are rejected outright.
- */
 export function validateCorpus(
   pages: readonly { slug: string; page: ManualPage; refs: CompiledRefs }[],
   imageFiles: ReadonlySet<string>,
@@ -111,7 +90,6 @@ export function validateCorpus(
   return issues;
 }
 
-/** The Markdown file name a slug was compiled from. */
 export function sourceNameOf(slug: string): string {
   return slug === 'index' ? 'README.md' : `${slug}.md`;
 }

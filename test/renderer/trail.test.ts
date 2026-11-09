@@ -15,9 +15,6 @@ function spyLayer(): { calls: Array<Array<[number, number]>>; layer: TrailLayer 
   };
 }
 
-// Per-frame positions along a straight line; the decimated track keeps every
-// second frame and picks its points from the frame arrays, exactly like
-// decimateTrack copies them.
 function track(points: number): { trail: TrailTrack; frames: FrameTrack } {
   const lat: number[] = [];
   const lon: number[] = [];
@@ -179,10 +176,6 @@ describe('createTrailController', () => {
     expect(a.calls.at(-1)).toEqual([pos(0), pos(2), pos(4), pos(6), pos(8)]);
   });
 
-  // Issue #95 regression: a hovering or straight flight decimates to its
-  // endpoints, so a prefix-only trail stayed a single (invisible) point for
-  // the whole flight and the map canvas never changed. The tip keeps the
-  // trail reaching the drone and growing on every frame.
   it('grows the trail to the drone even when decimation collapses the track', () => {
     const lat = Array.from({ length: 11 }, (_, f) => 46.5 + f * 0.00001);
     const lon = Array.from({ length: 11 }, (_, f) => 14.2 + f * 0.00001);

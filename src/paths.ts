@@ -1,15 +1,5 @@
-// Path identity and collision-free output naming have exactly one home.
-// Identity follows the platform's own file-name rules: Windows file names
-// are case-insensitive, POSIX file names are case-sensitive. The same
-// inputs can therefore plan different names per platform, deterministic
-// and idempotent on each. Case-insensitive macOS volumes are treated like
-// POSIX: folding darwin too would merge two genuinely distinct files on
-// case-sensitive volumes, and the desktop matrix is Windows + Linux.
-
 import path from 'node:path';
 
-// Resolved so separator and `..` spellings of one file share a key;
-// toLowerCase is locale-independent, so the key stays deterministic.
 export function pathKey(
   p: string,
   platform: NodeJS.Platform = process.platform,
@@ -26,9 +16,6 @@ export function samePath(
   return pathKey(a, platform) === pathKey(b, platform);
 }
 
-// First free name `stem.ext`, `stem-2.ext`, `stem-3.ext`, ... in dir. The
-// caller says what "taken" means (names planned in this run, or files on
-// disk); existing names are never reused or deleted.
 export function uniquePath(
   dir: string,
   stem: string,

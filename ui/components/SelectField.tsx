@@ -10,8 +10,6 @@ export interface SelectFieldProps {
   onValue: (value: string) => void;
 }
 
-// The settings row shape around a native select: options show plain words
-// while the raw vocabulary value is what applies.
 export function SelectField({ label, value, options, hint, onValue }: SelectFieldProps) {
   const id = useId();
   return (

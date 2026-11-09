@@ -27,8 +27,6 @@ describe('parseCliArgs', () => {
   it('forwards only the flags actually set (bare invocation adds nothing)', () => {
     const { inputs, cli } = parseCliArgs(['clip.mp4']);
     expect(inputs).toEqual(['clip.mp4']);
-    // Commander's built-in defaults must not leak into the override layer:
-    // they would always win over the config file.
     expect(cli).toEqual({});
   });
 
@@ -102,7 +100,6 @@ describe('parseCliArgs', () => {
     const { cli } = parseCliArgs(['clip.mp4']);
     const { config } = resolveConfig({ cli, configPath: null, cwd: os.tmpdir() });
     expect(config.tileCache).toBe(defaultTileCache());
-    // default outDir is 'out', resolved against the working directory
     expect(config.outDir).toBe(path.resolve(os.tmpdir(), 'out'));
     expect(config.browser).toBeNull();
     expect(config.trailColor).toBeNull();
@@ -143,7 +140,6 @@ describe('parseCliArgs', () => {
     const { config } = resolveConfig({ cli, configPath: cfgPath, cwd: dir });
     expect(config.width).toBe(512);
     expect(config.style).toBe('satellite');
-    // flags not passed still take the file's values
     expect(config.skipExisting).toBe(true);
   });
 
@@ -183,8 +179,6 @@ describe('parseCliArgs', () => {
 
 describe('CONFIG_OPTIONS CLI plumbing', () => {
   it('keeps each option key equal to the camelCase of its long flag', () => {
-    // Commander looks option values up by the camelCase of the long flag, so
-    // a row whose key diverges would be silently skipped.
     for (const row of CONFIG_OPTIONS) {
       const camel = longFlagOf(row.cli.flags)
         .replace(/^--/, '')
@@ -212,7 +206,6 @@ describe('main tracing wiring', () => {
   it('fails fast on an unsupported protocol before touching the pipeline', async () => {
     vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://127.0.0.1:4318');
     vi.stubEnv('OTEL_EXPORTER_OTLP_PROTOCOL', 'grpc');
-    // An explicit empty config keeps ambient config discovery out of the test.
     const configPath = path.join(tmpDir(), 'config.json');
     fs.writeFileSync(configPath, '{}');
     const stderr = vi

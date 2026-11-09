@@ -25,9 +25,7 @@ interface FakeMedia {
   blob: unknown;
 }
 
-// A document whose video seeks complete only when the test says so, and
-// whose canvas produces a stub blob, so the sampler runs offline with no
-// decoder and pending seeks stay observable. Like Chromium, the fake seeks
+// Like Chromium, the fake seeks
 // only to a new position and a no-op seek never fires 'seeked'.
 function fakeMedia(
   options: { blob?: unknown; videoWidth?: number; videoHeight?: number } = {},
@@ -131,8 +129,6 @@ describe('createThumbSampler', () => {
     await settle();
     media.video.completeSeek();
     await expect(first).resolves.toBe('blob:thumb');
-    // The re-grab seeks to the position it already holds, so no 'seeked'
-    // will ever arrive and the grab must not wait for one.
     await expect(sampler.grab(5)).resolves.toBe('blob:thumb');
     expect(media.ctx.drawImage).toHaveBeenCalledTimes(2);
     sampler.dispose();
@@ -147,7 +143,6 @@ describe('createThumbSampler', () => {
     const first = sampler.grab(5);
     const second = sampler.grab(8);
     await settle();
-    // One seek at a time: the second grab starts only after the first lands.
     expect(media.video.currentTime).toBeCloseTo(5.5 / 30);
     media.video.completeSeek();
     await expect(first).resolves.toBe('blob:thumb');

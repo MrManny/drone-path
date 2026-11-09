@@ -33,8 +33,6 @@ describe('parseSrtText', () => {
   });
 
   it('strips font tags before matching', () => {
-    // Every cue line is wrapped in <font ...> in real files; parsing must not
-    // fail on them - already proven by the fixture, asserted explicitly here.
     expect(parseSrtText('<font size="28">[latitude: 1.0] [longitude: 2.0]</font>').count).toBe(0);
   });
 
@@ -100,8 +98,6 @@ function cueText(lat: number, lon: number): string {
   ].join('\n');
 }
 
-// One documented rule (src/geo.ts's isGpsFix) decides what counts as a fix;
-// anything else on a lat/lon line is one no-lock event.
 describe('cue fix classification', () => {
   it.for([
     { name: 'regular fix', lat: 46.61307, lon: 14.262388, fix: true },

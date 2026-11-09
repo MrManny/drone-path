@@ -48,22 +48,13 @@ import type { Span, Tracer, TraceContext } from './tracing.js';
 
 export type LogFn = (msg: string) => void;
 
-// The preparation stages in execution order. The loading-bar step numbers
-// derive from this sequence, so adding or reordering a stage cannot silently
-// skew the bar (see PrepareProgress).
 const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
 
-/** The loading stage a preparation is in. */
 export type PrepareStage = (typeof PREPARE_STAGE_ORDER)[number];
 
-// Loading progress: each report names the stage starting now, with `done`
-// counting the stages already finished — so the bar reads 0, 33 and 67
-// percent and never fills; the overlay disappears when the notice clears.
 export interface PrepareProgress {
   stage: PrepareStage;
-  /** Completed steps: the finished stages. */
   done: number;
-  /** The full step count. */
   total: number;
 }
 
@@ -87,7 +78,6 @@ export interface RecordingSummary {
   noLock?: number;
   frames?: number;
   fps?: string;
-  /** Set when the export covered a source-frame segment instead of everything. */
   frameRange?: FrameRange;
   trackDistanceM?: number;
   bbox?: Bbox;
@@ -114,13 +104,8 @@ export function outputPathFor(videoPath: string, config: RenderConfig): string {
     : path.join(path.dirname(videoPath), name);
 }
 
-// Recordings with the same basename from different folders would otherwise
-// overwrite each other in a shared --out-dir; colliding names (identity per
-// the platform's case rule, see src/paths.ts) get a deterministic -2, -3,
-// ... suffix.
 export interface PlannedOutput {
   out: string;
-  /** The plain path this run deviates from when a collision forced a suffix. */
   plain: string;
 }
 
@@ -143,7 +128,6 @@ export function planOutputs(videos: string[], config: RenderConfig): PlannedOutp
   });
 }
 
-// HUD sanity: drop chips whose data does not exist for this source.
 function resolveHud(config: RenderConfig, tel: Telemetry, log: LogFn): HudSpec {
   const hud = resolveHudSpec(config.hud, hasAltitude(tel.frames.map((f) => f.alt)));
   if (config.hud.alt && !hud.alt) {
@@ -152,7 +136,6 @@ function resolveHud(config: RenderConfig, tel: Telemetry, log: LogFn): HudSpec {
   return hud;
 }
 
-// The page script expects per-frame telemetry as parallel arrays.
 export interface FrameArrays {
   lat: number[];
   lon: number[];
@@ -200,8 +183,6 @@ function mtimeOf(outPath: string): number | null {
   return fs.existsSync(outPath) ? fs.statSync(outPath).mtimeMs : null;
 }
 
-// Never leave a broken or partial render behind: on any failure the output
-// this run wrote is deleted (a pre-existing file we did not touch stays).
 function removePartialOutput(
   outPath: string,
   mtimeBefore: number | null,
@@ -228,13 +209,8 @@ async function renderWithOutputCleanup(
   }
 }
 
-// The warm seam at the I/O boundary: providers own their cache directory
-// (WarmOptions names none), so no caller can route a lane into a cache its
-// queue does not serve.
 export type TileWarmFn = (options: WarmOptions) => Promise<PrefetchStats>;
 
-// The pipeline's I/O shell, injectable so tests can drive the span tree
-// without ffprobe, network or a browser.
 export interface PipelineDeps {
   probeVideo: typeof probeVideo;
   loadTelemetry: typeof loadTelemetry;
@@ -252,11 +228,6 @@ const realDeps: Omit<PipelineDeps, 'prefetchTiles'> = {
   outputMatchesSource,
 };
 
-// A caller overrides only the dep its composition owns (the app shares its
-// tile queue with every lane); nullish overrides - possible from untyped
-// shell code - count as omitted, so no real dep is ever dropped. The bulk
-// warm carries no cacheDir (providers own their cache), so the default
-// binds the run's own cache here, where the run's config is in hand.
 function resolveDeps(
   overrides: Partial<PipelineDeps> | undefined,
   tileCache: string,
@@ -274,24 +245,15 @@ function resolveDeps(
 }
 
 export interface PipelineOptions {
-  /** Overrides over the real I/O shell; omitted or nullish fields run real. */
   deps?: Partial<PipelineDeps>;
   trace?: TraceContext;
-  /** Resolved tool commands; omitted resolves them from the config. */
   tools?: FfToolPaths;
-  /** Source-frame segment to render; omit for the full recording. */
   range?: FrameRange;
-  /** Aborting stops the render at the next frame and cleans up the output. */
   signal?: AbortSignal;
-  /** Loading progress of the preparation stages, for progress displays. */
   onProgress?: PrepareProgressFn;
-  /** Typed capture progress, for progress displays. */
   onCapture?: (progress: CaptureProgress) => void;
 }
 
-// The one frame-range guard, shared by the segment render and the desktop's
-// telemetry segment save: source frames start..end inclusive, all inside the
-// recording, so the two can never disagree about what a range means.
 export function resolveRange(
   range: FrameRange | null | undefined,
   frames: number,
@@ -311,7 +273,6 @@ export interface PreparedRecording {
   height: number;
   probe: VideoProbe;
   tel: Telemetry;
-  /** Per-source-frame values for the telemetry JSON export. */
   frameValues: TelemetryFrameInput[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
@@ -321,8 +282,6 @@ export interface PreparedRecording {
   frames: FrameArrays;
 }
 
-// Loading-bar bookkeeping: one report per stage as it starts, its index in
-// the stage order as the done count (see PrepareProgress).
 type PrepareReporter = (stage: PrepareStage) => void;
 
 function createPrepareReporter(
@@ -336,9 +295,6 @@ function createPrepareReporter(
     });
 }
 
-// What a preparation stage needs: the run inputs plus the shared tracing,
-// logging and progress handles, passed as one object so the stage signatures
-// do not keep growing.
 interface PrepareStageEnv {
   videoPath: string;
   config: RenderConfig;
@@ -433,9 +389,6 @@ async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Over
   return overview;
 }
 
-// The render path's tile pre-warm: rendered frames must never fall back to
-// placeholder tiles, so the whole plan settles before capture starts. The
-// app's open flow skips this and lets the player fetch on demand.
 async function tileWarmStage(
   deps: PipelineDeps,
   config: RenderConfig,
@@ -464,9 +417,6 @@ async function tileWarmStage(
   return tileStats;
 }
 
-// The preparation stages shared by the headless pipeline and the app: probe,
-// telemetry, view plan. One trace context: the stages nest under the caller's
-// parent span (or stand alone when none is given).
 export async function prepareSession(
   videoPath: string,
   config: RenderConfig,
@@ -484,8 +434,6 @@ export async function prepareSession(
     report: createPrepareReporter(options.onProgress),
   };
 
-  // Config producers normalize the canvas (config.normalizeDimensions); the
-  // pipeline renders exactly what the vocabulary resolved.
   const { width, height } = config;
 
   const { probe, introOutro } = await probeStage(env);
@@ -511,11 +459,6 @@ export async function prepareSession(
   };
 }
 
-// Maps a prepared recording onto the shared renderer page's inputs through
-// the same planning the app's live restyle uses; callers add the video option
-// when they drive the interactive variant. The planning triple is computed
-// once in prepareSession and passed down, so the summary and the rendered
-// page cannot drift apart.
 export function recordingPageOpts(
   prep: PreparedRecording,
   config: RenderConfig,
@@ -540,10 +483,8 @@ interface RenderContext extends PreparedRecording {
   outPath: string;
   config: RenderConfig;
   log: LogFn;
-  /** Frames actually rendered: the source count or the exported range's. */
   outFrames: number;
   frameRange: FrameRange | null;
-  /** The settled tile pre-warm, for the summary's download count. */
   tileStats: PrefetchStats;
 }
 
@@ -570,9 +511,7 @@ function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummar
     introFrames: introOutro.introN,
     outroFrames: introOutro.outroN,
     hud,
-    // Mapped field by field instead of spreading: a rename in
-    // TelemetrySummary must land here visibly, not silently drop a key
-    // from the --json line.
+    // Field by field, not a spread: a TelemetrySummary rename must land here visibly, not silently drop a --json key.
     source: telemetry.source,
     method: telemetry.method,
     headingMode: telemetry.headingMode,
@@ -648,9 +587,6 @@ async function renderToOutput(env: RenderStageEnv): Promise<void> {
   });
 }
 
-// The prepared recording mapped onto the shared telemetry JSON emitter's
-// input: the one home the CLI writer and the desktop's save flow share, so
-// both write the identical document for the same recording.
 export function telemetryExportInput(prep: PreparedRecording): TelemetryDocumentInput {
   return {
     source: prep.tel.source,
@@ -663,9 +599,6 @@ export function telemetryExportInput(prep: PreparedRecording): TelemetryDocument
   };
 }
 
-// The telemetry JSON export: one complete document per recording, written
-// alongside the render (it only depends on the telemetry load, so a later
-// render failure cannot invalidate it).
 function writeTelemetryExport(
   file: string,
   prep: PreparedRecording,
@@ -677,10 +610,6 @@ function writeTelemetryExport(
   log(`telemetry JSON: wrote ${file}`);
 }
 
-// Throws on failure (the caller decides policy). outPath may be pre-planned by
-// runBatch (collision-free); it defaults to the plain output path for direct
-// callers. One trace per recording: the root span wraps the pipeline stages
-// below.
 export async function processRecording(
   videoPath: string,
   config: RenderConfig,
@@ -741,7 +670,6 @@ export async function processRecording(
   );
 }
 
-// Failures never abort the batch.
 export async function runBatch(
   videos: string[],
   config: RenderConfig,
@@ -753,14 +681,10 @@ export async function runBatch(
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfTools(config);
 
-  // --telemetry-json names one document file; a batch would overwrite it
-  // recording by recording, so a multi-recording run is a usage error.
   if (config.telemetryJson && videos.length > 1) {
     throw new Error('--telemetry-json writes one document per run: give a single recording');
   }
 
-  // Collision-free outputs up front: two same-basename recordings must not
-  // silently overwrite each other in a shared --out-dir.
   const plans = planOutputs(videos, config);
 
   for (const [idx, video] of videos.entries()) {

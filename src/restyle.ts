@@ -1,21 +1,12 @@
-// Settings -> scene mapping for the app's live restyle. It runs the very
-// planning the pipeline runs (page.planPageOpts over the telemetry's fix
-// bbox), so a preview and an export from the same settings agree frame for
-// frame. Pure (no DOM, no I/O): the browser UI and unit tests drive it
-// directly.
-
 import type { LookSettings } from './config.js';
 import type { Bbox } from './geo.js';
 import { buildSceneData, planPageOpts } from './page.js';
 import type { SceneData } from './renderer/scene.js';
 
 export interface RestyleMeta {
-  /** Frames per second and total count of the probed source. */
   fps: number;
   frames: number;
-  /** Where the consumer serves tiles from ("/tiles", "app://bundle/tiles"). */
   tileBase: string;
-  /** The telemetry's fix bbox - the same one the pipeline plans from. */
   bbox: Bbox;
 }
 
@@ -23,8 +14,6 @@ export function restyleSceneData(
   prev: SceneData,
   config: LookSettings,
   meta: RestyleMeta,
-  // The output size to plan at: the export preview plans at the size the
-  // pipeline will render, while the player keeps the prepared scene's own.
   size: { width: number; height: number } = { width: prev.width, height: prev.height },
 ): SceneData {
   const planned = planPageOpts({

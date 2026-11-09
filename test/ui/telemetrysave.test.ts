@@ -44,8 +44,6 @@ describe('telemetrySaveFlow', () => {
     });
   });
 
-  // Rainy (mandated): a canceled save dialog starts nothing - no save call,
-  // no dialog, the workspace stays untouched.
   it('reports a canceled save dialog without saving anything', async () => {
     const d = deps({
       pickTelemetryOutput: vi.fn(async (): Promise<PickOutputResult> => ({

@@ -6,22 +6,15 @@ export interface NumberFieldProps {
   label: string;
   value: number;
   min: number;
-  /** The rule a rejected value breaks, phrased to follow "must be", e.g. "0 or more". */
   rule: string;
   step?: number;
   hint?: string;
-  /** Returns whether the value committed; a rejected value stays visible with its message until blur. */
   onValue: (value: number) => boolean;
 }
 
-// The message takes the hint's place in the same row, so showing or clearing it
-// never changes the layout: a button below the field keeps its position between
-// mousedown (which blurs the field) and mouseup.
 export function NumberField({ label, value, min, rule, step, hint, onValue }: NumberFieldProps) {
   const id = useId();
   const messageId = `${id}-message`;
-  // The draft is what the user typed; it is shown while the field is focused
-  // so a rejected value stays visible next to its message. Blur reverts it.
   const [draft, setDraft] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
   return (
@@ -41,8 +34,6 @@ export function NumberField({ label, value, min, rule, step, hint, onValue }: Nu
           const raw = e.target.value;
           setDraft(raw);
           const parsed = raw === '' ? Number.NaN : Number(raw);
-          // onValue commits the value upstream (a side effect), so it runs
-          // only once the field's own checks have passed.
           if (!Number.isFinite(parsed) || parsed < min) {
             setInvalid(true);
             return;

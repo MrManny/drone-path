@@ -16,8 +16,6 @@ const select = { tagName: 'SELECT' };
 const textarea = { tagName: 'textarea' };
 const button = { tagName: 'BUTTON' };
 
-// Runs a key stream through the mapper so the Esc reservation's session
-// behavior is exercised the way the hook drives it.
 function mapSequence(
   events: HotkeyEvent[],
   ctx: HotkeyContext,

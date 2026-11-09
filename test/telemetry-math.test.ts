@@ -4,9 +4,6 @@ import { gpsFix } from '../src/geo.js';
 import { buildTelemetry } from '../src/telemetry-math.js';
 import type { TelSample } from '../src/telemetry-math.js';
 
-// Raw coordinates in, a sample out; the fixture applies the parsers'
-// fix/no-lock decision (src/geo.ts's gpsFix), so placeholder and out-of-range
-// coordinates land as fix = null exactly like parser output.
 function sample(
   tSec: number,
   lat: number | null,
@@ -35,25 +32,20 @@ describe('buildTelemetry', () => {
       30,
     );
 
-    expect(tel.headingMode).toBe('cog'); // no yaw in these samples
+    expect(tel.headingMode).toBe('cog');
     expect(tel.sampleCount).toBe(3);
     expect(tel.fixCount).toBe(3);
     expect(tel.frames).toHaveLength(3);
 
-    // First frame sits on the first fix.
     expect(tel.frames[0].fix?.lat).toBeCloseTo(46.61307, 6);
     expect(tel.frames[0].fix?.lon).toBeCloseTo(14.262388, 6);
     expect(tel.frames[0].alt).toBeCloseTo(3.3, 6);
 
-    // Speed is the smoothed centered difference, rounded to one decimal
-    // (~1.11 m per 0.00001 degree of latitude, two steps over 2/30 s).
     expect(tel.frames[1].speed).toBeCloseTo(33.4, 0);
 
-    // The northbound track yields a northbound course.
     const heading = tel.frames[1].headingDeg;
     expect(Math.min(heading, 360 - heading)).toBeLessThan(5);
 
-    // bbox covers both end fixes; track distance is the path length.
     expect(tel.bbox.minLat).toBeCloseTo(46.61307, 6);
     expect(tel.bbox.maxLat).toBeCloseTo(46.61309, 6);
     expect(tel.trackDistanceM).toBeGreaterThan(0);
@@ -96,14 +88,11 @@ describe('buildTelemetry', () => {
       2,
       2,
     );
-    // Frame 1 sits at t=0.5, halfway between the fixes.
     expect(tel.frames[1].fix?.lat).toBeCloseTo(46.65, 6);
     expect(tel.frames[1].fix?.lon).toBeCloseTo(14.25, 6);
   });
 
   it('holds the earlier fix across long gaps instead of interpolating', () => {
-    // 10 s apart: beyond the interpolation gap, the frame holds the earlier
-    // fix rather than gliding across half a kilometer.
     const tel = build(
       [sample(0, 46.6, 14.2), sample(10, 46.7, 14.3)],
       6,
@@ -113,9 +102,6 @@ describe('buildTelemetry', () => {
   });
 
   it('holds the first and last fix on frames past the telemetry ends', () => {
-    // Frames before the first fix hold the first fix; frames after the last
-    // fix hold the last fix - a trailing frame must never jump back to the
-    // flight's start (regression).
     const tel = build(
       [
         sample(0, null, null, { relAlt: 3.3 }),
@@ -128,13 +114,10 @@ describe('buildTelemetry', () => {
     );
 
     expect(tel.fixCount).toBe(2);
-    // Leading frame holds the first fix.
     expect(tel.frames[0].fix?.lat).toBeCloseTo(46.61307, 6);
     expect(tel.frames[0].fix?.lon).toBeCloseTo(14.262388, 6);
-    // Trailing frames hold the last fix.
     expect(tel.frames[3].fix?.lat).toBeCloseTo(46.613072, 6);
     expect(tel.frames[3].fix?.lon).toBeCloseTo(14.26239, 6);
-    // Interior frames keep their nearest fix across the gap.
     expect(tel.frames[1].fix?.lat).toBeCloseTo(46.61307, 6);
     expect(tel.frames[2].fix?.lat).toBeCloseTo(46.613072, 6);
   });
@@ -154,9 +137,6 @@ describe('buildTelemetry', () => {
 
   describe('heading', () => {
     it('back-fills leading headings from the first known heading', () => {
-      // Hover, then fly north, then turn east. The leading hover has no
-      // course over ground, so its heading must be back-filled from the
-      // FIRST known heading (north) - not the flight's final one (east).
       const samples: TelSample[] = [];
       for (let i = 0; i <= 70; i++) {
         let lat = 46.613;
@@ -172,18 +152,13 @@ describe('buildTelemetry', () => {
       const tel = build(samples, 71, 25);
 
       expect(tel.headingMode).toBe('cog');
-      // Frame 0 is still hovering: its heading must match the northbound leg.
       const first = tel.frames[0].headingDeg;
       expect(Math.min(first, 360 - first)).toBeLessThan(30);
-      // The final frames face east - the turn is real and was detected.
       const last = tel.frames[70].headingDeg;
       expect(Math.abs(last - 90)).toBeLessThan(30);
     });
 
     it('tracks course over ground on slow flights instead of holding one value', () => {
-      // A slow eastbound crawl (~1 m/s): a fixed 0.7 s course baseline never
-      // clears the jitter floor here, so earlier versions held one stale
-      // heading for the whole flight. The baseline must widen instead.
       const samples: TelSample[] = [];
       for (let i = 0; i <= 124; i++) {
         samples.push(

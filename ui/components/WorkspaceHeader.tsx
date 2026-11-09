@@ -6,13 +6,9 @@ import { ExportIcon } from '../icons/ExportIcon.js';
 import { TelemetryIcon } from '../icons/TelemetryIcon.js';
 
 export interface WorkspaceHeaderProps {
-  /** The open recording's length, shown in the project slot. */
   durationSec: number;
-  /** The Open flow is preparing: the button is disabled. */
   opening: boolean;
-  /** No recording is loaded: Export stays disabled, Open stays live. */
   disabled?: boolean;
-  /** The scope the telemetry save covers, stated in the button's title. */
   telemetryScope: string;
   onOpen: () => void;
   onExport: () => void;

@@ -28,8 +28,6 @@ async function rejected(promise: Promise<unknown>): Promise<Error> {
   return error;
 }
 
-// The tile a recorded request was for, however the source orders its
-// z/x/y segments in the URL.
 function tileIndex(starts: string[], tile: { z: number; x: number; y: number }): number {
   return starts.findIndex((url) => {
     const segs = url.split('/').slice(-3).map(Number);
@@ -149,7 +147,7 @@ describe('createTileTraffic ensure', () => {
     await vi.advanceTimersByTimeAsync(3000);
     await pending;
 
-    expect(starts.length).toBeGreaterThan(1); // it retried
+    expect(starts.length).toBeGreaterThan(1);
     for (let i = 1; i < starts.length; i++) {
       expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
     }
@@ -168,8 +166,6 @@ describe('createTileTraffic ensure', () => {
     const failed = await traffic.ensure('topo', { z: 1, x: 2, y: 3 });
     expect(failed).toContain('placeholder');
 
-    // The placeholder must not pin the tile: the next request retries and
-    // caches the real tile once the network is back.
     const recovered = await traffic.ensure('topo', { z: 1, x: 2, y: 3 });
     expect(recovered).toBe(path.join(dir, 'opentopomap', '1', '2', '3.png'));
     expect(fs.existsSync(recovered)).toBe(true);
@@ -280,7 +276,6 @@ describe('createTileTraffic stream', () => {
       tiles: [T0, T1, T2, T3],
       signal: controller.signal,
     });
-    // Handle the rejection now: it settles at abort, before the test awaits.
     const warmFails = expect(warm).rejects.toThrow('tile download canceled');
     await vi.advanceTimersByTimeAsync(600);
     expect(starts).toHaveLength(2);
@@ -289,8 +284,6 @@ describe('createTileTraffic stream', () => {
     await vi.advanceTimersByTimeAsync(3000);
     await warmFails;
 
-    // The queued pair never fetched, and no canceled tile left a placeholder
-    // that would stand in for the real tile on a later request.
     expect(starts).toHaveLength(2);
     expect(fs.existsSync(path.join(dir, 'esri-imagery', '1', '0', '2.placeholder.png'))).toBe(
       false,
@@ -334,8 +327,6 @@ describe('createTileTraffic stream', () => {
     vi.useFakeTimers();
     const dir = tmpDir();
     const first = new AbortController();
-    // Requests hang until their signal aborts (the canceled stream); once
-    // the first stream is aborted, the replacement stream's requests succeed.
     const fetchStub = vi.fn(
       (_url: string, init: { signal?: AbortSignal }) =>
         new Promise<Response>((resolve, reject) => {
@@ -358,8 +349,6 @@ describe('createTileTraffic stream', () => {
     await vi.advanceTimersByTimeAsync(600);
     first.abort();
 
-    // The pivot enqueues the overlapping plan while the canceled stream's
-    // downloads are still winding down; it must run its own.
     const second = new AbortController();
     const pivoted = traffic.stream({
       style: 'satellite',
@@ -372,8 +361,6 @@ describe('createTileTraffic stream', () => {
   });
 });
 
-// Concurrent lanes (the app's gate pre-warm beside its warm stream, or an
-// export beside the live player) must share the one queue's budget.
 describe.for([
   { label: 'two warm streams', streams: 2, ensures: 0 },
   { label: 'two warm streams beside on-demand fetches', streams: 2, ensures: 2 },
@@ -415,12 +402,6 @@ describe.for([
   });
 });
 
-// A wake can land late when the event loop stalls, and the start after a
-// late one is the threatened pair: a stale reserved slot used to start it
-// early (444 ms gaps in the wild). late[k] is how late request k+1's wake
-// lands past its target; the stall of request k's fetch starves that wake.
-// Real timers with a spun stall model the jitter class faithfully.
-
 // Date.now() floors to whole milliseconds at two points a microtask apart -
 // the gate's release stamp and the test's fetch-time stamp - so a pair spaced
 // exactly 500 ms apart can measure 1 ms short when a millisecond boundary
@@ -457,8 +438,6 @@ describe.for<{ label: string; late: number[] }>([
 
     expect(starts).toHaveLength(late.length + 1);
     for (let i = 1; i < starts.length; i++) {
-      // The gate's own interval, plus the lateness this wake suffered: the
-      // start after a late one must not squeeze into the late one's interval.
       expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(
         500 + late[i - 1] - START_GAP_TOLERANCE_MS,
       );

@@ -21,7 +21,6 @@ describe('computeOverview', () => {
   });
 
   it('clamps hover-scale spans at zoom 16 for a useful close-up', () => {
-    // ~0.1 m span: the >=80 px rule pulls the camera out to the zoom-16 floor.
     const hover: Bbox = {
       minLat: 46.6130705,
       maxLat: 46.61307051,

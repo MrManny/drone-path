@@ -1,12 +1,7 @@
-// Strict Conventional Commits: lowercase feat/fix only; broader spellings
-// stay exempt on purpose.
 const PR_TITLE_NEEDS_CHANGESET = /^(feat|fix)(\([^)]+\))?!?:/;
 
-// Release PRs carry the version fold, so CHANGELOG.md must change there.
 const PR_TITLE_NEEDS_CHANGELOG = /^release(\([^)]+\))?:/;
 
-// A fragment is a top-level .changeset/*.md file; the README documents the
-// convention and never counts as a change entry.
 const CHANGESET_FRAGMENT_PATH = /^\.changeset\/([^/]+)\.md$/;
 
 const CHANGELOG_PATH = /^CHANGELOG\.md$/;
@@ -21,8 +16,6 @@ export function prNeedsChangelogUpdate(prTitle: string): boolean {
   return PR_TITLE_NEEDS_CHANGELOG.test(prTitle.trim());
 }
 
-// The shell skips git entirely for ungated titles: an exempt PR must never go
-// red because listing changed files failed.
 export function prNeedsArtifact(prTitle: string): boolean {
   return prNeedsChangeset(prTitle) || prNeedsChangelogUpdate(prTitle);
 }

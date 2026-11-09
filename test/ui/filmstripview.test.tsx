@@ -11,8 +11,6 @@ import type { ThumbSampler } from '../../ui/lib/thumbsampler.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// jsdom does no layout, so the styling pins read the real stylesheet's
-// computed values: deterministic and offline.
 let stylesheet: HTMLStyleElement;
 
 beforeAll(() => {
@@ -37,7 +35,6 @@ function fakeSampler(): ThumbSampler & { grabbed: number[] } {
   };
 }
 
-// jsdom reports zero widths; the strip plans its thumbs from the track width.
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
     configurable: true,
@@ -93,8 +90,6 @@ describe('Filmstrip', () => {
     expect(tile.maxWidth).toBe('100%');
     expect(tile.maxHeight).toBe('100%');
     expect(tile.boxSizing).toBe('border-box');
-    // jsdom cannot compute a border shorthand around a var() color, so the
-    // declared value is the exact pin.
     const rules = [...(stylesheet.sheet?.cssRules ?? [])] as CSSStyleRule[];
     const tileRule = rules.find((rule) => rule.selectorText === '.film-cell img');
     expect(tileRule?.style.getPropertyValue('border')).toBe('1px solid var(--hairline)');

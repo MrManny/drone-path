@@ -170,13 +170,10 @@ describe('CONFIG_OPTIONS', () => {
   it('round-trips every default through its own normalizer', () => {
     for (const row of CONFIG_OPTIONS) {
       const cliValue = cliDefaultOf(row.key);
-      // tileCache's empty default is the "use the per-user cache dir" sentinel,
-      // which the normalizer deliberately rejects as a value.
       if (row.key === 'tileCache') {
         expect(() => row.normalize(cliValue, row.key)).toThrow();
         continue;
       }
-      // The CLI boundary converts commander's strings before the normalizer.
       const raw = row.cli.parse ? row.cli.parse(cliValue) : cliValue;
       expect(row.normalize(raw, row.key)).toEqual({ [row.key]: row.default });
     }

@@ -138,6 +138,6 @@ describe('MapIsland', () => {
     rerender(<MapIsland data={changed} onScene={onScene} />);
 
     expect(update).toHaveBeenCalledWith(changed);
-    expect(onScene).toHaveBeenCalledTimes(1); // no new scene, no remount
+    expect(onScene).toHaveBeenCalledTimes(1);
   });
 });

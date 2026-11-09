@@ -1,6 +1,3 @@
-// The Open flow. "picking" covers the native dialog, so nothing is shown yet;
-// "preparing" starts only when the backend reports a file that passed its
-// checks, and carries the pipeline's loading progress.
 import type { PrepareProgress } from '../../src/run.js';
 
 // Mirrors prepareSession's first report, before any stage has finished.

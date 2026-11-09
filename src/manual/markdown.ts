@@ -1,9 +1,3 @@
-// The one Markdown adapter: GFM in, sanitized HTML plus structured references
-// out. Raw HTML is escaped so the manual stays plain GitHub Flavored Markdown,
-// internal links become data-attribute navigations the help overlay routes,
-// and images point at bundled assets. Everything here is pure: one source
-// string in, one page model out.
-
 import { Marked } from 'marked';
 import type { Token } from 'marked';
 
@@ -26,7 +20,6 @@ function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/"/g, '&quot;');
 }
 
-/** The readable text of inline tokens, for titles, slugs and link labels. */
 function inlineText(tokens: readonly Token[] | undefined): string {
   if (!tokens) return '';
   let out = '';
@@ -98,15 +91,13 @@ export function compileMarkdown(source: string, slug: string): CompiledPage {
         return `<img src="/manual/images/${escapeAttr(file)}" alt="${escapeAttr(text)}"${titleAttr(title)}>`;
       },
       html({ text }): string {
-        // Comments disappear like on GitHub; any other raw HTML is escaped so
-        // it shows as text instead of markup.
+        // Comments disappear like on GitHub; any other raw HTML is escaped.
         return /^<!--[\s\S]*-->$/.test(text) ? '' : escapeHtml(text);
       },
     },
   });
 
-  // parser(lexer(...)) instead of parse(): the instance is synchronous, and
-  // only the two-step form types the output as a plain string.
+  // Two-step form instead of parse(): only parser(lexer(...)) types the output as a plain string.
   const html = md.parser(md.lexer(source));
   const title = headings.find((h) => h.level === 1)?.text ?? '';
   return {

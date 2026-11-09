@@ -1,6 +1,3 @@
-// Navigation derivation: the manual's nav is the ordered link list of the
-// index page (docs/user/README.md), with the index itself as the first entry.
-
 import type { CompiledPage } from './markdown.js';
 import type { ManualNavEntry } from './model.js';
 

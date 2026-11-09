@@ -34,8 +34,6 @@ describe('sceneCss', () => {
       ['topo', '#eae5da'],
     ] as const) {
       const css = sceneCss(TILE_SOURCES[style], themeFor(style), 768, 768, 1, 'scene-scope-1');
-      // Bound to the #map rule: the sibling rules share the same color, and
-      // Leaflet's container default must not win on the un-tiled field.
       expect(css).toMatch(new RegExp(`#map \\{[^}]*background: ${bg};`));
     }
   });

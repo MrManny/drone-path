@@ -19,9 +19,6 @@ import {
   writeSrt,
 } from './fixtures.js';
 
-// The cam meta source talks to ffprobe and ffmpeg through child_process;
-// mock both seams so absence and tool failures stay distinguishable and the
-// tests stay offline.
 const mocks = vi.hoisted(() => ({ ffprobeJson: vi.fn(), execFile: vi.fn() }));
 
 const TOOLS: FfToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
@@ -58,20 +55,17 @@ describe('loadTelemetry (SRT source)', () => {
 
     expect(tel.source).toBe('srt');
     expect(tel.method).toBe('srt-cues');
-    expect(tel.headingMode).toBe('cog'); // no yaw in SRT
+    expect(tel.headingMode).toBe('cog');
     expect(tel.sampleCount).toBe(3);
     expect(tel.fixCount).toBe(2);
     expect(tel.noLock).toBe(1);
     expect(tel.frames).toHaveLength(3);
 
-    // First frame sits on the first fix.
     expect(tel.frames[0].fix?.lat).toBeCloseTo(46.61307, 6);
     expect(tel.frames[0].fix?.lon).toBeCloseTo(14.262388, 6);
 
-    // Carried through from the cue, rel_alt preferred over abs_alt.
     expect(tel.frames[0].alt).toBeCloseTo(3.3, 6);
 
-    // bbox covers both fixes; track distance is the ~0.15 m between them.
     expect(tel.bbox.minLat).toBeCloseTo(46.61307, 6);
     expect(tel.bbox.maxLat).toBeCloseTo(46.613071, 6);
     expect(tel.trackDistanceM).toBeGreaterThan(0);
@@ -91,15 +85,13 @@ describe('loadTelemetry (SRT source)', () => {
       tools: TOOLS,
     });
 
-    // 4 cues: 2 fixes, 1 no-lock, 1 without any lat/lon line - the last one
-    // is neither, so sampleCount - noLock would overstate the fixes.
     expect(tel.sampleCount).toBe(4);
     expect(tel.noLock).toBe(1);
     expect(tel.fixCount).toBe(2);
   });
 
   it('rejects videos without any telemetry source', async () => {
-    mocks.ffprobeJson.mockResolvedValue({ streams: [] }); // no CAM meta stream
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
     const dir = tmpDir();
     const video = path.join(dir, 'naked.mp4');
     fs.writeFileSync(video, '');
@@ -123,9 +115,6 @@ describe('loadTelemetry (SRT source)', () => {
   });
 });
 
-// The same coordinates must land on the same fixes/no-lock counts whether
-// they arrive as SRT cues or as CAM meta packets: one rule (src/geo.ts's
-// isGpsFix) judges both pipelines.
 describe('cross-source fix classification', () => {
   function srtCueText(coords: Array<[number, number]>): string {
     return coords
@@ -217,8 +206,6 @@ describe('cross-source fix classification', () => {
   });
 
   it('counts near-null-island fixes through loadTelemetry', async () => {
-    // End-to-end: the old 0.5-degree box dropped these cues and loadTelemetry
-    // failed with fewer than 2 GPS fixes.
     const dir = tmpDir();
     const video = path.join(dir, 'coast.mp4');
     fs.writeFileSync(video, '');
@@ -235,8 +222,6 @@ describe('cross-source fix classification', () => {
   });
 });
 
-// The telemetry JSON export gets one row per source frame with what that
-// source decoded - and nothing it does not carry.
 describe('telemetry JSON export values', () => {
   it('maps SRT cues to frame rows without attitude or device timestamps', async () => {
     const dir = tmpDir();
@@ -250,7 +235,7 @@ describe('telemetry JSON export values', () => {
       durationSec: 0.1,
       tools: TOOLS,
     });
-    expect(loaded.telemetry.headingMode).toBe('cog'); // SRT carries no yaw
+    expect(loaded.telemetry.headingMode).toBe('cog');
     expect(loaded.protoFile).toBeNull();
     expect(loaded.gimbalDevice).toBeNull();
     expect(loaded.frameValues).toHaveLength(3);
@@ -264,7 +249,6 @@ describe('telemetry JSON export values', () => {
       whiteBalanceCctK: 4435,
       fNumber: 2.2,
     });
-    // Cue 2: no GPS fix and no exposure fields beyond iso.
     expect(loaded.frameValues[1].lat).toBeNull();
     expect(loaded.frameValues[1].lng).toBeNull();
     expect(loaded.frameValues[1].iso).toBe(340);
@@ -306,11 +290,9 @@ describe('telemetry JSON export values', () => {
       durationSec: 0.1,
       tools: TOOLS,
     });
-    // The overlay pipeline still sees only fix-bearing samples.
     expect(loaded.telemetry.sampleCount).toBe(2);
     expect(loaded.telemetry.fixCount).toBe(2);
     expect(loaded.telemetry.noLock).toBe(1);
-    // The export rows cover every source frame, fix or not.
     expect(loaded.frameValues).toHaveLength(3);
     expect(loaded.frameValues[0].lat).toBeCloseTo(46.6, 6);
     expect(loaded.frameValues[1].lat).toBeNull();

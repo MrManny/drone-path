@@ -1,9 +1,5 @@
-// GitHub-compatible heading anchors: the same slug GitHub derives for a
-// heading so in-repo links and in-app links resolve to the same anchor.
-
 const SLUG_STRIP = /[^\p{L}\p{N}\s_-]/gu;
 
-/** The anchor GitHub gives a heading of plain `text`. */
 export function githubSlug(text: string): string {
   return text
     .toLowerCase()
@@ -11,10 +7,7 @@ export function githubSlug(text: string): string {
     .replace(/ /g, '-');
 }
 
-/**
- * Slugs one document's headings with GitHub's duplicate rule: the first
- * "Foo" stays "foo", later ones become "foo-1", "foo-2", ...
- */
+// GitHub's duplicate rule: the first "Foo" stays "foo", later ones become "foo-1", "foo-2", ...
 export function createSlugger(): (text: string) => string {
   const seen = new Map<string, number>();
   return (text) => {

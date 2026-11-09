@@ -44,7 +44,6 @@ vi.mock('node:child_process', async (importOriginal) => {
       proc.stdin = new PassThrough();
       proc.stderr = new PassThrough();
       proc.kill = () => {};
-      // The fake encoder exits when its stdin closes, like ffmpeg does.
       proc.stdin.on('finish', () => proc.emit('close', mocks.exitCode));
       return proc;
     },
@@ -178,7 +177,6 @@ describe('renderVideo span tree', () => {
       'render.ffmpeg.exitCode': 0,
     });
 
-    // Batches close at every 100 frames and at the final partial batch.
     expect(batches.map((b) => b.attributes['render.frames.captured'])).toEqual([
       100, 200, 250,
     ]);
@@ -188,8 +186,6 @@ describe('renderVideo span tree', () => {
       expect(batch.attributes['render.frame.maxMs']).toBeGreaterThanOrEqual(0);
     }
 
-    // Capture and encode overlap by design (frames stream into ffmpeg's
-    // stdin while they are still being captured).
     expect(startMs(encode)).toBeLessThan(endMs(capture));
     expect(startMs(capture)).toBeLessThan(endMs(encode));
 
@@ -249,11 +245,9 @@ describe('renderVideo span tree', () => {
     const batches = spans.filter((s) => s.name === 'render.capture.batch');
     expect(batches.length).toBeGreaterThan(0);
     for (const batch of batches) {
-      // each batch must close under the still-open capture span, before capture ends
       expect(batch.parentSpanContext?.spanId).toBe(capture?.spanContext().spanId);
       expect(endMs(batch)).toBeLessThanOrEqual(endMs(capture) + SPAN_END_GRACE_MS);
     }
-    // the failed screenshot never counts as a captured frame
     expect(capture?.attributes['render.frames.captured']).toBe(mocks.screenshots - 1);
   });
 });
@@ -268,7 +262,6 @@ describe('renderVideo browser launch', () => {
     expect(err?.message).toMatch(/could not launch/);
     const cause = err?.cause as AggregateError;
     expect(cause).toBeInstanceOf(AggregateError);
-    // chrome, msedge, then the playwright registry - all three survive.
     expect(cause.errors).toHaveLength(3);
     expect(cause.errors.map((e) => (e as Error).message)).toEqual([
       'no chromium here',
@@ -327,9 +320,6 @@ describe('encoder arguments', () => {
   });
 });
 
-// The emitter's events must keep feeding the export UI's real consumer: a
-// change to either side's shape or cadence fails here instead of freezing the
-// progress bar.
 describe('capture progress events', () => {
   it('pair the render emitter with the export UI consumer', async () => {
     const events: CaptureProgress[] = [];

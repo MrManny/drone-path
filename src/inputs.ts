@@ -1,18 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// The one recording-extension rule: the CLI input scan and the app's pick
-// check share it, so accepting another container (e.g. .MOV) is one edit.
 export function isRecordingName(name: string): boolean {
   return name.toLowerCase().endsWith('.mp4');
 }
 
-// The recording's stem: sidecar lookup and output naming both key on it.
 export function videoBaseName(filePath: string): string {
   return path.basename(filePath).replace(/\.[^.]+$/, '');
 }
 
-// Sidecar lookup matches the video basename, case-insensitively (.SRT vs .srt).
 export function findSrtSidecar(videoPath: string): string | null {
   const dir = path.dirname(videoPath);
   const base = videoBaseName(videoPath);

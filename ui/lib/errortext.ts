@@ -1,23 +1,15 @@
-// Turns the raw messages from Node and the app backend into sentences a person
-// can act on. The original text is kept for the technical details, and messages
-// this table does not know pass through unchanged.
-
 export interface ErrorText {
-  /** The sentence to show first. */
   text: string;
-  /** The original message when it was rewritten; null when shown as-is. */
   technical: string | null;
 }
 
 const NODE_CODE = /^(EEXIST|ENOENT|EACCES|EPERM|ENOSPC|EBUSY|EISDIR): /;
 
-// Node names the offending path last, in single quotes: "..., mkdir 'C:\...'".
 function quotedPath(message: string): string | null {
   const match = /'([^']+)'(?: -> '[^']*')?$/.exec(message);
   return match ? match[1] : null;
 }
 
-// Paths come from the main process on Windows, so both separators count.
 function leafName(filePath: string): string {
   return filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
 }

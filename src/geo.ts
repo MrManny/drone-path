@@ -1,5 +1,3 @@
-// All coordinates are WGS84 decimal degrees; distances in meters.
-
 export interface LatLon {
   lat: number;
   lon: number;
@@ -17,15 +15,11 @@ export interface Pixel {
   y: number;
 }
 
-const EARTH_RADIUS_M = 6371008.8; // mean Earth radius
+const EARTH_RADIUS_M = 6371008.8;
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
-// What counts as a real GPS fix - one rule for every telemetry source (SRT
-// sidecar and CAM meta alike): a finite WGS84 pair in range that is not
-// exactly the (0, 0) "no GPS lock" placeholder DJI writes before the first
-// fix. Near-equator and near-prime-meridian coordinates are real fixes;
-// out-of-range values never are.
+// (0, 0) is DJI's "no GPS lock" placeholder before the first fix, not a real fix.
 export function isGpsFix(lat: number, lon: number): boolean {
   return (
     Number.isFinite(lat) &&
@@ -38,9 +32,6 @@ export function isGpsFix(lat: number, lon: number): boolean {
   );
 }
 
-// The fix/no-lock decision as a value: a real fix or null. Parsers decide
-// once at this point and carry `fix: LatLon | null` from there on, so no
-// downstream code re-litigates coordinates or defends half-set pairs.
 export function gpsFix(lat: number | null, lon: number | null): LatLon | null {
   return lat !== null && lon !== null && isGpsFix(lat, lon) ? { lat, lon } : null;
 }
@@ -56,7 +47,6 @@ export function haversineM(a: LatLon, b: LatLon): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(haversine)));
 }
 
-// Initial bearing, degrees clockwise from north, range [0, 360).
 export function bearingDeg(a: LatLon, b: LatLon): number {
   const latARad = a.lat * DEG_TO_RAD;
   const latBRad = b.lat * DEG_TO_RAD;
@@ -79,8 +69,7 @@ export function circularMeanDeg(degList: number[]): number {
   return (Math.atan2(sumSin, sumCos) * RAD_TO_DEG + 360) % 360;
 }
 
-// Web Mercator (EPSG:3857) global pixel coordinates, 256 px tiles,
-// origin at the north-west corner (Leaflet convention).
+// Web Mercator (EPSG:3857) global pixels, 256 px tiles, NW origin (Leaflet convention).
 export function project(lon: number, lat: number, zoom: number): Pixel {
   const scale = 256 * 2 ** zoom;
   const x = ((lon + 180) / 360) * scale;

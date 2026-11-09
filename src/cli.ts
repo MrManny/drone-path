@@ -37,8 +37,6 @@ export function buildProgram(): Command {
   for (const row of CONFIG_OPTIONS) {
     const option = new Option(row.cli.flags, row.cli.help);
     if (row.cli.choices) option.choices([...row.cli.choices]);
-    // An empty CLI default means "not set"; commander would print a noisy
-    // (default: "") for it, and the override layer reads only given flags.
     const defaultValue = cliDefaultOf(row.key);
     if (defaultValue !== '') option.default(defaultValue);
     program.addOption(option);
@@ -47,10 +45,6 @@ export function buildProgram(): Command {
   return program;
 }
 
-// Commander's built-in defaults must never leak into the override layer:
-// resolveConfig would then let "CLI" always win over the config file and
-// silently break the documented "CLI flags > config file > defaults"
-// precedence.
 function givenOnCommandLine(
   program: Command,
   name: string,
@@ -58,15 +52,11 @@ function givenOnCommandLine(
   return program.getOptionValueSource(name) === 'cli';
 }
 
-// The documented long flag of an option's spelling ("--quiet" for
-// "-q, --quiet"), so error contexts never name a short alias.
 export function longFlagOf(flags: string): string {
   const tokens = flags.split(/[ ,|]+/);
   return tokens.find((token) => token.startsWith('--')) ?? tokens[0];
 }
 
-// Collect only the flags the user actually set, each through its table
-// normalizer, so a config-file value can still win over a CLI default.
 function collectOverrides(program: Command): ConfigOverrides {
   const opts = program.opts<Record<string, unknown>>();
   const cli: ConfigOverrides = {};
@@ -102,15 +92,12 @@ function isCommanderExit(e: unknown): e is { code: string; exitCode: number } {
   );
 }
 
-// --help / --version already printed and count as success.
 function commanderExitCode(e: { code: string; exitCode: number }): number {
   return e.code === 'commander.helpDisplayed' || e.code === 'commander.version'
     ? 0
     : e.exitCode;
 }
 
-// The resolved invocation: everything the run needs once argv and the config
-// layers are merged.
 interface Invocation {
   inputs: string[];
   config: RenderConfig;
@@ -132,8 +119,6 @@ function createLogger(config: RenderConfig): LogFn {
   };
 }
 
-// The pipeline stage: tools, inputs, output folder, batch, summary, and the
-// batch's effect on the exit code.
 async function runPipeline(
   invocation: Invocation,
   tracing: Tracing,
@@ -151,7 +136,6 @@ async function runPipeline(
 
   const emit = (summary: RecordingSummary): void => {
     if (config.json) {
-      // Flush synchronously: the summary must survive any later I/O hiccups.
       fs.writeSync(1, `${JSON.stringify(summary)}\n`);
     }
   };
@@ -175,7 +159,6 @@ async function withTracingShutdown(
     try {
       await tracing.shutdown();
     } catch (e) {
-      // A shutdown hiccup must not replace the error that is unwinding.
       log(`warning: tracing shutdown failed: ${errorMessage(e)}`);
     }
   }

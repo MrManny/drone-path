@@ -6,8 +6,6 @@ import type { Pixel } from '../src/geo.js';
 
 const ZOOM = 17;
 
-// Pixel-space fixtures make the ~1 px guarantee directly assertable: at a
-// fixed zoom, projected pixels and the epsilon share one unit.
 function trackFromPixels(points: Pixel[]): { lat: number[]; lon: number[] } {
   const lat: number[] = [];
   const lon: number[] = [];
@@ -23,7 +21,6 @@ function linePixels(n: number): Pixel[] {
   return Array.from({ length: n }, (_, i) => ({ x: i * 2, y: 500 }));
 }
 
-// Deterministic zigzag that is never within epsilon of its own chord.
 function zigzagPixels(n: number, amplitude: number): Pixel[] {
   return Array.from({ length: n }, (_, i) => ({
     x: i * 2,
