@@ -17,6 +17,11 @@ drone-path "flight.mp4"
 # full flight-path video: topographic map and the complete HUD
 # (heading arrow + altitude + speed chips)
 drone-path "flight.mp4" --style topo --hud heading,alt,speed
+
+# custom trail color: RGB or RGBA hex (the # is optional), e.g. for footage
+# the default trail color blends into
+drone-path "flight.mp4" --trail-color e63946
+drone-path "flight.mp4" --style topo --trail-color "#e63946cc"
 ```
 
 ## Example output

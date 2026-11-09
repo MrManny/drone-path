@@ -131,6 +131,38 @@ describe('SettingsPanel', () => {
     expect(alt.disabled).toBe(false);
   });
 
+  it('shows the trail color and emits its canonical value', () => {
+    const onChange = vi.fn();
+    renderPanel({ ...DEFAULT_CONFIG, trailColor: null }, true, onChange);
+    const input = screen.getByLabelText<HTMLInputElement>('Trail color');
+    expect(input.value).toBe('');
+    fireEvent.change(input, { target: { value: '41f0ff' } });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ trailColor: '#41f0ff' }),
+    );
+  });
+
+  it('blocks an invalid trail color with its rule instead of emitting it', () => {
+    const onChange = vi.fn();
+    renderPanel(DEFAULT_CONFIG, true, onChange);
+    fireEvent.change(screen.getByLabelText('Trail color'), {
+      target: { value: 'neon' },
+    });
+    expect(screen.getByText('Must be hex like #e63946.')).toBeTruthy();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('clears the trail color back to the map style default', () => {
+    const onChange = vi.fn();
+    renderPanel({ ...DEFAULT_CONFIG, trailColor: '#41f0ff' }, true, onChange);
+    fireEvent.change(screen.getByLabelText('Trail color'), {
+      target: { value: '' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ trailColor: null }),
+    );
+  });
+
   it('labels the map style hint and the map-only export note', () => {
     renderPanel(DEFAULT_CONFIG, true);
     expect(screen.getByText('Satellite imagery')).toBeTruthy();

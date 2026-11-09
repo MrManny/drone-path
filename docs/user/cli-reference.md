@@ -19,6 +19,7 @@ table in the terminal.
 | `zoomOut` | `--zoom-out <n>` | `1` | auto-fit only: pull back n zoom levels |
 | `introSec` | `--intro-sec <s>` | `2` | intro: zoom in from one level out over s seconds |
 | `outroSec` | `--outro-sec <s>` | `2` | outro: zoom back out over s seconds |
+| `trailColor` | `--trail-color <hex>` | — | trail color as hex, RGB or RGBA (e.g. e63946 or #e63946cc; default: the map style's color) |
 | `hud` | `--hud <list>` | `heading` | comma list of heading,alt,speed - or none (alt hides when unavailable) |
 | `workers` | `--workers <n>` | `4` | parallel browser pages |
 | `capture` | `--capture <mode>` | `jpeg` | frame capture mode (canvas is parked) (choices: jpeg, png) |

@@ -9,6 +9,7 @@ function baseOpts(overrides: Partial<PageOpts> = {}): PageOpts {
     width: 768,
     height: 768,
     style: 'satellite',
+    trailColor: null,
     view: 'follow',
     center: { lat: 46.61, lon: 14.26 },
     zoom: 15,
@@ -47,6 +48,13 @@ describe('buildSceneData', () => {
     expect(data['introN']).toBe(25);
     expect(data['outroN']).toBe(12);
   });
+
+  it('passes the trail color through to the scene', () => {
+    expect(buildSceneData(baseOpts(), '/tiles')['trailColor']).toBeNull();
+    expect(buildSceneData(baseOpts({ trailColor: '#41f0ff' }), '/tiles')['trailColor']).toBe(
+      '#41f0ff',
+    );
+  });
 });
 
 describe('planPageOpts', () => {
@@ -67,6 +75,7 @@ describe('planPageOpts', () => {
 
   const CONFIG = {
     style: 'satellite' as const,
+    trailColor: null,
     view: 'overview' as const,
     zoom: 0,
     zoomOut: 0,
@@ -80,7 +89,7 @@ describe('planPageOpts', () => {
       bbox: BBOX,
       width: 768,
       height: 768,
-      config: CONFIG,
+      config: { ...CONFIG, trailColor: '#e63946' },
       source: { fps: 30, frames: 3000 },
       frames: FRAMES,
     });
@@ -88,6 +97,7 @@ describe('planPageOpts', () => {
     expect(opts.outroN).toBe(90);
     expect(opts.zoom).toBeGreaterThanOrEqual(2);
     expect(opts.hud).toEqual({ heading: true, alt: true, speed: true });
+    expect(opts.trailColor).toBe('#e63946');
   });
 
   it('uses precomputed planning values instead of recomputing', () => {

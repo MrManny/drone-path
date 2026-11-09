@@ -74,6 +74,7 @@ export function createFakeScene(): Scene {
 export const SESSION: UiSession = {
   scene: {
     style: 'satellite',
+    trailColor: null,
     tileUrl: '/tiles/satellite/{z}/{x}/{y}.png',
     view: 'overview',
     width: 768,
