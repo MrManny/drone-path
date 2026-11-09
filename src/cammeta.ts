@@ -223,7 +223,7 @@ export function decodeProductMeta(
     gimbalRollDeg: gimbalEuler?.rollDeg ?? null,
     gimbalYawDeg: gimbalEuler?.yawDeg ?? null,
     gimbalDeviceTimestampMs: gimbalHeader
-      ? firstVarint(gimbalHeader, DEVICE_TIMESTAMP)
+      ? (firstVarint(gimbalHeader, DEVICE_TIMESTAMP) ?? 0)
       : null,
     iso: camera ? decodeCameraVarint(buf, camera, ISO) : null,
     whiteBalanceCctK: camera ? decodeCameraVarint(buf, camera, WHITE_BALANCE_CCT) : null,
@@ -363,21 +363,15 @@ function decodeGimbalDevice(
   const gimbal = frameMeta && subMessage(buf, frameMeta, GIMBAL);
   const header = gimbal && subMessage(buf, gimbal, GIMBAL_DEVICE_HEADER);
   if (!header) return null;
-  const id = firstVarint(header, DEVICE_ID);
-  const type = firstVarint(header, DEVICE_TYPE);
-  const subType = firstVarint(header, DEVICE_SUB_TYPE);
-  const name = nonEmptyString(buf, header, DEVICE_NAME);
-  const frequency = firstFloat(header, DEVICE_FREQUENCY);
-  if (
-    id === null ||
-    type === null ||
-    subType === null ||
-    name === null ||
-    frequency === null
-  ) {
-    return null;
-  }
-  return { id, type, subType, name, frequency };
+  // proto3 zero-omission, the EulerAngle rule: a present header with
+  // wire-missing members carries their known defaults.
+  return {
+    id: firstVarint(header, DEVICE_ID) ?? 0,
+    type: firstVarint(header, DEVICE_TYPE) ?? 0,
+    subType: firstVarint(header, DEVICE_SUB_TYPE) ?? 0,
+    name: firstString(buf, header, DEVICE_NAME) ?? '',
+    frequency: firstFloat(header, DEVICE_FREQUENCY) ?? 0,
+  };
 }
 
 // Byte-scan fallback: the 0x11/0x19 fixed64 GPS double pair. It judges

@@ -102,12 +102,23 @@ const EXPOSURE_KEYS = [
   'fNumber',
 ] as const satisfies readonly TelemetryValueKey[];
 
+// The schema declares these values as integers (their DVTM wire encoding is
+// a varint); fractional input (e.g. a decimal SRT cue) rounds to the nearest
+// integer so the emitted document always validates against the schema.
+const INTEGER_VALUE_KEYS: ReadonlySet<TelemetryValueKey> = new Set([
+  'gimbalDeviceTimestampMs',
+  'gpsAltMm',
+  'iso',
+  'whiteBalanceCctK',
+]);
+
 function copyValue(
   record: Record<string, number | string | undefined>,
   key: TelemetryValueKey,
   value: number | null | undefined,
 ): void {
-  if (value !== null && value !== undefined) record[key] = value;
+  if (value === null || value === undefined) return;
+  record[key] = INTEGER_VALUE_KEYS.has(key) ? Math.round(value) : value;
 }
 
 // One record per source frame: frame i's decoded values plus the pipeline's

@@ -133,6 +133,34 @@ describe('buildTelemetryDocument', () => {
     expect(record.altRel).toBe(0);
   });
 
+  // Rainy: a fractional cue value (e.g. [ct: 4435.5]) must never emit a
+  // document that is invalid against the published schema's integer fields.
+  it('rounds fractional values onto the schema integer fields', () => {
+    const doc = buildTelemetryDocument(
+      docInput({
+        frames: [
+          {
+            gimbalDeviceTimestampMs: 1234.5,
+            gpsAltMm: 313227.6,
+            iso: 340.4,
+            whiteBalanceCctK: 4435.5,
+            shutterTime: 0.0025,
+          },
+          {},
+          {},
+        ],
+      }),
+    );
+    expect(doc.frames[0]).toMatchObject({
+      gimbalDeviceTimestampMs: 1235,
+      gpsAltMm: 313228,
+      iso: 340,
+      whiteBalanceCctK: 4436,
+      shutterTime: 0.0025,
+    });
+    expect(TelemetryDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
   it('omits position keys when the frame has no GPS fix', () => {
     const record = buildTelemetryDocument(
       docInput({ frames: [{ altRel: 3.4 }, {}, {}] }),

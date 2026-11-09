@@ -83,7 +83,7 @@ interface Meta {
   lon: number;
   relAltMm: number;
   absAltM?: number;
-  /** Body attitude; members are coded only when given (proto3 zero-omission). */
+  /** Body attitude; zero members are wire-omitted (proto3 zero-omission). */
   attitude?: EulerSpec;
   gpsAltMm?: number;
   iso?: number;
@@ -101,31 +101,35 @@ interface Meta {
   clip?: { protoFile: string; productProtoVersion: string };
 }
 
+// A proto3 serializer never writes default values: zeros and empty strings
+// are absent on the wire, so the fixture codes only the non-default members -
+// the exact representation a real encoder produces.
 function eulerMessage(spec: EulerSpec): Buffer {
   const parts: Buffer[] = [];
-  if (spec.pitch !== undefined) parts.push(fldVarint(1, spec.pitch));
-  if (spec.roll !== undefined) parts.push(fldVarint(2, spec.roll));
-  if (spec.yaw !== undefined) parts.push(fldVarint(3, spec.yaw));
+  if (spec.pitch) parts.push(fldVarint(1, spec.pitch));
+  if (spec.roll) parts.push(fldVarint(2, spec.roll));
+  if (spec.yaw) parts.push(fldVarint(3, spec.yaw));
   return Buffer.concat(parts);
 }
 
 // ProductMeta { 1 clip_meta, 3 frame_meta { 2 camera, 4 drone, 5 gimbal } }
-// per the verified field map; sub-fields are coded only when given.
+// per the verified field map; sub-fields are coded only when non-default.
 function buildProductMeta(m: Meta): Buffer {
   const coord = Buffer.concat([fldDouble(2, m.lat), fldDouble(3, m.lon)]);
   const gpsParts = [fldBytes(1, coord)];
-  if (m.gpsAltMm !== undefined) gpsParts.push(fldVarint(2, m.gpsAltMm));
+  if (m.gpsAltMm) gpsParts.push(fldVarint(2, m.gpsAltMm));
   const gps = fldBytes(4, Buffer.concat(gpsParts));
-  const rel = fldBytes(5, fldFloat(1, m.relAltMm));
+  const rel = m.relAltMm ? fldBytes(5, fldFloat(1, m.relAltMm)) : Buffer.alloc(0);
 
-  const droneParts = [gps, rel];
+  const droneParts = [gps];
   if (m.attitude) droneParts.unshift(fldBytes(3, eulerMessage(m.attitude)));
+  if (rel.length > 0) droneParts.push(rel);
   const drone = fldBytes(4, Buffer.concat(droneParts));
 
   const camParts: Buffer[] = [];
-  if (m.iso !== undefined) camParts.push(fldBytes(3, fldVarint(1, m.iso)));
-  if (m.ct !== undefined) camParts.push(fldBytes(6, fldVarint(1, m.ct)));
-  if (m.absAltM !== undefined) camParts.push(fldBytes(11, fldFloat(1, m.absAltM)));
+  if (m.iso) camParts.push(fldBytes(3, fldVarint(1, m.iso)));
+  if (m.ct) camParts.push(fldBytes(6, fldVarint(1, m.ct)));
+  if (m.absAltM) camParts.push(fldBytes(11, fldFloat(1, m.absAltM)));
 
   const frameParts = camParts.length > 0 ? [fldBytes(2, Buffer.concat(camParts))] : [];
   frameParts.push(drone);
@@ -133,16 +137,13 @@ function buildProductMeta(m: Meta): Buffer {
     const gimbalParts: Buffer[] = [];
     const device = m.gimbal.device;
     if (device) {
-      const headerParts = [
-        fldVarint(1, device.id),
-        fldVarint(2, device.type),
-        fldVarint(3, device.subType),
-        fldBytes(4, Buffer.from(device.name, 'utf8')),
-        fldFloat(5, device.frequency),
-      ];
-      if (device.timestampMs !== undefined) {
-        headerParts.push(fldVarint(6, device.timestampMs));
-      }
+      const headerParts: Buffer[] = [];
+      if (device.id) headerParts.push(fldVarint(1, device.id));
+      if (device.type) headerParts.push(fldVarint(2, device.type));
+      if (device.subType) headerParts.push(fldVarint(3, device.subType));
+      if (device.name) headerParts.push(fldBytes(4, Buffer.from(device.name, 'utf8')));
+      if (device.frequency) headerParts.push(fldFloat(5, device.frequency));
+      if (device.timestampMs) headerParts.push(fldVarint(6, device.timestampMs));
       gimbalParts.push(fldBytes(1, Buffer.concat(headerParts)));
     }
     const gimbalEuler = eulerMessage(m.gimbal);
@@ -343,6 +344,27 @@ describe('decodeProvenance', () => {
     expect(decodeProvenance(buildProductMeta({ lat: 46.6, lon: 14.3, relAltMm: 0 }))).toEqual({
       protoFile: null,
       gimbalDevice: null,
+    });
+  });
+
+  // The regression: a real proto3 encoder omits zero-valued constants (a
+  // device_id of 0 is never coded), so a present header with nothing on the
+  // wire still carries the known defaults.
+  it('zero-defaults wire-missing constants of a present device header', () => {
+    const p = decodeProvenance(
+      buildProductMeta({
+        lat: 46.6,
+        lon: 14.3,
+        relAltMm: 0,
+        gimbal: { device: { id: 0, type: 0, subType: 0, name: '', frequency: 0 } },
+      }),
+    );
+    expect(p.gimbalDevice).toEqual({
+      id: 0,
+      type: 0,
+      subType: 0,
+      name: '',
+      frequency: 0,
     });
   });
 });
