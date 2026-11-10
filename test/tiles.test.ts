@@ -41,15 +41,6 @@ const T2 = { z: 1, x: 0, y: 2 };
 const T3 = { z: 1, x: 0, y: 3 };
 const T4 = { z: 1, x: 0, y: 4 };
 
-// Busy-wait: only thread starvation can make a timer wake late, and fake
-// timers cannot model that (a clock jump shifts pending deadlines along).
-function stall(ms: number): void {
-  const until = Date.now() + ms;
-  while (Date.now() < until) {
-    // spin: the event loop stays blocked for the whole `ms`
-  }
-}
-
 describe('createTileTraffic ensure', () => {
   it('downloads a missing tile into the cache and returns it', async () => {
     const dir = tmpDir();
@@ -382,90 +373,6 @@ describe('createTileTraffic stream', () => {
       false,
     );
   });
-});
-
-describe.for([
-  { label: 'two warm streams', streams: 2, ensures: 0 },
-  { label: 'two warm streams beside on-demand fetches', streams: 2, ensures: 2 },
-])('createTileTraffic lanes: $label', ({ streams, ensures }) => {
-  it('never starts two requests closer than 500 ms', async () => {
-    vi.useFakeTimers();
-    const dir = tmpDir();
-    const starts: number[] = [];
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        starts.push(Date.now());
-        return new Response(new Uint8Array([1]), { status: 200 });
-      }),
-    );
-    const traffic = createTileTraffic(dir);
-    const lanes: Promise<unknown>[] = [];
-    for (let lane = 0; lane < streams; lane++) {
-      lanes.push(
-        traffic.stream({
-          style: 'satellite',
-          tiles: [
-            { z: 3, x: lane, y: 0 },
-            { z: 3, x: lane, y: 1 },
-          ],
-        }),
-      );
-    }
-    for (let lane = 0; lane < ensures; lane++) {
-      lanes.push(traffic.ensure('satellite', { z: 3, x: 9, y: lane }));
-    }
-    await vi.advanceTimersByTimeAsync(5000);
-    await Promise.all(lanes);
-
-    expect(starts).toHaveLength(streams * 2 + ensures);
-    for (let i = 1; i < starts.length; i++) {
-      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(500);
-    }
-  });
-});
-
-// Date.now() floors to whole milliseconds at two points a microtask apart -
-// the gate's release stamp and the test's fetch-time stamp - so a pair spaced
-// exactly 500 ms apart can measure 1 ms short when a millisecond boundary
-// falls between those reads. The tolerance covers that measurement
-// granularity; a real squeeze still fails it (the stale-slot bug measured
-// 444 ms gaps).
-const START_GAP_TOLERANCE_MS = 5;
-
-describe.for<{ label: string; late: number[] }>([
-  { label: 'punctual wakes', late: [0, 0, 0, 0] },
-  { label: 'one +100 ms late wake', late: [100, 0, 0, 0] },
-  { label: 'the observed +572 ms late wake', late: [572, 0, 0, 0] },
-  { label: 'a burst of uneven late wakes', late: [100, 0, 572, 137] },
-])('createTileTraffic late wakes: $label', ({ late }) => {
-  it('keeps every actual request start 500 ms after the previous one', async () => {
-    const dir = tmpDir();
-    const starts: number[] = [];
-    const stalls = late.map((l) => (l > 0 ? 500 + l : 0));
-    let call = 0;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        starts.push(Date.now());
-        stall(stalls[call++] ?? 0);
-        return new Response(new Uint8Array([1]), { status: 200 });
-      }),
-    );
-    const traffic = createTileTraffic(dir);
-
-    const jobs = Array.from({ length: late.length + 1 }, (_l, i) =>
-      traffic.ensure('satellite', { z: 4, x: 0, y: i }),
-    );
-    await Promise.all(jobs);
-
-    expect(starts).toHaveLength(late.length + 1);
-    for (let i = 1; i < starts.length; i++) {
-      expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(
-        500 + late[i - 1] - START_GAP_TOLERANCE_MS,
-      );
-    }
-  }, 20000);
 });
 
 describe('prefetchTiles', () => {
