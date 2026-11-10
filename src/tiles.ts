@@ -147,8 +147,8 @@ function createDownloader(
     concurrency: DOWNLOAD_WORKERS,
     intervalCap: 1,
     interval: REQUEST_INTERVAL_MS,
-    // Sliding window: fixed windows let a stalled event loop bunch two
-    // request starts onto one interval boundary.
+    // Sliding window: no more than intervalCap starts in any interval window,
+    // matching the old request gate's nextFreeAt semantics.
     strict: true,
   });
   const ctx: FetchContext = { cacheDir, queue, placeholderPng };
