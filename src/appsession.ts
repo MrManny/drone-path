@@ -1,15 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { z } from 'zod';
+
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
 import {
   STYLE_VALUES,
   VIEW_VALUES,
-  asNumber,
   asTrailColor,
+  numberValue,
   parseFrameRange,
+  parseValue,
+  strictShape,
 } from './config.js';
-import type { FrameRange, LookSettings, RenderConfig, Style, View } from './config.js';
+import type { FrameRange, LookSettings, RenderConfig } from './config.js';
 import { errorMessage } from './errors.js';
 import type { VideoProbe } from './ff.js';
 import type { Bbox } from './geo.js';
@@ -63,26 +67,32 @@ export function parsePickRequest(raw: unknown): PickRequest {
       ? (input.settings as Record<string, unknown>)
       : {};
   const { style, view, hud } = look;
-  if (typeof style !== 'string' || !STYLE_VALUES.includes(style as Style)) {
-    throw new Error(`unknown map style: ${String(style)}`);
-  }
-  if (typeof view !== 'string' || !VIEW_VALUES.includes(view as View)) {
-    throw new Error(`unknown view: ${String(view)}`);
-  }
-  const zoom = asNumber(look.zoom, 'zoom');
-  const zoomOut = asNumber(look.zoomOut, 'zoom-out');
+  const mapStyle = parseValue(
+    z.enum(STYLE_VALUES, {
+      error: (issue) => `unknown map style: ${String(issue.input)}`,
+    }),
+    style,
+  );
+  const viewMode = parseValue(
+    z.enum(VIEW_VALUES, {
+      error: (issue) => `unknown view: ${String(issue.input)}`,
+    }),
+    view,
+  );
+  const zoom = parseValue(numberValue('zoom'), look.zoom);
+  const zoomOut = parseValue(numberValue('zoom-out'), look.zoomOut);
   if (!(zoom >= 0)) throw new Error('zoom must be >= 0 (0 = auto-fit)');
   if (!(zoomOut >= 0)) throw new Error('zoom-out must be >= 0');
-  const introSec = asNumber(look.introSec, 'intro');
-  const outroSec = asNumber(look.outroSec, 'outro');
+  const introSec = parseValue(numberValue('intro'), look.introSec);
+  const outroSec = parseValue(numberValue('outro'), look.outroSec);
   if (!(introSec >= 0)) throw new Error('intro must be 0 or more');
   if (!(outroSec >= 0)) throw new Error('outro must be 0 or more');
   const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
   const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
   return {
     settings: {
-      style: style as Style,
-      view: view as View,
+      style: mapStyle,
+      view: viewMode,
       zoom,
       zoomOut,
       hud: { heading: !!chips.heading, alt: !!chips.alt, speed: !!chips.speed },
@@ -98,25 +108,33 @@ export interface TelemetrySaveRequest {
   range: FrameRange | null;
 }
 
+const TELEMETRY_SAVE_SHAPE = {
+  outPath: z.unknown().optional(),
+  range: z.unknown().optional(),
+} as z.ZodRawShape;
+
 export function parseTelemetrySaveRequest(raw: unknown): TelemetrySaveRequest {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new Error('invalid telemetry save request');
-  }
-  const r = raw as Record<string, unknown>;
-  for (const key of Object.keys(r)) {
-    if (key !== 'outPath' && key !== 'range') {
-      throw new Error(`unknown telemetry save request key ${key}`);
-    }
-  }
-  if (typeof r.outPath !== 'string' || !r.outPath) {
-    throw new Error('invalid telemetry save request: outPath');
-  }
-  if (!r.outPath.toLowerCase().endsWith('.json')) {
-    throw new Error(`invalid telemetry save request: outPath must be a .json file: ${r.outPath}`);
+  const request = parseValue(
+    strictShape(TELEMETRY_SAVE_SHAPE, {
+      invalid: 'invalid telemetry save request',
+      unknownKey: (key) => `unknown telemetry save request key ${key}`,
+    }),
+    raw,
+  );
+  const outPath = parseValue(
+    z
+      .string({ error: () => 'invalid telemetry save request: outPath' })
+      .min(1, { error: () => 'invalid telemetry save request: outPath' }),
+    request.outPath,
+  );
+  if (!outPath.toLowerCase().endsWith('.json')) {
+    throw new Error(`invalid telemetry save request: outPath must be a .json file: ${outPath}`);
   }
   const range =
-    r.range === undefined || r.range === null ? null : parseFrameRange(r.range);
-  return { outPath: r.outPath, range };
+    request.range === undefined || request.range === null
+      ? null
+      : parseFrameRange(request.range);
+  return { outPath, range };
 }
 
 export type PrepareUiSession = (

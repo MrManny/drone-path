@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type Style = 'satellite' | 'topo';
 export type View = 'follow' | 'overview';
 export type Capture = 'jpeg' | 'png';
@@ -92,64 +94,132 @@ export function formatHud(hud: HudSpec): string {
   return parts.length ? parts.join(',') : 'none';
 }
 
-export function asNumber(value: unknown, name: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error(`invalid number for ${name}: ${String(value)}`);
-  }
-  return value;
+// The schemas below own the checks; the error wording stays the legacy one so
+// CLI, config file and IPC errors read exactly as before.
+interface IssueInput {
+  input?: unknown;
 }
 
-const CLI_NUMBER_RX = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+const invalidValue = (name: string) => (issue: IssueInput): string =>
+  `invalid value for ${name}: ${String(issue.input)}`;
 
-function cliNumber(raw: unknown): unknown {
-  if (typeof raw !== 'string' || !CLI_NUMBER_RX.test(raw.trim())) return raw;
-  return Number(raw);
-}
+const invalidNumber = (name: string) => (issue: IssueInput): string =>
+  `invalid number for ${name}: ${String(issue.input)}`;
 
-function asString(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`invalid value for ${name}: ${String(value)}`);
-  }
-  return value;
-}
-
-function asBool(value: unknown, name: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new Error(`invalid value for ${name}: ${String(value)}`);
-  }
-  return value;
-}
-
-function asEnum<T extends string>(
+export function parseValue<S extends z.ZodType>(
+  schema: S,
   value: unknown,
+): z.output<S> {
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  // The legacy key loops ran before the value checks; surface an unknown-key
+  // issue first so multi-error input keeps reporting in that order.
+  const issue =
+    result.error.issues.find((i) => i.code === 'unrecognized_keys') ??
+    result.error.issues[0];
+  throw new Error(issue.message, { cause: result.error });
+}
+
+interface ShapeWording {
+  invalid: string;
+  unknownKey: (key: string) => string;
+}
+
+export function strictShape<T extends z.ZodRawShape>(
+  shape: T,
+  wording: ShapeWording,
+) {
+  return z.strictObject(shape, {
+    error: (issue) =>
+      issue.code === 'unrecognized_keys'
+        ? wording.unknownKey(issue.keys[0])
+        : wording.invalid,
+  });
+}
+
+export function numberValue(name: string): z.ZodType<number> {
+  return z.number({ error: invalidNumber(name) });
+}
+
+function stringValue(name: string): z.ZodType<string> {
+  return z
+    .string({ error: invalidValue(name) })
+    .min(1, { error: invalidValue(name) });
+}
+
+function boolValue(name: string): z.ZodType<boolean> {
+  return z.boolean({ error: invalidValue(name) });
+}
+
+function enumValue<T extends string>(
   name: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`invalid value for ${name}: ${String(value)} (use ${allowed.join(' | ')})`);
-  }
-  return value as T;
+  values: readonly T[],
+): z.ZodType<T> {
+  return z.enum(values, {
+    error: (issue) =>
+      `invalid value for ${name}: ${String(issue.input)} (use ${values.join(' | ')})`,
+  });
 }
 
-function asNullableString(value: unknown, name: string): string | null {
-  if (value === null || value === '') return null;
-  return asString(value, name);
+function nullableStringValue(name: string): z.ZodType<string | null> {
+  return z
+    .nullable(z.string({ error: invalidValue(name) }))
+    .transform((value) => (value === '' ? null : value));
 }
 
-const TRAIL_COLOR_RX = /^#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+// The legacy key loops ran Object.keys on any object, arrays included;
+// spreading keeps exactly those keys visible to the strict shapes below.
+const keyedObjectInput = (value: unknown): unknown =>
+  typeof value === 'object' && value !== null ? { ...value } : value;
+
+// The whitespace tolerance matches the legacy trim-before-match so the error
+// can echo the raw untrimmed input.
+const TRAIL_COLOR_RX = /^\s*#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\s*$/i;
+
+function canonicalTrailColor(value: string): string {
+  const hex = value.trim().replace(/^#/, '').toLowerCase();
+  return `#${hex.length <= 4 ? [...hex].map((c) => c + c).join('') : hex}`;
+}
+
+function trailColorValue(name: string): z.ZodType<string | null> {
+  const bad = (issue: IssueInput): string =>
+    `invalid value for ${name}: ${String(issue.input)} (use hex like #e63946 or #e63946cc)`;
+  return z
+    .union(
+      [z.null(), z.literal(''), z.string().regex(TRAIL_COLOR_RX, { error: bad })],
+      { error: bad },
+    )
+    .transform((value) =>
+      value === null || value === '' ? null : canonicalTrailColor(value),
+    );
+}
 
 export function asTrailColor(value: unknown, name: string): string | null {
-  const bad = (): Error =>
-    new Error(
-      `invalid value for ${name}: ${String(value)} (use hex like #e63946 or #e63946cc)`,
-    );
-  if (value === null || value === '') return null;
-  if (typeof value !== 'string') throw bad();
-  const match = TRAIL_COLOR_RX.exec(value.trim());
-  if (!match) throw bad();
-  let hex = match[1].toLowerCase();
-  if (hex.length <= 4) hex = [...hex].map((c) => c + c).join('');
-  return `#${hex}`;
+  return parseValue(trailColorValue(name), value);
+}
+
+function hudSpecSchema(name: string): z.ZodType<HudSpec> {
+  return z.preprocess(
+    keyedObjectInput,
+    strictShape(
+      {
+        heading: boolValue(`${name}: heading`),
+        alt: boolValue(`${name}: alt`),
+        speed: boolValue(`${name}: speed`),
+      },
+      {
+        invalid: `invalid value for ${name}`,
+        unknownKey: (key) => `unknown key ${key} in ${name}`,
+      },
+    ),
+  );
+}
+
+function patchHud(value: unknown, name: string): HudSpec | undefined {
+  if (value === undefined || value === null) return undefined;
+  return typeof value === 'string'
+    ? parseHud(parseValue(stringValue(name), value))
+    : parseValue(hudSpecSchema(name), value);
 }
 
 interface CliOptionSpec {
@@ -171,31 +241,31 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
     key: 'outDir',
     cli: { flags: '--out-dir <dir>', help: 'output folder' },
     default: 'out',
-    normalize: (v, name) => ({ outDir: asNullableString(v, name) }),
+    normalize: (v, name) => ({ outDir: parseValue(nullableStringValue(name), v) }),
   },
   {
     key: 'outSuffix',
     cli: { flags: '--out-suffix <suffix>', help: 'output name = <basename><suffix>.mp4' },
     default: '_map',
-    normalize: (v, name) => ({ outSuffix: asString(v, name) }),
+    normalize: (v, name) => ({ outSuffix: parseValue(stringValue(name), v) }),
   },
   {
     key: 'width',
     cli: { flags: '--width <px>', help: 'canvas width in pixels (rounded down to even)', parse: cliNumber },
     default: 768,
-    normalize: (v, name) => ({ width: asNumber(v, name) }),
+    normalize: (v, name) => ({ width: parseValue(numberValue(name), v) }),
   },
   {
     key: 'height',
     cli: { flags: '--height <px>', help: 'canvas height in pixels (rounded down to even)', parse: cliNumber },
     default: 768,
-    normalize: (v, name) => ({ height: asNumber(v, name) }),
+    normalize: (v, name) => ({ height: parseValue(numberValue(name), v) }),
   },
   {
     key: 'style',
     cli: { flags: '--style <name>', help: 'map look', choices: STYLE_VALUES },
     default: 'satellite',
-    normalize: (v, name) => ({ style: asEnum(v, name, STYLE_VALUES) }),
+    normalize: (v, name) => ({ style: parseValue(enumValue(name, STYLE_VALUES), v) }),
   },
   {
     key: 'view',
@@ -206,31 +276,31 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       choices: VIEW_VALUES,
     },
     default: 'follow',
-    normalize: (v, name) => ({ view: asEnum(v, name, VIEW_VALUES) }),
+    normalize: (v, name) => ({ view: parseValue(enumValue(name, VIEW_VALUES), v) }),
   },
   {
     key: 'zoom',
     cli: { flags: '--zoom <n>', help: 'fixed view zoom level (0 = auto-fit to the track)', parse: cliNumber },
     default: 0,
-    normalize: (v, name) => ({ zoom: asNumber(v, name) }),
+    normalize: (v, name) => ({ zoom: parseValue(numberValue(name), v) }),
   },
   {
     key: 'zoomOut',
     cli: { flags: '--zoom-out <n>', help: 'auto-fit only: pull back n zoom levels', parse: cliNumber },
     default: 1,
-    normalize: (v, name) => ({ zoomOut: asNumber(v, name) }),
+    normalize: (v, name) => ({ zoomOut: parseValue(numberValue(name), v) }),
   },
   {
     key: 'introSec',
     cli: { flags: '--intro-sec <s>', help: 'intro: zoom in from one level out over s seconds', parse: cliNumber },
     default: 2,
-    normalize: (v, name) => ({ introSec: asNumber(v, name) }),
+    normalize: (v, name) => ({ introSec: parseValue(numberValue(name), v) }),
   },
   {
     key: 'outroSec',
     cli: { flags: '--outro-sec <s>', help: 'outro: zoom back out over s seconds', parse: cliNumber },
     default: 2,
-    normalize: (v, name) => ({ outroSec: asNumber(v, name) }),
+    normalize: (v, name) => ({ outroSec: parseValue(numberValue(name), v) }),
   },
   {
     key: 'trailColor',
@@ -249,61 +319,61 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       help: 'comma list of heading,alt,speed - or none (alt hides when unavailable)',
     },
     default: { heading: true, alt: false, speed: false },
-    normalize: (v, name) => ({ hud: parseHud(asString(v, name)) }),
+    normalize: (v, name) => ({ hud: parseHud(parseValue(stringValue(name), v)) }),
   },
   {
     key: 'workers',
     cli: { flags: '--workers <n>', help: 'parallel browser pages', parse: cliNumber },
     default: 4,
-    normalize: (v, name) => ({ workers: asNumber(v, name) }),
+    normalize: (v, name) => ({ workers: parseValue(numberValue(name), v) }),
   },
   {
     key: 'capture',
     cli: { flags: '--capture <mode>', help: 'frame capture mode (canvas is parked)', choices: CAPTURE_VALUES },
     default: 'jpeg',
-    normalize: (v, name) => ({ capture: asEnum(v, name, CAPTURE_VALUES) }),
+    normalize: (v, name) => ({ capture: parseValue(enumValue(name, CAPTURE_VALUES), v) }),
   },
   {
     key: 'codec',
     cli: { flags: '--codec <name>', help: 'video codec (mp4 container)', choices: CODEC_VALUES },
     default: 'h264',
-    normalize: (v, name) => ({ codec: asEnum(v, name, CODEC_VALUES) }),
+    normalize: (v, name) => ({ codec: parseValue(enumValue(name, CODEC_VALUES), v) }),
   },
   {
     key: 'quality',
     cli: { flags: '--quality <level>', help: 'encoding quality', choices: QUALITY_VALUES },
     default: 'high',
-    normalize: (v, name) => ({ quality: asEnum(v, name, QUALITY_VALUES) }),
+    normalize: (v, name) => ({ quality: parseValue(enumValue(name, QUALITY_VALUES), v) }),
   },
   {
     key: 'preset',
     cli: { flags: '--preset <name>', help: 'encoding speed', choices: PRESET_VALUES },
     default: 'medium',
-    normalize: (v, name) => ({ preset: asEnum(v, name, PRESET_VALUES) }),
+    normalize: (v, name) => ({ preset: parseValue(enumValue(name, PRESET_VALUES), v) }),
   },
   {
     key: 'tileCache',
     cli: { flags: '--tile-cache <dir>', help: 'tile cache directory (default: per-user cache dir)' },
     default: '',
-    normalize: (v, name) => ({ tileCache: asString(v, name) }),
+    normalize: (v, name) => ({ tileCache: parseValue(stringValue(name), v) }),
   },
   {
     key: 'browser',
     cli: { flags: '--browser <path>', help: 'Chromium/Chrome/Edge executable (default: system Chrome/Edge)' },
     default: null,
-    normalize: (v, name) => ({ browser: asNullableString(v, name) }),
+    normalize: (v, name) => ({ browser: parseValue(nullableStringValue(name), v) }),
   },
   {
     key: 'ffmpeg',
     cli: { flags: '--ffmpeg <path>', help: 'ffmpeg executable (default: embedded binary, then PATH)' },
     default: null,
-    normalize: (v, name) => ({ ffmpeg: asNullableString(v, name) }),
+    normalize: (v, name) => ({ ffmpeg: parseValue(nullableStringValue(name), v) }),
   },
   {
     key: 'ffprobe',
     cli: { flags: '--ffprobe <path>', help: 'ffprobe executable (default: embedded binary, then PATH)' },
     default: null,
-    normalize: (v, name) => ({ ffprobe: asNullableString(v, name) }),
+    normalize: (v, name) => ({ ffprobe: parseValue(nullableStringValue(name), v) }),
   },
   {
     key: 'skipExisting',
@@ -312,13 +382,13 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       help: 'skip recordings whose output already exists and matches the source',
     },
     default: false,
-    normalize: (v, name) => ({ skipExisting: asBool(v, name) }),
+    normalize: (v, name) => ({ skipExisting: parseValue(boolValue(name), v) }),
   },
   {
     key: 'recurse',
     cli: { flags: '--recurse', help: 'scan input folders recursively' },
     default: false,
-    normalize: (v, name) => ({ recurse: asBool(v, name) }),
+    normalize: (v, name) => ({ recurse: parseValue(boolValue(name), v) }),
   },
   {
     key: 'telemetryJson',
@@ -327,21 +397,28 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       help: 'write one JSON document with per-frame telemetry to <file> (one recording per run)',
     },
     default: null,
-    normalize: (v, name) => ({ telemetryJson: asNullableString(v, name) }),
+    normalize: (v, name) => ({ telemetryJson: parseValue(nullableStringValue(name), v) }),
   },
   {
     key: 'json',
     cli: { flags: '--json', help: 'print one NDJSON summary line per recording on stdout' },
     default: false,
-    normalize: (v, name) => ({ json: asBool(v, name) }),
+    normalize: (v, name) => ({ json: parseValue(boolValue(name), v) }),
   },
   {
     key: 'quiet',
     cli: { flags: '-q, --quiet', help: 'suppress progress output' },
     default: false,
-    normalize: (v, name) => ({ quiet: asBool(v, name) }),
+    normalize: (v, name) => ({ quiet: parseValue(boolValue(name), v) }),
   },
 ];
+
+const CLI_NUMBER_RX = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+function cliNumber(raw: unknown): unknown {
+  if (typeof raw !== 'string' || !CLI_NUMBER_RX.test(raw.trim())) return raw;
+  return Number(raw);
+}
 
 export function cliDefaultOf(key: keyof RenderConfig): string | boolean {
   const row = CONFIG_OPTIONS.find((r) => r.key === key);
@@ -364,16 +441,24 @@ const OVERRIDE_NORMALIZERS: Record<keyof RenderConfig, OverrideNormalizer> =
     CONFIG_OPTIONS.map((row) => [row.key, row.normalize]),
   ) as Record<keyof RenderConfig, OverrideNormalizer>;
 
+const OVERRIDE_SHAPE = Object.fromEntries(
+  CONFIG_OPTIONS.map((row) => [row.key, z.unknown().optional()]),
+) as z.ZodRawShape;
+
 export function normalizeOverrides(
   raw: Record<string, unknown>,
   origin: string,
 ): ConfigOverrides {
+  parseValue(
+    strictShape(OVERRIDE_SHAPE, {
+      invalid: `invalid config overrides in ${origin}`,
+      unknownKey: (key) => `unknown config key ${key} in ${origin}`,
+    }),
+    raw,
+  );
   const out: ConfigOverrides = {};
   for (const key of Object.keys(raw)) {
-    const normalize = Object.hasOwn(OVERRIDE_NORMALIZERS, key)
-      ? OVERRIDE_NORMALIZERS[key as keyof RenderConfig]
-      : null;
-    if (!normalize) throw new Error(`unknown config key ${key} in ${origin}`);
+    const normalize = OVERRIDE_NORMALIZERS[key as keyof RenderConfig];
     const value = raw[key];
     if (value === undefined) continue;
     if (value === null && DEFAULT_CONFIG[key as keyof RenderConfig] !== null) continue;
@@ -425,20 +510,23 @@ export const SETTINGS_KEYS = [
   'preset',
 ] as const;
 
+const SETTINGS_SHAPE = Object.fromEntries(
+  SETTINGS_KEYS.map((key) => [key, z.unknown().optional()]),
+) as z.ZodRawShape;
+
 export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new Error(`invalid settings in ${origin}`);
-  }
+  parseValue(
+    strictShape(SETTINGS_SHAPE, {
+      invalid: `invalid settings in ${origin}`,
+      unknownKey: (key) => `unknown settings key ${key} in ${origin}`,
+    }),
+    raw,
+  );
   const flat = { ...(raw as Record<string, unknown>) };
-  for (const key of Object.keys(flat)) {
-    if (!(SETTINGS_KEYS as readonly string[]).includes(key)) {
-      throw new Error(`unknown settings key ${key} in ${origin}`);
-    }
-  }
-  if (flat.hud !== undefined && flat.hud !== null && typeof flat.hud !== 'string') {
-    flat.hud = formatHud(parseHudObject(flat.hud, `${origin}: hud`));
-  }
-  const patch = normalizeOverrides(flat, origin);
+  const hud = patchHud(flat.hud, `${origin}: hud`);
+  delete flat.hud;
+  const patch: ConfigOverrides = { ...normalizeOverrides(flat, origin) };
+  if (hud !== undefined) patch.hud = hud;
   for (const key of SETTINGS_KEYS) {
     if (patch[key] === undefined) {
       throw new Error(`missing settings key ${key} in ${origin}`);
@@ -502,36 +590,21 @@ export function assertValidFrameRange(range: FrameRange, name = 'frame range'): 
 }
 
 export function parseFrameRange(raw: unknown, name = 'frame range'): FrameRange {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new Error(`invalid ${name}`);
-  }
-  const r = raw as Record<string, unknown>;
-  for (const key of Object.keys(r)) {
-    if (key !== 'start' && key !== 'end') {
-      throw new Error(`unknown ${name} key ${key}`);
-    }
-  }
-  const start = asNumber(r.start, `${name}: start`);
-  const end = asNumber(r.end, `${name}: end`);
-  assertValidFrameRange({ start, end }, name);
-  return { start, end };
-}
-
-function parseHudObject(value: unknown, name: string): HudSpec {
-  if (typeof value !== 'object' || value === null) {
-    throw new Error(`invalid value for ${name}`);
-  }
-  const h = value as Record<string, unknown>;
-  for (const key of Object.keys(h)) {
-    if (key !== 'heading' && key !== 'alt' && key !== 'speed') {
-      throw new Error(`unknown key ${key} in ${name}`);
-    }
-  }
-  return {
-    heading: asBool(h.heading, `${name}: heading`),
-    alt: asBool(h.alt, `${name}: alt`),
-    speed: asBool(h.speed, `${name}: speed`),
-  };
+  const range = parseValue(
+    strictShape(
+      {
+        start: numberValue(`${name}: start`),
+        end: numberValue(`${name}: end`),
+      },
+      {
+        invalid: `invalid ${name}`,
+        unknownKey: (key) => `unknown ${name} key ${key}`,
+      },
+    ),
+    raw,
+  );
+  assertValidFrameRange(range, name);
+  return range;
 }
 
 const MAIN_OWNED_KEYS = [
@@ -545,29 +618,41 @@ function parseRequestConfig(raw: unknown, base: RenderConfig): RenderConfig {
   }
   const flat = { ...(raw as Record<string, unknown>) };
   for (const key of MAIN_OWNED_KEYS) delete flat[key];
-  if (flat.hud !== undefined && flat.hud !== null) {
-    flat.hud = formatHud(parseHudObject(flat.hud, 'export request: config: hud'));
-  }
-  const config = { ...base, ...normalizeOverrides(flat, 'export request: config') };
-  validateRenderConfig(config);
-  return { ...config, ...normalizeDimensions(config.width, config.height) };
+  const { hud, ...rest } = flat;
+  const hudSpec =
+    hud === undefined || hud === null
+      ? undefined
+      : parseValue(hudSpecSchema('export request: config: hud'), hud);
+  const config = { ...base, ...normalizeOverrides(rest, 'export request: config') };
+  const merged = hudSpec === undefined ? config : { ...config, hud: hudSpec };
+  validateRenderConfig(merged);
+  return { ...merged, ...normalizeDimensions(merged.width, merged.height) };
 }
 
+const EXPORT_REQUEST_SCHEMA = z.preprocess(
+  keyedObjectInput,
+  strictShape(
+    {
+      outPath: z.unknown().optional(),
+      config: z.unknown().optional(),
+      range: z.unknown().optional(),
+    },
+    {
+      invalid: 'invalid export request',
+      unknownKey: (key) => `unknown export request key ${key}`,
+    },
+  ),
+);
+
 export function parseExportRequest(raw: unknown, base: RenderConfig): ExportRequest {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new Error('invalid export request');
-  }
-  const r = raw as Record<string, unknown>;
-  for (const key of Object.keys(r)) {
-    if (key !== 'outPath' && key !== 'config' && key !== 'range') {
-      throw new Error(`unknown export request key ${key}`);
-    }
-  }
-  const outPath = asString(r.outPath, 'export request: outPath');
+  const request = parseValue(EXPORT_REQUEST_SCHEMA, raw);
+  const outPath = parseValue(stringValue('export request: outPath'), request.outPath);
   if (!outPath.toLowerCase().endsWith('.mp4')) {
     throw new Error(`export request: outPath must be an .mp4 file: ${outPath}`);
   }
   const range =
-    r.range === undefined || r.range === null ? null : parseFrameRange(r.range);
-  return { outPath, config: parseRequestConfig(r.config, base), range };
+    request.range === undefined || request.range === null
+      ? null
+      : parseFrameRange(request.range);
+  return { outPath, config: parseRequestConfig(request.config, base), range };
 }
