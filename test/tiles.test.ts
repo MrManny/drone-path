@@ -359,6 +359,29 @@ describe('createTileTraffic stream', () => {
     await expect(pivoted).resolves.toEqual({ downloaded: 3, failed: 0, total: 3 });
     await warmFails;
   });
+
+  it('rejects a stream whose signal is canceled before anything starts', async () => {
+    const dir = tmpDir();
+    const fetchStub = okFetch();
+    vi.stubGlobal('fetch', fetchStub);
+    const controller = new AbortController();
+    controller.abort();
+
+    const error = await rejected(
+      createTileTraffic(dir).stream({
+        style: 'satellite',
+        tiles: [T0, T1],
+        signal: controller.signal,
+      }),
+    );
+
+    // toBe, not toThrow: the user-facing cancel wording is pinned byte-identical.
+    expect(error.message).toBe('tile download canceled');
+    expect(fetchStub).not.toHaveBeenCalled();
+    expect(fs.existsSync(path.join(dir, 'esri-imagery', '1', '0', '0.placeholder.png'))).toBe(
+      false,
+    );
+  });
 });
 
 describe.for([

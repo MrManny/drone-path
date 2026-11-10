@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import PQueue from 'p-queue';
+
 import type { Style } from './config.js';
 import { errorMessage } from './errors.js';
 import type { TileCoord } from './plan.js';
@@ -20,26 +22,10 @@ const REQUEST_INTERVAL_MS = 500;
 const RETRY_DELAY_MS = 500;
 const FETCH_TIMEOUT_MS = 20000;
 
-type RequestGate = () => Promise<void>;
+type TilePriority = 'now' | 'background';
 
-function createRequestGate(): RequestGate {
-  let nextFreeAt = 0;
-  let tail: Promise<void> = Promise.resolve();
-  return () => {
-    const turn = tail.then(async () => {
-      for (;;) {
-        const now = Date.now();
-        if (now >= nextFreeAt) {
-          nextFreeAt = now + REQUEST_INTERVAL_MS;
-          return;
-        }
-        await sleep(nextFreeAt - now);
-      }
-    });
-    tail = turn.catch(() => {});
-    return turn;
-  };
-}
+// p-queue starts higher priorities first, so 'now' jumps the queued pre-warm.
+const TASK_PRIORITY: Record<TilePriority, number> = { now: 1, background: 0 };
 
 function tileUrl(style: Style, tile: TileCoord): string {
   const source = TILE_SOURCES[style];
@@ -57,21 +43,29 @@ function canceledError(signal: AbortSignal): Error {
   return new Error('tile download canceled', { cause: signal.reason });
 }
 
+async function fetchBody(url: string, signal?: AbortSignal): Promise<Buffer | null> {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT },
+    signal: signal
+      ? AbortSignal.any([AbortSignal.timeout(FETCH_TIMEOUT_MS), signal])
+      : AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  return res.ok ? Buffer.from(await res.arrayBuffer()) : null;
+}
+
 async function downloadTile(
+  queue: PQueue,
   url: string,
-  acquire: RequestGate,
+  priority: TilePriority,
   signal?: AbortSignal,
 ): Promise<Buffer | null> {
   for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt++) {
-    await acquire();
     try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': USER_AGENT },
-        signal: signal
-          ? AbortSignal.any([AbortSignal.timeout(FETCH_TIMEOUT_MS), signal])
-          : AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      const body = await queue.add(() => fetchBody(url, signal), {
+        priority: TASK_PRIORITY[priority],
+        signal,
       });
-      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      if (body) return body;
     } catch {
       if (signal?.aborted) throw canceledError(signal);
       await sleep(RETRY_DELAY_MS);
@@ -110,7 +104,7 @@ interface TileFetchResult {
 
 interface FetchContext {
   cacheDir: string;
-  acquire: RequestGate;
+  queue: PQueue;
   placeholderPng: (style: Style) => Buffer;
 }
 
@@ -118,28 +112,18 @@ async function fetchTileToCache(
   ctx: FetchContext,
   style: Style,
   tile: TileCoord,
+  priority: TilePriority,
   signal?: AbortSignal,
 ): Promise<TileFetchResult> {
   const paths = tilePaths(ctx.cacheDir, style, tile);
   if (fs.existsSync(paths.file)) return { file: paths.file, status: 'cached' };
-  const body = await downloadTile(tileUrl(style, tile), ctx.acquire, signal);
+  const body = await downloadTile(ctx.queue, tileUrl(style, tile), priority, signal);
   if (body) {
     writeCacheFile(paths.file, body);
     return { file: paths.file, status: 'downloaded' };
   }
   writeCacheFile(paths.placeholder, ctx.placeholderPng(style));
   return { file: paths.placeholder, status: 'failed' };
-}
-
-type TilePriority = 'now' | 'background';
-
-interface QueuedTile {
-  style: Style;
-  tile: TileCoord;
-  signal?: AbortSignal;
-  settle: (result: TileFetchResult) => void;
-  fail: (error: unknown) => void;
-  detach: () => void;
 }
 
 interface Downloader {
@@ -159,34 +143,16 @@ function createDownloader(
   cacheDir: string,
   placeholderPng: (style: Style) => Buffer,
 ): Downloader {
-  const ctx: FetchContext = { cacheDir, acquire: createRequestGate(), placeholderPng };
+  const queue = new PQueue({
+    concurrency: DOWNLOAD_WORKERS,
+    intervalCap: 1,
+    interval: REQUEST_INTERVAL_MS,
+    // Sliding window: fixed windows let a stalled event loop bunch two
+    // request starts onto one interval boundary.
+    strict: true,
+  });
+  const ctx: FetchContext = { cacheDir, queue, placeholderPng };
   const inFlight = new Map<string, InFlightEntry>();
-  const queue: QueuedTile[] = [];
-  let active = 0;
-
-  function pump(): void {
-    while (active < DOWNLOAD_WORKERS) {
-      const job = queue.shift();
-      if (!job) break;
-      if (job.signal?.aborted) {
-        job.detach();
-        job.fail(canceledError(job.signal));
-        continue;
-      }
-      active++;
-      void (async () => {
-        try {
-          job.settle(await fetchTileToCache(ctx, job.style, job.tile, job.signal));
-        } catch (e) {
-          job.fail(e);
-        } finally {
-          job.detach();
-          active--;
-          pump();
-        }
-      })();
-    }
-  }
 
   return {
     enqueue(style, tile, options = {}): Promise<TileFetchResult> {
@@ -195,31 +161,7 @@ function createDownloader(
       // Share only within one stream: a canceled stream's downloads must never be handed to the next one.
       const shared = inFlight.get(key);
       if (shared && shared.signal === options.signal) return shared.promise;
-      const task = new Promise<TileFetchResult>((resolve, reject) => {
-        const job: QueuedTile = {
-          style,
-          tile,
-          signal: options.signal,
-          settle: resolve,
-          fail: reject,
-          detach: () => {},
-        };
-        const signal = options.signal;
-        if (signal) {
-          const onAbort = (): void => {
-            const at = queue.indexOf(job);
-            if (at < 0) return;
-            queue.splice(at, 1);
-            job.detach();
-            reject(canceledError(signal));
-          };
-          signal.addEventListener('abort', onAbort, { once: true });
-          job.detach = () => signal.removeEventListener('abort', onAbort);
-        }
-        if (priority === 'now') queue.unshift(job);
-        else queue.push(job);
-        pump();
-      });
+      const task = fetchTileToCache(ctx, style, tile, priority, options.signal);
       const entry: InFlightEntry = { promise: task, signal: options.signal };
       const clear = (): void => {
         if (inFlight.get(key) === entry) inFlight.delete(key);
