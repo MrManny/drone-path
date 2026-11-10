@@ -43,9 +43,6 @@ import {
   telemetrySummary,
   trackDistanceLabel,
 } from './summary.js';
-import { NOOP_TRACER, stage } from './tracing.js';
-import type { Span, Tracer, TraceContext } from './tracing.js';
-
 export type LogFn = (msg: string) => void;
 
 const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
@@ -246,7 +243,6 @@ function resolveDeps(
 
 export interface PipelineOptions {
   deps?: Partial<PipelineDeps>;
-  trace?: TraceContext;
   tools?: FfToolPaths;
   range?: FrameRange;
   signal?: AbortSignal;
@@ -299,8 +295,6 @@ interface PrepareStageEnv {
   videoPath: string;
   config: RenderConfig;
   log: LogFn;
-  tracer: Tracer;
-  parent: Span | undefined;
   deps: PipelineDeps;
   tools: FfToolPaths;
   report: PrepareReporter;
@@ -309,11 +303,9 @@ interface PrepareStageEnv {
 async function probeStage(
   env: PrepareStageEnv,
 ): Promise<{ probe: VideoProbe; introOutro: IntroOutroFrames }> {
-  const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
+  const { videoPath, config, log, deps, tools, report } = env;
   report('probe');
-  const probe = await stage(tracer, 'probe', parent, {}, () =>
-    deps.probeVideo(tools, videoPath, log),
-  );
+  const probe = await deps.probeVideo(tools, videoPath, log);
   log(
     `source: ${path.basename(videoPath)}  ${probe.width}x${probe.height} @ ${probe.fps.str} fps, ${probe.frames} frames`,
   );
@@ -339,22 +331,13 @@ async function telemetryStage(
   gimbalDevice: GimbalDeviceConstants | null;
   hud: HudSpec;
 }> {
-  const { videoPath, config, log, tracer, parent, deps, tools, report } = env;
+  const { videoPath, config, log, deps, tools, report } = env;
   report('telemetry');
-  const loaded = await stage(tracer, 'telemetry.load', parent, {}, async (span) => {
-    const result = await deps.loadTelemetry(videoPath, {
-      frames: probe.frames,
-      fpsValue: probe.fps.value,
-      durationSec: probe.durationSec,
-      tools,
-    });
-    span.setAttributes({
-      'telemetry.source': result.telemetry.source,
-      'telemetry.method': result.telemetry.method,
-      'telemetry.fix.count': result.telemetry.fixCount,
-      'telemetry.noLock.count': result.telemetry.noLock,
-    });
-    return result;
+  const loaded = await deps.loadTelemetry(videoPath, {
+    frames: probe.frames,
+    fpsValue: probe.fps.value,
+    durationSec: probe.durationSec,
+    tools,
   });
   const tel = loaded.telemetry;
   const summary = telemetrySummary(tel);
@@ -374,17 +357,9 @@ async function telemetryStage(
 }
 
 async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Overview> {
-  const { config, log, tracer, parent, report } = env;
+  const { config, log, report } = env;
   report('plan');
-  const overview = await stage(tracer, 'plan', parent, { 'plan.view': config.view }, async (span) => {
-    const computed = planView(tel.bbox, config.width, config.height, config);
-    span.setAttributes({
-      'plan.zoom': computed.zoom,
-      'plan.zoomOut': effectiveZoomOut(config),
-      'plan.tile.count': computed.tiles.length,
-    });
-    return computed;
-  });
+  const overview = planView(tel.bbox, config.width, config.height, config);
   log(describeView(config, overview, config.style));
   return overview;
 }
@@ -394,22 +369,11 @@ async function tileWarmStage(
   config: RenderConfig,
   overview: Overview,
   log: LogFn,
-  tracer: Tracer,
-  parent: Span | undefined,
 ): Promise<PrefetchStats> {
-  const tileStats = await stage(tracer, 'tiles.prefetch', parent, {}, async (span) => {
-    const stats = await deps.prefetchTiles({
-      style: config.style,
-      tiles: overview.tiles,
-      log,
-    });
-    span.setAttributes({
-      'tiles.total': stats.total,
-      'tiles.downloaded': stats.downloaded,
-      'tiles.cached': stats.total - stats.downloaded - stats.failed,
-      'tiles.failed': stats.failed,
-    });
-    return stats;
+  const tileStats = await deps.prefetchTiles({
+    style: config.style,
+    tiles: overview.tiles,
+    log,
   });
   if (tileStats.downloaded) {
     log(`tiles: ${tileStats.downloaded} downloaded, ${tileStats.failed} placeholders`);
@@ -427,8 +391,6 @@ export async function prepareSession(
     videoPath,
     config,
     log,
-    tracer: options.trace?.tracer ?? NOOP_TRACER,
-    parent: options.trace?.parent,
     deps: resolveDeps(options.deps, config.tileCache),
     tools: options.tools ?? resolveFfTools(config),
     report: createPrepareReporter(options.onProgress),
@@ -493,8 +455,6 @@ interface RenderStageEnv {
   deps: PipelineDeps;
   tools: FfToolPaths;
   options: PipelineOptions;
-  tracer: Tracer;
-  root: Span;
 }
 
 function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummary {
@@ -532,23 +492,14 @@ function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummar
 }
 
 async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
-  const { ctx, deps, tools, tracer, root } = env;
-  await stage(tracer, 'output.verify', root, {}, async (span) => {
-    const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
-    span.setAttributes({
-      'verify.frames.expected': ctx.outFrames,
-      'verify.frames.actual': verify.frames,
-      'verify.fps.expected': ctx.probe.fps.str,
-      'verify.fps.actual': verify.fps ?? 'unknown',
-      'verify.ok': verify.ok,
-    });
-    if (!verify.ok) {
-      throw new Error(
-        `output verification failed: got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
-          `expected ${ctx.outFrames} @ ${ctx.probe.fps.str}`,
-      );
-    }
-  });
+  const { ctx, deps, tools } = env;
+  const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
+  if (!verify.ok) {
+    throw new Error(
+      `output verification failed: got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
+        `expected ${ctx.outFrames} @ ${ctx.probe.fps.str}`,
+    );
+  }
   ctx.log(
     ctx.frameRange
       ? 'verified: frame count and frame rate are 1:1 within the exported range'
@@ -557,7 +508,7 @@ async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
 }
 
 async function renderToOutput(env: RenderStageEnv): Promise<void> {
-  const { ctx, deps, tools, options, tracer, root } = env;
+  const { ctx, deps, tools, options } = env;
   const html = buildPageHtml(recordingPageOpts(ctx, ctx.config));
   fs.mkdirSync(path.dirname(ctx.outPath), { recursive: true });
   await renderWithOutputCleanup(ctx.outPath, ctx.log, async () => {
@@ -580,7 +531,6 @@ async function renderToOutput(env: RenderStageEnv): Promise<void> {
       browserPath: ctx.config.browser,
       signal: options.signal,
       log: ctx.log,
-      trace: { tracer, parent: root },
       onCapture: options.onCapture,
     });
     await verifyRenderedOutput(env);
@@ -618,56 +568,35 @@ export async function processRecording(
   options: PipelineOptions = {},
 ): Promise<RecordingSummary> {
   const t0 = Date.now();
-  const tracer = options.trace?.tracer ?? NOOP_TRACER;
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfTools(config);
   if (options.signal?.aborted) throw new Error('render canceled');
 
-  return stage(
-    tracer,
-    'recording.process',
-    options.trace?.parent,
-    {
-      'source.file.name': path.basename(videoPath),
-    },
-    async (root) => {
-      const prep = await prepareSession(videoPath, config, log, {
-        ...options,
-        deps,
-        tools,
-        trace: { tracer, parent: root },
-      });
-      root.setAttributes({
-        'canvas.width': prep.width,
-        'canvas.height': prep.height,
-        'map.style': config.style,
-        'map.view': config.view,
-        'source.frames': prep.probe.frames,
-        'source.fps': prep.probe.fps.value,
-        'telemetry.source': prep.tel.source,
-      });
+  const prep = await prepareSession(videoPath, config, log, {
+    ...options,
+    deps,
+    tools,
+  });
 
-      if (config.telemetryJson) {
-        writeTelemetryExport(config.telemetryJson, prep, log);
-      }
+  if (config.telemetryJson) {
+    writeTelemetryExport(config.telemetryJson, prep, log);
+  }
 
-      const tileStats = await tileWarmStage(deps, config, prep.overview, log, tracer, root);
-      const range = resolveRange(options.range, prep.probe.frames);
-      const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
-      const ctx: RenderContext = {
-        ...prep,
-        videoPath,
-        outPath,
-        config,
-        log,
-        outFrames,
-        frameRange: range,
-        tileStats,
-      };
-      await renderToOutput({ ctx, deps, tools, options, tracer, root });
-      return buildOkSummary(ctx, Math.round((Date.now() - t0) / 1000));
-    },
-  );
+  const tileStats = await tileWarmStage(deps, config, prep.overview, log);
+  const range = resolveRange(options.range, prep.probe.frames);
+  const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
+  const ctx: RenderContext = {
+    ...prep,
+    videoPath,
+    outPath,
+    config,
+    log,
+    outFrames,
+    frameRange: range,
+    tileStats,
+  };
+  await renderToOutput({ ctx, deps, tools, options });
+  return buildOkSummary(ctx, Math.round((Date.now() - t0) / 1000));
 }
 
 export async function runBatch(

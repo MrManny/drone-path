@@ -10,8 +10,6 @@ import { errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
 import type { Capture, Codec, EncodeSettings, Preset, Quality, Style } from './config.js';
 import type { FfToolPaths } from './fftools.js';
-import { NOOP_TRACER, stage } from './tracing.js';
-import type { Span, Tracer, TraceContext } from './tracing.js';
 
 const PAGE_LOAD_TIMEOUT_MS = 60000;
 const SCREENSHOT_TIMEOUT_MS = 60000;
@@ -217,7 +215,6 @@ export interface RenderOpts {
   quality: Quality;
   preset: Preset;
   signal?: AbortSignal;
-  trace?: TraceContext;
   onCapture?: (progress: CaptureProgress) => void;
 }
 
@@ -252,8 +249,6 @@ interface RenderContext {
 
 interface RenderStageEnv {
   ctx: RenderContext;
-  tracer: Tracer;
-  renderSpan: Span;
   url: string;
   timing: StageTiming;
   workerCount: number;
@@ -277,9 +272,7 @@ interface WorkerRun {
   log: (msg: string) => void;
   onCapture: ((progress: CaptureProgress) => void) | undefined;
   stream: OrderedFrameStream;
-  batches: FrameBatchRecorder;
   timing: StageTiming;
-  captureSpan: Span;
 }
 
 async function captureFrame(
@@ -298,11 +291,9 @@ async function captureFrame(
 
   const captureStart = Date.now();
   const buf = await page.screenshot(screenshotOptions(run.capture));
-  const captureMs = Date.now() - captureStart;
-  run.timing.captureMs += captureMs;
+  run.timing.captureMs += Date.now() - captureStart;
 
   const done = ++loop.capturesDone;
-  run.batches.recordFrame(done, captureMs);
 
   const emitStart = Date.now();
   await run.stream.submit(idx, buf);
@@ -353,22 +344,18 @@ async function runWorkers(run: WorkerRun, workerCount: number): Promise<void> {
   const rejected = settled.find(
     (r): r is PromiseRejectedResult => r.status === 'rejected',
   );
-  run.batches.close(rejected?.reason);
-  run.captureSpan.setAttribute('render.frames.captured', loop.capturesDone);
   if (rejected) throw rejected.reason;
 }
 
 async function finishEncode(
   encoder: Encoder,
   stream: OrderedFrameStream,
-  encodeSpan: Span,
   log: (msg: string) => void,
   outPath: string,
 ): Promise<void> {
   await stream.flushReady();
   stream.end();
   const code = await encoder.closed;
-  encodeSpan.setAttribute('render.ffmpeg.exitCode', code ?? -1);
   if (code !== 0) {
     throw new Error(`ffmpeg exited with code ${code}: ${encoder.stderrText().trim()}`);
   }
@@ -382,54 +369,8 @@ function formatProfile(profile: RenderProfile, workerCount: number): string {
   );
 }
 
-export class FrameBatchRecorder {
-  private openSpan: Span | null = null;
-  private durations: number[] = [];
-  private closed = false;
-
-  constructor(
-    private readonly tracer: Tracer,
-    private readonly parent: Span,
-    private readonly frames: number,
-    private readonly cadence: number = 100,
-  ) {}
-
-  recordFrame(capturedSoFar: number, captureMs: number): void {
-    if (this.closed) return;
-    this.openSpan ??= this.tracer.startSpan('render.capture.batch', {
-      parent: this.parent,
-    });
-    this.durations.push(captureMs);
-    const boundary =
-      capturedSoFar % this.cadence === 0 || capturedSoFar === this.frames;
-    if (!boundary) return;
-    const span = this.openSpan;
-    const durations = this.durations;
-    this.openSpan = null;
-    this.durations = [];
-    span.setAttribute('render.frames.captured', capturedSoFar);
-    span.setAttribute('render.frame.minMs', Math.min(...durations));
-    span.setAttribute(
-      'render.frame.avgMs',
-      Math.round((durations.reduce((a, b) => a + b, 0) / durations.length) * 10) / 10,
-    );
-    span.setAttribute('render.frame.maxMs', Math.max(...durations));
-    span.end();
-  }
-
-  close(error?: unknown): void {
-    if (this.closed) return;
-    this.closed = true;
-    if (this.openSpan === null) return;
-    if (error !== undefined) this.openSpan.fail(error);
-    this.openSpan.end();
-    this.openSpan = null;
-    this.durations = [];
-  }
-}
-
 async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<void> {
-  const { ctx, tracer, renderSpan, url, timing, workerCount } = env;
+  const { ctx, url, timing, workerCount } = env;
   const {
     fpsStr, codec, quality, preset, outPath, signal,
     width, height, frames, frameStart, capture, log, onCapture, tools,
@@ -439,34 +380,24 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
   signal?.addEventListener('abort', killOnAbort, { once: true });
   const stream = new OrderedFrameStream(encoder);
   try {
-    await stage(tracer, 'render.encode', renderSpan, {
-      'render.codec': codec,
-      'render.quality': quality,
-      'render.preset': preset,
-    }, async (encodeSpan) => {
-      await stage(tracer, 'render.capture', renderSpan, {}, async (captureSpan) => {
-        await runWorkers(
-          {
-            active,
-            url,
-            width,
-            height,
-            frames,
-            frameStart,
-            capture,
-            signal,
-            log,
-            onCapture,
-            stream,
-            batches: new FrameBatchRecorder(tracer, captureSpan, frames),
-            timing,
-            captureSpan,
-          },
-          workerCount,
-        );
-      });
-      await finishEncode(encoder, stream, encodeSpan, log, outPath);
-    });
+    await runWorkers(
+      {
+        active,
+        url,
+        width,
+        height,
+        frames,
+        frameStart,
+        capture,
+        signal,
+        log,
+        onCapture,
+        stream,
+        timing,
+      },
+      workerCount,
+    );
+    await finishEncode(encoder, stream, log, outPath);
   } catch (e) {
     encoder.kill();
     throw e;
@@ -476,17 +407,12 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
 }
 
 function reportProfile(env: RenderStageEnv): { profile: RenderProfile } {
-  const { ctx, timing, renderSpan, workerCount } = env;
+  const { ctx, timing, workerCount } = env;
   const profile: RenderProfile = {
     evalMs: Math.round(timing.evalMs),
     captureMs: Math.round(timing.captureMs),
     emitMs: Math.round(timing.emitMs),
   };
-  renderSpan.setAttributes({
-    'render.evalMs': profile.evalMs,
-    'render.captureMs': profile.captureMs,
-    'render.emitMs': profile.emitMs,
-  });
   ctx.log(formatProfile(profile, workerCount));
   return { profile };
 }
@@ -499,11 +425,10 @@ export async function renderVideo(
     workers, outPath, log = () => {}, browserPath = null,
     tools,
     capture = 'jpeg', codec = 'h264', quality = 'high', preset = 'medium',
-    frameStart = 0, signal, trace,
+    frameStart = 0, signal,
     onCapture,
   } = opts;
 
-  const tracer = trace?.tracer ?? NOOP_TRACER;
   const workerCount = Math.max(1, Math.min(workers, frames));
   const ctx: RenderContext = {
     width,
@@ -521,33 +446,19 @@ export async function renderVideo(
     onCapture,
     tools,
   };
-  return stage(
-    tracer,
-    'render',
-    trace?.parent,
-    {
-      'render.workers': workerCount,
-      'render.capture.mode': capture,
-      'render.codec': codec,
-      'render.quality': quality,
-      'render.preset': preset,
-    },
-    async (renderSpan) => {
-      if (signal?.aborted) throw new Error('render canceled');
-      const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
-      const { server, url } = await startServer({ html, style, tileCache });
-      const env: RenderStageEnv = { ctx, tracer, renderSpan, url, timing, workerCount };
+  if (signal?.aborted) throw new Error('render canceled');
+  const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
+  const { server, url } = await startServer({ html, style, tileCache });
+  const env: RenderStageEnv = { ctx, url, timing, workerCount };
 
-      let browser: Browser | null = null;
-      try {
-        browser = await launchBrowser(log, browserPath);
-        await captureAndEncode(browser, env);
-      } finally {
-        await browser?.close().catch(() => {});
-        server.close();
-      }
+  let browser: Browser | null = null;
+  try {
+    browser = await launchBrowser(log, browserPath);
+    await captureAndEncode(browser, env);
+  } finally {
+    await browser?.close().catch(() => {});
+    server.close();
+  }
 
-      return reportProfile(env);
-    },
-  );
+  return reportProfile(env);
 }

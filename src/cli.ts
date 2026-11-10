@@ -11,8 +11,6 @@ import { requireTools } from './ff.js';
 import { resolveFfTools } from './fftools.js';
 import { runBatch } from './run.js';
 import type { LogFn, RecordingSummary } from './run.js';
-import { createTracing } from './tracing.js';
-import type { Tracing } from './tracing.js';
 
 export interface ParsedCli {
   inputs: string[];
@@ -121,7 +119,6 @@ function createLogger(config: RenderConfig): LogFn {
 
 async function runPipeline(
   invocation: Invocation,
-  tracing: Tracing,
   log: LogFn,
 ): Promise<void> {
   const { inputs, config, configPath } = invocation;
@@ -141,38 +138,17 @@ async function runPipeline(
   };
 
   const result = await runBatch(videos, config, log, emit, {
-    trace: { tracer: tracing.tracer },
     tools,
   });
   log(`done: ${result.ok} ok, ${result.skipped} skipped, ${result.failed} failed`);
   if (result.failed > 0) process.exitCode = 1;
 }
 
-async function withTracingShutdown(
-  tracing: Tracing,
-  log: LogFn,
-  body: () => Promise<void>,
-): Promise<void> {
-  try {
-    await body();
-  } finally {
-    try {
-      await tracing.shutdown();
-    } catch (e) {
-      log(`warning: tracing shutdown failed: ${errorMessage(e)}`);
-    }
-  }
-}
-
 export async function main(argv: string[] = process.argv): Promise<void> {
   try {
     const invocation = resolveInvocation(argv);
     const log = createLogger(invocation.config);
-    const tracing = await createTracing();
-    if (tracing.enabled) log(`tracing: enabled (OTLP/HTTP protobuf)`);
-    await withTracingShutdown(tracing, log, () =>
-      runPipeline(invocation, tracing, log),
-    );
+    await runPipeline(invocation, log);
   } catch (e) {
     if (isCommanderExit(e)) {
       process.exitCode = commanderExitCode(e);
