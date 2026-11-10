@@ -218,9 +218,6 @@ export function writeSrt(videoPath: string, text: string): string {
   return srtPath;
 }
 
-// Smallest CAM meta packet carrying a position pair (field map per
-// src/cammeta.ts): ProductMeta { 3 frame_meta { 4 drone { 4 GpsBasic
-// { 1 PositionCoord { 2 lat, 3 lon } } } } }.
 function varint(value: number): Buffer {
   const bytes: number[] = [];
   let v = value;
@@ -243,7 +240,122 @@ function fldBytes(num: number, payload: Buffer): Buffer {
   return Buffer.concat([varint((num << 3) | 2), varint(payload.length), payload]);
 }
 
-export function productMetaPacket(lat: number, lon: number): Buffer {
+function fldFloat(num: number, value: number): Buffer {
+  const body = Buffer.alloc(4);
+  body.writeFloatLE(value);
+  return Buffer.concat([varint((num << 3) | 5), body]);
+}
+
+function fldVarint(num: number, value: number): Buffer {
+  return Buffer.concat([varint(num << 3), varint(value)]);
+}
+
+function fldString(num: number, value: string): Buffer {
+  return fldBytes(num, Buffer.from(value, 'utf8'));
+}
+
+/** Euler angles in deci-degrees: the wire stores tenths, the decoder divides by 10. */
+export interface PacketEuler {
+  pitch?: number;
+  roll?: number;
+  yaw?: number;
+}
+
+export interface PacketMeta {
+  relAltMm?: number;
+  absAltM?: number;
+  gpsAltMm?: number;
+  iso?: number;
+  whiteBalanceCctK?: number;
+  attitude?: PacketEuler;
+  gimbal?: PacketEuler & {
+    device?: {
+      id: number;
+      type: number;
+      subType: number;
+      name: string;
+      frequency: number;
+      timestampMs?: number;
+    };
+  };
+  clip?: { protoFile: string; productProtoVersion: string };
+}
+
+function eulerMessage(spec: PacketEuler): Buffer {
+  const parts: Buffer[] = [];
+  if (spec.pitch !== undefined) parts.push(fldVarint(1, spec.pitch));
+  if (spec.roll !== undefined) parts.push(fldVarint(2, spec.roll));
+  if (spec.yaw !== undefined) parts.push(fldVarint(3, spec.yaw));
+  return Buffer.concat(parts);
+}
+
+// CAM meta packet with a position pair at minimum (field map per
+// src/cammeta.ts): ProductMeta { 3 frame_meta { 4 drone { 4 GpsBasic
+// { 1 PositionCoord { 2 lat, 3 lon } } } } }; meta adds the optional fields.
+export function productMetaPacket(
+  lat: number,
+  lon: number,
+  meta: PacketMeta = {},
+): Buffer {
   const coord = Buffer.concat([fldDouble(2, lat), fldDouble(3, lon)]);
-  return fldBytes(3, fldBytes(4, fldBytes(4, fldBytes(1, coord))));
+  const gpsParts = [fldBytes(1, coord)];
+  if (meta.gpsAltMm !== undefined) gpsParts.push(fldVarint(2, meta.gpsAltMm));
+  const gps = fldBytes(4, Buffer.concat(gpsParts));
+
+  const droneParts: Buffer[] = [];
+  if (meta.attitude) droneParts.push(fldBytes(3, eulerMessage(meta.attitude)));
+  droneParts.push(gps);
+  if (meta.relAltMm !== undefined) {
+    droneParts.push(fldBytes(5, fldFloat(1, meta.relAltMm)));
+  }
+
+  const camParts: Buffer[] = [];
+  if (meta.iso !== undefined) camParts.push(fldBytes(3, fldVarint(1, meta.iso)));
+  if (meta.whiteBalanceCctK !== undefined) {
+    camParts.push(fldBytes(6, fldVarint(1, meta.whiteBalanceCctK)));
+  }
+  if (meta.absAltM !== undefined) camParts.push(fldBytes(11, fldFloat(1, meta.absAltM)));
+
+  const frameParts: Buffer[] = [];
+  if (camParts.length > 0) frameParts.push(fldBytes(2, Buffer.concat(camParts)));
+  frameParts.push(fldBytes(4, Buffer.concat(droneParts)));
+  if (meta.gimbal) {
+    const gimbalParts: Buffer[] = [];
+    const device = meta.gimbal.device;
+    if (device) {
+      gimbalParts.push(
+        fldBytes(
+          1,
+          Buffer.concat([
+            fldVarint(1, device.id),
+            fldVarint(2, device.type),
+            fldVarint(3, device.subType),
+            fldString(4, device.name),
+            fldFloat(5, device.frequency),
+            fldVarint(6, device.timestampMs ?? 0),
+          ]),
+        ),
+      );
+    }
+    gimbalParts.push(fldBytes(2, eulerMessage(meta.gimbal)));
+    frameParts.push(fldBytes(5, Buffer.concat(gimbalParts)));
+  }
+
+  const parts: Buffer[] = [];
+  if (meta.clip) {
+    parts.push(
+      fldBytes(
+        1,
+        fldBytes(
+          1,
+          Buffer.concat([
+            fldString(1, meta.clip.protoFile),
+            fldString(3, meta.clip.productProtoVersion),
+          ]),
+        ),
+      ),
+    );
+  }
+  parts.push(fldBytes(3, Buffer.concat(frameParts)));
+  return Buffer.concat(parts);
 }

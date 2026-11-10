@@ -58,6 +58,27 @@ async function loadSamples(
   videoPath: string,
   durationSec: number,
 ): Promise<SourceSamples> {
+  const cam = await parseCamMeta(tools, videoPath, durationSec, { keepAll: true });
+  if (cam) {
+    const fixSamples = cam.samples.filter((sample) => sample.fix !== null);
+    if (fixSamples.length === 0) {
+      throw new Error(
+        'no telemetry found: the CAM meta (DVTM) stream has no GPS fix pairs; ' +
+          'the .SRT sidecar is only consulted when no CAM meta stream is present',
+      );
+    }
+    return {
+      samples: fixSamples,
+      source: 'cammeta',
+      method: cam.method,
+      noLock: cam.noLock,
+      frameValues:
+        cam.method === 'dvtm-packets' ? cam.samples.map(camSampleToFrameValues) : [],
+      protoFile: cam.protoFile,
+      gimbalDevice: cam.gimbalDevice,
+    };
+  }
+
   const srtPath = findSrtSidecar(videoPath);
   if (srtPath) {
     const parsed = await parseSrt(srtPath);
@@ -79,23 +100,9 @@ async function loadSamples(
     };
   }
 
-  const cam = await parseCamMeta(tools, videoPath, durationSec, { keepAll: true });
-  const fixSamples = cam ? cam.samples.filter((sample) => sample.fix !== null) : [];
-  if (!cam || fixSamples.length === 0) {
-    throw new Error(
-      'no telemetry found: no .SRT sidecar and no GPS pairs in the CAM meta stream',
-    );
-  }
-  return {
-    samples: fixSamples,
-    source: 'cammeta',
-    method: cam.method,
-    noLock: cam.noLock,
-    frameValues:
-      cam.method === 'dvtm-packets' ? cam.samples.map(camSampleToFrameValues) : [],
-    protoFile: cam.protoFile,
-    gimbalDevice: cam.gimbalDevice,
-  };
+  throw new Error(
+    'no telemetry found: no CAM meta (DVTM) stream and no .SRT sidecar',
+  );
 }
 
 export async function loadTelemetry(

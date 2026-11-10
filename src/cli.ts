@@ -26,7 +26,7 @@ export function buildProgram(): Command {
     .name('drone-path')
     .description(
       'Render flight-path map overlay videos from DJI drone recordings (telemetry ' +
-        'from the .SRT sidecar or the embedded CAM-meta stream) at exactly the source ' +
+        'from the embedded CAM-meta stream or the .SRT sidecar) at exactly the source ' +
         'frame rate and frame count.',
     )
     .version(VERSION)

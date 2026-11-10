@@ -10,6 +10,7 @@ import type * as ffModule from '../src/ff.js';
 import type { FfToolPaths } from '../src/fftools.js';
 import { parseSrtText } from '../src/srt.js';
 import { loadTelemetry } from '../src/telemetry.js';
+import type { LoadedTelemetry } from '../src/telemetry.js';
 import {
   SRT_SAMPLE,
   SRT_SAMPLE_MIXED,
@@ -18,6 +19,7 @@ import {
   tmpDir,
   writeSrt,
 } from './fixtures.js';
+import type { PacketMeta } from './fixtures.js';
 
 const mocks = vi.hoisted(() => ({ ffprobeJson: vi.fn(), execFile: vi.fn() }));
 
@@ -41,6 +43,7 @@ afterEach(cleanupTmpDirs);
 
 describe('loadTelemetry (SRT source)', () => {
   it('builds per-frame values from the sidecar', async () => {
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
     const dir = tmpDir();
     const video = path.join(dir, 'clip.mp4');
     fs.writeFileSync(video, '');
@@ -73,6 +76,7 @@ describe('loadTelemetry (SRT source)', () => {
   });
 
   it('counts fixes exactly when a cue has no lat/lon line at all', async () => {
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
     const dir = tmpDir();
     const video = path.join(dir, 'clip.mp4');
     fs.writeFileSync(video, '');
@@ -112,6 +116,214 @@ describe('loadTelemetry (SRT source)', () => {
     );
     expect(err?.message).toBe('ffprobe failed while probing the cam meta stream');
     expect(err?.cause).toBe(failure);
+  });
+});
+
+describe('telemetry source selection', () => {
+  type CamShape = 'none' | 'fixes' | 'no-fixes-packets' | 'no-fixes-scan';
+
+  interface SelectionCase {
+    name: string;
+    cam: CamShape;
+    srt: boolean;
+  }
+
+  const NO_FIX_PAIRS_ERROR =
+    'no telemetry found: the CAM meta (DVTM) stream has no GPS fix pairs; ' +
+    'the .SRT sidecar is only consulted when no CAM meta stream is present';
+
+  const NO_SOURCE_ERROR =
+    'no telemetry found: no CAM meta (DVTM) stream and no .SRT sidecar';
+
+  function mockCamMetaStream(parts: Buffer[]): void {
+    mocks.ffprobeJson
+      .mockResolvedValueOnce({
+        streams: [{ index: 3, tags: { handler_name: 'CAM meta' } }],
+      })
+      .mockResolvedValueOnce({
+        packets: parts.map((part, i) => ({
+          pts_time: String(i / 30),
+          size: String(part.length),
+        })),
+      });
+    mocks.execFile.mockImplementation(
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
+        fs.writeFileSync(args[args.length - 1], Buffer.concat(parts));
+        cb(null);
+      },
+    );
+  }
+
+  // A listing that cannot match the dump forces the GPS byte-scan path.
+  function mockUnusableCamMetaStream(dump: Buffer): void {
+    mocks.ffprobeJson
+      .mockResolvedValueOnce({
+        streams: [{ index: 3, tags: { handler_name: 'CAM meta' } }],
+      })
+      .mockResolvedValueOnce({ packets: [{ pts_time: '0', size: '5' }] });
+    mocks.execFile.mockImplementation(
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
+        fs.writeFileSync(args[args.length - 1], dump);
+        cb(null);
+      },
+    );
+  }
+
+  const RICH_META: PacketMeta = {
+    relAltMm: 3300,
+    absAltM: 313.227,
+    gpsAltMm: 313227,
+    iso: 340,
+    whiteBalanceCctK: 4435,
+    attitude: { pitch: 12, roll: -3, yaw: 900 },
+    gimbal: {
+      pitch: -455,
+      roll: 0,
+      yaw: 902,
+      device: {
+        id: 0,
+        type: 1,
+        subType: 3,
+        name: 'gimbal',
+        frequency: 200,
+        timestampMs: 1000,
+      },
+    },
+    clip: { protoFile: 'dvtm_NEO2.proto', productProtoVersion: 'v02.00.07' },
+  };
+
+  function setupSources(cam: CamShape, srt: boolean, video: string): void {
+    if (srt) writeSrt(video, SRT_SAMPLE);
+    switch (cam) {
+      case 'none':
+        mocks.ffprobeJson.mockResolvedValue({ streams: [] });
+        break;
+      case 'fixes':
+        mockCamMetaStream([
+          productMetaPacket(46.7, 14.4, RICH_META),
+          productMetaPacket(46.71, 14.41),
+        ]);
+        break;
+      case 'no-fixes-packets':
+        mockCamMetaStream([productMetaPacket(0, 0), productMetaPacket(0, 0)]);
+        break;
+      case 'no-fixes-scan':
+        mockUnusableCamMetaStream(Buffer.alloc(64, 0x20));
+        break;
+    }
+  }
+
+  const RESOLVING_CASES: Array<
+    SelectionCase & {
+      source: 'srt' | 'cammeta';
+      method: 'srt-cues' | 'dvtm-packets';
+      check: (loaded: LoadedTelemetry) => void;
+    }
+  > = [
+    {
+      name: 'only an .SRT sidecar: the sidecar is used',
+      cam: 'none',
+      srt: true,
+      source: 'srt',
+      method: 'srt-cues',
+      check: (loaded) => {
+        expect(loaded.telemetry.frames[0].fix?.lat).toBeCloseTo(46.61307, 6);
+        expect(loaded.telemetry.headingMode).toBe('cog');
+        expect(loaded.frameValues).toHaveLength(3);
+        expect(loaded.protoFile).toBeNull();
+        expect(loaded.gimbalDevice).toBeNull();
+      },
+    },
+    {
+      name: 'only a CAM meta (DVTM) stream: cammeta is used',
+      cam: 'fixes',
+      srt: false,
+      source: 'cammeta',
+      method: 'dvtm-packets',
+      check: (loaded) => {
+        expect(loaded.telemetry.frames[0].fix?.lat).toBeCloseTo(46.7, 6);
+        expect(loaded.telemetry.headingMode).toBe('yaw');
+        expect(loaded.frameValues).toHaveLength(2);
+        expect(loaded.frameValues[0].gimbalDeviceTimestampMs).toBe(1000);
+        expect(loaded.frameValues[0].yawDeg).toBeCloseTo(90, 6);
+        expect(loaded.protoFile).toBe('dvtm_NEO2.proto v02.00.07');
+        expect(loaded.gimbalDevice?.name).toBe('gimbal');
+      },
+    },
+    {
+      name: 'both sources: the CAM meta (DVTM) stream wins',
+      cam: 'fixes',
+      srt: true,
+      source: 'cammeta',
+      method: 'dvtm-packets',
+      check: (loaded) => {
+        expect(loaded.telemetry.frames[0].fix?.lat).toBeCloseTo(46.7, 6);
+        expect(loaded.telemetry.frames[0].fix?.lon).toBeCloseTo(14.4, 6);
+        expect(loaded.telemetry.headingMode).toBe('yaw');
+        expect(loaded.frameValues).toHaveLength(2);
+        expect(loaded.protoFile).toBe('dvtm_NEO2.proto v02.00.07');
+        expect(loaded.gimbalDevice?.name).toBe('gimbal');
+      },
+    },
+  ];
+
+  it.for(RESOLVING_CASES)(
+    '$name',
+    async ({ cam, srt, source, method, check }) => {
+      const dir = tmpDir();
+      const video = path.join(dir, 'clip.mp4');
+      fs.writeFileSync(video, '');
+      setupSources(cam, srt, video);
+
+      const loaded = await loadTelemetry(video, {
+        frames: 3,
+        fpsValue: 30,
+        durationSec: 0.1,
+        tools: TOOLS,
+      });
+      expect(loaded.telemetry.source).toBe(source);
+      expect(loaded.telemetry.method).toBe(method);
+      check(loaded);
+    },
+  );
+
+  const FAILING_CASES: Array<SelectionCase & { error: string }> = [
+    {
+      name: 'neither source: a clear error',
+      cam: 'none',
+      srt: false,
+      error: NO_SOURCE_ERROR,
+    },
+    {
+      name: 'CAM meta without GPS fix pairs (packet decode): fails instead of falling back to .SRT',
+      cam: 'no-fixes-packets',
+      srt: true,
+      error: NO_FIX_PAIRS_ERROR,
+    },
+    {
+      name: 'CAM meta without GPS fix pairs (byte scan): fails instead of falling back to .SRT',
+      cam: 'no-fixes-scan',
+      srt: true,
+      error: NO_FIX_PAIRS_ERROR,
+    },
+  ];
+
+  it.for(FAILING_CASES)('$name', async ({ cam, srt, error }) => {
+    const dir = tmpDir();
+    const video = path.join(dir, 'clip.mp4');
+    fs.writeFileSync(video, '');
+    setupSources(cam, srt, video);
+
+    const err = await loadTelemetry(video, {
+      frames: 3,
+      fpsValue: 30,
+      durationSec: 0.1,
+      tools: TOOLS,
+    }).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    expect(err?.message).toBe(error);
   });
 });
 
@@ -206,6 +418,7 @@ describe('cross-source fix classification', () => {
   });
 
   it('counts near-null-island fixes through loadTelemetry', async () => {
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
     const dir = tmpDir();
     const video = path.join(dir, 'coast.mp4');
     fs.writeFileSync(video, '');
@@ -224,6 +437,7 @@ describe('cross-source fix classification', () => {
 
 describe('telemetry JSON export values', () => {
   it('maps SRT cues to frame rows without attitude or device timestamps', async () => {
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
     const dir = tmpDir();
     const video = path.join(dir, 'clip.mp4');
     fs.writeFileSync(video, '');

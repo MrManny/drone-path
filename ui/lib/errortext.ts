@@ -65,7 +65,7 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =>
   [/^not a readable \.mp4 file: (.+)$/, (m) => `"${leafName(m[1])}" is not a readable .mp4 recording.`],
   [
     /^no telemetry found: /,
-    () => 'This recording has no flight telemetry. Add its .SRT sidecar or choose a recording with GPS data.',
+    () => 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
   ],
   [
     /^output verification failed: /,

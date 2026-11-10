@@ -31,8 +31,9 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
             the footage.
           </p>
           <p className="hint">
-            ffmpeg/ffprobe are bundled; an .SRT sidecar next to the video is picked
-            up automatically.
+            ffmpeg/ffprobe are bundled; telemetry comes from the embedded CAM
+            meta (DVTM) stream, or from an .SRT sidecar when the recording has
+            no CAM meta stream.
           </p>
         </div>
       </div>
