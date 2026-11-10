@@ -1,29 +1,34 @@
 'use client';
 
 import { Fragment, useEffect, useRef } from 'react';
-import type { ReactElement } from 'react';
 
-import { ExportIcon } from '../icons/ExportIcon.js';
-import { ExitIcon } from '../icons/ExitIcon.js';
-import { FolderOpenIcon } from '../icons/FolderOpenIcon.js';
-import { HelpIcon } from '../icons/HelpIcon.js';
-import { InfoIcon } from '../icons/InfoIcon.js';
-import { SettingsIcon } from '../icons/SettingsIcon.js';
-import { SwapIcon } from '../icons/SwapIcon.js';
-import { TelemetryIcon } from '../icons/TelemetryIcon.js';
+import type { LucideIcon } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowRightLeft,
+  CircleHelp,
+  FolderOpen,
+  Info,
+  Power,
+  Settings,
+  SquareActivity,
+} from 'lucide-react';
+
 import type { MenuDef, MenuFlags, MenuIconId, MenuItemId } from '../lib/menumodel.js';
 import { itemEnabled } from '../lib/menumodel.js';
 import { MenuRow } from './MenuRow.js';
 
-const ICONS: Record<MenuIconId, () => ReactElement> = {
-  folderOpen: FolderOpenIcon,
-  export: ExportIcon,
-  telemetry: TelemetryIcon,
-  settings: SettingsIcon,
-  exit: ExitIcon,
-  swap: SwapIcon,
-  help: HelpIcon,
-  info: InfoIcon,
+// Exported for the wiring pin in the menu panel test: the id-to-glyph mapping
+// is app-owned and must not drift silently.
+export const ICONS: Record<MenuIconId, LucideIcon> = {
+  folderOpen: FolderOpen,
+  export: ArrowDownToLine,
+  telemetry: SquareActivity,
+  settings: Settings,
+  exit: Power,
+  swap: ArrowRightLeft,
+  help: CircleHelp,
+  info: Info,
 };
 
 export interface MenuPanelProps {
@@ -54,24 +59,27 @@ export function MenuPanel({
 
   return (
     <div className="menu-panel" role="menu" aria-label={menu.label}>
-      {menu.items.map((item, index) => (
-        <Fragment key={item.id}>
-          {item.separatorBefore ? <div className="menu-separator" role="separator" /> : null}
-          <MenuRow
-            label={item.label}
-            hint={item.hint}
-            title={titles?.[item.id]}
-            icon={ICONS[item.icon]()}
-            active={index === active}
-            disabled={!itemEnabled(item.id, flags)}
-            onHover={() => onHoverRow(index)}
-            onActivate={() => onActivateRow(index)}
-            buttonRef={(node) => {
-              rowRefs.current[index] = node;
-            }}
-          />
-        </Fragment>
-      ))}
+      {menu.items.map((item, index) => {
+        const ItemIcon = ICONS[item.icon];
+        return (
+          <Fragment key={item.id}>
+            {item.separatorBefore ? <div className="menu-separator" role="separator" /> : null}
+            <MenuRow
+              label={item.label}
+              hint={item.hint}
+              title={titles?.[item.id]}
+              icon={<ItemIcon size={16} />}
+              active={index === active}
+              disabled={!itemEnabled(item.id, flags)}
+              onHover={() => onHoverRow(index)}
+              onActivate={() => onActivateRow(index)}
+              buttonRef={(node) => {
+                rowRefs.current[index] = node;
+              }}
+            />
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

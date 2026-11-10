@@ -2,12 +2,10 @@
 
 import type { RefObject } from 'react';
 
+import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+
 import { formatTimeReadout } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
-import { PauseIcon } from '../icons/PauseIcon.js';
-import { PlayIcon } from '../icons/PlayIcon.js';
-import { SkipBackIcon } from '../icons/SkipBackIcon.js';
-import { SkipForwardIcon } from '../icons/SkipForwardIcon.js';
 
 export interface TransportBarProps {
   dispatch: (action: HotkeyAction) => void;
@@ -44,7 +42,7 @@ export function TransportBar({
           disabled={disabled}
           onClick={() => dispatch({ type: 'seekStart' })}
         >
-          <SkipBackIcon />
+          <SkipBack size={16} />
         </button>
         <button
           type="button"
@@ -52,7 +50,7 @@ export function TransportBar({
           onClick={() => dispatch({ type: 'togglePlay' })}
           disabled={disabled || !ready}
         >
-          {ready && playing ? <PauseIcon /> : <PlayIcon />}
+          {ready && playing ? <Pause size={16} /> : <Play size={16} />}
           {ready && playing ? 'Pause' : 'Play'}
         </button>
         <button
@@ -63,7 +61,7 @@ export function TransportBar({
           disabled={disabled}
           onClick={() => dispatch({ type: 'seekEnd' })}
         >
-          <SkipForwardIcon />
+          <SkipForward size={16} />
         </button>
       </div>
       <div className="transport-group transport-speed">

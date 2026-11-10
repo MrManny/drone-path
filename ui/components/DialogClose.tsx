@@ -1,6 +1,6 @@
 'use client';
 
-import { CloseIcon } from '../icons/CloseIcon.js';
+import { X } from 'lucide-react';
 
 export interface DialogCloseProps {
   onClose: () => void;
@@ -16,7 +16,7 @@ export function DialogClose({ onClose, blockedReason }: DialogCloseProps) {
       disabled={blockedReason !== undefined}
       onClick={onClose}
     >
-      <CloseIcon />
+      <X size={16} />
       Close
     </button>
   );

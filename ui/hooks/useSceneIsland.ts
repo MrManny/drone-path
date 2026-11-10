@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 import { bootScene } from '../../src/renderer/boot.js';
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import type { LeafletApi, Scene, SceneData } from '../../src/renderer/scene.js';
 
 export interface SceneIslandOptions {
   data: SceneData;
@@ -31,7 +31,11 @@ export function useSceneIsland({ data, frame, onScene }: SceneIslandOptions) {
     const observer = new ResizeObserver(() => sceneRef.current?.relayout());
     observer.observe(host);
     void (async () => {
-      const { default: L } = await import('leaflet');
+      // Leaflet's UMD build exposes the namespace on `default` while the types
+      // declare named exports only, so the interop shape is asserted here.
+      const { default: L } = (await import('leaflet')) as unknown as {
+        default: LeafletApi;
+      };
       if (cancelled) return;
       const created = bootScene(host, dataRef.current, L);
       sceneRef.current = created;

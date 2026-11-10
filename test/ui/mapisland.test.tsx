@@ -2,8 +2,9 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
-import type { LeafletApi } from '../../src/renderer/leaflet.js';
+import type { LatLngExpression } from 'leaflet';
+
+import type { LeafletApi, Scene, SceneData } from '../../src/renderer/scene.js';
 import { MapIsland } from '../../ui/components/MapIsland.js';
 import type { FakeObserver } from './harness.js';
 import { flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
@@ -14,7 +15,7 @@ const fakeL = vi.hoisted((): LeafletApi => {
     map: () => ({
       setView: () => {},
       getCenter: () => ({ lat: 46.6, lng: 14.26 }),
-      project: (latlng) => ({
+      project: (latlng: LatLngExpression) => ({
         x: (Array.isArray(latlng) ? latlng[0] : latlng.lat) * 1000,
         y: (Array.isArray(latlng) ? latlng[1] : latlng.lng) * 1000,
       }),
@@ -27,11 +28,11 @@ const fakeL = vi.hoisted((): LeafletApi => {
       getNorthWest: () => ({ lat: 46.62, lng: 14.25 }),
       getSouthEast: () => ({ lat: 46.6, lng: 14.27 }),
     }),
-    polyline: () => ({ ...layer, addLatLng: () => {}, setLatLngs: () => {} }),
+    polyline: () => ({ ...layer, setLatLngs: () => {} }),
     circleMarker: () => layer,
     marker: () => ({ ...layer, setLatLng: () => {} }),
-    divIcon: (options) => options,
-  };
+    divIcon: (options: { html: string }) => options,
+  } as unknown as LeafletApi;
 });
 
 vi.mock('leaflet', () => ({ default: fakeL }));

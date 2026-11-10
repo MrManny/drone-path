@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { CloseIcon } from '../icons/CloseIcon.js';
+import { X } from 'lucide-react';
 
 export type NoticeTone = 'info' | 'warning' | 'danger';
 
@@ -27,7 +27,7 @@ export function Notice({ tone, children, details, onDismiss }: NoticeProps) {
       </div>
       {onDismiss ? (
         <button type="button" className="notice-dismiss" onClick={onDismiss}>
-          <CloseIcon />
+          <X size={16} />
           Dismiss
         </button>
       ) : null}

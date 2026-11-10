@@ -3,13 +3,12 @@
 import { useRef } from 'react';
 import type { RefObject } from 'react';
 
+import { ArrowLeftFromLine, ArrowRightFromLine, X } from 'lucide-react';
+
 import { formatLoopReadout, formatTime, timelineTicks } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 import type { LoopState } from '../lib/loop.js';
 import { clampHandleFrame, engagedLoop, frameAtPointer, hasLoop } from '../lib/loop.js';
-import { CloseIcon } from '../icons/CloseIcon.js';
-import { MarkInIcon } from '../icons/MarkInIcon.js';
-import { MarkOutIcon } from '../icons/MarkOutIcon.js';
 import { Filmstrip } from './Filmstrip.js';
 
 export interface TimelinePanelProps {
@@ -78,7 +77,7 @@ export function TimelinePanel({
             disabled={disabled}
             onClick={() => dispatch({ type: 'setLoopIn' })}
           >
-            <MarkInIcon />
+            <ArrowRightFromLine size={16} />
           </button>
           <button
             type="button"
@@ -87,7 +86,7 @@ export function TimelinePanel({
             disabled={disabled}
             onClick={() => dispatch({ type: 'setLoopOut' })}
           >
-            <MarkOutIcon />
+            <ArrowLeftFromLine size={16} />
           </button>
           <button
             type="button"
@@ -96,7 +95,7 @@ export function TimelinePanel({
             disabled={disabled || !clearable}
             onClick={() => dispatch({ type: 'clearLoop' })}
           >
-            <CloseIcon />
+            <X size={16} />
           </button>
           {loopReadout ? <span className="readout loop-readout">{loopReadout}</span> : null}
         </div>

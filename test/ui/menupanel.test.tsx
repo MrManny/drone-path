@@ -2,8 +2,19 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  ArrowDownToLine,
+  ArrowRightLeft,
+  CircleHelp,
+  FolderOpen,
+  Info,
+  Power,
+  Settings,
+  SquareActivity,
+} from 'lucide-react';
+
 import type { MenuPanelProps } from '../../ui/components/MenuPanel.js';
-import { MenuPanel } from '../../ui/components/MenuPanel.js';
+import { ICONS, MenuPanel } from '../../ui/components/MenuPanel.js';
 import type { MenuFlags } from '../../ui/lib/menumodel.js';
 import { menuOf } from '../../ui/lib/menumodel.js';
 
@@ -95,5 +106,18 @@ describe('MenuPanel', () => {
       'Exports telemetry for the full recording (0:03)',
     );
     expect(screen.getByRole('menuitem', { name: 'Export video…' }).title).toBe('');
+  });
+
+  it('wires every menu icon id to its intended glyph', () => {
+    expect(ICONS).toEqual({
+      folderOpen: FolderOpen,
+      export: ArrowDownToLine,
+      telemetry: SquareActivity,
+      settings: Settings,
+      exit: Power,
+      swap: ArrowRightLeft,
+      help: CircleHelp,
+      info: Info,
+    });
   });
 });

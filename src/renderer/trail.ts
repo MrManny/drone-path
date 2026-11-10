@@ -1,4 +1,4 @@
-import type { LatLngTuple } from './leaflet.js';
+import type { LatLngTuple } from 'leaflet';
 
 export interface TrailLayer {
   setLatLngs(points: LatLngTuple[]): void;
