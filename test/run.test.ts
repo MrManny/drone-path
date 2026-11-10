@@ -20,6 +20,7 @@ import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/run
 import type { FfToolPaths } from '../src/fftools.js';
 import { tilePaths } from '../src/tilecache.js';
 import { loadTelemetry } from '../src/telemetry.js';
+import type * as ffModule from '../src/ff.js';
 import { START_PREPARE_PROGRESS } from '../ui/lib/pickstate.js';
 import {
   SRT_SAMPLE_MIXED,
@@ -35,6 +36,17 @@ import {
   tracingHarness,
   writeSrt,
 } from './fixtures.js';
+
+// The real loadTelemetry runs in one test below; probing for a CAM meta
+// stream comes first now, so it must stay off the real ffprobe binary.
+const mocks = vi.hoisted(() => ({ ffprobeJson: vi.fn() }));
+
+vi.mock('../src/ff.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof ffModule>()),
+  ffprobeJson: mocks.ffprobeJson,
+}));
+
+mocks.ffprobeJson.mockResolvedValue({ streams: [] });
 
 describe('planOutputs', () => {
   const config = { ...DEFAULT_CONFIG, outDir: path.join('out', 'maps') };

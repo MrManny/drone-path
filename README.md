@@ -6,9 +6,9 @@ ready to overlay in your drone flight footage.
 
 It reads geo-coordinates from DJI's telemetry in two ways:
 
-- if an `.SRT` sidecar is available, that will be used,
-- otherwise it tries to parse the embedded CAM meta (DVTM) stream
-  (DJI's protobuf format).
+- the embedded CAM meta (DVTM) stream (DJI's protobuf format) is used when
+  the recording has one,
+- otherwise an `.SRT` sidecar next to the recording is used.
 
 It is a CLI tool first, so agents can drive it too — that's all cool with me.
 For us humans, there is a [desktop app](docs/user/desktop-app.md): pick a

@@ -447,6 +447,9 @@ function spreadSampleTimes(samples: CamSample[], durationSec: number): void {
   });
 }
 
+// Resolves to null only when the video carries no CAM meta stream at all; a
+// present stream that yields nothing decodable resolves to empty samples so
+// callers can tell absence from a stream without GPS fix pairs.
 export async function parseCamMeta(
   tools: FfToolPaths,
   videoPath: string,
@@ -459,19 +462,17 @@ export async function parseCamMeta(
   const packets = await listCamMetaPackets(tools, videoPath, streamIndex);
 
   const buf = await dumpCamMetaStream(tools, videoPath, streamIndex);
-  if (buf.length === 0) return null;
 
   const sizeSum = packets.reduce(
     (sum, packet) => sum + (Number.isFinite(packet.size) ? packet.size : 0),
     0,
   );
-  if (packets.length > 0 && sizeSum === buf.length) {
+  if (buf.length > 0 && packets.length > 0 && sizeSum === buf.length) {
     const { samples, noLock, provenance } = decodePacketSamples(buf, packets, opts.keepAll === true);
     return { samples, noLock, method: 'dvtm-packets', ...provenance };
   }
 
   const samples = scanBufferForGpsPairs(buf);
-  if (samples.length === 0) return null;
   spreadSampleTimes(samples, durationSec);
   return {
     samples,

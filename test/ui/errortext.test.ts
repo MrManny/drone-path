@@ -89,8 +89,12 @@ describe.for([
     text: "This video's frame rate could not be read.",
   },
   {
-    raw: 'no telemetry found: no .SRT sidecar and no GPS pairs in the CAM meta stream',
-    text: 'This recording has no flight telemetry. Add its .SRT sidecar or choose a recording with GPS data.',
+    raw: 'no telemetry found: no CAM meta (DVTM) stream and no .SRT sidecar',
+    text: 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
+  },
+  {
+    raw: 'no telemetry found: the CAM meta (DVTM) stream has no GPS fix pairs; the .SRT sidecar is only consulted when no CAM meta stream is present',
+    text: 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
   },
 ])('app message "$raw"', ({ raw, text }) => {
   it('rewrites it and keeps the original as technical details', () => {
