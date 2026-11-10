@@ -1,7 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { DEFAULT_CONFIG, SETTINGS_KEYS, formatHud, parseSettingsPatch } from './config.js';
+import { z } from 'zod';
+
+import {
+  DEFAULT_CONFIG,
+  SETTINGS_KEYS,
+  formatHud,
+  parseSettingsPatch,
+  parseValue,
+  strictShape,
+} from './config.js';
 import type { RenderConfig, SettingsPatch } from './config.js';
 
 export const APP_STATE_VERSION = 1;
@@ -24,28 +33,42 @@ function fillMissingSettings(raw: unknown): unknown {
   return filled;
 }
 
+const APP_STATE_SHAPE = {
+  version: z.unknown().optional(),
+  settings: z.unknown().optional(),
+  lastOpenDir: z.unknown().optional(),
+} as z.ZodRawShape;
+
+const LAST_OPEN_DIR = z
+  .optional(
+    z.nullable(
+      z.string({
+        error: (issue) =>
+          `invalid app state: lastOpenDir: ${String(issue.input)}`,
+      }),
+    ),
+  )
+  .transform((value) => value ?? null);
+
 export function parseAppState(raw: unknown): AppState {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new Error('invalid app state');
-  }
-  const r = raw as Record<string, unknown>;
-  for (const key of Object.keys(r)) {
-    if (key !== 'version' && key !== 'settings' && key !== 'lastOpenDir') {
-      throw new Error(`unknown app state key ${key}`);
-    }
-  }
-  if (r.version !== APP_STATE_VERSION) {
-    throw new Error(`unsupported app state version: ${String(r.version)}`);
-  }
+  const state = parseValue(
+    strictShape(APP_STATE_SHAPE, {
+      invalid: 'invalid app state',
+      unknownKey: (key) => `unknown app state key ${key}`,
+    }),
+    raw,
+  );
+  parseValue(
+    z.literal(APP_STATE_VERSION, {
+      error: (issue) => `unsupported app state version: ${String(issue.input)}`,
+    }),
+    state.version,
+  );
   const settings =
-    r.settings === undefined || r.settings === null
+    state.settings === undefined || state.settings === null
       ? null
-      : parseSettingsPatch(fillMissingSettings(r.settings), 'app state');
-  if (r.lastOpenDir !== undefined && r.lastOpenDir !== null && typeof r.lastOpenDir !== 'string') {
-    throw new Error(`invalid app state: lastOpenDir: ${String(r.lastOpenDir)}`);
-  }
-  const lastOpenDir = typeof r.lastOpenDir === 'string' ? r.lastOpenDir : null;
-  return { settings, lastOpenDir };
+      : parseSettingsPatch(fillMissingSettings(state.settings), 'app state');
+  return { settings, lastOpenDir: parseValue(LAST_OPEN_DIR, state.lastOpenDir) };
 }
 
 export function serializeAppState(state: AppState): string {
