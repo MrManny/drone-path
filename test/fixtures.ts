@@ -2,9 +2,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import type { ReadableSpan } from '@opentelemetry/sdk-trace';
-import { InMemorySpanExporter } from '@opentelemetry/sdk-trace';
-
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { RenderConfig } from '../src/config.js';
 import type { VideoProbe } from '../src/ff.js';
@@ -12,8 +9,6 @@ import { videoBaseName } from '../src/inputs.js';
 import type { PipelineDeps } from '../src/run.js';
 import type { Telemetry } from '../src/telemetry-math.js';
 import type { LoadedTelemetry } from '../src/telemetry.js';
-import { createTracing } from '../src/tracing.js';
-import type { Tracer, Tracing } from '../src/tracing.js';
 
 const tmpDirs: string[] = [];
 
@@ -27,55 +22,6 @@ export function cleanupTmpDirs(): void {
   for (const dir of tmpDirs.splice(0)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
-}
-
-export const OTLP_ENDPOINT = 'http://127.0.0.1:4318';
-
-export interface TracingHarness {
-  tracing: Tracing;
-  tracer: Tracer;
-  finish(): Promise<ReadableSpan[]>;
-}
-
-export async function tracingHarness(
-  env: Record<string, string | undefined> = {
-    OTEL_EXPORTER_OTLP_ENDPOINT: OTLP_ENDPOINT,
-  },
-): Promise<TracingHarness> {
-  const exporter = new InMemorySpanExporter();
-  const tracing = await createTracing({ env, spanExporter: exporter });
-  return {
-    tracing,
-    tracer: tracing.tracer,
-    async finish() {
-      await tracing.flush();
-      const spans = exporter.getFinishedSpans();
-      await tracing.shutdown();
-      return spans;
-    },
-  };
-}
-
-export function byName(
-  spans: ReadableSpan[],
-  name: string,
-): ReadableSpan | undefined {
-  return spans.find((s) => s.name === name);
-}
-
-export function startMs(span: ReadableSpan | undefined): number {
-  if (!span) throw new Error('span not found');
-  return span.startTime[0] * 1000 + span.startTime[1] / 1e6;
-}
-
-export function endMs(span: ReadableSpan | undefined): number {
-  if (!span) throw new Error('span not found');
-  return span.endTime[0] * 1000 + span.endTime[1] / 1e6;
-}
-
-export function durationMs(span: ReadableSpan | undefined): number {
-  if (!span) throw new Error('span not found');
-  return span.duration[0] * 1000 + span.duration[1] / 1e6;
 }
 
 export const SRT_SAMPLE = `1

@@ -2,21 +2,13 @@ import path from 'node:path';
 import type * as childProcessModule from 'node:child_process';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SpanStatusCode } from '@opentelemetry/api';
 
-import { FrameBatchRecorder, renderVideo } from '../src/render.js';
+import { renderVideo } from '../src/render.js';
 import type { CaptureProgress, RenderOpts } from '../src/render.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { FfToolPaths } from '../src/fftools.js';
 import { captureFraction, exportReducer, initialExportState } from '../ui/lib/exportstate.js';
-import {
-  byName,
-  cleanupTmpDirs,
-  endMs,
-  startMs,
-  tmpDir,
-  tracingHarness,
-} from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 const mocks = vi.hoisted(() => ({
   exitCode: 0,
@@ -107,148 +99,17 @@ function renderOpts(overrides: Partial<RenderOpts> = {}): RenderOpts {
   };
 }
 
-async function tracedRender(opts: RenderOpts) {
-  const harness = await tracingHarness();
-  const root = harness.tracer.startSpan('recording.process');
-  try {
-    const result = await renderVideo({
-      ...opts,
-      trace: { tracer: harness.tracer, parent: root },
-    });
-    root.end();
-    const spans = await harness.finish();
-    return { spans, result };
-  } catch (e) {
-    root.end();
-    await harness.finish();
-    throw e;
-  }
-}
-
-// Span end times are a Date.now() construction sample plus a monotonic
-// duration per span (#15), so they can invert by up to ~1 ms against the real
-// teardown order; 5 ms covers that jitter with headroom for clock adjustments
-// while the assertion still trips on gross lifecycle inversions.
-const SPAN_END_GRACE_MS = 5;
-
-describe('renderVideo span tree', () => {
-  it('nests capture, batches and encode under the render span', async () => {
-    const { spans, result } = await tracedRender(renderOpts({ frames: 250 }));
-
-    expect(spans.map((s) => s.name).sort()).toEqual([
-      'recording.process',
-      'render',
-      'render.capture',
-      'render.capture.batch',
-      'render.capture.batch',
-      'render.capture.batch',
-      'render.encode',
-    ]);
-
-    const render = byName(spans, 'render');
-    const capture = byName(spans, 'render.capture');
-    const encode = byName(spans, 'render.encode');
-    const batches = spans.filter((s) => s.name === 'render.capture.batch');
-
-    expect(render?.parentSpanContext?.spanId).toBe(
-      byName(spans, 'recording.process')?.spanContext().spanId,
-    );
-    expect(capture?.parentSpanContext?.spanId).toBe(render?.spanContext().spanId);
-    expect(encode?.parentSpanContext?.spanId).toBe(render?.spanContext().spanId);
-    for (const batch of batches) {
-      expect(batch.parentSpanContext?.spanId).toBe(capture?.spanContext().spanId);
-    }
-
-    expect(render?.attributes).toMatchObject({
-      'render.workers': 2,
-      'render.capture.mode': 'jpeg',
-      'render.codec': 'h264',
-      'render.quality': 'high',
-      'render.preset': 'veryfast',
-      'render.evalMs': expect.any(Number),
-      'render.captureMs': expect.any(Number),
-      'render.emitMs': expect.any(Number),
-    });
-    expect(capture?.attributes['render.frames.captured']).toBe(250);
-    expect(encode?.attributes).toMatchObject({
-      'render.codec': 'h264',
-      'render.quality': 'high',
-      'render.preset': 'veryfast',
-      'render.ffmpeg.exitCode': 0,
-    });
-
-    expect(batches.map((b) => b.attributes['render.frames.captured'])).toEqual([
-      100, 200, 250,
-    ]);
-    for (const batch of batches) {
-      expect(batch.attributes['render.frame.minMs']).toBeGreaterThanOrEqual(0);
-      expect(batch.attributes['render.frame.avgMs']).toBeGreaterThanOrEqual(0);
-      expect(batch.attributes['render.frame.maxMs']).toBeGreaterThanOrEqual(0);
-    }
-
-    expect(startMs(encode)).toBeLessThan(endMs(capture));
-    expect(startMs(capture)).toBeLessThan(endMs(encode));
-
-    expect(result.profile).toEqual({
-      evalMs: expect.any(Number),
-      captureMs: expect.any(Number),
-      emitMs: expect.any(Number),
-    });
-  });
-
-  it('marks encode ERROR when ffmpeg exits non-zero', async () => {
+describe('renderVideo encode and capture failures', () => {
+  it('rejects with the ffmpeg error when the encoder exits non-zero', async () => {
     mocks.exitCode = 3;
-    const harness = await tracingHarness();
-    await expect(
-      renderVideo(renderOpts({ trace: { tracer: harness.tracer } })),
-    ).rejects.toThrow('ffmpeg exited with code 3');
-    const spans = await harness.finish();
-
-    const encode = byName(spans, 'render.encode');
-    expect(encode?.attributes['render.ffmpeg.exitCode']).toBe(3);
-    expect(encode?.status.code).toBe(SpanStatusCode.ERROR);
-    expect(encode?.events.some((e) => e.name === 'exception')).toBe(true);
-    expect(byName(spans, 'render.capture')?.status.code).not.toBe(
-      SpanStatusCode.ERROR,
+    await expect(renderVideo(renderOpts())).rejects.toThrow(
+      'ffmpeg exited with code 3',
     );
-    expect(byName(spans, 'render')?.status.code).toBe(SpanStatusCode.ERROR);
   });
 
-  it('marks capture ERROR when a screenshot fails', async () => {
+  it('rejects when a screenshot fails', async () => {
     mocks.screenshotFailAt = 2;
-    const harness = await tracingHarness();
-    await expect(
-      renderVideo(renderOpts({ trace: { tracer: harness.tracer } })),
-    ).rejects.toThrow('screenshot failed');
-    const spans = await harness.finish();
-
-    const capture = byName(spans, 'render.capture');
-    const encode = byName(spans, 'render.encode');
-    const render = byName(spans, 'render');
-    expect(capture?.status.code).toBe(SpanStatusCode.ERROR);
-    expect(capture?.events.some((e) => e.name === 'exception')).toBe(true);
-    expect(encode?.status.code).toBe(SpanStatusCode.ERROR);
-    expect(render?.status.code).toBe(SpanStatusCode.ERROR);
-  });
-
-  it('winds down every batch span when a worker fails', async () => {
-    mocks.screenshotFailAt = 3;
-    const harness = await tracingHarness();
-    await expect(
-      renderVideo(
-        renderOpts({ frames: 250, trace: { tracer: harness.tracer } }),
-      ),
-    ).rejects.toThrow('screenshot failed');
-    const spans = await harness.finish();
-
-    const capture = byName(spans, 'render.capture');
-    const batches = spans.filter((s) => s.name === 'render.capture.batch');
-    expect(batches.length).toBeGreaterThan(0);
-    for (const batch of batches) {
-      expect(batch.parentSpanContext?.spanId).toBe(capture?.spanContext().spanId);
-      expect(endMs(batch)).toBeLessThanOrEqual(endMs(capture) + SPAN_END_GRACE_MS);
-    }
-    expect(capture?.attributes['render.frames.captured']).toBe(mocks.screenshots - 1);
+    await expect(renderVideo(renderOpts())).rejects.toThrow('screenshot failed');
   });
 });
 
@@ -341,68 +202,5 @@ describe('capture progress events', () => {
       fractions.push(captureFraction(state.capture));
     }
     expect(fractions).toEqual([0.4, 0.8, 1]);
-  });
-});
-
-describe('FrameBatchRecorder', () => {
-  async function recorderRun(
-    frames: number,
-    cadence: number,
-    record: (recorder: FrameBatchRecorder) => void,
-  ) {
-    const harness = await tracingHarness();
-    const parent = harness.tracer.startSpan('render.capture');
-    const recorder = new FrameBatchRecorder(harness.tracer, parent, frames, cadence);
-    record(recorder);
-    parent.end();
-    return harness.finish();
-  }
-
-  it('closes batches at the cadence boundary and at the last frame', async () => {
-    const spans = await recorderRun(5, 2, (recorder) => {
-      recorder.recordFrame(1, 10);
-      recorder.recordFrame(2, 30);
-      recorder.recordFrame(3, 20);
-      recorder.recordFrame(4, 40);
-      recorder.recordFrame(5, 50);
-    });
-    const batches = spans.filter((s) => s.name === 'render.capture.batch');
-    expect(batches.map((b) => b.attributes['render.frames.captured'])).toEqual([
-      2, 4, 5,
-    ]);
-    expect(batches[0]?.attributes).toMatchObject({
-      'render.frame.minMs': 10,
-      'render.frame.avgMs': 20,
-      'render.frame.maxMs': 30,
-    });
-    expect(batches[2]?.attributes['render.frame.maxMs']).toBe(50);
-  });
-
-  it('fails the open batch span when the capture fails', async () => {
-    const spans = await recorderRun(10, 5, (recorder) => {
-      recorder.recordFrame(1, 5);
-      recorder.close(new Error('capture died'));
-    });
-    const batches = spans.filter((s) => s.name === 'render.capture.batch');
-    expect(batches).toHaveLength(1);
-    expect(batches[0]?.status.code).toBe(SpanStatusCode.ERROR);
-    expect(batches[0]?.events.some((e) => e.name === 'exception')).toBe(true);
-  });
-
-  it('keeps quiet when closed with no open batch', async () => {
-    const spans = await recorderRun(10, 5, (recorder) => {
-      recorder.close();
-      recorder.close();
-    });
-    expect(spans.filter((s) => s.name === 'render.capture.batch')).toHaveLength(0);
-  });
-
-  it('ignores frames recorded after close instead of re-opening a batch', async () => {
-    const spans = await recorderRun(10, 5, (recorder) => {
-      recorder.close();
-      recorder.recordFrame(1, 5);
-      recorder.close(new Error('late'));
-    });
-    expect(spans.filter((s) => s.name === 'render.capture.batch')).toHaveLength(0);
   });
 });

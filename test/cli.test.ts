@@ -4,13 +4,12 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildProgram, main, longFlagOf, parseCliArgs } from '../src/cli.js';
+import { buildProgram, longFlagOf, parseCliArgs } from '../src/cli.js';
 import { CONFIG_OPTIONS, DEFAULT_CONFIG } from '../src/config.js';
 import { defaultTileCache, resolveConfig } from '../src/configfile.js';
 import type * as ffModule from '../src/ff.js';
 import type * as inputsModule from '../src/inputs.js';
 import type * as runModule from '../src/run.js';
-import type * as tracingModule from '../src/tracing.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);
@@ -193,7 +192,7 @@ describe('CONFIG_OPTIONS CLI plumbing', () => {
   });
 });
 
-describe('main tracing wiring', () => {
+describe('main OTEL_* removal regression', () => {
   const savedExitCode = process.exitCode;
 
   afterEach(() => {
@@ -203,39 +202,12 @@ describe('main tracing wiring', () => {
     process.exitCode = savedExitCode;
   });
 
-  it('fails fast on an unsupported protocol before touching the pipeline', async () => {
-    vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://127.0.0.1:4318');
-    vi.stubEnv('OTEL_EXPORTER_OTLP_PROTOCOL', 'grpc');
-    const configPath = path.join(tmpDir(), 'config.json');
-    fs.writeFileSync(configPath, '{}');
-    const stderr = vi
-      .spyOn(process.stderr, 'write')
-      .mockImplementation(() => true);
-    await main(['node', 'drone-path', 'clip.mp4', '--config', configPath]);
-    expect(stderr.mock.calls.map((c) => String(c[0])).join('')).toContain(
-      '[drone-path] ERROR: unsupported OTEL_EXPORTER_OTLP_PROTOCOL: grpc (only http/protobuf is supported)',
-    );
-    expect(process.exitCode).toBe(1);
-  });
-
-  async function mainWithMocks(opts: { shutdownError?: Error }) {
-    const shutdowns = { count: 0 };
+  async function mainWithMocks(
+    env: Record<string, string>,
+    runBatch: () => Promise<{ ok: number; skipped: number; failed: number }>,
+  ) {
+    for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
     vi.resetModules();
-    vi.doMock('../src/tracing.js', async (importOriginal) => {
-      const actual = await importOriginal<typeof tracingModule>();
-      return {
-        ...actual,
-        createTracing: async () => ({
-          enabled: true,
-          tracer: actual.NOOP_TRACER,
-          flush: async () => {},
-          shutdown: async () => {
-            shutdowns.count++;
-            if (opts.shutdownError) throw opts.shutdownError;
-          },
-        }),
-      };
-    });
     vi.doMock('../src/ff.js', async (importOriginal) => ({
       ...(await importOriginal<typeof ffModule>()),
       requireTools: async () => {},
@@ -246,9 +218,7 @@ describe('main tracing wiring', () => {
     }));
     vi.doMock('../src/run.js', async (importOriginal) => ({
       ...(await importOriginal<typeof runModule>()),
-      runBatch: async () => {
-        throw new Error('batch exploded');
-      },
+      runBatch,
     }));
     const stderr = vi
       .spyOn(process.stderr, 'write')
@@ -261,12 +231,8 @@ describe('main tracing wiring', () => {
         'node', 'drone-path', 'clip.mp4', '--out-dir', tmpDir(),
         '--config', configPath,
       ]);
-      return {
-        stderr: stderr.mock.calls.map((c) => String(c[0])).join(''),
-        shutdowns: shutdowns.count,
-      };
+      return stderr.mock.calls.map((c) => String(c[0])).join('');
     } finally {
-      vi.doUnmock('../src/tracing.js');
       vi.doUnmock('../src/ff.js');
       vi.doUnmock('../src/inputs.js');
       vi.doUnmock('../src/run.js');
@@ -274,23 +240,47 @@ describe('main tracing wiring', () => {
     }
   }
 
-  it('logs the enabled tracer and shuts tracing down when the batch fails', async () => {
-    const { stderr, shutdowns } = await mainWithMocks({});
-    expect(stderr).toContain('tracing: enabled (OTLP/HTTP protobuf)');
+  const OTEL_ENVS: { name: string; env: Record<string, string> }[] = [
+    {
+      name: 'endpoint and an unsupported protocol (once a fatal error)',
+      env: {
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318',
+        OTEL_EXPORTER_OTLP_PROTOCOL: 'grpc',
+      },
+    },
+    {
+      name: 'endpoint alone (once enabled the exporter)',
+      env: { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318' },
+    },
+    {
+      name: 'traces endpoint, headers and resource attributes',
+      env: {
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
+        OTEL_EXPORTER_OTLP_TRACES_HEADERS: 'x-team=flight',
+        OTEL_RESOURCE_ATTRIBUTES: 'team=flight',
+        OTEL_SERVICE_NAME: 'custom-service',
+        OTEL_SDK_DISABLED: 'false',
+      },
+    },
+  ];
+
+  it.for(OTEL_ENVS)('runs the batch unchanged with $name', async ({ env }) => {
+    const stderr = await mainWithMocks(env, async () => {
+      throw new Error('batch exploded');
+    });
     expect(stderr).toContain('[drone-path] ERROR: batch exploded');
-    expect(shutdowns).toBe(1);
+    expect(stderr).not.toMatch(/tracing|OTEL|opentelemetry/i);
     expect(process.exitCode).toBe(1);
   });
 
-  it('reports a shutdown failure without masking the real error', async () => {
-    const { stderr, shutdowns } = await mainWithMocks({
-      shutdownError: new Error('shutdown exploded'),
-    });
-    expect(stderr).toContain('[drone-path] ERROR: batch exploded');
-    expect(stderr).toContain(
-      'warning: tracing shutdown failed: shutdown exploded',
+  it('logs no tracing line and leaves the exit code alone on success', async () => {
+    const before = process.exitCode;
+    const stderr = await mainWithMocks(
+      { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:4318' },
+      async () => ({ ok: 1, skipped: 0, failed: 0 }),
     );
-    expect(shutdowns).toBe(1);
-    expect(process.exitCode).toBe(1);
+    expect(stderr).toContain('done: 1 ok, 0 skipped, 0 failed');
+    expect(stderr).not.toMatch(/tracing|OTEL|opentelemetry/i);
+    expect(process.exitCode).toBe(before);
   });
 });
