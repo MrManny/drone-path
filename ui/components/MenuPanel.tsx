@@ -18,7 +18,9 @@ import type { MenuDef, MenuFlags, MenuIconId, MenuItemId } from '../lib/menumode
 import { itemEnabled } from '../lib/menumodel.js';
 import { MenuRow } from './MenuRow.js';
 
-const ICONS: Record<MenuIconId, LucideIcon> = {
+// Exported for the wiring pin in the menu panel test: the id-to-glyph mapping
+// is app-owned and must not drift silently.
+export const ICONS: Record<MenuIconId, LucideIcon> = {
   folderOpen: FolderOpen,
   export: ArrowDownToLine,
   telemetry: SquareActivity,
