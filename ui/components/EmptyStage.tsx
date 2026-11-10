@@ -1,7 +1,7 @@
 'use client';
 
 import type { PickState } from '../lib/pickstate.js';
-import { FolderOpenIcon } from '../icons/FolderOpenIcon.js';
+import { FolderOpen } from 'lucide-react';
 import { MapCard } from './MapCard.js';
 import { OpenNotice } from './OpenNotice.js';
 
@@ -22,7 +22,7 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
       <div className="pane-video">
         <div className="stage-empty">
           <button type="button" className="primary" onClick={onPick} disabled={preparing}>
-            <FolderOpenIcon />
+            <FolderOpen size={16} />
             {preparing ? 'Preparing…' : 'Open…'}
           </button>
           {notice}

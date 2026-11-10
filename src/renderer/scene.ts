@@ -2,22 +2,16 @@ import type { HudSpec, Style, View } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
 import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss } from './dom.js';
-import type {
-  BoundsHandle,
-  LatLngTuple,
-  LayerHandle,
-  LeafletApi,
-  MapHandle,
-  MarkerHandle,
-  Point,
-  PolylineHandle,
-  TileLayerHandle,
-} from './leaflet.js';
+import type * as Leaflet from 'leaflet';
 import { computeScale, introOutroScale, metersPerPixel, scaleBarMeters } from './framemath.js';
 import type { Theme } from './theme.js';
 import { themeFor } from './theme.js';
 import { createTrailController } from './trail.js';
 import type { TrailController } from './trail.js';
+
+// The injected seam is the real Leaflet module type; the call sites must still
+// consume only the narrow API the renderer uses today.
+export type LeafletApi = typeof Leaflet;
 
 export interface SceneData {
   style: Style;
@@ -61,15 +55,15 @@ interface Layout {
   vh: number;
   bigW: number;
   bigH: number;
-  c0: Point;
+  c0: Leaflet.Point;
   bestM: number;
   mPerPx: number;
 }
 
 interface Decor {
-  layers: LayerHandle[];
-  trailLayers: PolylineHandle[];
-  drone: MarkerHandle;
+  layers: Leaflet.Layer[];
+  trailLayers: Leaflet.Polyline[];
+  drone: Leaflet.Marker;
   trailCtl: TrailController;
   arrowEl: HTMLElement | null;
   wrapEl: HTMLElement | null;
@@ -101,10 +95,10 @@ class SceneState implements Scene {
   private readonly frameEl: HTMLElement;
   private readonly scalelineEl: HTMLElement;
   private readonly scaletextEl: HTMLElement;
-  private readonly map: MapHandle;
-  private tiles: TileLayerHandle;
-  private latlngs: LatLngTuple[];
-  private bb: BoundsHandle;
+  private readonly map: Leaflet.Map;
+  private tiles: Leaflet.TileLayer;
+  private latlngs: Leaflet.LatLngTuple[];
+  private bb: Leaflet.LatLngBounds;
   private layout!: Layout;
   private decor!: Decor;
   private altEl: HTMLElement | null = null;
@@ -165,15 +159,15 @@ class SceneState implements Scene {
     return computeScale(this.data.width, this.data.height);
   }
 
-  private makeTileLayer(tileUrl: string, style: Style): TileLayerHandle {
+  private makeTileLayer(tileUrl: string, style: Style): Leaflet.TileLayer {
     return this.L.tileLayer(tileUrl, {
       maxZoom: TILE_SOURCES[style].maxZoom,
       maxNativeZoom: TILE_SOURCES[style].maxNativeZoom ?? undefined,
     });
   }
 
-  private latlngsOf(data: SceneData): LatLngTuple[] {
-    return data.lat.map((la, i): LatLngTuple => [la, data.lon[i]]);
+  private latlngsOf(data: SceneData): Leaflet.LatLngTuple[] {
+    return data.lat.map((la, i): Leaflet.LatLngTuple => [la, data.lon[i]]);
   }
 
   private applyChrome(): void {
@@ -218,9 +212,9 @@ class SceneState implements Scene {
     this.layout = { vw, vh, bigW, bigH, c0, bestM, mPerPx };
   }
 
-  private buildGhostLayers(theme: Theme, ghostLatlngs: LatLngTuple[], ghostDash: string): LayerHandle[] {
+  private buildGhostLayers(theme: Theme, ghostLatlngs: Leaflet.LatLngTuple[], ghostDash: string): Leaflet.Layer[] {
     const s = this.scale();
-    const layers: LayerHandle[] = [];
+    const layers: Leaflet.Layer[] = [];
     if (theme.ghostCasing) {
       const ghostCasing = this.L.polyline(ghostLatlngs, {
         color: theme.ghostCasing,
@@ -247,10 +241,10 @@ class SceneState implements Scene {
   }
 
   // Creation order sets stacking: thickest first so the core stays on top.
-  private buildTrailLayers(theme: Theme): PolylineHandle[] {
+  private buildTrailLayers(theme: Theme): Leaflet.Polyline[] {
     // smoothFactor 0 keeps Leaflet from re-simplifying the pre-decimated path.
     const wCore = Math.max(3, 5.5 * this.scale());
-    const trailGlow: PolylineHandle = this.L.polyline([], {
+    const trailGlow: Leaflet.Polyline = this.L.polyline([], {
       color: theme.glow,
       weight: wCore * 2.6,
       opacity: 1,
@@ -259,7 +253,7 @@ class SceneState implements Scene {
       smoothFactor: 0,
     });
     trailGlow.addTo(this.map);
-    const trailCasing: PolylineHandle = this.L.polyline([], {
+    const trailCasing: Leaflet.Polyline = this.L.polyline([], {
       color: theme.casing,
       weight: wCore * 1.6,
       opacity: 0.9,
@@ -268,7 +262,7 @@ class SceneState implements Scene {
       smoothFactor: 0,
     });
     trailCasing.addTo(this.map);
-    const trail: PolylineHandle = this.L.polyline([], {
+    const trail: Leaflet.Polyline = this.L.polyline([], {
       color: theme.trailCore,
       weight: wCore,
       opacity: 1,
@@ -280,7 +274,7 @@ class SceneState implements Scene {
     return [trail, trailGlow, trailCasing];
   }
 
-  private buildMarker(theme: Theme, s: number): { startDot: LayerHandle; drone: MarkerHandle } {
+  private buildMarker(theme: Theme, s: number): { startDot: Leaflet.Layer; drone: Leaflet.Marker } {
     const startDot = this.L.circleMarker(this.latlngs[0], {
       radius: Math.round(7 * s),
       color: '#ffffff',
@@ -289,7 +283,7 @@ class SceneState implements Scene {
       fillOpacity: 1,
     });
     startDot.addTo(this.map);
-    const drone: MarkerHandle = this.L.marker(this.latlngs[0], {
+    const drone: Leaflet.Marker = this.L.marker(this.latlngs[0], {
       icon: this.L.divIcon({
         className: 'drone-icon',
         html: droneMarkerMarkup(theme.core),
@@ -306,8 +300,8 @@ class SceneState implements Scene {
   private buildDecor(): Decor {
     const theme = themeFor(this.data.style, this.data.trailColor);
     const s = this.scale();
-    const ghostLatlngs: LatLngTuple[] = this.data.trailLat.map(
-      (la, i): LatLngTuple => [la, this.data.trailLon[i]],
+    const ghostLatlngs: Leaflet.LatLngTuple[] = this.data.trailLat.map(
+      (la, i): Leaflet.LatLngTuple => [la, this.data.trailLon[i]],
     );
     const ghostDash = Math.round(7 * s) + ' ' + Math.round(9 * s);
 

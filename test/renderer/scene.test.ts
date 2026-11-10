@@ -1,28 +1,28 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { LatLngExpr, LeafletApi, MarkerHandle, PolylineHandle, TileLayerHandle } from '../../src/renderer/leaflet.js';
+import type { LatLngExpression } from 'leaflet';
+
 import { createScene } from '../../src/renderer/scene.js';
-import type { SceneData } from '../../src/renderer/scene.js';
+import type { LeafletApi, SceneData } from '../../src/renderer/scene.js';
 import { themeFor } from '../../src/renderer/theme.js';
 
 interface PolylineRecord {
   points: Array<[number, number]>;
   sets: Array<Array<[number, number]>>;
-  adds: Array<[number, number]>;
   color: string;
 }
 
 interface MarkerRecord {
   kind: 'marker' | 'circle';
-  latlngs: LatLngExpr[];
+  latlngs: LatLngExpression[];
 }
 
-function latOf(ll: LatLngExpr): number {
+function latOf(ll: LatLngExpression): number {
   return Array.isArray(ll) ? ll[0] : ll.lat;
 }
 
-function lngOf(ll: LatLngExpr): number {
+function lngOf(ll: LatLngExpression): number {
   return Array.isArray(ll) ? ll[1] : ll.lng;
 }
 
@@ -36,7 +36,7 @@ function fakeL(host: HTMLElement): {
     options: Array<{ maxZoom: number; maxNativeZoom?: number }>;
     handlers: Record<string, () => void>;
   };
-  map: { views: Array<[LatLngExpr, number]>; invalidations: number; removed: number };
+  map: { views: Array<[LatLngExpression, number]>; invalidations: number; removed: number };
   removals: { count: number };
 } {
   const polylines: PolylineRecord[] = [];
@@ -48,15 +48,18 @@ function fakeL(host: HTMLElement): {
     options: [] as Array<{ maxZoom: number; maxNativeZoom?: number }>,
     handlers: {} as Record<string, () => void>,
   };
-  const map = { views: [] as Array<[LatLngExpr, number]>, invalidations: 0, removed: 0 };
+  const map = { views: [] as Array<[LatLngExpression, number]>, invalidations: 0, removed: 0 };
 
-  const L: LeafletApi = {
+  const L = {
     map: () => ({
-      setView(center, zoom) {
+      setView(center: LatLngExpression, zoom: number) {
         map.views.push([center, zoom]);
       },
       getCenter: () => ({ lat: 46.6, lng: 14.26 }),
-      project: (latlng) => ({ x: latOf(latlng) * 1000, y: lngOf(latlng) * 1000 }),
+      project: (latlng: LatLngExpression) => ({
+        x: latOf(latlng) * 1000,
+        y: lngOf(latlng) * 1000,
+      }),
       invalidateSize() {
         map.invalidations++;
       },
@@ -64,7 +67,7 @@ function fakeL(host: HTMLElement): {
         map.removed++;
       },
     }),
-    tileLayer: (url, options): TileLayerHandle => {
+    tileLayer: (url: string, options: { maxZoom: number; maxNativeZoom?: number }) => {
       tile.url = url;
       tile.urls.push(url);
       tile.options.push(options);
@@ -73,16 +76,16 @@ function fakeL(host: HTMLElement): {
         remove: () => {
           removals.count++;
         },
-        setUrl: (next) => {
+        setUrl: (next: string) => {
           tile.url = next;
           tile.urls.push(next);
         },
-        on: (event, handler) => {
+        on: (event: string, handler: () => void) => {
           tile.handlers[event] = handler;
         },
       };
     },
-    latLngBounds: (points) => {
+    latLngBounds: (points: Array<[number, number]>) => {
       const lats = points.map((p) => p[0]);
       const lngs = points.map((p) => p[1]);
       return {
@@ -94,23 +97,20 @@ function fakeL(host: HTMLElement): {
         getSouthEast: () => ({ lat: Math.min(...lats), lng: Math.max(...lngs) }),
       };
     },
-    polyline: (points, options): PolylineHandle => {
-      const rec: PolylineRecord = { points, sets: [], adds: [], color: options.color };
+    polyline: (points: Array<[number, number]>, options: { color: string }) => {
+      const rec: PolylineRecord = { points, sets: [], color: options.color };
       polylines.push(rec);
       return {
         addTo: () => {},
         remove: () => {
           removals.count++;
         },
-        addLatLng: (p) => {
-          rec.adds.push(p);
-        },
-        setLatLngs: (pts) => {
+        setLatLngs: (pts: Array<[number, number]>) => {
           rec.sets.push(pts);
         },
       };
     },
-    circleMarker: (latlng) => {
+    circleMarker: (latlng: LatLngExpression) => {
       markers.push({ kind: 'circle', latlngs: [latlng] });
       return {
         addTo: () => {},
@@ -119,7 +119,7 @@ function fakeL(host: HTMLElement): {
         },
       };
     },
-    marker: (latlng, options): MarkerHandle => {
+    marker: (latlng: LatLngExpression, options: { icon: unknown }) => {
       const rec: MarkerRecord = { kind: 'marker', latlngs: [latlng] };
       markers.push(rec);
       return {
@@ -130,13 +130,13 @@ function fakeL(host: HTMLElement): {
         remove: () => {
           removals.count++;
         },
-        setLatLng: (ll) => {
+        setLatLng: (ll: LatLngExpression) => {
           rec.latlngs.push(ll);
         },
       };
     },
-    divIcon: (options) => options,
-  };
+    divIcon: (options: { html: string }) => options,
+  } as unknown as LeafletApi;
   return { L, polylines, markers, tile, map, removals };
 }
 
@@ -338,7 +338,6 @@ describe('createScene', () => {
       { L },
     );
     await applyFrame(scene, 2);
-    expect(polylines.at(-1)?.adds).toEqual([]);
     expect(polylines.at(-1)?.sets).toEqual([]);
   });
 });

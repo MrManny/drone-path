@@ -1,5 +1,4 @@
-import type { LeafletApi } from './leaflet.js';
-import type { Scene, SceneData } from './scene.js';
+import type { LeafletApi, Scene, SceneData } from './scene.js';
 import { createScene } from './scene.js';
 
 export function bootScene(host: HTMLElement, data: SceneData, L: LeafletApi): Scene {
