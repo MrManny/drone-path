@@ -167,10 +167,17 @@ function nullableStringValue(name: string): z.ZodType<string | null> {
     .transform((value) => (value === '' ? null : value));
 }
 
-const TRAIL_COLOR_RX = /^#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+// The legacy key loops ran Object.keys on any object, arrays included;
+// spreading keeps exactly those keys visible to the strict shapes below.
+const keyedObjectInput = (value: unknown): unknown =>
+  typeof value === 'object' && value !== null ? { ...value } : value;
+
+// The whitespace tolerance matches the legacy trim-before-match so the error
+// can echo the raw untrimmed input.
+const TRAIL_COLOR_RX = /^\s*#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\s*$/i;
 
 function canonicalTrailColor(value: string): string {
-  const hex = value.replace(/^#/, '').toLowerCase();
+  const hex = value.trim().replace(/^#/, '').toLowerCase();
   return `#${hex.length <= 4 ? [...hex].map((c) => c + c).join('') : hex}`;
 }
 
@@ -179,7 +186,7 @@ function trailColorValue(name: string): z.ZodType<string | null> {
     `invalid value for ${name}: ${String(issue.input)} (use hex like #e63946 or #e63946cc)`;
   return z
     .union(
-      [z.null(), z.literal(''), z.string().trim().regex(TRAIL_COLOR_RX, { error: bad })],
+      [z.null(), z.literal(''), z.string().regex(TRAIL_COLOR_RX, { error: bad })],
       { error: bad },
     )
     .transform((value) =>
@@ -192,16 +199,19 @@ export function asTrailColor(value: unknown, name: string): string | null {
 }
 
 function hudSpecSchema(name: string): z.ZodType<HudSpec> {
-  return strictShape(
-    {
-      heading: boolValue(`${name}: heading`),
-      alt: boolValue(`${name}: alt`),
-      speed: boolValue(`${name}: speed`),
-    },
-    {
-      invalid: `invalid value for ${name}`,
-      unknownKey: (key) => `unknown key ${key} in ${name}`,
-    },
+  return z.preprocess(
+    keyedObjectInput,
+    strictShape(
+      {
+        heading: boolValue(`${name}: heading`),
+        alt: boolValue(`${name}: alt`),
+        speed: boolValue(`${name}: speed`),
+      },
+      {
+        invalid: `invalid value for ${name}`,
+        unknownKey: (key) => `unknown key ${key} in ${name}`,
+      },
+    ),
   );
 }
 
@@ -619,20 +629,23 @@ function parseRequestConfig(raw: unknown, base: RenderConfig): RenderConfig {
   return { ...merged, ...normalizeDimensions(merged.width, merged.height) };
 }
 
-const EXPORT_REQUEST_SHAPE = {
-  outPath: z.unknown().optional(),
-  config: z.unknown().optional(),
-  range: z.unknown().optional(),
-} as z.ZodRawShape;
-
-export function parseExportRequest(raw: unknown, base: RenderConfig): ExportRequest {
-  const request = parseValue(
-    strictShape(EXPORT_REQUEST_SHAPE, {
+const EXPORT_REQUEST_SCHEMA = z.preprocess(
+  keyedObjectInput,
+  strictShape(
+    {
+      outPath: z.unknown().optional(),
+      config: z.unknown().optional(),
+      range: z.unknown().optional(),
+    },
+    {
       invalid: 'invalid export request',
       unknownKey: (key) => `unknown export request key ${key}`,
-    }),
-    raw,
-  );
+    },
+  ),
+);
+
+export function parseExportRequest(raw: unknown, base: RenderConfig): ExportRequest {
+  const request = parseValue(EXPORT_REQUEST_SCHEMA, raw);
   const outPath = parseValue(stringValue('export request: outPath'), request.outPath);
   if (!outPath.toLowerCase().endsWith('.mp4')) {
     throw new Error(`export request: outPath must be an .mp4 file: ${outPath}`);

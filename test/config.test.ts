@@ -101,6 +101,22 @@ describe('normalizeOverrides', () => {
       /invalid value for test: telemetryJson/,
     );
   });
+
+  it.each([
+    ['NaN', NaN, 'invalid number for test: zoom: NaN'],
+    ['Infinity', Infinity, 'invalid number for test: zoom: Infinity'],
+  ] as Array<[string, number, string]>)(
+    'rejects %s with the legacy number wording',
+    (_label, value, message) => {
+      expect(() => normalizeOverrides({ zoom: value }, 'test')).toThrow(message);
+    },
+  );
+
+  it('names every accepted choice for an invalid enum value', () => {
+    expect(() => normalizeOverrides({ quality: 'ultra' }, 'test')).toThrow(
+      'invalid value for test: quality: ultra (use near-lossless | high | medium | low)',
+    );
+  });
 });
 
 describe('asTrailColor', () => {
@@ -125,6 +141,19 @@ describe('asTrailColor', () => {
       );
     },
   );
+
+  it.for([' neon ', ' ', '#12345 '])(
+    'echoes the raw untrimmed input in the error',
+    (raw) => {
+      expect(() => asTrailColor(raw, '--trail-color')).toThrow(
+        `invalid value for --trail-color: ${raw} (use hex like #e63946 or #e63946cc)`,
+      );
+    },
+  );
+
+  it('canonicalizes a padded value after trimming', () => {
+    expect(asTrailColor(' #f00 ', 'trail color')).toBe('#ff0000');
+  });
 });
 
 describe('validateRenderConfig', () => {
@@ -292,6 +321,22 @@ describe('parseExportRequest', () => {
   it('rejects a non-object request', () => {
     expect(() => parseExportRequest('nope', base)).toThrow('invalid export request');
   });
+
+  it.each([
+    ['an index-keyed array request', ['x'], 'unknown export request key 0'],
+    ['an empty array request', [], 'invalid value for export request: outPath: undefined'],
+  ] as Array<[string, unknown, string]>)('rejects %s through the key rule', (_label, raw, message) => {
+    expect(() => parseExportRequest(raw, base)).toThrow(message);
+  });
+
+  it('treats an array HUD in the export config like an object with index keys', () => {
+    expect(() =>
+      parseExportRequest({ outPath: '/x/a.mp4', config: { hud: ['heading'] } }, base),
+    ).toThrow('unknown key 0 in export request: config: hud');
+    expect(() =>
+      parseExportRequest({ outPath: '/x/a.mp4', config: { hud: [] } }, base),
+    ).toThrow('invalid value for export request: config: hud: heading: undefined');
+  });
 });
 
 describe('export request boundary', () => {
@@ -423,5 +468,18 @@ describe('parseSettingsPatch', () => {
     ['a mistyped trail color', { ...complete, trailColor: 5 }],
   ])('rejects %s', (_label, raw) => {
     expect(() => parseSettingsPatch(raw, 'test')).toThrow();
+  });
+
+  it('echoes the raw trail color input in the error', () => {
+    expect(() => parseSettingsPatch({ ...complete, trailColor: ' neon ' }, 'test')).toThrow(
+      'invalid value for test: trailColor:  neon  (use hex like #e63946 or #e63946cc)',
+    );
+  });
+
+  it.each([
+    ['an index-keyed array', ['heading'], 'unknown key 0 in test: hud'],
+    ['an empty array', [], 'invalid value for test: hud: heading: undefined'],
+  ] as Array<[string, unknown, string]>)('rejects %s HUD like the object form', (_label, hud, message) => {
+    expect(() => parseSettingsPatch({ ...complete, hud }, 'test')).toThrow(message);
   });
 });
