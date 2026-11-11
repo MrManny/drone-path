@@ -5,11 +5,8 @@ import { z } from 'zod';
 
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
 import {
-  STYLE_VALUES,
-  VIEW_VALUES,
-  asTrailColor,
-  numberValue,
   parseFrameRange,
+  parseLookSettings,
   parseValue,
   strictShape,
 } from './config.js';
@@ -62,45 +59,7 @@ export interface PickRequest {
 
 export function parsePickRequest(raw: unknown): PickRequest {
   const input = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
-  const look =
-    typeof input.settings === 'object' && input.settings !== null
-      ? (input.settings as Record<string, unknown>)
-      : {};
-  const { style, view, hud } = look;
-  const mapStyle = parseValue(
-    z.enum(STYLE_VALUES, {
-      error: (issue) => `unknown map style: ${String(issue.input)}`,
-    }),
-    style,
-  );
-  const viewMode = parseValue(
-    z.enum(VIEW_VALUES, {
-      error: (issue) => `unknown view: ${String(issue.input)}`,
-    }),
-    view,
-  );
-  const zoom = parseValue(numberValue('zoom'), look.zoom);
-  const zoomOut = parseValue(numberValue('zoom-out'), look.zoomOut);
-  if (!(zoom >= 0)) throw new Error('zoom must be >= 0 (0 = auto-fit)');
-  if (!(zoomOut >= 0)) throw new Error('zoom-out must be >= 0');
-  const introSec = parseValue(numberValue('intro'), look.introSec);
-  const outroSec = parseValue(numberValue('outro'), look.outroSec);
-  if (!(introSec >= 0)) throw new Error('intro must be 0 or more');
-  if (!(outroSec >= 0)) throw new Error('outro must be 0 or more');
-  const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
-  const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
-  return {
-    settings: {
-      style: mapStyle,
-      view: viewMode,
-      zoom,
-      zoomOut,
-      hud: { heading: !!chips.heading, alt: !!chips.alt, speed: !!chips.speed },
-      introSec,
-      outroSec,
-      trailColor,
-    },
-  };
+  return { settings: parseLookSettings(input.settings) };
 }
 
 export interface TelemetrySaveRequest {

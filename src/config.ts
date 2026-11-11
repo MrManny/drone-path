@@ -537,6 +537,47 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
   return settings;
 }
 
+// The pick-request flavor of look settings. Its error wording is the legacy
+// IPC wording the renderer has always shown; it predates validateRenderConfig
+// and intentionally stays distinct from the CLI wording.
+export function parseLookSettings(raw: unknown): LookSettings {
+  const look =
+    typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const { style, view, hud } = look;
+  const mapStyle = parseValue(
+    z.enum(STYLE_VALUES, {
+      error: (issue) => `unknown map style: ${String(issue.input)}`,
+    }),
+    style,
+  );
+  const viewMode = parseValue(
+    z.enum(VIEW_VALUES, {
+      error: (issue) => `unknown view: ${String(issue.input)}`,
+    }),
+    view,
+  );
+  const zoom = parseValue(numberValue('zoom'), look.zoom);
+  const zoomOut = parseValue(numberValue('zoom-out'), look.zoomOut);
+  if (!(zoom >= 0)) throw new Error('zoom must be >= 0 (0 = auto-fit)');
+  if (!(zoomOut >= 0)) throw new Error('zoom-out must be >= 0');
+  const introSec = parseValue(numberValue('intro'), look.introSec);
+  const outroSec = parseValue(numberValue('outro'), look.outroSec);
+  if (!(introSec >= 0)) throw new Error('intro must be 0 or more');
+  if (!(outroSec >= 0)) throw new Error('outro must be 0 or more');
+  const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
+  const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
+  return {
+    style: mapStyle,
+    view: viewMode,
+    zoom,
+    zoomOut,
+    hud: { heading: !!chips.heading, alt: !!chips.alt, speed: !!chips.speed },
+    introSec,
+    outroSec,
+    trailColor,
+  };
+}
+
 export const MIN_DIMENSION = 64;
 
 // Negated comparisons are NaN-safe (NaN would slip through <).
