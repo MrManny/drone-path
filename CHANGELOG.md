@@ -1,5 +1,16 @@
 # drone-path
 
+## 0.10.0
+
+- **New:** Telemetry now comes from the embedded CAM meta (DVTM) stream
+  whenever a recording has one; the `.SRT` sidecar is only used when no
+  CAM meta stream is present. A CAM meta stream without GPS positions
+  fails the run with a clear error instead of silently falling back to
+  the sidecar.
+- **New:** The opt-in OpenTelemetry trace export is removed along with
+  its `OTEL_*` environment variables. Stage logs, progress reporting
+  and rendered output are unchanged.
+
 ## 0.9.0
 
 - **New:** The flight trail is now configurable: `--trail-color <hex>`
