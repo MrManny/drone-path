@@ -14,6 +14,7 @@ import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import { useTelemetrySave } from '../hooks/useTelemetrySave.js';
 import type { StageLayout } from '../lib/layout.js';
 import { engagedLoop } from '../lib/loop.js';
+import type { MenuItemId } from '../lib/menumodel.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
 import { telemetryScope } from '../lib/telemetrysave.js';
@@ -135,6 +136,17 @@ export function PlayerChrome({
     reveal: revealTelemetry,
   } = useTelemetrySave({ range: telemetryRange, scope, dispatchDialog });
 
+  const menuActions: Record<MenuItemId, () => void> = {
+    open: onOpen,
+    exportVideo: () => dispatchDialog({ type: 'openExport' }),
+    exportTelemetry: saveTelemetryJson,
+    settings: toggleMapAppearance,
+    swap,
+    documentation: onHelp,
+    about: () => dispatchDialog({ type: 'openAbout' }),
+    exit: onExit,
+  };
+
   return (
     <div className="workspace">
       <MenuBar
@@ -142,14 +154,7 @@ export function PlayerChrome({
         opening={opening}
         modalOpen={modalOpen}
         itemTitles={{ exportTelemetry: `Exports telemetry for the ${scope}` }}
-        onOpen={onOpen}
-        onExportVideo={() => dispatchDialog({ type: 'openExport' })}
-        onExportTelemetry={saveTelemetryJson}
-        onSettings={toggleMapAppearance}
-        onSwap={swap}
-        onDocumentation={onHelp}
-        onAbout={() => dispatchDialog({ type: 'openAbout' })}
-        onExit={onExit}
+        onActivate={(item) => menuActions[item]()}
         onMenuOpenChange={setMenuOpen}
         barRef={appearanceButtonRef}
       />

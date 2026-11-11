@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { LoopState } from '../lib/loop.js';
+import type { MenuItemId } from '../lib/menumodel.js';
 import type { PickState } from '../lib/pickstate.js';
 import { EmptyStage } from './EmptyStage.js';
 import { MenuBar } from './MenuBar.js';
@@ -52,20 +53,22 @@ export function EmptyWorkspace({
     { modalOpen: dialogs.modalOpen, popoverOpen: false, menuOpen, fps: 0, frames: 0 },
   );
 
+  // The recording-only items stay disabled while nothing is loaded, so they
+  // need no handler here.
+  const menuActions: Partial<Record<MenuItemId, () => void>> = {
+    open: onPick,
+    documentation: onHelp,
+    about: () => dialogs.dispatchDialog({ type: 'openAbout' }),
+    exit: onExit,
+  };
+
   return (
     <div className="workspace">
       <MenuBar
         hasRecording={false}
         opening={state.kind === 'preparing'}
         modalOpen={dialogs.modalOpen}
-        onOpen={onPick}
-        onExportVideo={NOOP}
-        onExportTelemetry={NOOP}
-        onSettings={NOOP}
-        onSwap={NOOP}
-        onDocumentation={onHelp}
-        onAbout={() => dialogs.dispatchDialog({ type: 'openAbout' })}
-        onExit={onExit}
+        onActivate={(item) => menuActions[item]?.()}
         onMenuOpenChange={setMenuOpen}
       />
       <WorkspaceHeader durationSec={0} />
