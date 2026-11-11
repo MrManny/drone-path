@@ -1,16 +1,11 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { framesForSeconds, parseFpsRate, parseRate } from './frametime.js';
+import type { Fps } from './frametime.js';
 import type { FfToolPaths } from './fftools.js';
 
 const execFileAsync = promisify(execFile);
-
-export interface Fps {
-  num: number;
-  den: number;
-  value: number;
-  str: string;
-}
 
 export interface VideoProbe {
   fps: Fps;
@@ -60,26 +55,6 @@ export async function ffprobeJson(
   return JSON.parse(stdout || '{}') as Record<string, unknown>;
 }
 
-function parseRate(str: string): { num: number; den?: number } | null {
-  const [num, den] = str.split('/').map(Number);
-  return Number.isFinite(num) ? { num, den } : null;
-}
-
-function parseFpsRate(str?: string): Fps | null {
-  const rate = str ? parseRate(str) : null;
-  if (!rate || !Number.isFinite(rate.den) || rate.den === 0 || rate.num === 0) {
-    return null;
-  }
-  const { num } = rate;
-  const den = rate.den as number;
-  return {
-    num,
-    den,
-    value: num / den,
-    str: den === 1 ? String(num) : `${num}/${den}`,
-  };
-}
-
 function parseCount(text: string | undefined): number {
   return Number.parseInt(text ?? '', 10);
 }
@@ -122,7 +97,7 @@ export async function probeVideo(
   const durationSec = Number.parseFloat(format.duration ?? '');
   let frames = parseCount(stream.nb_frames);
   if (!Number.isFinite(frames) || frames <= 0) {
-    frames = Math.round(durationSec * fps.value);
+    frames = framesForSeconds(fps.value, durationSec);
     log('warning: nb_frames missing, using duration x fps');
   }
   if (!Number.isFinite(frames) || frames <= 0) {

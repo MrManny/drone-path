@@ -1,5 +1,8 @@
+import { timeAt } from '../../src/frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
 import { hasLoop } from './loop.js';
+
+export { framesForSeconds, timeAt } from '../../src/frametime.js';
 
 // requestVideoFrameCallback quantizes mediaTime to the microsecond, so the
 // product can land just under frame i's integer; the slack covers that error
@@ -14,17 +17,9 @@ export function clampFrame(i: number, frames: number): number {
   return Math.max(0, Math.min(frames - 1, i));
 }
 
-export function framesForSeconds(fps: number, seconds: number): number {
-  return Math.round(fps * seconds);
-}
-
 export function formatTime(sec: number): string {
   const total = Math.max(0, Math.round(sec));
   return Math.floor(total / 60) + ':' + ('0' + (total % 60)).slice(-2);
-}
-
-export function timeAt(frame: number, fps: number): number {
-  return fps > 0 ? frame / fps : 0;
 }
 
 export function formatTimeReadout(frame: number, fps: number, durationSec: number): string {

@@ -1,6 +1,7 @@
 import { bearingDeg, circularMeanDeg, haversineM } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
 import type { CamMetaMethod } from './cammeta.js';
+import { timeAt } from './frametime.js';
 
 export type TelemetrySource = 'srt' | 'cammeta';
 export type TelemetryMethod = 'srt-cues' | CamMetaMethod;
@@ -314,7 +315,7 @@ function buildFrameData(
 ): FrameData[] {
   const frameData: FrameData[] = [];
   for (let frame = 0; frame < frames; frame++) {
-    const t = frame / fpsValue;
+    const t = timeAt(frame, fpsValue);
     const pos = positionAt(samples, t);
     const si = nearestSampleIndex(samples, t);
     frameData.push({

@@ -14,6 +14,7 @@ import {
 import type { FrameRange, LookSettings, RenderConfig } from './config.js';
 import { errorMessage } from './errors.js';
 import type { VideoProbe } from './ff.js';
+import { timeAt } from './frametime.js';
 import type { Bbox } from './geo.js';
 import { isRecordingName } from './inputs.js';
 import { buildSceneData } from './page.js';
@@ -36,7 +37,7 @@ export interface PageVideo {
 }
 
 export function frameExactDuration(probe: VideoProbe): number {
-  return probe.frames / probe.fps.value;
+  return timeAt(probe.frames, probe.fps.value);
 }
 
 export interface UiSession {
