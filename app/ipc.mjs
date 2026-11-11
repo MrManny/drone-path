@@ -1,6 +1,5 @@
-// The IPC surface of the app window: one trusted-sender gate, one error
-// envelope and all channel handlers. Handlers throw plain Errors; the
-// envelope turns them into { ok: false, error } for the renderer.
+// IPC for the app window: handlers throw plain Errors and the handle()
+// envelope answers the renderer with { ok: false, error }.
 
 import fs from 'node:fs';
 import path from 'node:path';

@@ -74,10 +74,8 @@ interface TelemetryValueSpec {
   integer?: boolean;
 }
 
-// The single home for the record layout: where each value sits around
-// headingDeg/headingSource and how it is rounded. The Record annotation makes
-// a schema field without an entry here (or a stale entry) a compile error
-// instead of a silently dropped record key.
+// The Record annotation makes a schema field without an entry here a compile
+// error instead of a silently dropped record key.
 const TELEMETRY_VALUES: Record<TelemetryValueKey, TelemetryValueSpec> = {
   gimbalDeviceTimestampMs: { position: 'before-heading', integer: true },
   lat: { position: 'before-heading' },

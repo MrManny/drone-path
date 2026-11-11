@@ -14,7 +14,6 @@ import type { TrailController } from './trail.js';
 // consume only the narrow API the renderer uses today.
 export type LeafletApi = typeof Leaflet;
 
-// FrameChannels keys are the window.__DATA wire format: never rename them.
 export interface SceneData extends FrameChannels {
   style: Style;
   trailColor: string | null;

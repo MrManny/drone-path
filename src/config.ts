@@ -537,9 +537,8 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
   return settings;
 }
 
-// The pick-request flavor of look settings. Its error wording is the legacy
-// IPC wording the renderer has always shown; it predates validateRenderConfig
-// and intentionally stays distinct from the CLI wording.
+// The pick-request flavor of look settings: its error wording is the legacy
+// IPC wording, deliberately distinct from validateRenderConfig's CLI wording.
 export function parseLookSettings(raw: unknown): LookSettings {
   const look =
     typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};

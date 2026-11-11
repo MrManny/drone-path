@@ -53,8 +53,7 @@ export function EmptyWorkspace({
     { modalOpen: dialogs.modalOpen, popoverOpen: false, menuOpen, fps: 0, frames: 0 },
   );
 
-  // The recording-only items stay disabled while nothing is loaded, so they
-  // need no handler here.
+  // Recording-only items stay disabled with nothing loaded, so they need no handler.
   const menuActions: Partial<Record<MenuItemId, () => void>> = {
     open: onPick,
     documentation: onHelp,

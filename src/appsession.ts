@@ -48,7 +48,6 @@ export interface UiSession {
   durationSec: number;
 }
 
-// The { ok, ... } envelope every app-bridge reply carries.
 export interface IpcResult {
   ok: boolean;
   canceled?: boolean;

@@ -15,9 +15,6 @@ export interface TelemetrySave {
   reveal: () => void;
 }
 
-// Owns the telemetry-save flow and its dialog choreography: the phase, the
-// pinning while the write runs and the open/result sequencing all live here,
-// so the workspace chrome only renders the phase.
 export function useTelemetrySave(options: {
   range: FrameRange | null;
   scope: string;
