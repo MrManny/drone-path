@@ -8,11 +8,8 @@
   fails the run with a clear error instead of silently falling back to
   the sidecar.
 - **New:** The opt-in OpenTelemetry trace export is removed along with
-  its `OTEL_*` environment variables — drop them from scripts and CI.
-  Stage logs, progress reporting and rendered output are unchanged.
-- **Internal:** Code-base refactoring behind unchanged behavior:
-  zod-validated config and requests, maintained tile-queue and CRC-32
-  libraries, and consolidated option, telemetry and IPC seams.
+  its `OTEL_*` environment variables. Stage logs, progress reporting
+  and rendered output are unchanged.
 
 ## 0.9.0
 
