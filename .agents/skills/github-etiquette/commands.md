@@ -22,3 +22,7 @@ gh run list --branch <branch>          # find the run id for the PR branch
 gh run watch <run-id> --exit-status    # stream job/step status until done; non-zero on failure
 gh run view <run-id> --log-failed      # fetch failing logs afterwards
 ```
+
+## Attaching files
+
+Images and videos can be attached to issues, pull requests, and comments from the command line: `gh issue create/edit/comment` and `gh pr create/edit/comment` accept `--attach PATH` (repeatable), which uploads the local file and writes its URL into the body; append `#ALT-TEXT` to the path for image alt text. When the Markdown body already references the attached local file, GitHub CLI rewrites that reference in place, so a body can be written and previewed locally before posting it unchanged. Only image and video files can be attached, and doing so requires push access to the repository (see [Attaching files with GitHub CLI](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli)).
