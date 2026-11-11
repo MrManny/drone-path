@@ -48,11 +48,14 @@ export interface UiSession {
   durationSec: number;
 }
 
-export interface PickResult {
+// The { ok, ... } envelope every app-bridge reply carries.
+export interface IpcResult {
   ok: boolean;
   canceled?: boolean;
   error?: string;
 }
+
+export type PickResult = IpcResult;
 
 export interface PickRequest {
   settings: LookSettings;
