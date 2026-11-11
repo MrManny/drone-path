@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TelemetrySaveRequest } from '../../src/appsession.js';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';
 import {
-  telemetryScope,
   telemetrySaveFlow,
+  telemetrySaveReducer,
+  telemetryScope,
 } from '../../ui/lib/telemetrysave.js';
 
 const RANGE = { start: 120, end: 300 };
@@ -134,6 +135,58 @@ describe.each<{
     );
     expect(event).toEqual({ type: 'failed', message });
     expect(onSaving).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('telemetrySaveReducer', () => {
+  const SAVING = { kind: 'saving' } as const;
+  const DONE = { kind: 'done', path: '/exports/a.json', scope: 'full recording (0:10)' } as const;
+
+  it('enters the saving phase when the write starts', () => {
+    expect(telemetrySaveReducer(null, { type: 'started' })).toEqual(SAVING);
+  });
+
+  it('lands on done with the path and scope when the save succeeds', () => {
+    const state = telemetrySaveReducer(SAVING, {
+      type: 'result',
+      event: { type: 'saved', path: '/exports/a.json' },
+      scope: 'full recording (0:10)',
+    });
+    expect(state).toEqual(DONE);
+  });
+
+  it('lands on error with the message when the save fails', () => {
+    const state = telemetrySaveReducer(SAVING, {
+      type: 'result',
+      event: { type: 'failed', message: 'disk full' },
+      scope: 'full recording (0:10)',
+    });
+    expect(state).toEqual({ kind: 'error', message: 'disk full' });
+  });
+
+  it('keeps the phase when the pick was canceled', () => {
+    const state = telemetrySaveReducer(SAVING, {
+      type: 'result',
+      event: { type: 'canceled' },
+      scope: 'full recording (0:10)',
+    });
+    expect(state).toBe(SAVING);
+  });
+
+  it('adds the reveal failure to a done phase', () => {
+    const state = telemetrySaveReducer(DONE, {
+      type: 'revealFailed',
+      error: 'the file could not be revealed',
+    });
+    expect(state).toEqual({ ...DONE, error: 'the file could not be revealed' });
+  });
+
+  it.each([
+    ['no phase', null],
+    ['the saving phase', SAVING],
+    ['the error phase', { kind: 'error', message: 'disk full' } as const],
+  ] as const)('ignores a reveal failure in %s', (_what, state) => {
+    expect(telemetrySaveReducer(state, { type: 'revealFailed', error: 'nope' })).toBe(state);
   });
 });
 

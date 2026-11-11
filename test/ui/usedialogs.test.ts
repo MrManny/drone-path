@@ -43,7 +43,7 @@ describe('useDialogs', () => {
   it('pins the dialog and refuses dismissal while a job runs', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openExport' });
-    send({ type: 'exportStarted' });
+    send({ type: 'runStarted' });
     expect(result.current.exportOpen).toBe(true);
     expect(result.current.dismissible).toBe(false);
   });
@@ -51,7 +51,7 @@ describe('useDialogs', () => {
   it('ignores close while a job runs', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openExport' });
-    send({ type: 'exportStarted' });
+    send({ type: 'runStarted' });
     send({ type: 'close' });
     expect(result.current.exportOpen).toBe(true);
     expect(result.current.dismissible).toBe(false);
@@ -60,8 +60,8 @@ describe('useDialogs', () => {
   it('returns to the form and allows dismissal when the job finishes', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openExport' });
-    send({ type: 'exportStarted' });
-    send({ type: 'exportFinished' });
+    send({ type: 'runStarted' });
+    send({ type: 'runFinished' });
     expect(result.current.exportOpen).toBe(true);
     expect(result.current.dismissible).toBe(true);
     send({ type: 'close' });
@@ -79,12 +79,12 @@ describe('useDialogs', () => {
   it('pins the telemetry save dialog while the write runs and releases it on the outcome', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openTelemetrySave' });
-    send({ type: 'telemetrySaveStarted' });
+    send({ type: 'runStarted' });
     expect(result.current.telemetrySaveOpen).toBe(true);
     expect(result.current.dismissible).toBe(false);
     send({ type: 'close' });
     expect(result.current.telemetrySaveOpen).toBe(true);
-    send({ type: 'telemetrySaveFinished' });
+    send({ type: 'runFinished' });
     expect(result.current.dismissible).toBe(true);
     send({ type: 'close' });
     expect(result.current.modalOpen).toBe(false);
@@ -112,7 +112,7 @@ describe('useDialogs', () => {
   it('keeps a running job between About and the workspace', () => {
     const { result, send } = mountDialogs();
     send({ type: 'openExport' });
-    send({ type: 'exportStarted' });
+    send({ type: 'runStarted' });
     send({ type: 'openAbout' });
     expect(result.current.aboutOpen).toBe(false);
     expect(result.current.exportOpen).toBe(true);

@@ -5,20 +5,18 @@ import { useCallback, useMemo, useState } from 'react';
 import type { UiSession } from '../../src/appsession.js';
 import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
-import { errorMessage } from '../../src/errors.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import { restyleMeta } from '../lib/restylemeta.js';
-import { appBridge } from '../lib/backend.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
+import { useTelemetrySave } from '../hooks/useTelemetrySave.js';
 import type { StageLayout } from '../lib/layout.js';
 import { engagedLoop } from '../lib/loop.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
-import type { TelemetrySavePhase } from '../lib/telemetrysave.js';
-import { telemetryScope, telemetrySaveFlow } from '../lib/telemetrysave.js';
+import { telemetryScope } from '../lib/telemetrysave.js';
 import { ExportHost } from './ExportHost.js';
 import { MenuBar } from './MenuBar.js';
 import { OpenNotice } from './OpenNotice.js';
@@ -79,7 +77,6 @@ export function PlayerChrome({
   const { modalOpen, exportOpen, telemetrySaveOpen, dismissible, dispatchDialog } = dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [telemetrySave, setTelemetrySave] = useState<TelemetrySavePhase | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
   const {
     open: mapAppearanceOpen,
@@ -132,50 +129,11 @@ export function PlayerChrome({
     ? { start: loopPoints.in, end: loopPoints.out }
     : null;
   const scope = telemetryScope(telemetryRange, video.fps, durationSec);
-
-  const saveTelemetryJson = (): void => {
-    void (async () => {
-      let opened = false;
-      const event = await telemetrySaveFlow(
-        {
-          pickTelemetryOutput: () => appBridge().pickTelemetryOutput(),
-          saveTelemetryJson: (request) => appBridge().saveTelemetryJson(request),
-        },
-        telemetryRange,
-        () => {
-          opened = true;
-          setTelemetrySave({ kind: 'saving' });
-          dispatchDialog({ type: 'openTelemetrySave' });
-          dispatchDialog({ type: 'telemetrySaveStarted' });
-        },
-      );
-      if (event.type === 'canceled') return;
-      if (opened) dispatchDialog({ type: 'telemetrySaveFinished' });
-      else dispatchDialog({ type: 'openTelemetrySave' });
-      setTelemetrySave(
-        event.type === 'saved'
-          ? { kind: 'done', path: event.path, scope }
-          : { kind: 'error', message: event.message },
-      );
-    })();
-  };
-
-  const revealTelemetry = (): void => {
-    const done = telemetrySave?.kind === 'done' ? telemetrySave : null;
-    if (done === null) return;
-    void (async () => {
-      try {
-        const ack = await appBridge().revealExportOutput({ out: done.path });
-        setTelemetrySave(
-          ack.ok
-            ? done
-            : { ...done, error: ack.error ?? 'the file could not be revealed' },
-        );
-      } catch (e) {
-        setTelemetrySave({ ...done, error: errorMessage(e) });
-      }
-    })();
-  };
+  const {
+    phase: telemetrySave,
+    save: saveTelemetryJson,
+    reveal: revealTelemetry,
+  } = useTelemetrySave({ range: telemetryRange, scope, dispatchDialog });
 
   return (
     <div className="workspace">
@@ -244,7 +202,7 @@ export function PlayerChrome({
         open={exportOpen}
         dismissible={dismissible}
         onClose={() => dispatchDialog({ type: 'close' })}
-        onRunEvent={dispatchDialog}
+        dispatchDialog={dispatchDialog}
         onSettingsChange={onSettingsChange}
       />
       {telemetrySaveOpen && telemetrySave ? (

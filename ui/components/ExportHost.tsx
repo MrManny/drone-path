@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
 import type { RenderConfig } from '../../src/config.js';
-import type { DialogRunEvent } from '../lib/dialogstate.js';
+import type { DialogEvent } from '../lib/dialogstate.js';
 import type { LoopState } from '../lib/loop.js';
 import { ExportModal } from './ExportModal.js';
 
@@ -15,7 +15,7 @@ export interface ExportHostProps {
   open: boolean;
   dismissible: boolean;
   onClose: () => void;
-  onRunEvent: (event: DialogRunEvent) => void;
+  dispatchDialog: (event: DialogEvent) => void;
   onSettingsChange: (config: RenderConfig) => void;
 }
 
@@ -26,7 +26,7 @@ export function ExportHost({
   open,
   dismissible,
   onClose,
-  onRunEvent,
+  dispatchDialog,
   onSettingsChange,
 }: ExportHostProps) {
   const [sizes, setSizes] = useState<{ width: number; height: number } | null>(null);
@@ -38,7 +38,7 @@ export function ExportHost({
       loop={loop}
       onClose={onClose}
       dismissible={dismissible}
-      onRunEvent={onRunEvent}
+      dispatchDialog={dispatchDialog}
       onEncoderChange={(encode) => onSettingsChange({ ...settings, ...encode })}
       initialSizes={sizes}
       onSizesChange={setSizes}

@@ -19,10 +19,8 @@ const EVENTS: DialogEvent[] = [
   { type: 'openAbout' },
   { type: 'openExport' },
   { type: 'openTelemetrySave' },
-  { type: 'telemetrySaveStarted' },
-  { type: 'telemetrySaveFinished' },
-  { type: 'exportStarted' },
-  { type: 'exportFinished' },
+  { type: 'runStarted' },
+  { type: 'runFinished' },
   { type: 'updateReady' },
   { type: 'close' },
 ];
@@ -45,14 +43,18 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
       return pinned(state) ? state : 'export-form';
     case 'openTelemetrySave':
       return pinned(state) ? state : 'telemetry-save';
-    case 'telemetrySaveStarted':
-      return state === 'telemetry-save' ? 'telemetry-saving' : state;
-    case 'telemetrySaveFinished':
-      return state === 'telemetry-saving' ? 'telemetry-save' : state;
-    case 'exportStarted':
-      return state === 'export-form' ? 'export-running' : state;
-    case 'exportFinished':
-      return state === 'export-running' ? 'export-form' : state;
+    case 'runStarted':
+      return state === 'export-form'
+        ? 'export-running'
+        : state === 'telemetry-save'
+          ? 'telemetry-saving'
+          : state;
+    case 'runFinished':
+      return state === 'export-running'
+        ? 'export-form'
+        : state === 'telemetry-saving'
+          ? 'telemetry-save'
+          : state;
     case 'updateReady':
       return state === 'closed' ? 'update-prompt' : state;
     case 'close':
@@ -94,10 +96,10 @@ describe('the export run round trip', () => {
     let state: DialogState = 'closed';
     state = dialogReducer(state, { type: 'openExport' });
     expect(canDismiss(state)).toBe(true);
-    state = dialogReducer(state, { type: 'exportStarted' });
+    state = dialogReducer(state, { type: 'runStarted' });
     expect(canDismiss(state)).toBe(false);
     expect(dialogReducer(state, { type: 'close' })).toBe('export-running');
-    state = dialogReducer(state, { type: 'exportFinished' });
+    state = dialogReducer(state, { type: 'runFinished' });
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');
   });
@@ -109,11 +111,11 @@ describe('the telemetry save round trip', () => {
     state = dialogReducer(state, { type: 'openTelemetrySave' });
     expect(state).toBe('telemetry-save');
     expect(canDismiss(state)).toBe(true);
-    state = dialogReducer(state, { type: 'telemetrySaveStarted' });
+    state = dialogReducer(state, { type: 'runStarted' });
     expect(canDismiss(state)).toBe(false);
     expect(dialogReducer(state, { type: 'close' })).toBe('telemetry-saving');
     expect(dialogReducer(state, { type: 'openExport' })).toBe('telemetry-saving');
-    state = dialogReducer(state, { type: 'telemetrySaveFinished' });
+    state = dialogReducer(state, { type: 'runFinished' });
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');
   });
