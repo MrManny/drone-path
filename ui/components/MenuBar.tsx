@@ -15,14 +15,7 @@ export interface MenuBarProps {
   modalOpen: boolean;
   /** Extra tooltips per item, e.g. the telemetry save scope. */
   itemTitles?: Partial<Record<MenuItemId, string>>;
-  onOpen: () => void;
-  onExportVideo: () => void;
-  onExportTelemetry: () => void;
-  onSettings: () => void;
-  onSwap: () => void;
-  onDocumentation: () => void;
-  onAbout: () => void;
-  onExit: () => void;
+  onActivate: (item: MenuItemId) => void;
   onMenuOpenChange: (open: boolean) => void;
   /** Element the map appearance popover treats as its trigger. */
   barRef?: RefObject<HTMLElement | null>;
@@ -33,14 +26,7 @@ export function MenuBar({
   opening,
   modalOpen,
   itemTitles,
-  onOpen,
-  onExportVideo,
-  onExportTelemetry,
-  onSettings,
-  onSwap,
-  onDocumentation,
-  onAbout,
-  onExit,
+  onActivate,
   onMenuOpenChange,
   barRef,
 }: MenuBarProps) {
@@ -48,40 +34,9 @@ export function MenuBar({
     () => ({ hasRecording, opening }),
     [hasRecording, opening],
   );
-  const handleActivate = useCallback(
-    (item: MenuItemId) => {
-      switch (item) {
-        case 'open':
-          onOpen();
-          return;
-        case 'exportVideo':
-          onExportVideo();
-          return;
-        case 'exportTelemetry':
-          onExportTelemetry();
-          return;
-        case 'settings':
-          onSettings();
-          return;
-        case 'swap':
-          onSwap();
-          return;
-        case 'documentation':
-          onDocumentation();
-          return;
-        case 'about':
-          onAbout();
-          return;
-        case 'exit':
-          onExit();
-          return;
-      }
-    },
-    [onOpen, onExportVideo, onExportTelemetry, onSettings, onSwap, onDocumentation, onAbout, onExit],
-  );
   const { state, dispatch } = useMenuKeys(flags, {
     modalOpen,
-    onActivate: handleActivate,
+    onActivate,
     onOpenChange: onMenuOpenChange,
   });
 

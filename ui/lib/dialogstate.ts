@@ -13,14 +13,10 @@ export type DialogEvent =
   | { type: 'openAbout' }
   | { type: 'openExport' }
   | { type: 'openTelemetrySave' }
-  | { type: 'telemetrySaveStarted' }
-  | { type: 'telemetrySaveFinished' }
-  | { type: 'exportStarted' }
-  | { type: 'exportFinished' }
+  | { type: 'runStarted' }
+  | { type: 'runFinished' }
   | { type: 'updateReady' }
   | { type: 'close' };
-
-export type DialogRunEvent = Extract<DialogEvent, { type: 'exportStarted' | 'exportFinished' }>;
 
 function busy(state: DialogState): boolean {
   return state === 'export-running' || state === 'telemetry-saving';
@@ -40,14 +36,18 @@ export function dialogReducer(state: DialogState, event: DialogEvent): DialogSta
       return pinned(state) ? state : 'export-form';
     case 'openTelemetrySave':
       return pinned(state) ? state : 'telemetry-save';
-    case 'telemetrySaveStarted':
-      return state === 'telemetry-save' ? 'telemetry-saving' : state;
-    case 'telemetrySaveFinished':
-      return state === 'telemetry-saving' ? 'telemetry-save' : state;
-    case 'exportStarted':
-      return state === 'export-form' ? 'export-running' : state;
-    case 'exportFinished':
-      return state === 'export-running' ? 'export-form' : state;
+    case 'runStarted':
+      return state === 'export-form'
+        ? 'export-running'
+        : state === 'telemetry-save'
+          ? 'telemetry-saving'
+          : state;
+    case 'runFinished':
+      return state === 'export-running'
+        ? 'export-form'
+        : state === 'telemetry-saving'
+          ? 'telemetry-save'
+          : state;
     case 'updateReady':
       return state === 'closed' ? 'update-prompt' : state;
     case 'close':

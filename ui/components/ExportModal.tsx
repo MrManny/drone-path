@@ -7,7 +7,7 @@ import type { EncodeSettings, ExportRequest, FrameRange, RenderConfig } from '..
 import { errorMessage } from '../../src/errors.js';
 import type { AppBridge, ExportAck } from '../lib/backend.js';
 import { appBridge } from '../lib/backend.js';
-import type { DialogRunEvent } from '../lib/dialogstate.js';
+import type { DialogEvent } from '../lib/dialogstate.js';
 import type { ExportEvent } from '../lib/exportstate.js';
 import {
   captureFraction,
@@ -32,7 +32,7 @@ export interface ExportModalProps {
   loop: LoopState;
   onClose: () => void;
   dismissible: boolean;
-  onRunEvent: (event: DialogRunEvent) => void;
+  dispatchDialog: (event: DialogEvent) => void;
   onEncoderChange: (patch: Partial<EncodeSettings>) => void;
   initialSizes?: { width: number; height: number } | null;
   onSizesChange?: (sizes: { width: number; height: number }) => void;
@@ -44,7 +44,7 @@ export function ExportModal({
   loop,
   onClose,
   dismissible,
-  onRunEvent,
+  dispatchDialog,
   onEncoderChange,
   initialSizes = null,
   onSizesChange,
@@ -65,11 +65,11 @@ export function ExportModal({
   }, [state.form.width, state.form.height, onSizesChange]);
 
   useEffect(() => {
-    if (busy) onRunEvent({ type: 'exportStarted' });
+    if (busy) dispatchDialog({ type: 'runStarted' });
     return () => {
-      if (busy) onRunEvent({ type: 'exportFinished' });
+      if (busy) dispatchDialog({ type: 'runFinished' });
     };
-  }, [busy, onRunEvent]);
+  }, [busy, dispatchDialog]);
 
   useEffect(() => {
     let offProgress: (() => void) | null = null;

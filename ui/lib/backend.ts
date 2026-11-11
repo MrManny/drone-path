@@ -1,4 +1,5 @@
 import type {
+  IpcResult,
   PickRequest,
   PickResult,
   TelemetrySaveRequest,
@@ -9,17 +10,11 @@ import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { PrepareProgress } from '../../src/run.js';
 
-export interface PickOutputResult {
-  ok: boolean;
+export interface PickOutputResult extends IpcResult {
   path?: string;
-  canceled?: boolean;
-  error?: string;
 }
 
-export interface ExportAck {
-  ok: boolean;
-  error?: string;
-}
+export type ExportAck = IpcResult;
 
 export interface ExportOutputPayload {
   out: string;

@@ -9,14 +9,7 @@ afterEach(cleanup);
 
 function renderBar(overrides: Partial<MenuBarProps> = {}) {
   const handlers = {
-    onOpen: vi.fn(),
-    onExportVideo: vi.fn(),
-    onExportTelemetry: vi.fn(),
-    onSettings: vi.fn(),
-    onSwap: vi.fn(),
-    onDocumentation: vi.fn(),
-    onAbout: vi.fn(),
-    onExit: vi.fn(),
+    onActivate: vi.fn(),
     onMenuOpenChange: vi.fn(),
   };
   render(
@@ -96,36 +89,38 @@ describe('MenuBar', () => {
     const handlers = renderBar();
     openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Open…' }));
-    expect(handlers.onOpen).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
 
     openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Export video…' }));
-    expect(handlers.onExportVideo).toHaveBeenCalledTimes(1);
 
     openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Export telemetry…' }));
-    expect(handlers.onExportTelemetry).toHaveBeenCalledTimes(1);
 
     openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }));
-    expect(handlers.onSettings).toHaveBeenCalledTimes(1);
 
     openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Exit' }));
-    expect(handlers.onExit).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Swap' }));
-    expect(handlers.onSwap).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
-    expect(handlers.onDocumentation).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'About' }));
-    expect(handlers.onAbout).toHaveBeenCalledTimes(1);
+    expect(handlers.onActivate.mock.calls.map(([item]) => item)).toEqual([
+      'open',
+      'exportVideo',
+      'exportTelemetry',
+      'settings',
+      'exit',
+      'swap',
+      'documentation',
+      'about',
+    ]);
   });
 
   it('disables the recording-bound items without a recording', () => {
@@ -218,8 +213,8 @@ describe('MenuBar', () => {
     );
     pressKey({ key: 'ArrowDown' });
     pressKey({ key: 'Enter' });
-    expect(handlers.onAbout).toHaveBeenCalledTimes(1);
-    expect(handlers.onDocumentation).not.toHaveBeenCalled();
+    expect(handlers.onActivate).toHaveBeenCalledTimes(1);
+    expect(handlers.onActivate).toHaveBeenCalledWith('about');
     expect(handlers.onMenuOpenChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -228,7 +223,7 @@ describe('MenuBar', () => {
     pressKey({ key: 'f', altKey: true });
     pressKey({ key: 'ArrowDown' });
     pressKey({ key: 'Enter' });
-    expect(handlers.onExportVideo).toHaveBeenCalledTimes(1);
+    expect(handlers.onActivate).toHaveBeenCalledWith('exportVideo');
     expect(handlers.onMenuOpenChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -237,7 +232,6 @@ describe('MenuBar', () => {
     pressKey({ key: 'f', altKey: true });
     pressKey({ key: 'Escape' });
     expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
-    expect(handlers.onOpen).not.toHaveBeenCalled();
-    expect(handlers.onExit).not.toHaveBeenCalled();
+    expect(handlers.onActivate).not.toHaveBeenCalled();
   });
 });

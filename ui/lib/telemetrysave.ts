@@ -19,6 +19,28 @@ export type TelemetrySavePhase =
   | { kind: 'done'; path: string; scope: string; error?: string }
   | { kind: 'error'; message: string };
 
+export type TelemetrySaveAction =
+  | { type: 'started' }
+  | { type: 'result'; event: TelemetrySaveEvent; scope: string }
+  | { type: 'revealFailed'; error: string };
+
+export function telemetrySaveReducer(
+  state: TelemetrySavePhase | null,
+  action: TelemetrySaveAction,
+): TelemetrySavePhase | null {
+  switch (action.type) {
+    case 'started':
+      return { kind: 'saving' };
+    case 'result':
+      if (action.event.type === 'canceled') return state;
+      return action.event.type === 'saved'
+        ? { kind: 'done', path: action.event.path, scope: action.scope }
+        : { kind: 'error', message: action.event.message };
+    case 'revealFailed':
+      return state?.kind === 'done' ? { ...state, error: action.error } : state;
+  }
+}
+
 export function telemetryScope(
   range: FrameRange | null,
   fps: number,

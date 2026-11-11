@@ -10,7 +10,7 @@ import type { EncodeSettings, ExportRequest, RenderConfig } from '../../src/conf
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { ExportOutputPayload } from '../../ui/lib/backend.js';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
-import type { DialogRunEvent } from '../../ui/lib/dialogstate.js';
+import type { DialogEvent } from '../../ui/lib/dialogstate.js';
 import type { LoopState } from '../../ui/lib/loop.js';
 import { ExportModal } from '../../ui/components/ExportModal.js';
 
@@ -103,7 +103,7 @@ function Harness({
   onSizesChange,
 }: {
   loop: LoopState;
-  onRunEvent?: (event: DialogRunEvent) => void;
+  onRunEvent?: (event: DialogEvent) => void;
   onEncoderChange?: (patch: Partial<EncodeSettings>) => void;
   settings?: RenderConfig;
   initialSizes?: { width: number; height: number } | null;
@@ -111,7 +111,7 @@ function Harness({
 }) {
   const [dialog, dispatchDialog] = useReducer(dialogReducer, 'export-form');
   const handleRunEvent = useCallback(
-    (event: DialogRunEvent) => {
+    (event: DialogEvent) => {
       dispatchDialog(event);
       onRunEvent?.(event);
     },
@@ -125,7 +125,7 @@ function Harness({
       loop={loop}
       onClose={() => dispatchDialog({ type: 'close' })}
       dismissible={canDismiss(dialog)}
-      onRunEvent={handleRunEvent}
+      dispatchDialog={handleRunEvent}
       onEncoderChange={onEncoderChange ?? (() => {})}
       initialSizes={initialSizes}
       onSizesChange={onSizesChange}
@@ -135,7 +135,7 @@ function Harness({
 
 function renderModal(
   loop: LoopState,
-  onRunEvent?: (event: DialogRunEvent) => void,
+  onRunEvent?: (event: DialogEvent) => void,
   onEncoderChange?: (patch: Partial<EncodeSettings>) => void,
   settings?: RenderConfig,
 ) {
@@ -348,13 +348,13 @@ describe('ExportModal backdrop dismissal', () => {
 
   it('closes on a backdrop click once the job has settled', async () => {
     const { emitDone } = installBridge();
-    const events: DialogRunEvent[] = [];
+    const events: DialogEvent[] = [];
     renderModal({ in: null, out: null }, (event) => events.push(event));
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
-    await waitFor(() => expect(events).toEqual([{ type: 'exportStarted' }]));
+    await waitFor(() => expect(events).toEqual([{ type: 'runStarted' }]));
     emitDone({ status: 'canceled' });
     await waitFor(() =>
-      expect(events).toEqual([{ type: 'exportStarted' }, { type: 'exportFinished' }]),
+      expect(events).toEqual([{ type: 'runStarted' }, { type: 'runFinished' }]),
     );
     fireEvent.click(screen.getByRole('dialog', { name: 'Export video' }).parentElement as HTMLElement);
     expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
@@ -364,13 +364,13 @@ describe('ExportModal backdrop dismissal', () => {
 describe('ExportModal job lifecycle reporting', () => {
   it('tells the dialog machine when the job starts and settles', async () => {
     const { emitDone } = installBridge();
-    const events: DialogRunEvent[] = [];
+    const events: DialogEvent[] = [];
     renderModal({ in: null, out: null }, (event) => events.push(event));
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
-    await waitFor(() => expect(events).toEqual([{ type: 'exportStarted' }]));
+    await waitFor(() => expect(events).toEqual([{ type: 'runStarted' }]));
     emitDone({ status: 'canceled' });
     await waitFor(() =>
-      expect(events).toEqual([{ type: 'exportStarted' }, { type: 'exportFinished' }]),
+      expect(events).toEqual([{ type: 'runStarted' }, { type: 'runFinished' }]),
     );
   });
 });

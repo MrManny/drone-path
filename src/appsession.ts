@@ -5,17 +5,16 @@ import { z } from 'zod';
 
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
 import {
-  STYLE_VALUES,
-  VIEW_VALUES,
-  asTrailColor,
-  numberValue,
   parseFrameRange,
+  parseLookSettings,
   parseValue,
+  resolveRange,
   strictShape,
 } from './config.js';
 import type { FrameRange, LookSettings, RenderConfig } from './config.js';
 import { errorMessage } from './errors.js';
 import type { VideoProbe } from './ff.js';
+import { timeAt } from './frametime.js';
 import type { Bbox } from './geo.js';
 import { isRecordingName } from './inputs.js';
 import { buildSceneData } from './page.js';
@@ -23,11 +22,10 @@ import type { SceneData } from './renderer/scene.js';
 import {
   prepareSession,
   recordingPageOpts,
-  resolveRange,
   telemetryExportInput,
 } from './run.js';
 import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
-import { buildTelemetryDocument, serializeTelemetryDocument } from './telemetry-json.js';
+import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 
 export interface PageVideo {
@@ -39,7 +37,7 @@ export interface PageVideo {
 }
 
 export function frameExactDuration(probe: VideoProbe): number {
-  return probe.frames / probe.fps.value;
+  return timeAt(probe.frames, probe.fps.value);
 }
 
 export interface UiSession {
@@ -50,11 +48,13 @@ export interface UiSession {
   durationSec: number;
 }
 
-export interface PickResult {
+export interface IpcResult {
   ok: boolean;
   canceled?: boolean;
   error?: string;
 }
+
+export type PickResult = IpcResult;
 
 export interface PickRequest {
   settings: LookSettings;
@@ -62,45 +62,7 @@ export interface PickRequest {
 
 export function parsePickRequest(raw: unknown): PickRequest {
   const input = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
-  const look =
-    typeof input.settings === 'object' && input.settings !== null
-      ? (input.settings as Record<string, unknown>)
-      : {};
-  const { style, view, hud } = look;
-  const mapStyle = parseValue(
-    z.enum(STYLE_VALUES, {
-      error: (issue) => `unknown map style: ${String(issue.input)}`,
-    }),
-    style,
-  );
-  const viewMode = parseValue(
-    z.enum(VIEW_VALUES, {
-      error: (issue) => `unknown view: ${String(issue.input)}`,
-    }),
-    view,
-  );
-  const zoom = parseValue(numberValue('zoom'), look.zoom);
-  const zoomOut = parseValue(numberValue('zoom-out'), look.zoomOut);
-  if (!(zoom >= 0)) throw new Error('zoom must be >= 0 (0 = auto-fit)');
-  if (!(zoomOut >= 0)) throw new Error('zoom-out must be >= 0');
-  const introSec = parseValue(numberValue('intro'), look.introSec);
-  const outroSec = parseValue(numberValue('outro'), look.outroSec);
-  if (!(introSec >= 0)) throw new Error('intro must be 0 or more');
-  if (!(outroSec >= 0)) throw new Error('outro must be 0 or more');
-  const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
-  const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
-  return {
-    settings: {
-      style: mapStyle,
-      view: viewMode,
-      zoom,
-      zoomOut,
-      hud: { heading: !!chips.heading, alt: !!chips.alt, speed: !!chips.speed },
-      introSec,
-      outroSec,
-      trailColor,
-    },
-  };
+  return { settings: parseLookSettings(input.settings) };
 }
 
 export interface TelemetrySaveRequest {
@@ -257,9 +219,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     videoPath: () => videoPath,
     saveTelemetryJson(file: string, range: FrameRange | null): void {
       if (!prepared) throw new Error('no recording loaded');
-      const doc = buildTelemetryDocument(segmentTelemetryInput(prepared.telemetry, range));
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, serializeTelemetryDocument(doc));
+      writeTelemetryDocument(file, segmentTelemetryInput(prepared.telemetry, range));
     },
   };
 }
