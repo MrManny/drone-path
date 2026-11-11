@@ -61,7 +61,7 @@
   },
   "homepage": "https://github.com/MrManny/drone-path#readme",
   "dependencies": {
-    "commander": "~15.0.0",
+    "commander": "~15.1.0",
     "electron-updater": "~6.8.11",
     "leaflet": "~1.9.4",
     "p-queue": "~10.0.0",
