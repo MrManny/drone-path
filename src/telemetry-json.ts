@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { z } from 'zod';
 
 import type { HeadingMode, TelemetrySource } from './telemetry-math.js';
@@ -66,34 +69,42 @@ export interface TelemetryDocumentInput {
   headingDeg: readonly number[];
 }
 
-const BEFORE_HEADING_KEYS = [
-  'gimbalDeviceTimestampMs',
-  'lat',
-  'lng',
-  'altAbs',
-  'altRel',
-  'gpsAltMm',
-  'pitchDeg',
-  'rollDeg',
-  'yawDeg',
-  'gimbalPitchDeg',
-  'gimbalRollDeg',
-  'gimbalYawDeg',
-] as const satisfies readonly TelemetryValueKey[];
+interface TelemetryValueSpec {
+  position: 'before-heading' | 'exposure';
+  integer?: boolean;
+}
 
-const EXPOSURE_KEYS = [
-  'iso',
-  'shutterTime',
-  'whiteBalanceCctK',
-  'fNumber',
-] as const satisfies readonly TelemetryValueKey[];
+// The single home for the record layout: where each value sits around
+// headingDeg/headingSource and how it is rounded. The Record annotation makes
+// a schema field without an entry here (or a stale entry) a compile error
+// instead of a silently dropped record key.
+const TELEMETRY_VALUES: Record<TelemetryValueKey, TelemetryValueSpec> = {
+  gimbalDeviceTimestampMs: { position: 'before-heading', integer: true },
+  lat: { position: 'before-heading' },
+  lng: { position: 'before-heading' },
+  altAbs: { position: 'before-heading' },
+  altRel: { position: 'before-heading' },
+  gpsAltMm: { position: 'before-heading', integer: true },
+  pitchDeg: { position: 'before-heading' },
+  rollDeg: { position: 'before-heading' },
+  yawDeg: { position: 'before-heading' },
+  gimbalPitchDeg: { position: 'before-heading' },
+  gimbalRollDeg: { position: 'before-heading' },
+  gimbalYawDeg: { position: 'before-heading' },
+  iso: { position: 'exposure', integer: true },
+  shutterTime: { position: 'exposure' },
+  whiteBalanceCctK: { position: 'exposure', integer: true },
+  fNumber: { position: 'exposure' },
+};
 
-const INTEGER_VALUE_KEYS: ReadonlySet<TelemetryValueKey> = new Set([
-  'gimbalDeviceTimestampMs',
-  'gpsAltMm',
-  'iso',
-  'whiteBalanceCctK',
-]);
+function valueKeys(position: TelemetryValueSpec['position']): TelemetryValueKey[] {
+  return (Object.keys(TELEMETRY_VALUES) as TelemetryValueKey[]).filter(
+    (key) => TELEMETRY_VALUES[key].position === position,
+  );
+}
+
+const BEFORE_HEADING_KEYS = valueKeys('before-heading');
+const EXPOSURE_KEYS = valueKeys('exposure');
 
 function copyValue(
   record: Record<string, number | string | undefined>,
@@ -101,7 +112,7 @@ function copyValue(
   value: number | null | undefined,
 ): void {
   if (value === null || value === undefined) return;
-  record[key] = INTEGER_VALUE_KEYS.has(key) ? Math.round(value) : value;
+  record[key] = TELEMETRY_VALUES[key].integer ? Math.round(value) : value;
 }
 
 function buildRecord(
@@ -142,6 +153,12 @@ export function buildTelemetryDocument(
 
 export function serializeTelemetryDocument(doc: TelemetryDocument): string {
   return `${JSON.stringify(doc, null, 2)}\n`;
+}
+
+export function writeTelemetryDocument(file: string, input: TelemetryDocumentInput): void {
+  const doc = buildTelemetryDocument(input);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, serializeTelemetryDocument(doc));
 }
 
 export function generateTelemetryJsonSchema(): string {

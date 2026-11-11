@@ -17,10 +17,7 @@ import type {
   TelemetryMethod,
   TelemetrySource,
 } from './telemetry-math.js';
-import {
-  buildTelemetryDocument,
-  serializeTelemetryDocument,
-} from './telemetry-json.js';
+import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-json.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats, WarmOptions } from './tiles.js';
@@ -32,10 +29,10 @@ import { renderVideo } from './render.js';
 import type { CaptureProgress } from './render.js';
 import type { FrameRange, HudSpec, RenderConfig } from './config.js';
 import {
-  assertValidFrameRange,
   effectiveZoomOut,
   hasAltitude,
   resolveHudSpec,
+  resolveRange,
 } from './config.js';
 import {
   fixesLabel,
@@ -248,20 +245,6 @@ export interface PipelineOptions {
   signal?: AbortSignal;
   onProgress?: PrepareProgressFn;
   onCapture?: (progress: CaptureProgress) => void;
-}
-
-export function resolveRange(
-  range: FrameRange | null | undefined,
-  frames: number,
-): FrameRange | null {
-  if (!range) return null;
-  assertValidFrameRange(range);
-  if (range.end >= frames) {
-    throw new Error(
-      `frame range ${range.start}-${range.end} is beyond the recording (${frames} frames)`,
-    );
-  }
-  return range;
 }
 
 export interface PreparedRecording {
@@ -554,9 +537,9 @@ function writeTelemetryExport(
   prep: PreparedRecording,
   log: LogFn,
 ): void {
-  const doc = buildTelemetryDocument(telemetryExportInput(prep));
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, serializeTelemetryDocument(doc));
+  // The document intentionally covers the whole recording: a frame range
+  // limits the render, never this export.
+  writeTelemetryDocument(file, telemetryExportInput(prep));
   log(`telemetry JSON: wrote ${file}`);
 }
 

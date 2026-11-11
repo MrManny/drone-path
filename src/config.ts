@@ -648,6 +648,20 @@ export function parseFrameRange(raw: unknown, name = 'frame range'): FrameRange 
   return range;
 }
 
+export function resolveRange(
+  range: FrameRange | null | undefined,
+  frames: number,
+): FrameRange | null {
+  if (!range) return null;
+  assertValidFrameRange(range);
+  if (range.end >= frames) {
+    throw new Error(
+      `frame range ${range.start}-${range.end} is beyond the recording (${frames} frames)`,
+    );
+  }
+  return range;
+}
+
 const MAIN_OWNED_KEYS = [
   'outDir', 'outSuffix', 'tileCache', 'browser', 'ffmpeg', 'ffprobe', 'workers', 'capture',
   'skipExisting', 'recurse', 'telemetryJson', 'json', 'quiet',

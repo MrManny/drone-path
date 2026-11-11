@@ -626,6 +626,25 @@ describe('telemetry JSON export', () => {
     expect(fs.readFileSync(file)).toEqual(first);
   });
 
+  it('covers the whole recording even when the render is limited to a frame range', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'telemetry.json');
+    await processRecording(
+      VIDEO,
+      testConfig({ telemetryJson: file }),
+      () => {},
+      path.join(dir, 'out.mp4'),
+      { deps: exportDeps(), range: { start: 0, end: 1 } },
+    );
+
+    const doc = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+      frameCount: number;
+      frames: unknown[];
+    };
+    expect(doc.frameCount).toBe(3);
+    expect(doc.frames).toHaveLength(3);
+  });
+
   it('writes no document for a recording the run skips', async () => {
     const dir = tmpDir();
     const file = path.join(dir, 'telemetry.json');

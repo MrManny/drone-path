@@ -8,6 +8,7 @@ import {
   parseFrameRange,
   parseLookSettings,
   parseValue,
+  resolveRange,
   strictShape,
 } from './config.js';
 import type { FrameRange, LookSettings, RenderConfig } from './config.js';
@@ -20,11 +21,10 @@ import type { SceneData } from './renderer/scene.js';
 import {
   prepareSession,
   recordingPageOpts,
-  resolveRange,
   telemetryExportInput,
 } from './run.js';
 import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
-import { buildTelemetryDocument, serializeTelemetryDocument } from './telemetry-json.js';
+import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 
 export interface PageVideo {
@@ -216,9 +216,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     videoPath: () => videoPath,
     saveTelemetryJson(file: string, range: FrameRange | null): void {
       if (!prepared) throw new Error('no recording loaded');
-      const doc = buildTelemetryDocument(segmentTelemetryInput(prepared.telemetry, range));
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, serializeTelemetryDocument(doc));
+      writeTelemetryDocument(file, segmentTelemetryInput(prepared.telemetry, range));
     },
   };
 }
