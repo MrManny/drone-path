@@ -6,6 +6,16 @@ export type TelemetrySource = 'srt' | 'cammeta';
 export type TelemetryMethod = 'srt-cues' | CamMetaMethod;
 export type HeadingMode = 'yaw' | 'cog';
 
+// The parallel-array view of the per-frame values, shared by the pipeline,
+// the page model and the scene wire format (which keeps these key names).
+export interface FrameChannels {
+  lat: number[];
+  lon: number[];
+  alt: (number | null)[];
+  speed: (number | null)[];
+  headingDeg: number[];
+}
+
 interface FrameData {
   fix: LatLon | null;
   alt: number | null;

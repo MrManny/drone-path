@@ -12,6 +12,7 @@ import { videoBaseName } from './inputs.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
 import type {
+  FrameChannels,
   HeadingMode,
   Telemetry,
   TelemetryMethod,
@@ -130,15 +131,7 @@ function resolveHud(config: RenderConfig, tel: Telemetry, log: LogFn): HudSpec {
   return hud;
 }
 
-export interface FrameArrays {
-  lat: number[];
-  lon: number[];
-  alt: (number | null)[];
-  speed: (number | null)[];
-  headingDeg: number[];
-}
-
-export function frameArrays(tel: Telemetry): FrameArrays {
+export function frameArrays(tel: Telemetry): FrameChannels {
   const lat: number[] = [];
   const lon: number[] = [];
   tel.frames.forEach((frame, i) => {
@@ -258,7 +251,7 @@ export interface PreparedRecording {
   hud: HudSpec;
   introOutro: IntroOutroFrames;
   overview: Overview;
-  frames: FrameArrays;
+  frames: FrameChannels;
 }
 
 type PrepareReporter = (stage: PrepareStage) => void;

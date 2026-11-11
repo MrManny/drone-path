@@ -4,6 +4,7 @@ import { TILE_SOURCES } from './tilesources.js';
 import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss } from './dom.js';
 import type * as Leaflet from 'leaflet';
 import { computeScale, introOutroScale, metersPerPixel, scaleBarMeters } from './framemath.js';
+import type { FrameChannels } from '../telemetry-math.js';
 import type { Theme } from './theme.js';
 import { themeFor } from './theme.js';
 import { createTrailController } from './trail.js';
@@ -13,7 +14,8 @@ import type { TrailController } from './trail.js';
 // consume only the narrow API the renderer uses today.
 export type LeafletApi = typeof Leaflet;
 
-export interface SceneData {
+// FrameChannels keys are the window.__DATA wire format: never rename them.
+export interface SceneData extends FrameChannels {
   style: Style;
   trailColor: string | null;
   tileUrl: string;
@@ -25,11 +27,6 @@ export interface SceneData {
   attribution: string;
   introN: number;
   outroN: number;
-  lat: number[];
-  lon: number[];
-  alt: (number | null)[];
-  speed: (number | null)[];
-  headingDeg: number[];
   hud: HudSpec;
   trailLat: number[];
   trailLon: number[];

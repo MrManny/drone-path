@@ -8,8 +8,9 @@ import { planIntroOutroFrames, planView } from './plan.js';
 import type { IntroOutroFrames, Overview } from './plan.js';
 import type { SceneData } from './renderer/scene.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
+import type { FrameChannels } from './telemetry-math.js';
 
-export interface PageOpts {
+export interface PageOpts extends FrameChannels {
   width: number;
   height: number;
   style: Style;
@@ -18,11 +19,6 @@ export interface PageOpts {
   center: LatLon;
   zoom: number;
   attribution: string;
-  lat: number[];
-  lon: number[];
-  alt: (number | null)[];
-  speed: (number | null)[];
-  headingDeg: number[];
   hud: HudSpec;
   decimated: DecimatedTrack;
   introN?: number;
@@ -35,7 +31,7 @@ export function planPageOpts(opts: {
   height: number;
   config: LookSettings;
   source: { fps: number; frames: number };
-  frames: Pick<PageOpts, 'lat' | 'lon' | 'alt' | 'speed' | 'headingDeg'>;
+  frames: FrameChannels;
   planned?: { overview: Overview; introOutro: IntroOutroFrames; hud: HudSpec };
   previous?: { zoom: number; decimated: DecimatedTrack };
 }): PageOpts {
