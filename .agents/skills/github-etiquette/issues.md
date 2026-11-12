@@ -22,12 +22,12 @@ Current taxonomy on the repository:
 | `enhancement` | Applied automatically by `feature-request.md` |
 | `documentation` | Doc-only work (README, AGENTS.md, templates) |
 | `maintenance` | Chores, refactors, and code hygiene; no user-visible behavior change |
-| `accessibility` | Whenever the report concerns accessibility |
-| `question` | More of a question than a defect or feature |
 | `duplicate` | Resolves the issue; apply only with a comment pointing at the original |
 | `wontfix` | Maintainer decision only; apply only with a comment explaining the decision |
-| `dependencies` | Automated dependency PRs only (`.github/dependabot.yml`, monthly npm and github-actions); never handed out otherwise |
+| `dependencies` | Automated dependency PRs only (`.github/dependabot.yml`, weekly npm and github-actions); never handed out otherwise |
 | `javascript` | Companion label for JS dependency bumps (same rule as `dependencies`) |
+
+`accessibility` and `question` need no rules beyond their names.
 
 ## Planning
 
