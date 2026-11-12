@@ -1,4 +1,4 @@
-import type { Style } from '../config.js';
+import type { MapStyle } from '../config.js';
 
 export interface Theme {
   core: string;
@@ -48,7 +48,7 @@ function mix(base: Rgb, tint: Rgb, amount: number): Rgb {
 }
 
 const CASING_ANCHORS: Record<
-  Style,
+  MapStyle,
   { anchor: Rgb; opposite: Rgb; alpha: number }
 > = {
   satellite: {
@@ -66,20 +66,20 @@ const CASING_ANCHORS: Record<
 const CONTRAST_FLIP = 0.18;
 const CORE_TINT = 0.2;
 
-function deriveCasing(style: Style, core: Rgb): string {
+function deriveCasing(style: MapStyle, core: Rgb): string {
   const { anchor, opposite, alpha } = CASING_ANCHORS[style];
   const base =
     Math.abs(luminance(core) - luminance(anchor)) < CONTRAST_FLIP ? opposite : anchor;
   return rgba(mix(base, core, CORE_TINT), alpha);
 }
 
-const GLOW_ALPHA: Record<Style, number> = { satellite: 0.32, topo: 0.26 };
+const GLOW_ALPHA: Record<MapStyle, number> = { satellite: 0.32, topo: 0.26 };
 
 function trailGlow(alpha: number): string {
   return rgba(parseHexColor(TRAIL_COLOR), alpha);
 }
 
-const THEMES: Record<Style, Theme> = {
+const THEMES: Record<MapStyle, Theme> = {
   satellite: {
     core: TRAIL_COLOR,
     trailCore: TRAIL_COLOR,
@@ -104,7 +104,7 @@ const THEMES: Record<Style, Theme> = {
   },
 };
 
-export function themeFor(style: Style, trailColor: string | null = null): Theme {
+export function themeFor(style: MapStyle, trailColor: string | null = null): Theme {
   const base = THEMES[style];
   if (trailColor === null) return base;
   const core = parseHexColor(trailColor);

@@ -10,7 +10,7 @@ export interface Bbox {
   maxLon: number;
 }
 
-export interface Pixel {
+export interface MercatorPixel {
   x: number;
   y: number;
 }
@@ -32,7 +32,7 @@ export function isGpsFix(lat: number, lon: number): boolean {
   );
 }
 
-export function gpsFix(lat: number | null, lon: number | null): LatLon | null {
+export function gpsFixOrNull(lat: number | null, lon: number | null): LatLon | null {
   return lat !== null && lon !== null && isGpsFix(lat, lon) ? { lat, lon } : null;
 }
 
@@ -70,7 +70,7 @@ export function circularMeanDeg(degList: number[]): number {
 }
 
 // Web Mercator (EPSG:3857) global pixels, 256 px tiles, NW origin (Leaflet convention).
-export function project(lon: number, lat: number, zoom: number): Pixel {
+export function project(lon: number, lat: number, zoom: number): MercatorPixel {
   const scale = 256 * 2 ** zoom;
   const x = ((lon + 180) / 360) * scale;
   const sinLat = Math.sin(

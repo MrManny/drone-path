@@ -1,4 +1,4 @@
-import type { PrepareProgress } from '../../src/run.js';
+import type { PrepareProgress } from '../../src/pipeline.js';
 
 // Mirrors prepareSession's first report, before any stage has finished.
 export const START_PREPARE_PROGRESS: PrepareProgress = {

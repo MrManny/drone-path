@@ -8,8 +8,8 @@ import type { Browser, Page } from 'playwright-core';
 import { MIME } from './assets.js';
 import { errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
-import type { Capture, Codec, EncodeSettings, Preset, Quality, Style } from './config.js';
-import type { FfToolPaths } from './fftools.js';
+import type { CaptureFormat, Codec, EncodeSettings, EncoderPreset, Quality, MapStyle } from './config.js';
+import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 
 const PAGE_LOAD_TIMEOUT_MS = 60000;
 const SCREENSHOT_TIMEOUT_MS = 60000;
@@ -25,7 +25,7 @@ function startServer({
   tileCache,
 }: {
   html: string;
-  style: Style;
+  style: MapStyle;
   tileCache: string;
 }): Promise<ServerHandle> {
   const server = http.createServer((req, res) => {
@@ -176,7 +176,7 @@ class OrderedFrameStream {
   }
 }
 
-function screenshotOptions(capture: Capture) {
+function screenshotOptions(capture: CaptureFormat) {
   return capture === 'jpeg'
     ? {
         type: 'jpeg' as const,
@@ -196,9 +196,9 @@ export interface CaptureProgress {
   total: number;
 }
 
-export interface RenderOpts {
+export interface RenderJobOptions {
   html: string;
-  style: Style;
+  style: MapStyle;
   tileCache: string;
   width: number;
   height: number;
@@ -209,11 +209,11 @@ export interface RenderOpts {
   outPath: string;
   log?: (msg: string) => void;
   browserPath?: string | null;
-  tools: FfToolPaths;
-  capture: Capture;
+  tools: FfmpegToolPaths;
+  capture: CaptureFormat;
   codec: Codec;
   quality: Quality;
-  preset: Preset;
+  preset: EncoderPreset;
   signal?: AbortSignal;
   onCapture?: (progress: CaptureProgress) => void;
 }
@@ -237,14 +237,14 @@ interface RenderContext {
   frameStart: number;
   fpsStr: string;
   outPath: string;
-  capture: Capture;
+  capture: CaptureFormat;
   codec: Codec;
   quality: Quality;
-  preset: Preset;
+  preset: EncoderPreset;
   signal: AbortSignal | undefined;
   log: (msg: string) => void;
   onCapture: ((progress: CaptureProgress) => void) | undefined;
-  tools: FfToolPaths;
+  tools: FfmpegToolPaths;
 }
 
 interface RenderStageEnv {
@@ -267,7 +267,7 @@ interface WorkerRun {
   height: number;
   frames: number;
   frameStart: number;
-  capture: Capture;
+  capture: CaptureFormat;
   signal: AbortSignal | undefined;
   log: (msg: string) => void;
   onCapture: ((progress: CaptureProgress) => void) | undefined;
@@ -418,7 +418,7 @@ function reportProfile(env: RenderStageEnv): { profile: RenderProfile } {
 }
 
 export async function renderVideo(
-  opts: RenderOpts,
+  opts: RenderJobOptions,
 ): Promise<{ profile: RenderProfile }> {
   const {
     html, style, tileCache, width, height, frames, fpsStr,

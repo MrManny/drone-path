@@ -1,5 +1,5 @@
 import { formatFps } from '../../src/frametime.js';
-import type { RecordingSummary } from '../../src/run.js';
+import type { RecordingSummary } from '../../src/pipeline.js';
 
 export function formatExportSummary(summary: RecordingSummary): string {
   const rate = summary.fps ? ` @ ${formatFps(summary.fps)}` : '';

@@ -1,7 +1,7 @@
 'use client';
 
-import { asTrailColor, STYLE_VALUES } from '../../src/config.js';
-import type { RenderConfig, Style, View } from '../../src/config.js';
+import { asTrailColor, MAP_STYLE_VALUES } from '../../src/config.js';
+import type { MapStyle, RenderConfig, ViewMode } from '../../src/config.js';
 import { patchConfig, setHudChip, STYLE_LABELS, VIEW_LABELS } from '../lib/settings.js';
 import { ColorField } from './ColorField.js';
 import { Notice } from './Notice.js';
@@ -20,7 +20,7 @@ const HUD_CHIPS: Array<{ chip: 'heading' | 'alt' | 'speed'; label: string }> = [
   { chip: 'speed', label: 'Speed (SPD)' },
 ];
 
-const VIEW_CHOICES: ReadonlyArray<{ value: View; label: string }> = [
+const VIEW_CHOICES: ReadonlyArray<{ value: ViewMode; label: string }> = [
   { value: 'overview', label: VIEW_LABELS.overview },
   { value: 'follow', label: VIEW_LABELS.follow },
 ];
@@ -43,9 +43,9 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
         <SelectField
           label="Map style"
           value={config.style}
-          options={STYLE_VALUES.map((value) => ({ value, label: STYLE_LABELS[value] }))}
+          options={MAP_STYLE_VALUES.map((value) => ({ value, label: STYLE_LABELS[value] }))}
           hint="Satellite imagery"
-          onValue={(style) => apply({ style: style as Style })}
+          onValue={(style) => apply({ style: style as MapStyle })}
         />
         <ColorField
           label="Trail color"

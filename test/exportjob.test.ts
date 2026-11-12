@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ExportRequest } from '../src/config.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { createExportRunner } from '../src/exportjob.js';
-import type { ExportOutcome, RunExportJob } from '../src/exportjob.js';
-import type { PipelineDeps, RecordingSummary } from '../src/run.js';
+import type { ExportOutcome, RunExportJobFn } from '../src/exportjob.js';
+import type { PipelineDeps, RecordingSummary } from '../src/pipeline.js';
 import { createTileTraffic } from '../src/tiles.js';
 import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
 import { cleanupTmpDirs, stubDeps, tmpDir } from './fixtures.js';
@@ -33,7 +33,7 @@ const writesOutput: PipelineDeps['renderVideo'] = async ({ outPath }) => {
   return { profile: { evalMs: 1, captureMs: 2, emitMs: 3 } };
 };
 
-function harness(run: RunExportJob) {
+function harness(run: RunExportJobFn) {
   const outcomes: ExportOutcome[] = [];
   const runner = createExportRunner({ run, onDone: (o) => outcomes.push(o) });
   const settled = () =>

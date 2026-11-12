@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ExportDoneProps } from '../../ui/components/ExportDone.js';
 import { ExportDone } from '../../ui/components/ExportDone.js';
-import type { RecordingSummary } from '../../src/run.js';
+import type { RecordingSummary } from '../../src/pipeline.js';
 
 afterEach(cleanup);
 

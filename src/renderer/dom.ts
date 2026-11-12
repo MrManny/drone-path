@@ -1,4 +1,4 @@
-import type { HudSpec } from '../config.js';
+import type { HudLayout } from '../config.js';
 import type { TileSource } from './tilesources.js';
 import type { Theme } from './theme.js';
 
@@ -97,7 +97,7 @@ export function sceneCss(
   }`;
 }
 
-export function hudMarkup(hud: HudSpec): string {
+export function hudMarkup(hud: HudLayout): string {
   const chips: string[] = [];
   if (hud.alt) {
     chips.push(
@@ -112,7 +112,7 @@ export function hudMarkup(hud: HudSpec): string {
   return chips.map((chip) => `  ${chip}`).join('\n');
 }
 
-export function mapMarkup(hud: HudSpec, attribution: string): string {
+export function mapMarkup(hud: HudLayout, attribution: string): string {
   return `<div id="map-frame">
 <div id="map"></div>
 <div id="vignette"></div>

@@ -1,6 +1,6 @@
-import type { LookSettings } from './config.js';
+import type { AppearanceSettings } from './config.js';
 import type { Bbox } from './geo.js';
-import { buildSceneData, planPageOpts } from './page.js';
+import { buildSceneData, planPageOpts } from './render-page.js';
 import type { SceneData } from './renderer/scene.js';
 
 export interface RestyleMeta {
@@ -12,7 +12,7 @@ export interface RestyleMeta {
 
 export function restyleSceneData(
   prev: SceneData,
-  config: LookSettings,
+  config: AppearanceSettings,
   meta: RestyleMeta,
   size: { width: number; height: number } = { width: prev.width, height: prev.height },
 ): SceneData {

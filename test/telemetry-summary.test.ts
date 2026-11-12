@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  fixesLabel,
-  noLockCuesLabel,
+  fixCountLabel,
+  noLockCountLabel,
   telemetrySummary,
   trackDistanceLabel,
-} from '../src/summary.js';
+} from '../src/telemetry-summary.js';
 import { statsTelemetry } from './fixtures.js';
 
 describe('telemetrySummary', () => {
@@ -14,7 +14,7 @@ describe('telemetrySummary', () => {
       source: 'cammeta',
       method: 'dvtm-packets',
       headingMode: 'yaw',
-      fixes: 590,
+      fixCount: 590,
       noLock: 4,
       trackDistanceM: 567,
     });
@@ -42,9 +42,9 @@ describe('telemetrySummary', () => {
 
 describe('summary labels', () => {
   it.for([
-    { name: 'fixes', label: fixesLabel(590), want: '590 fixes' },
-    { name: 'fixes without any fix', label: fixesLabel(0), want: '0 fixes' },
-    { name: 'no-lock cues', label: noLockCuesLabel(4), want: '4 no-lock cues' },
+    { name: 'fixes', label: fixCountLabel(590), want: '590 fixes' },
+    { name: 'fixes without any fix', label: fixCountLabel(0), want: '0 fixes' },
+    { name: 'no-lock cues', label: noLockCountLabel(4), want: '4 no-lock cues' },
     { name: 'track distance', label: trackDistanceLabel(567), want: '567 m' },
     { name: 'zero track distance', label: trackDistanceLabel(0), want: '0 m' },
   ])('$name renders as $want', ({ label, want }) => {

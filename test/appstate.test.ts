@@ -15,7 +15,7 @@ import {
   writeAppState,
 } from '../src/appstate.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from '../src/config.js';
-import type { HudSpec, SettingsPatch } from '../src/config.js';
+import type { HudLayout, SettingsPatch } from '../src/config.js';
 import { cleanupTmpDirs, testConfig, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);
@@ -38,7 +38,7 @@ function stateFixture(overrides: Partial<AppState> = {}): AppState {
   return { settings: PATCH, lastOpenDir: null, ...overrides };
 }
 
-const HUD_CASES: Array<[string, HudSpec]> = [
+const HUD_CASES: Array<[string, HudLayout]> = [
   ['no chip', { heading: false, alt: false, speed: false }],
   ['one chip', { heading: true, alt: false, speed: false }],
   ['two chips', { heading: false, alt: true, speed: true }],

@@ -2,13 +2,13 @@ import { parseSrt } from './srt.js';
 import type { SrtCue } from './srt.js';
 import { parseCamMeta } from './cammeta.js';
 import type { CamSample, GimbalDeviceConstants } from './cammeta.js';
-import type { FfToolPaths } from './fftools.js';
-import { findSrtSidecar } from './inputs.js';
-import { buildTelemetry } from './telemetry-math.js';
+import type { FfmpegToolPaths } from './ffmpeg-tools.js';
+import { findSrtSidecar } from './recordings.js';
+import { computeTelemetry } from './telemetry-math.js';
 import type { Telemetry, TelemetrySamples } from './telemetry-math.js';
 import type { TelemetryFrameInput } from './telemetry-json.js';
 
-export interface LoadedTelemetry {
+export interface RecordingTelemetry {
   telemetry: Telemetry;
   frameValues: TelemetryFrameInput[];
   protoFile: string | null;
@@ -54,7 +54,7 @@ interface SourceSamples extends TelemetrySamples {
 }
 
 async function loadSamples(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
   durationSec: number,
 ): Promise<SourceSamples> {
@@ -112,12 +112,12 @@ export async function loadTelemetry(
     fpsValue,
     durationSec,
     tools,
-  }: { frames: number; fpsValue: number; durationSec: number; tools: FfToolPaths },
-): Promise<LoadedTelemetry> {
+  }: { frames: number; fpsValue: number; durationSec: number; tools: FfmpegToolPaths },
+): Promise<RecordingTelemetry> {
   const loaded = await loadSamples(tools, videoPath, durationSec);
   const { frameValues, protoFile, gimbalDevice, ...samples } = loaded;
   return {
-    telemetry: buildTelemetry(samples, { frames, fpsValue }),
+    telemetry: computeTelemetry(samples, { frames, fpsValue }),
     frameValues,
     protoFile,
     gimbalDevice,

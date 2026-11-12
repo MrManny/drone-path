@@ -1,10 +1,10 @@
 'use client';
 
-import type { Codec, EncodeSettings, FrameRange, Preset, Quality } from '../../src/config.js';
+import type { Codec, EncodeSettings, FrameRange, EncoderPreset, Quality } from '../../src/config.js';
 import {
   CODEC_VALUES,
   MIN_DIMENSION,
-  PRESET_VALUES,
+  ENCODER_PRESET_VALUES,
   QUALITY_VALUES,
   validateDimensions,
 } from '../../src/config.js';
@@ -35,7 +35,7 @@ const QUALITY_LABELS: Record<Quality, string> = {
   medium: 'Medium',
   low: 'Low',
 };
-const PRESET_LABELS: Record<Preset, string> = {
+const PRESET_LABELS: Record<EncoderPreset, string> = {
   medium: 'Balanced',
   veryfast: 'Faster',
 };
@@ -130,8 +130,8 @@ export function ExportForm({
           <SelectField
             label="Speed"
             value={encode.preset}
-            options={PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
-            onValue={(preset) => onEncoderChange({ preset: preset as Preset })}
+            options={ENCODER_PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
+            onValue={(preset) => onEncoderChange({ preset: preset as EncoderPreset })}
           />
         </div>
       </fieldset>

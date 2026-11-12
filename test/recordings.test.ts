@@ -8,7 +8,7 @@ import {
   collectRecordings,
   findSrtSidecar,
   isRecordingName,
-} from '../src/inputs.js';
+} from '../src/recordings.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);

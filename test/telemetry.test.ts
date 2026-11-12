@@ -5,12 +5,12 @@ import type * as childProcessModule from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { decodePacketSamples } from '../src/cammeta.js';
-import type { PacketInfo } from '../src/cammeta.js';
-import type * as ffModule from '../src/ff.js';
-import type { FfToolPaths } from '../src/fftools.js';
+import type { CamMetaPacket } from '../src/cammeta.js';
+import type * as ffmpegModule from '../src/ffmpeg.js';
+import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 import { parseSrtText } from '../src/srt.js';
 import { loadTelemetry } from '../src/telemetry.js';
-import type { LoadedTelemetry } from '../src/telemetry.js';
+import type { RecordingTelemetry } from '../src/telemetry.js';
 import {
   SRT_SAMPLE,
   SRT_SAMPLE_MIXED,
@@ -23,10 +23,10 @@ import type { PacketMeta } from './fixtures.js';
 
 const mocks = vi.hoisted(() => ({ ffprobeJson: vi.fn(), execFile: vi.fn() }));
 
-const TOOLS: FfToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
+const TOOLS: FfmpegToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
 
-vi.mock('../src/ff.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof ffModule>()),
+vi.mock('../src/ffmpeg.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof ffmpegModule>()),
   ffprobeJson: mocks.ffprobeJson,
 }));
 
@@ -217,7 +217,7 @@ describe('telemetry source selection', () => {
     SelectionCase & {
       source: 'srt' | 'cammeta';
       method: 'srt-cues' | 'dvtm-packets';
-      check: (loaded: LoadedTelemetry) => void;
+      check: (loaded: RecordingTelemetry) => void;
     }
   > = [
     {
@@ -354,7 +354,7 @@ describe('cross-source fix classification', () => {
     noLock: number;
   } {
     const parts = coords.map(([lat, lon]) => productMetaPacket(lat, lon));
-    const packets: PacketInfo[] = [];
+    const packets: CamMetaPacket[] = [];
     let tSec = 0;
     for (const part of parts) {
       packets.push({ tSec, size: part.length });

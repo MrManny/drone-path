@@ -4,11 +4,11 @@ import path from 'node:path';
 
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { RenderConfig } from '../src/config.js';
-import type { VideoProbe } from '../src/ff.js';
-import { videoBaseName } from '../src/inputs.js';
-import type { PipelineDeps } from '../src/run.js';
+import type { VideoProbe } from '../src/ffmpeg.js';
+import { videoBaseName } from '../src/recordings.js';
+import type { PipelineDeps } from '../src/pipeline.js';
 import type { Telemetry } from '../src/telemetry-math.js';
-import type { LoadedTelemetry } from '../src/telemetry.js';
+import type { RecordingTelemetry } from '../src/telemetry.js';
 
 const tmpDirs: string[] = [];
 
@@ -114,8 +114,8 @@ export function statsTelemetry(overrides: Partial<Telemetry> = {}): Telemetry {
 }
 
 export function loadedTelemetry(
-  overrides: Partial<LoadedTelemetry> = {},
-): LoadedTelemetry {
+  overrides: Partial<RecordingTelemetry> = {},
+): RecordingTelemetry {
   return {
     telemetry: telemetryFixture(),
     frameValues: [],
@@ -128,7 +128,7 @@ export function loadedTelemetry(
 export type StubDepsOptions = Partial<PipelineDeps> & {
   probe?: VideoProbe;
   telemetry?: Telemetry;
-  loaded?: LoadedTelemetry;
+  loaded?: RecordingTelemetry;
 };
 
 export function stubDeps(options: StubDepsOptions = {}): PipelineDeps {

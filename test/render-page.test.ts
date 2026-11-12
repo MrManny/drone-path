@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPageHtml, buildSceneData, planPageOpts } from '../src/page.js';
-import type { PageOpts } from '../src/page.js';
+import { buildPageHtml, buildSceneData, planPageOpts } from '../src/render-page.js';
+import type { RenderPageOpts } from '../src/render-page.js';
 import type { Bbox } from '../src/geo.js';
 
-function baseOpts(overrides: Partial<PageOpts> = {}): PageOpts {
+function baseOpts(overrides: Partial<RenderPageOpts> = {}): RenderPageOpts {
   return {
     width: 768,
     height: 768,

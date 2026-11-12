@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { PickResult } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
-import type { PrepareProgress } from '../../src/run.js';
+import type { PrepareProgress } from '../../src/pipeline.js';
 import Page from '../../ui/app/page.js';
 import { SESSION, installRafStub } from './harness.js';
 

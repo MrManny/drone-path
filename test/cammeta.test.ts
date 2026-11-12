@@ -10,19 +10,19 @@ import {
   parseCamMeta,
   scanGpsPair,
 } from '../src/cammeta.js';
-import type { PacketInfo } from '../src/cammeta.js';
-import type * as ffModule from '../src/ff.js';
-import type { FfToolPaths } from '../src/fftools.js';
+import type { CamMetaPacket } from '../src/cammeta.js';
+import type * as ffmpegModule from '../src/ffmpeg.js';
+import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 
-const TOOLS: FfToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
+const TOOLS: FfmpegToolPaths = { ffmpeg: 'ffmpeg', ffprobe: 'ffprobe' };
 
 const mocks = vi.hoisted(() => ({
   ffprobeJson: vi.fn(),
   execFile: vi.fn(),
 }));
 
-vi.mock('../src/ff.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof ffModule>()),
+vi.mock('../src/ffmpeg.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof ffmpegModule>()),
   ffprobeJson: mocks.ffprobeJson,
 }));
 
@@ -450,8 +450,8 @@ describe('scanGpsPair', () => {
 });
 
 describe('decodePacketSamples', () => {
-  function packetsOf(parts: Buffer[]): { buf: Buffer; packets: PacketInfo[] } {
-    const packets: PacketInfo[] = [];
+  function packetsOf(parts: Buffer[]): { buf: Buffer; packets: CamMetaPacket[] } {
+    const packets: CamMetaPacket[] = [];
     let tSec = 0;
     for (const part of parts) {
       packets.push({ tSec, size: part.length });

@@ -6,25 +6,25 @@ import { z } from 'zod';
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
 import {
   parseFrameRange,
-  parseLookSettings,
+  parseAppearanceSettings,
   parseValue,
-  resolveRange,
+  resolveFrameRange,
   strictShape,
 } from './config.js';
-import type { FrameRange, LookSettings, RenderConfig } from './config.js';
+import type { FrameRange, AppearanceSettings, RenderConfig } from './config.js';
 import { errorMessage } from './errors.js';
-import type { VideoProbe } from './ff.js';
+import type { VideoProbe } from './ffmpeg.js';
 import { timeAt } from './frametime.js';
 import type { Bbox } from './geo.js';
-import { isRecordingName } from './inputs.js';
-import { buildSceneData } from './page.js';
+import { isRecordingName } from './recordings.js';
+import { buildSceneData } from './render-page.js';
 import type { SceneData } from './renderer/scene.js';
 import {
   prepareSession,
   recordingPageOpts,
   telemetryExportInput,
-} from './run.js';
-import type { LogFn, PipelineDeps, PrepareProgressFn } from './run.js';
+} from './pipeline.js';
+import type { LogFn, PipelineDeps, PrepareProgressFn } from './pipeline.js';
 import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 
@@ -57,12 +57,12 @@ export interface IpcResult {
 export type PickResult = IpcResult;
 
 export interface PickRequest {
-  settings: LookSettings;
+  settings: AppearanceSettings;
 }
 
 export function parsePickRequest(raw: unknown): PickRequest {
   const input = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
-  return { settings: parseLookSettings(input.settings) };
+  return { settings: parseAppearanceSettings(input.settings) };
 }
 
 export interface TelemetrySaveRequest {
@@ -99,7 +99,7 @@ export function parseTelemetrySaveRequest(raw: unknown): TelemetrySaveRequest {
   return { outPath, range };
 }
 
-export type PrepareUiSession = (
+export type PrepareUiSessionFn = (
   videoPath: string,
   config: RenderConfig,
   log: LogFn,
@@ -112,7 +112,7 @@ export interface PreparedUiSession {
   telemetry: TelemetryDocumentInput;
 }
 
-export const prepareUiSession: PrepareUiSession = async (
+export const prepareUiSession: PrepareUiSessionFn = async (
   videoPath,
   config,
   log,
@@ -144,7 +144,7 @@ export const prepareUiSession: PrepareUiSession = async (
 export interface AppSessionOptions {
   config: RenderConfig;
   pickFile: () => Promise<string | null>;
-  prepare?: PrepareUiSession;
+  prepare?: PrepareUiSessionFn;
   log?: (msg: string) => void;
   onPreparing?: (videoPath: string) => void;
   onPrepareProgress?: PrepareProgressFn;
@@ -170,7 +170,7 @@ function segmentTelemetryInput(
   input: TelemetryDocumentInput,
   range: FrameRange | null,
 ): TelemetryDocumentInput {
-  const segment = resolveRange(range, input.frameCount);
+  const segment = resolveFrameRange(range, input.frameCount);
   if (!segment) return input;
   return {
     ...input,

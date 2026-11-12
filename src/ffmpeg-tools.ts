@@ -4,26 +4,26 @@ import path from 'node:path';
 
 import type { RenderConfig } from './config.js';
 
-export type FfToolName = 'ffmpeg' | 'ffprobe';
+export type FfmpegToolName = 'ffmpeg' | 'ffprobe';
 
-export interface FfToolPaths {
+export interface FfmpegToolPaths {
   ffmpeg: string;
   ffprobe: string;
 }
 
-export type FfOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
+export type FfmpegToolOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
 
-interface FfToolEnv {
+interface FfmpegToolEnv {
   exists: (file: string) => boolean;
-  candidates: (tool: FfToolName) => (string | null)[];
+  candidates: (tool: FfmpegToolName) => (string | null)[];
 }
 
 function isPathLike(value: string): boolean {
   return value.includes('/') || value.includes('\\') || path.isAbsolute(value);
 }
 
-export function pickFfTool(
-  tool: FfToolName,
+export function pickFfmpegTool(
+  tool: FfmpegToolName,
   override: string | null,
   candidates: readonly (string | null)[],
   exists: (file: string) => boolean,
@@ -42,16 +42,16 @@ export function pickFfTool(
   return tool;
 }
 
-function exeName(tool: FfToolName): string {
+function exeName(tool: FfmpegToolName): string {
   return process.platform === 'win32' ? `${tool}.exe` : tool;
 }
 
-function packagedCandidate(tool: FfToolName): string | null {
+function packagedCandidate(tool: FfmpegToolName): string | null {
   const resourcesPath = (process as { resourcesPath?: string }).resourcesPath;
   return resourcesPath ? path.join(resourcesPath, 'ff', exeName(tool)) : null;
 }
 
-function devCandidate(tool: FfToolName): string | null {
+function devCandidate(tool: FfmpegToolName): string | null {
   try {
     const mod = createRequire(import.meta.url)('ffmpeg-ffprobe-static') as {
       ffmpegPath?: unknown;
@@ -64,7 +64,7 @@ function devCandidate(tool: FfToolName): string | null {
   }
 }
 
-function realEnv(): FfToolEnv {
+function realEnv(): FfmpegToolEnv {
   return {
     exists: (file) => {
       try {
@@ -77,12 +77,12 @@ function realEnv(): FfToolEnv {
   };
 }
 
-export function resolveFfTools(
-  overrides: FfOverrides,
-  env: FfToolEnv = realEnv(),
-): FfToolPaths {
+export function resolveFfmpegTools(
+  overrides: FfmpegToolOverrides,
+  env: FfmpegToolEnv = realEnv(),
+): FfmpegToolPaths {
   return {
-    ffmpeg: pickFfTool('ffmpeg', overrides.ffmpeg, env.candidates('ffmpeg'), env.exists),
-    ffprobe: pickFfTool('ffprobe', overrides.ffprobe, env.candidates('ffprobe'), env.exists),
+    ffmpeg: pickFfmpegTool('ffmpeg', overrides.ffmpeg, env.candidates('ffmpeg'), env.exists),
+    ffprobe: pickFfmpegTool('ffprobe', overrides.ffprobe, env.candidates('ffprobe'), env.exists),
   };
 }

@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import { gpsFix } from '../src/geo.js';
-import { buildTelemetry } from '../src/telemetry-math.js';
-import type { TelSample } from '../src/telemetry-math.js';
+import { gpsFixOrNull } from '../src/geo.js';
+import { computeTelemetry } from '../src/telemetry-math.js';
+import type { TelemetrySample } from '../src/telemetry-math.js';
 
 function sample(
   tSec: number,
   lat: number | null,
   lon: number | null,
-  extras: Partial<TelSample> = {},
-): TelSample {
-  return { tSec, fix: gpsFix(lat, lon), relAlt: null, absAlt: null, yawDeg: null, ...extras };
+  extras: Partial<TelemetrySample> = {},
+): TelemetrySample {
+  return { tSec, fix: gpsFixOrNull(lat, lon), relAlt: null, absAlt: null, yawDeg: null, ...extras };
 }
 
-function build(samples: TelSample[], frames: number, fpsValue: number) {
-  return buildTelemetry(
+function build(samples: TelemetrySample[], frames: number, fpsValue: number) {
+  return computeTelemetry(
     { samples, source: 'srt', method: 'srt-cues', noLock: 0 },
     { frames, fpsValue },
   );
 }
 
-describe('buildTelemetry', () => {
+describe('computeTelemetry', () => {
   it('builds per-frame values from the samples', () => {
     const tel = build(
       [
@@ -68,7 +68,7 @@ describe('buildTelemetry', () => {
   });
 
   it('carries the source provenance through', () => {
-    const tel = buildTelemetry(
+    const tel = computeTelemetry(
       {
         samples: [sample(0, 46.61307, 14.262388), sample(0.04, 46.613072, 14.26239)],
         source: 'cammeta',
@@ -137,7 +137,7 @@ describe('buildTelemetry', () => {
 
   describe('heading', () => {
     it('back-fills leading headings from the first known heading', () => {
-      const samples: TelSample[] = [];
+      const samples: TelemetrySample[] = [];
       for (let i = 0; i <= 70; i++) {
         let lat = 46.613;
         let lon = 14.262;
@@ -159,7 +159,7 @@ describe('buildTelemetry', () => {
     });
 
     it('tracks course over ground on slow flights instead of holding one value', () => {
-      const samples: TelSample[] = [];
+      const samples: TelemetrySample[] = [];
       for (let i = 0; i <= 124; i++) {
         samples.push(
           sample(i * 0.04, 46.613, 14.262 + i * 0.00000052, { relAlt: 3.3 }),
@@ -190,7 +190,7 @@ describe('buildTelemetry', () => {
   });
 
   describe.for([
-    { name: 'no samples at all', samples: [] as TelSample[] },
+    { name: 'no samples at all', samples: [] as TelemetrySample[] },
     { name: 'a single fix', samples: [sample(0, 46.61307, 14.262388)] },
     {
       name: 'only placeholders',

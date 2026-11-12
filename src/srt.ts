@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import { gpsFix } from './geo.js';
+import { gpsFixOrNull } from './geo.js';
 import type { LatLon } from './geo.js';
 
 export interface SrtCue {
@@ -96,7 +96,7 @@ export function parseSrtText(text: string): SrtParseResult {
     const latLon = RX_LATLON.exec(line);
     if (latLon && !cueSawLatLon) {
       cueSawLatLon = true;
-      const fix = gpsFix(parseNumber(latLon[1]), parseNumber(latLon[2]));
+      const fix = gpsFixOrNull(parseNumber(latLon[1]), parseNumber(latLon[2]));
       if (fix !== null) {
         cue.fix = fix;
       } else {

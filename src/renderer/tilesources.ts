@@ -1,4 +1,4 @@
-import type { Style } from '../config.js';
+import type { MapStyle } from '../config.js';
 
 export interface TileSource {
   cacheKey: string;
@@ -12,7 +12,7 @@ export interface TileSource {
   maxNativeZoom?: number;
 }
 
-export const TILE_SOURCES: Record<Style, TileSource> = {
+export const TILE_SOURCES: Record<MapStyle, TileSource> = {
   // Esri World Imagery (free for non-commercial use, attribution required).
   satellite: {
     cacheKey: 'esri-imagery',

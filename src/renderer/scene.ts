@@ -1,4 +1,4 @@
-import type { HudSpec, Style, View } from '../config.js';
+import type { HudLayout, MapStyle, ViewMode } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
 import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss } from './dom.js';
@@ -15,10 +15,10 @@ import type { TrailController } from './trail.js';
 export type LeafletApi = typeof Leaflet;
 
 export interface SceneData extends FrameChannels {
-  style: Style;
+  style: MapStyle;
   trailColor: string | null;
   tileUrl: string;
-  view: View;
+  view: ViewMode;
   width: number;
   height: number;
   zoom: number;
@@ -26,7 +26,7 @@ export interface SceneData extends FrameChannels {
   attribution: string;
   introN: number;
   outroN: number;
-  hud: HudSpec;
+  hud: HudLayout;
   trailLat: number[];
   trailLon: number[];
   trailFrame: number[];
@@ -40,7 +40,7 @@ export interface Scene {
   dispose(): void;
 }
 
-function hudEq(a: HudSpec, b: HudSpec): boolean {
+function hudEq(a: HudLayout, b: HudLayout): boolean {
   return (
     a.heading === b.heading && a.alt === b.alt && a.speed === b.speed
   );
@@ -155,7 +155,7 @@ class SceneState implements Scene {
     return computeScale(this.data.width, this.data.height);
   }
 
-  private makeTileLayer(tileUrl: string, style: Style): Leaflet.TileLayer {
+  private makeTileLayer(tileUrl: string, style: MapStyle): Leaflet.TileLayer {
     return this.L.tileLayer(tileUrl, {
       maxZoom: TILE_SOURCES[style].maxZoom,
       maxNativeZoom: TILE_SOURCES[style].maxNativeZoom ?? undefined,

@@ -113,7 +113,7 @@ function pushField(
   else fields.set(fieldNumber, [field]);
 }
 
-export function subMessage(
+export function firstSubMessage(
   buf: Buffer,
   fields: ProtoFieldMap,
   fieldNumber: number,
@@ -124,7 +124,7 @@ export function subMessage(
   return parseProtoFields(buf, start, end);
 }
 
-export function firstVarint(
+export function firstVarintField(
   fields: ProtoFieldMap,
   fieldNumber: number,
 ): number | null {
@@ -132,7 +132,7 @@ export function firstVarint(
   return value !== undefined ? signedVarint(value) : null;
 }
 
-export function firstFloat(
+export function firstFloatField(
   fields: ProtoFieldMap,
   fieldNumber: number,
 ): number | null {
@@ -140,7 +140,7 @@ export function firstFloat(
   return value ?? null;
 }
 
-export function firstDouble(
+export function firstDoubleField(
   fields: ProtoFieldMap,
   fieldNumber: number,
 ): number | null {
@@ -148,7 +148,7 @@ export function firstDouble(
   return value ?? null;
 }
 
-export function firstString(
+export function firstStringField(
   buf: Buffer,
   fields: ProtoFieldMap,
   fieldNumber: number,

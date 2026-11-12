@@ -1,6 +1,6 @@
 import type { RenderConfig } from './config.js';
 import { project } from './geo.js';
-import type { Bbox, Pixel } from './geo.js';
+import type { Bbox, MercatorPixel } from './geo.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
 
 export interface TileCoord {
@@ -9,7 +9,7 @@ export interface TileCoord {
   y: number;
 }
 
-export interface OverviewOptions {
+export interface OverviewPlanOptions {
   bbox: Bbox;
   width: number;
   height: number;
@@ -20,8 +20,8 @@ export interface OverviewOptions {
   zoomOverride?: number;
 }
 
-export interface Overview {
-  centerPx: Pixel;
+export interface OverviewPlan {
+  centerPx: MercatorPixel;
   zoom: number;
   tiles: TileCoord[];
 }
@@ -62,8 +62,8 @@ function pullBackTinyTracks(zoom: number, bbox: Bbox): number {
 }
 
 function tilesCovering(
-  centerPx: Pixel,
-  trackSpanPx: Pixel,
+  centerPx: MercatorPixel,
+  trackSpanPx: MercatorPixel,
   zoom: number,
   width: number,
   height: number,
@@ -99,7 +99,7 @@ export function computeOverview({
   follow = false,
   maxNativeZoom = null,
   zoomOverride = 0,
-}: OverviewOptions): Overview {
+}: OverviewPlanOptions): OverviewPlan {
   const padX = Math.round(width * 0.08);
   const padY = Math.round(height * 0.08);
   const availW = Math.max(64, width - 2 * padX);
@@ -118,11 +118,11 @@ export function computeOverview({
 
   const northWest = project(bbox.minLon, bbox.maxLat, zoom);
   const southEast = project(bbox.maxLon, bbox.minLat, zoom);
-  const centerPx: Pixel = {
+  const centerPx: MercatorPixel = {
     x: (northWest.x + southEast.x) / 2,
     y: (northWest.y + southEast.y) / 2,
   };
-  const trackSpanPx: Pixel = {
+  const trackSpanPx: MercatorPixel = {
     x: southEast.x - northWest.x,
     y: southEast.y - northWest.y,
   };
@@ -147,7 +147,7 @@ export function planView(
   width: number,
   height: number,
   config: Pick<RenderConfig, 'style' | 'view' | 'zoom' | 'zoomOut'>,
-): Overview {
+): OverviewPlan {
   const src = TILE_SOURCES[config.style];
   return computeOverview({
     bbox,

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import PQueue from 'p-queue';
 
-import type { Style } from './config.js';
+import type { MapStyle } from './config.js';
 import { errorMessage } from './errors.js';
 import type { TileCoord } from './plan.js';
 import { solidPng } from './png.js';
@@ -27,7 +27,7 @@ type TilePriority = 'now' | 'background';
 // p-queue starts higher priorities first, so 'now' jumps the queued pre-warm.
 const TASK_PRIORITY: Record<TilePriority, number> = { now: 1, background: 0 };
 
-function tileUrl(style: Style, tile: TileCoord): string {
+function tileUrl(style: MapStyle, tile: TileCoord): string {
   const source = TILE_SOURCES[style];
   const subdomain = source.subdomains.length
     ? source.subdomains[(tile.x + tile.y) % source.subdomains.length]
@@ -83,8 +83,8 @@ function writeCacheFile(cachePath: string, data: Buffer): void {
   }
 }
 
-function createPlaceholderSource(): (style: Style) => Buffer {
-  const cache = new Map<Style, Buffer>();
+function createPlaceholderSource(): (style: MapStyle) => Buffer {
+  const cache = new Map<MapStyle, Buffer>();
   return (style) => {
     let png = cache.get(style);
     if (!png) {
@@ -105,12 +105,12 @@ interface TileFetchResult {
 interface FetchContext {
   cacheDir: string;
   queue: PQueue;
-  placeholderPng: (style: Style) => Buffer;
+  placeholderPng: (style: MapStyle) => Buffer;
 }
 
 async function fetchTileToCache(
   ctx: FetchContext,
-  style: Style,
+  style: MapStyle,
   tile: TileCoord,
   priority: TilePriority,
   signal?: AbortSignal,
@@ -128,7 +128,7 @@ async function fetchTileToCache(
 
 interface Downloader {
   enqueue(
-    style: Style,
+    style: MapStyle,
     tile: TileCoord,
     options?: { priority?: TilePriority; signal?: AbortSignal },
   ): Promise<TileFetchResult>;
@@ -141,7 +141,7 @@ interface InFlightEntry {
 
 function createDownloader(
   cacheDir: string,
-  placeholderPng: (style: Style) => Buffer,
+  placeholderPng: (style: MapStyle) => Buffer,
 ): Downloader {
   const queue = new PQueue({
     concurrency: DOWNLOAD_WORKERS,
@@ -180,7 +180,7 @@ export interface PrefetchStats {
 }
 
 export interface WarmOptions {
-  style: Style;
+  style: MapStyle;
   tiles: TileCoord[];
   log?: (msg: string) => void;
   onTile?: (status: TileStatus) => void;
@@ -192,7 +192,7 @@ export interface PrefetchOptions extends WarmOptions {
 }
 
 export interface TileTraffic {
-  ensure(style: Style, tile: TileCoord): Promise<string>;
+  ensure(style: MapStyle, tile: TileCoord): Promise<string>;
   stream(options: WarmOptions): Promise<PrefetchStats>;
 }
 

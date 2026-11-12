@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { pickFfTool, resolveFfTools } from '../src/fftools.js';
-import type { FfToolName } from '../src/fftools.js';
+import { pickFfmpegTool, resolveFfmpegTools } from '../src/ffmpeg-tools.js';
+import type { FfmpegToolName } from '../src/ffmpeg-tools.js';
 
 const never = (): boolean => false;
 
-describe('pickFfTool', () => {
+describe('pickFfmpegTool', () => {
   it('uses a path-like override that exists', () => {
     expect(
-      pickFfTool('ffmpeg', '/opt/ff/ffmpeg', ['/bin/ffmpeg'], (f) => f === '/opt/ff/ffmpeg'),
+      pickFfmpegTool('ffmpeg', '/opt/ff/ffmpeg', ['/bin/ffmpeg'], (f) => f === '/opt/ff/ffmpeg'),
     ).toBe('/opt/ff/ffmpeg');
   });
 
@@ -18,7 +18,7 @@ describe('pickFfTool', () => {
       checks += 1;
       return false;
     };
-    expect(pickFfTool('ffprobe', 'my-ffprobe', ['/bin/ffprobe'], exists)).toBe('my-ffprobe');
+    expect(pickFfmpegTool('ffprobe', 'my-ffprobe', ['/bin/ffprobe'], exists)).toBe('my-ffprobe');
     expect(checks).toBe(0);
   });
 
@@ -36,35 +36,35 @@ describe('pickFfTool', () => {
   ] as const)(
     'rejects the missing %s path override naming the override sources',
     (tool, override, message) => {
-      expect(() => pickFfTool(tool, override, [], never)).toThrow(message);
+      expect(() => pickFfmpegTool(tool, override, [], never)).toThrow(message);
     },
   );
 
   it('returns the first existing embedded candidate', () => {
     expect(
-      pickFfTool('ffmpeg', null, ['/packaged/ffmpeg', '/dev/ffmpeg'], (f) => f === '/dev/ffmpeg'),
+      pickFfmpegTool('ffmpeg', null, ['/packaged/ffmpeg', '/dev/ffmpeg'], (f) => f === '/dev/ffmpeg'),
     ).toBe('/dev/ffmpeg');
     expect(
-      pickFfTool('ffmpeg', null, ['/packaged/ffmpeg', '/dev/ffmpeg'], (f) => f !== ''),
+      pickFfmpegTool('ffmpeg', null, ['/packaged/ffmpeg', '/dev/ffmpeg'], (f) => f !== ''),
     ).toBe('/packaged/ffmpeg');
   });
 
   it('skips absent candidates and falls back to the bare tool name', () => {
-    expect(pickFfTool('ffmpeg', null, [null, '/dev/ffmpeg'], never)).toBe('ffmpeg');
-    expect(pickFfTool('ffprobe', null, [], never)).toBe('ffprobe');
+    expect(pickFfmpegTool('ffmpeg', null, [null, '/dev/ffmpeg'], never)).toBe('ffmpeg');
+    expect(pickFfmpegTool('ffprobe', null, [], never)).toBe('ffprobe');
   });
 });
 
-describe('resolveFfTools', () => {
+describe('resolveFfmpegTools', () => {
   const env = {
     exists: (file: string) => file === '/dev/ffprobe',
-    candidates: (tool: FfToolName): (string | null)[] => [
+    candidates: (tool: FfmpegToolName): (string | null)[] => [
       tool === 'ffmpeg' ? '/packaged/ffmpeg' : '/dev/ffprobe',
     ],
   };
 
   it('resolves each tool through its own override and candidates', () => {
-    expect(resolveFfTools({ ffmpeg: 'my-ffmpeg', ffprobe: null }, env)).toEqual({
+    expect(resolveFfmpegTools({ ffmpeg: 'my-ffmpeg', ffprobe: null }, env)).toEqual({
       ffmpeg: 'my-ffmpeg',
       ffprobe: '/dev/ffprobe',
     });
@@ -72,7 +72,7 @@ describe('resolveFfTools', () => {
 
   it('falls back per tool when nothing is embedded', () => {
     const bare = { exists: never, candidates: (): (string | null)[] => [null] };
-    expect(resolveFfTools({ ffmpeg: null, ffprobe: null }, bare)).toEqual({
+    expect(resolveFfmpegTools({ ffmpeg: null, ffprobe: null }, bare)).toEqual({
       ffmpeg: 'ffmpeg',
       ffprobe: 'ffprobe',
     });

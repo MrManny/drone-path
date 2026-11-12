@@ -1,4 +1,4 @@
-import type { PrepareProgress } from '../../src/run.js';
+import type { PrepareProgress } from '../../src/pipeline.js';
 
 export function prepareNoticeText(progress: PrepareProgress): string {
   switch (progress.stage) {

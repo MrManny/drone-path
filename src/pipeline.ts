@@ -3,12 +3,12 @@ import path from 'node:path';
 
 import { errorMessage } from './errors.js';
 import type { Bbox } from './geo.js';
-import { outputMatchesSource, probeVideo, verifyOutput } from './ff.js';
-import { resolveFfTools } from './fftools.js';
-import type { FfToolPaths } from './fftools.js';
-import type { VideoProbe } from './ff.js';
+import { outputMatchesSource, probeVideo, verifyOutput } from './ffmpeg.js';
+import { resolveFfmpegTools } from './ffmpeg-tools.js';
+import type { FfmpegToolPaths } from './ffmpeg-tools.js';
+import type { VideoProbe } from './ffmpeg.js';
 import type { GimbalDeviceConstants } from './cammeta.js';
-import { videoBaseName } from './inputs.js';
+import { videoBaseName } from './recordings.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
 import type {
@@ -23,24 +23,24 @@ import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-js
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats, WarmOptions } from './tiles.js';
 import { planIntroOutroFrames, planView } from './plan.js';
-import type { IntroOutroFrames, Overview } from './plan.js';
-import { buildPageHtml, planPageOpts } from './page.js';
-import type { PageOpts } from './page.js';
+import type { IntroOutroFrames, OverviewPlan } from './plan.js';
+import { buildPageHtml, planPageOpts } from './render-page.js';
+import type { RenderPageOpts } from './render-page.js';
 import { renderVideo } from './render.js';
 import type { CaptureProgress } from './render.js';
-import type { FrameRange, HudSpec, RenderConfig } from './config.js';
+import type { FrameRange, HudLayout, RenderConfig } from './config.js';
 import {
   effectiveZoomOut,
   hasAltitude,
-  resolveHudSpec,
-  resolveRange,
+  resolveHudLayout,
+  resolveFrameRange,
 } from './config.js';
 import {
-  fixesLabel,
-  noLockCuesLabel,
+  fixCountLabel,
+  noLockCountLabel,
   telemetrySummary,
   trackDistanceLabel,
-} from './summary.js';
+} from './telemetry-summary.js';
 export type LogFn = (msg: string) => void;
 
 const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
@@ -65,7 +65,7 @@ export interface RecordingSummary {
   view?: string;
   introFrames?: number;
   outroFrames?: number;
-  hud?: HudSpec;
+  hud?: HudLayout;
   source?: TelemetrySource;
   method?: TelemetryMethod;
   headingMode?: HeadingMode;
@@ -123,15 +123,15 @@ export function planOutputs(videos: string[], config: RenderConfig): PlannedOutp
   });
 }
 
-function resolveHud(config: RenderConfig, tel: Telemetry, log: LogFn): HudSpec {
-  const hud = resolveHudSpec(config.hud, hasAltitude(tel.frames.map((f) => f.alt)));
+function resolveHud(config: RenderConfig, tel: Telemetry, log: LogFn): HudLayout {
+  const hud = resolveHudLayout(config.hud, hasAltitude(tel.frames.map((f) => f.alt)));
   if (config.hud.alt && !hud.alt) {
     log('hud: altitude unavailable in this telemetry source (chip disabled)');
   }
   return hud;
 }
 
-export function frameArrays(tel: Telemetry): FrameChannels {
+export function frameChannelsOf(tel: Telemetry): FrameChannels {
   const lat: number[] = [];
   const lon: number[] = [];
   tel.frames.forEach((frame, i) => {
@@ -152,7 +152,7 @@ export function frameArrays(tel: Telemetry): FrameChannels {
 
 function describeView(
   config: RenderConfig,
-  overview: Overview,
+  overview: OverviewPlan,
   tilesLabel: string,
 ): string {
   const zoomNote = config.zoom
@@ -233,7 +233,7 @@ function resolveDeps(
 
 export interface PipelineOptions {
   deps?: Partial<PipelineDeps>;
-  tools?: FfToolPaths;
+  tools?: FfmpegToolPaths;
   range?: FrameRange;
   signal?: AbortSignal;
   onProgress?: PrepareProgressFn;
@@ -248,9 +248,9 @@ export interface PreparedRecording {
   frameValues: TelemetryFrameInput[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
-  hud: HudSpec;
+  hud: HudLayout;
   introOutro: IntroOutroFrames;
-  overview: Overview;
+  overview: OverviewPlan;
   frames: FrameChannels;
 }
 
@@ -272,7 +272,7 @@ interface PrepareStageEnv {
   config: RenderConfig;
   log: LogFn;
   deps: PipelineDeps;
-  tools: FfToolPaths;
+  tools: FfmpegToolPaths;
   report: PrepareReporter;
 }
 
@@ -305,7 +305,7 @@ async function telemetryStage(
   frameValues: TelemetryFrameInput[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
-  hud: HudSpec;
+  hud: HudLayout;
 }> {
   const { videoPath, config, log, deps, tools, report } = env;
   report('telemetry');
@@ -318,9 +318,9 @@ async function telemetryStage(
   const tel = loaded.telemetry;
   const summary = telemetrySummary(tel);
   log(
-    `telemetry: ${summary.source} (${summary.method}), ${fixesLabel(summary.fixes)}, ` +
+    `telemetry: ${summary.source} (${summary.method}), ${fixCountLabel(summary.fixCount)}, ` +
       `heading=${summary.headingMode}, track ${trackDistanceLabel(summary.trackDistanceM)}` +
-      (summary.noLock ? `, ${noLockCuesLabel(summary.noLock)}` : ''),
+      (summary.noLock ? `, ${noLockCountLabel(summary.noLock)}` : ''),
   );
   const hud = resolveHud(config, tel, log);
   return {
@@ -332,7 +332,7 @@ async function telemetryStage(
   };
 }
 
-async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Overview> {
+async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<OverviewPlan> {
   const { config, log, report } = env;
   report('plan');
   const overview = planView(tel.bbox, config.width, config.height, config);
@@ -343,7 +343,7 @@ async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Over
 async function tileWarmStage(
   deps: PipelineDeps,
   config: RenderConfig,
-  overview: Overview,
+  overview: OverviewPlan,
   log: LogFn,
 ): Promise<PrefetchStats> {
   const tileStats = await deps.prefetchTiles({
@@ -368,7 +368,7 @@ export async function prepareSession(
     config,
     log,
     deps: resolveDeps(options.deps, config.tileCache),
-    tools: options.tools ?? resolveFfTools(config),
+    tools: options.tools ?? resolveFfmpegTools(config),
     report: createPrepareReporter(options.onProgress),
   };
 
@@ -380,7 +380,7 @@ export async function prepareSession(
     probe,
   );
   const overview = await viewPlanStage(env, tel);
-  const frames = frameArrays(tel);
+  const frames = frameChannelsOf(tel);
 
   return {
     width,
@@ -400,7 +400,7 @@ export async function prepareSession(
 export function recordingPageOpts(
   prep: PreparedRecording,
   config: RenderConfig,
-): PageOpts {
+): RenderPageOpts {
   return planPageOpts({
     bbox: prep.tel.bbox,
     width: prep.width,
@@ -429,7 +429,7 @@ interface RenderContext extends PreparedRecording {
 interface RenderStageEnv {
   ctx: RenderContext;
   deps: PipelineDeps;
-  tools: FfToolPaths;
+  tools: FfmpegToolPaths;
   options: PipelineOptions;
 }
 
@@ -451,7 +451,7 @@ function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummar
     source: telemetry.source,
     method: telemetry.method,
     headingMode: telemetry.headingMode,
-    fixes: telemetry.fixes,
+    fixes: telemetry.fixCount,
     noLock: telemetry.noLock,
     trackDistanceM: telemetry.trackDistanceM,
     frames: ctx.outFrames,
@@ -545,7 +545,7 @@ export async function processRecording(
 ): Promise<RecordingSummary> {
   const t0 = Date.now();
   const deps = resolveDeps(options.deps, config.tileCache);
-  const tools = options.tools ?? resolveFfTools(config);
+  const tools = options.tools ?? resolveFfmpegTools(config);
   if (options.signal?.aborted) throw new Error('render canceled');
 
   const prep = await prepareSession(videoPath, config, log, {
@@ -559,7 +559,7 @@ export async function processRecording(
   }
 
   const tileStats = await tileWarmStage(deps, config, prep.overview, log);
-  const range = resolveRange(options.range, prep.probe.frames);
+  const range = resolveFrameRange(options.range, prep.probe.frames);
   const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
   const ctx: RenderContext = {
     ...prep,
@@ -584,7 +584,7 @@ export async function runBatch(
 ): Promise<BatchResult> {
   const result: BatchResult = { ok: 0, skipped: 0, failed: 0 };
   const deps = resolveDeps(options.deps, config.tileCache);
-  const tools = options.tools ?? resolveFfTools(config);
+  const tools = options.tools ?? resolveFfmpegTools(config);
 
   if (config.telemetryJson && videos.length > 1) {
     throw new Error('--telemetry-json writes one document per run: give a single recording');

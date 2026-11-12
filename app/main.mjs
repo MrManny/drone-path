@@ -24,9 +24,9 @@ import { createAppSession } from '../dist/appsession.js';
 import { resolveConfig } from '../dist/configfile.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
 import { createExportRunner } from '../dist/exportjob.js';
-import { requireTools } from '../dist/ff.js';
-import { resolveFfTools } from '../dist/fftools.js';
-import { rangePlan } from '../dist/range.js';
+import { requireFfmpegTools } from '../dist/ffmpeg.js';
+import { resolveFfmpegTools } from '../dist/ffmpeg-tools.js';
+import { planByteRange } from '../dist/range.js';
 import { createTileTraffic } from '../dist/tiles.js';
 import { registerIpcHandlers } from './ipc.mjs';
 import { initUpdates } from './update.mjs';
@@ -134,7 +134,7 @@ function handleExportDone(state, outcome) {
 
 function videoResponse(request, filePath) {
   const size = fs.statSync(filePath).size;
-  const plan = rangePlan(request.headers.get('range') ?? undefined, size, 'video/mp4');
+  const plan = planByteRange(request.headers.get('range') ?? undefined, size, 'video/mp4');
   if (plan.status === 416) {
     return new Response(plan.body, { status: 416, headers: plan.headers });
   }
@@ -195,7 +195,7 @@ async function initServices(state) {
   const resolved = resolveConfig({});
   state.appState = readAppState(appStateFile());
   state.config = applyAppState(resolved.config, state.appState);
-  await requireTools(resolveFfTools(state.config));
+  await requireFfmpegTools(resolveFfmpegTools(state.config));
   // One polite tile queue for the whole app: on-demand tiles and the export
   // prefetch share its request budget, and on-demand tiles the player needs
   // right now jump the queue.

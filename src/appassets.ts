@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { mimeFor, resolveTileRoute } from './assets.js';
 import { MEDIA_PATH } from './apppaths.js';
-import type { Style } from './config.js';
+import type { MapStyle } from './config.js';
 import type { TileCoord } from './plan.js';
 
 export interface AppRoutes {
@@ -18,7 +18,7 @@ export type AppAsset =
       kind: 'tile';
       filePath: string;
       placeholderPath: string;
-      style: Style;
+      style: MapStyle;
       tile: TileCoord;
     }
   | { kind: 'not-found' };

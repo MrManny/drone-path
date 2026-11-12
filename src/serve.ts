@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { mimeFor, resolveAsset } from './assets.js';
 import type { AssetRoutes } from './assets.js';
-import { rangePlan } from './range.js';
+import { planByteRange } from './range.js';
 
 const require_ = createRequire(import.meta.url);
 const LEAFLET_DIR = path.dirname(require_.resolve('leaflet/dist/leaflet.js'));
@@ -53,7 +53,7 @@ export function serveFileWithRange(
     return Promise.resolve();
   }
   const mime = mimeFor(filePath);
-  const plan = rangePlan(req.headers['range'], size, mime);
+  const plan = planByteRange(req.headers['range'], size, mime);
   res.writeHead(plan.status, plan.headers);
   if (plan.status === 416) {
     res.end(plan.body);

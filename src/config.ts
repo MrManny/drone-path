@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-export type Style = 'satellite' | 'topo';
-export type View = 'follow' | 'overview';
-export type Capture = 'jpeg' | 'png';
+export type MapStyle = 'satellite' | 'topo';
+export type ViewMode = 'follow' | 'overview';
+export type CaptureFormat = 'jpeg' | 'png';
 export type Codec = 'h264' | 'h265';
 export type Quality = 'near-lossless' | 'high' | 'medium' | 'low';
-export type Preset = 'medium' | 'veryfast';
+export type EncoderPreset = 'medium' | 'veryfast';
 
-export interface HudSpec {
+export interface HudLayout {
   heading: boolean;
   alt: boolean;
   speed: boolean;
@@ -18,19 +18,19 @@ export interface RenderConfig {
   outSuffix: string;
   width: number;
   height: number;
-  style: Style;
-  view: View;
+  style: MapStyle;
+  view: ViewMode;
   zoom: number;
   zoomOut: number;
   introSec: number;
   outroSec: number;
   trailColor: string | null;
-  hud: HudSpec;
+  hud: HudLayout;
   workers: number;
-  capture: Capture;
+  capture: CaptureFormat;
   codec: Codec;
   quality: Quality;
-  preset: Preset;
+  preset: EncoderPreset;
   tileCache: string;
   browser: string | null;
   ffmpeg: string | null;
@@ -51,17 +51,17 @@ export const CONFIG_FILE_OPTION = {
   help: 'config file (default: .dronepath.json discovered upward from the working directory)',
 } as const;
 
-export const STYLE_VALUES: readonly Style[] = ['satellite', 'topo'];
-export const VIEW_VALUES: readonly View[] = ['follow', 'overview'];
-const CAPTURE_VALUES: Capture[] = ['jpeg', 'png'];
+export const MAP_STYLE_VALUES: readonly MapStyle[] = ['satellite', 'topo'];
+export const VIEW_MODE_VALUES: readonly ViewMode[] = ['follow', 'overview'];
+const CAPTURE_FORMAT_VALUES: CaptureFormat[] = ['jpeg', 'png'];
 export const CODEC_VALUES: readonly Codec[] = ['h264', 'h265'];
 export const QUALITY_VALUES: readonly Quality[] = ['near-lossless', 'high', 'medium', 'low'];
-export const PRESET_VALUES: readonly Preset[] = ['medium', 'veryfast'];
+export const ENCODER_PRESET_VALUES: readonly EncoderPreset[] = ['medium', 'veryfast'];
 
 type OverrideNormalizer = (value: unknown, name: string) => ConfigOverrides;
 
-export function parseHud(list: string): HudSpec {
-  const hud: HudSpec = { heading: false, alt: false, speed: false };
+export function parseHud(list: string): HudLayout {
+  const hud: HudLayout = { heading: false, alt: false, speed: false };
   if (!list || list.toLowerCase() === 'none') return hud;
   for (const part of list
     .split(',')
@@ -78,7 +78,7 @@ export function parseHud(list: string): HudSpec {
   return hud;
 }
 
-export function resolveHudSpec(hud: HudSpec, hasAlt: boolean): HudSpec {
+export function resolveHudLayout(hud: HudLayout, hasAlt: boolean): HudLayout {
   return hud.alt && !hasAlt ? { ...hud, alt: false } : hud;
 }
 
@@ -86,7 +86,7 @@ export function hasAltitude(alt: readonly (number | null)[]): boolean {
   return alt.some((a) => a !== null);
 }
 
-export function formatHud(hud: HudSpec): string {
+export function formatHud(hud: HudLayout): string {
   const parts: string[] = [];
   if (hud.heading) parts.push('heading');
   if (hud.alt) parts.push('alt');
@@ -198,7 +198,7 @@ export function asTrailColor(value: unknown, name: string): string | null {
   return parseValue(trailColorValue(name), value);
 }
 
-function hudSpecSchema(name: string): z.ZodType<HudSpec> {
+function hudSpecSchema(name: string): z.ZodType<HudLayout> {
   return z.preprocess(
     keyedObjectInput,
     strictShape(
@@ -215,7 +215,7 @@ function hudSpecSchema(name: string): z.ZodType<HudSpec> {
   );
 }
 
-function patchHud(value: unknown, name: string): HudSpec | undefined {
+function patchHud(value: unknown, name: string): HudLayout | undefined {
   if (value === undefined || value === null) return undefined;
   return typeof value === 'string'
     ? parseHud(parseValue(stringValue(name), value))
@@ -263,9 +263,9 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   },
   {
     key: 'style',
-    cli: { flags: '--style <name>', help: 'map look', choices: STYLE_VALUES },
+    cli: { flags: '--style <name>', help: 'map look', choices: MAP_STYLE_VALUES },
     default: 'satellite',
-    normalize: (v, name) => ({ style: parseValue(enumValue(name, STYLE_VALUES), v) }),
+    normalize: (v, name) => ({ style: parseValue(enumValue(name, MAP_STYLE_VALUES), v) }),
   },
   {
     key: 'view',
@@ -273,10 +273,10 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       flags: '--view <mode>',
       help:
         'follow: drone stays centered and the map slides under it; overview: static whole-track map',
-      choices: VIEW_VALUES,
+      choices: VIEW_MODE_VALUES,
     },
     default: 'follow',
-    normalize: (v, name) => ({ view: parseValue(enumValue(name, VIEW_VALUES), v) }),
+    normalize: (v, name) => ({ view: parseValue(enumValue(name, VIEW_MODE_VALUES), v) }),
   },
   {
     key: 'zoom',
@@ -329,9 +329,9 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   },
   {
     key: 'capture',
-    cli: { flags: '--capture <mode>', help: 'frame capture mode (canvas is parked)', choices: CAPTURE_VALUES },
+    cli: { flags: '--capture <mode>', help: 'frame capture mode (canvas is parked)', choices: CAPTURE_FORMAT_VALUES },
     default: 'jpeg',
-    normalize: (v, name) => ({ capture: parseValue(enumValue(name, CAPTURE_VALUES), v) }),
+    normalize: (v, name) => ({ capture: parseValue(enumValue(name, CAPTURE_FORMAT_VALUES), v) }),
   },
   {
     key: 'codec',
@@ -347,9 +347,9 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   },
   {
     key: 'preset',
-    cli: { flags: '--preset <name>', help: 'encoding speed', choices: PRESET_VALUES },
+    cli: { flags: '--preset <name>', help: 'encoding speed', choices: ENCODER_PRESET_VALUES },
     default: 'medium',
-    normalize: (v, name) => ({ preset: parseValue(enumValue(name, PRESET_VALUES), v) }),
+    normalize: (v, name) => ({ preset: parseValue(enumValue(name, ENCODER_PRESET_VALUES), v) }),
   },
   {
     key: 'tileCache',
@@ -426,7 +426,7 @@ export function cliDefaultOf(key: keyof RenderConfig): string | boolean {
   const value = row.default as unknown;
   if (typeof value === 'boolean') return value;
   if (value === null || value === undefined) return '';
-  return key === 'hud' ? formatHud(value as HudSpec) : String(value);
+  return key === 'hud' ? formatHud(value as HudLayout) : String(value);
 }
 
 export const DEFAULT_CONFIG: RenderConfig = Object.freeze(
@@ -473,12 +473,12 @@ export function effectiveZoomOut(config: Pick<RenderConfig, 'zoom' | 'zoomOut'>)
 
 export type EncodeSettings = Pick<RenderConfig, 'codec' | 'quality' | 'preset'>;
 
-export type LookSettings = Pick<
+export type AppearanceSettings = Pick<
   RenderConfig,
   'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec' | 'trailColor'
 >;
 
-export type SettingsPatch = LookSettings & EncodeSettings;
+export type SettingsPatch = AppearanceSettings & EncodeSettings;
 
 export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   return {
@@ -539,18 +539,18 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
 
 // The pick-request flavor of look settings: its error wording is the legacy
 // IPC wording, deliberately distinct from validateRenderConfig's CLI wording.
-export function parseLookSettings(raw: unknown): LookSettings {
+export function parseAppearanceSettings(raw: unknown): AppearanceSettings {
   const look =
     typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   const { style, view, hud } = look;
   const mapStyle = parseValue(
-    z.enum(STYLE_VALUES, {
+    z.enum(MAP_STYLE_VALUES, {
       error: (issue) => `unknown map style: ${String(issue.input)}`,
     }),
     style,
   );
   const viewMode = parseValue(
-    z.enum(VIEW_VALUES, {
+    z.enum(VIEW_MODE_VALUES, {
       error: (issue) => `unknown view: ${String(issue.input)}`,
     }),
     view,
@@ -647,7 +647,7 @@ export function parseFrameRange(raw: unknown, name = 'frame range'): FrameRange 
   return range;
 }
 
-export function resolveRange(
+export function resolveFrameRange(
   range: FrameRange | null | undefined,
   frames: number,
 ): FrameRange | null {
