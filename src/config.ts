@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const MAP_STYLE_VALUES = ['satellite', 'topo'] as const;
 export type MapStyle = (typeof MAP_STYLE_VALUES)[number];
-export const VIEW_MODE_VALUES = ['follow', 'overview'] as const;
+const VIEW_MODE_VALUES = ['follow', 'overview'] as const;
 export type ViewMode = (typeof VIEW_MODE_VALUES)[number];
 const CAPTURE_FORMAT_VALUES = ['jpeg', 'png'] as const;
 export type CaptureFormat = (typeof CAPTURE_FORMAT_VALUES)[number];
@@ -139,7 +139,7 @@ export function strictShape<T extends z.ZodRawShape>(
   });
 }
 
-export function numberValue(name: string): z.ZodType<number> {
+function numberValue(name: string): z.ZodType<number> {
   return z.number({ error: invalidNumber(name) });
 }
 
@@ -646,7 +646,7 @@ export interface ExportRequest {
   range: FrameRange | null;
 }
 
-export function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
+function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
   if (!Number.isInteger(range.start) || !Number.isInteger(range.end)) {
     throw new Error(`invalid ${name}: start and end must be integer frame indices`);
   }

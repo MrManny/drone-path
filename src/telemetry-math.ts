@@ -4,7 +4,7 @@ import type { CamMetaMethod } from './cammeta.js';
 import { timeAt } from './frametime.js';
 
 export type TelemetrySource = 'srt' | 'cammeta';
-export type TelemetryMethod = 'srt-cues' | CamMetaMethod;
+type TelemetryMethod = 'srt-cues' | CamMetaMethod;
 export type HeadingMode = 'yaw' | 'cog';
 
 // These key names are the window.__DATA wire format: never rename them.

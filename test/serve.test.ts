@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { serveAsset, serveFileWithRange } from '../src/serve.js';
+import { serveAsset } from '../src/serve.js';
 import type { MapStyle } from '../src/config.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
@@ -15,18 +15,12 @@ interface Host {
 
 async function startHost(
   tileCache: string,
-  videoPath: string | null,
   style: MapStyle = 'satellite',
   rendererDir: string = tmpDir(),
 ): Promise<Host> {
-  const streams: Array<Promise<void>> = [];
   const server = http.createServer((req, res) => {
     const url = decodeURIComponent((req.url ?? '/').split('?')[0]);
     if (serveAsset(url, res, { style, tileCache, rendererDir })) return;
-    if (url === '/video' && videoPath) {
-      streams.push(serveFileWithRange(req, res, videoPath));
-      return;
-    }
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('not found');
   });
@@ -36,7 +30,6 @@ async function startHost(
   return {
     url: `http://127.0.0.1:${port}`,
     close: async () => {
-      await Promise.allSettled(streams);
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
     },
@@ -53,7 +46,7 @@ afterEach(cleanupTmpDirs);
 
 describe('serveAsset', () => {
   it('serves Leaflet assets from node_modules', async () => {
-    const host = await startHost(tmpDir(), null);
+    const host = await startHost(tmpDir());
     try {
       const res = await fetch(`${host.url}/leaflet/leaflet.css`);
       expect(res.status).toBe(200);
@@ -65,7 +58,7 @@ describe('serveAsset', () => {
   });
 
   it('rejects Leaflet paths outside the asset whitelist', async () => {
-    const host = await startHost(tmpDir(), null);
+    const host = await startHost(tmpDir());
     try {
       const res = await fetch(`${host.url}/leaflet/evil.txt`);
       expect(res.status).toBe(404);
@@ -77,7 +70,7 @@ describe('serveAsset', () => {
   it('serves cached tiles for the active style', async () => {
     const tileCache = tmpDir();
     writeTile(tileCache, 'esri-imagery', 1, 2, 3, '3.png');
-    const host = await startHost(tileCache, null);
+    const host = await startHost(tileCache);
     try {
       const res = await fetch(`${host.url}/tiles/satellite/1/2/3.png`);
       expect(res.status).toBe(200);
@@ -91,7 +84,7 @@ describe('serveAsset', () => {
   it('falls back to the placeholder tile', async () => {
     const tileCache = tmpDir();
     writeTile(tileCache, 'esri-imagery', 4, 5, 6, '6.placeholder.png');
-    const host = await startHost(tileCache, null);
+    const host = await startHost(tileCache);
     try {
       const res = await fetch(`${host.url}/tiles/satellite/4/5/6.png`);
       expect(res.status).toBe(200);
@@ -103,7 +96,7 @@ describe('serveAsset', () => {
   it('refuses tiles of a style that is not active', async () => {
     const tileCache = tmpDir();
     writeTile(tileCache, 'opentopomap', 1, 2, 3, '3.png');
-    const host = await startHost(tileCache, null, 'satellite');
+    const host = await startHost(tileCache, 'satellite');
     try {
       const res = await fetch(`${host.url}/tiles/topo/1/2/3.png`);
       expect(res.status).toBe(404);
@@ -113,7 +106,7 @@ describe('serveAsset', () => {
   });
 
   it('404s unknown URLs without claiming them', async () => {
-    const host = await startHost(tmpDir(), null);
+    const host = await startHost(tmpDir());
     try {
       const res = await fetch(`${host.url}/other`);
       expect(res.status).toBe(404);
@@ -125,7 +118,7 @@ describe('serveAsset', () => {
   it('serves compiled renderer modules as JavaScript', async () => {
     const rendererDir = tmpDir();
     fs.writeFileSync(path.join(rendererDir, 'scene.js'), 'export const x = 1;');
-    const host = await startHost(tmpDir(), null, 'satellite', rendererDir);
+    const host = await startHost(tmpDir(), 'satellite', rendererDir);
     try {
       const res = await fetch(`${host.url}/renderer/scene.js`);
       expect(res.status).toBe(200);
@@ -143,7 +136,7 @@ describe('serveAsset', () => {
   ])('refuses $name in /renderer/', async ({ url }) => {
     const rendererDir = tmpDir();
     fs.writeFileSync(path.join(rendererDir, 'scene.js'), 'export const x = 1;');
-    const host = await startHost(tmpDir(), null, 'satellite', rendererDir);
+    const host = await startHost(tmpDir(), 'satellite', rendererDir);
     try {
       const res = await fetch(`${host.url}${url}`);
       expect(res.status).toBe(404);
@@ -153,87 +146,3 @@ describe('serveAsset', () => {
   });
 });
 
-describe('serveFileWithRange', () => {
-  const VIDEO = '0123456789';
-
-  function withVideo(): { videoPath: string } {
-    const dir = tmpDir();
-    const videoPath = path.join(dir, 'clip.mp4');
-    fs.writeFileSync(videoPath, Buffer.from(VIDEO));
-    return { videoPath };
-  }
-
-  it('serves the whole file without a Range header', async () => {
-    const { videoPath } = withVideo();
-    const host = await startHost(tmpDir(), videoPath);
-    try {
-      const res = await fetch(`${host.url}/video`);
-      expect(res.status).toBe(200);
-      expect(res.headers.get('accept-ranges')).toBe('bytes');
-      expect(res.headers.get('content-length')).toBe(String(VIDEO.length));
-      expect(Buffer.from(await res.arrayBuffer()).toString()).toBe(VIDEO);
-    } finally {
-      await host.close();
-    }
-  });
-
-  it.for([
-    { name: 'closed range', range: 'bytes=2-5', status: 206, body: '2345', contentRange: 'bytes 2-5/10' },
-    { name: 'open-ended range', range: 'bytes=5-', status: 206, body: '56789', contentRange: 'bytes 5-9/10' },
-    { name: 'suffix range', range: 'bytes=-3', status: 206, body: '789', contentRange: 'bytes 7-9/10' },
-    { name: 'clamped end', range: 'bytes=8-99', status: 206, body: '89', contentRange: 'bytes 8-9/10' },
-    { name: 'unsatisfiable range', range: 'bytes=10-', status: 416, body: 'range not satisfiable', contentRange: 'bytes */10' },
-    { name: 'malformed range is ignored', range: 'bytes=abc', status: 200, body: VIDEO, contentRange: null },
-  ])('handles $name', async ({ range, status, body, contentRange }) => {
-    const { videoPath } = withVideo();
-    const host = await startHost(tmpDir(), videoPath);
-    try {
-      const res = await fetch(`${host.url}/video`, { headers: { range } });
-      expect(res.status).toBe(status);
-      expect(res.headers.get('content-range')).toBe(contentRange);
-      expect(Buffer.from(await res.arrayBuffer()).toString()).toBe(body);
-    } finally {
-      await host.close();
-    }
-  });
-
-  it('answers HEAD with headers only', async () => {
-    const { videoPath } = withVideo();
-    const host = await startHost(tmpDir(), videoPath);
-    try {
-      const res = await fetch(`${host.url}/video`, { method: 'HEAD' });
-      expect(res.status).toBe(200);
-      expect(res.headers.get('content-length')).toBe(String(VIDEO.length));
-      expect((await res.arrayBuffer()).byteLength).toBe(0);
-    } finally {
-      await host.close();
-    }
-  });
-
-  it('answers HEAD on a range request with the 206 headers and no body', async () => {
-    const { videoPath } = withVideo();
-    const host = await startHost(tmpDir(), videoPath);
-    try {
-      const res = await fetch(`${host.url}/video`, {
-        method: 'HEAD',
-        headers: { range: 'bytes=2-5' },
-      });
-      expect(res.status).toBe(206);
-      expect(res.headers.get('content-range')).toBe('bytes 2-5/10');
-      expect(res.headers.get('content-length')).toBe('4');
-      expect((await res.arrayBuffer()).byteLength).toBe(0);
-    } finally {
-      await host.close();
-    }
-  });
-
-  it('404s a missing file', async () => {
-    const host = await startHost(tmpDir(), path.join(tmpDir(), 'gone.mp4'));
-    try {
-      const res = await fetch(`${host.url}/video`);
-      expect(res.status).toBe(404);
-    } finally {
-      await host.close();
-    }
-  });
-});

@@ -201,7 +201,7 @@ function fldString(num: number, value: string): Buffer {
 }
 
 /** Euler angles in deci-degrees: the wire stores tenths, the decoder divides by 10. */
-export interface PacketEuler {
+interface PacketEuler {
   pitch?: number;
   roll?: number;
   yaw?: number;

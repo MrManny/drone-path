@@ -70,7 +70,7 @@ async function tryGit(args: readonly string[]): Promise<string | null> {
   }
 }
 
-export async function probeGit(): Promise<GitProbe | null> {
+async function probeGit(): Promise<GitProbe | null> {
   const head = await tryGit(['rev-parse', 'HEAD']);
   if (head === null) return null;
   // A missing tag list only means HEAD is untagged, not that git is gone.

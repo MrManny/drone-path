@@ -20,7 +20,7 @@ export type MenuIconId =
   | 'help'
   | 'info';
 
-export interface MenuItemDef {
+interface MenuItemDef {
   id: MenuItemId;
   label: string;
   icon: MenuIconId;
