@@ -10,6 +10,7 @@ import {
   validateRenderConfig,
 } from './config.js';
 import type { ConfigOverrides, RenderConfig } from './config.js';
+import { errorMessage } from './errors.js';
 
 export function defaultTileCache(): string {
   const override = process.env['DRONEPATH_TILE_CACHE'];
@@ -33,7 +34,7 @@ export function loadConfigFile(file: string): ConfigOverrides {
   try {
     text = fs.readFileSync(file, 'utf8');
   } catch (e) {
-    throw new Error(`cannot read config file ${file}: ${(e as Error).message}`, {
+    throw new Error(`cannot read config file ${file}: ${errorMessage(e)}`, {
       cause: e,
     });
   }
@@ -42,7 +43,7 @@ export function loadConfigFile(file: string): ConfigOverrides {
     raw = JSON.parse(text);
   } catch (e) {
     throw new Error(
-      `config file is not valid JSON: ${file}: ${(e as Error).message}`,
+      `config file is not valid JSON: ${file}: ${errorMessage(e)}`,
       { cause: e },
     );
   }

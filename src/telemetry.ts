@@ -1,7 +1,8 @@
+import { ERR_NO_TELEMETRY } from './errors.js';
 import { parseSrt } from './srt.js';
 import type { SrtCue } from './srt.js';
 import { parseCamMeta } from './cammeta.js';
-import type { CamSample, GimbalDeviceConstants } from './cammeta.js';
+import type { CamSample, GimbalDeviceConstants } from './cammeta-decode.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import { findSrtSidecar } from './recordings.js';
 import { computeTelemetry } from './telemetry-math.js';
@@ -63,7 +64,7 @@ async function loadSamples(
     const fixSamples = cam.samples.filter((sample) => sample.fix !== null);
     if (fixSamples.length === 0) {
       throw new Error(
-        'no telemetry found: the CAM meta (DVTM) stream has no GPS fix pairs; ' +
+        `${ERR_NO_TELEMETRY}the CAM meta (DVTM) stream has no GPS fix pairs; ` +
           'the .SRT sidecar is only consulted when no CAM meta stream is present',
       );
     }
@@ -101,7 +102,7 @@ async function loadSamples(
   }
 
   throw new Error(
-    'no telemetry found: no CAM meta (DVTM) stream and no .SRT sidecar',
+    `${ERR_NO_TELEMETRY}no CAM meta (DVTM) stream and no .SRT sidecar`,
   );
 }
 

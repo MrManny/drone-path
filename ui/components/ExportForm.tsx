@@ -6,7 +6,7 @@ import {
   MIN_DIMENSION,
   ENCODER_PRESET_VALUES,
   QUALITY_VALUES,
-  validateDimensions,
+  isValidDimensions,
 } from '../../src/config.js';
 import type { ExportEvent, ExportForm as ExportFormState } from '../lib/exportstate.js';
 import { ErrorNotice } from './ErrorNotice.js';
@@ -39,15 +39,6 @@ const PRESET_LABELS: Record<EncoderPreset, string> = {
   medium: 'Balanced',
   veryfast: 'Faster',
 };
-
-function dimensionsValid(width: number, height: number): boolean {
-  try {
-    validateDimensions(width, height);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function ExportForm({
   form,
@@ -96,7 +87,7 @@ export function ExportForm({
             rule={`at least ${MIN_DIMENSION} px`}
             hint="px"
             onValue={(width) => {
-              if (!dimensionsValid(width, form.height)) return false;
+              if (!isValidDimensions(width, form.height)) return false;
               dispatch({ type: 'setWidth', width });
               return true;
             }}
@@ -108,7 +99,7 @@ export function ExportForm({
             rule={`at least ${MIN_DIMENSION} px`}
             hint="px"
             onValue={(height) => {
-              if (!dimensionsValid(form.width, height)) return false;
+              if (!isValidDimensions(form.width, height)) return false;
               dispatch({ type: 'setHeight', height });
               return true;
             }}

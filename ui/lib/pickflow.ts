@@ -1,5 +1,5 @@
 import type { PickResult, UiSession } from '../../src/appsession.js';
-import { errorMessage } from '../../src/errors.js';
+import { ERR_NO_RECORDING, ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
 import type { PickEvent } from './pickstate.js';
 
 export interface PickFlowDeps {
@@ -10,13 +10,13 @@ export interface PickFlowDeps {
 async function pick(deps: PickFlowDeps): Promise<PickEvent | null> {
   const result = await deps.pickRecording();
   if (result.canceled) return { type: 'canceled' };
-  if (!result.ok) return { type: 'failed', message: result.error ?? 'unknown error' };
+  if (!result.ok) return { type: 'failed', message: result.error ?? ERR_UNKNOWN };
   return null;
 }
 
 async function loadSession(deps: PickFlowDeps): Promise<UiSession | PickEvent> {
   const session = await deps.getSession();
-  return session ?? { type: 'failed', message: 'no recording loaded' };
+  return session ?? { type: 'failed', message: ERR_NO_RECORDING };
 }
 
 export async function pickRecordingFlow(

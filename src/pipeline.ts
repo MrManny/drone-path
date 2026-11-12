@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { errorMessage } from './errors.js';
+import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, errorMessage } from './errors.js';
 import type { Bbox } from './geo.js';
 import { outputMatchesSource, probeVideo, verifyOutput } from './ffmpeg.js';
 import { resolveFfmpegTools } from './ffmpeg-tools.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import type { VideoProbe } from './ffmpeg.js';
-import type { GimbalDeviceConstants } from './cammeta.js';
+import type { GimbalDeviceConstants } from './cammeta-decode.js';
 import { videoBaseName } from './recordings.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
@@ -415,7 +415,7 @@ export function recordingPageOpts(
   });
 }
 
-interface RenderContext extends PreparedRecording {
+interface RunContext extends PreparedRecording {
   videoPath: string;
   outPath: string;
   config: RenderConfig;
@@ -425,14 +425,14 @@ interface RenderContext extends PreparedRecording {
   tileStats: PrefetchStats;
 }
 
-interface RenderStageEnv {
-  ctx: RenderContext;
+interface RunStageEnv {
+  ctx: RunContext;
   deps: PipelineDeps;
   tools: FfmpegToolPaths;
   options: PipelineOptions;
 }
 
-function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummary {
+function buildOkSummary(ctx: RunContext, elapsedSec: number): RecordingSummary {
   const { config, probe, tel, hud, introOutro, overview, tileStats } = ctx;
   const telemetry = telemetrySummary(tel);
   return {
@@ -466,12 +466,12 @@ function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummar
   };
 }
 
-async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
+async function verifyRenderedOutput(env: RunStageEnv): Promise<void> {
   const { ctx, deps, tools } = env;
   const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
   if (!verify.ok) {
     throw new Error(
-      `output verification failed: got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
+      `${ERR_OUTPUT_VERIFICATION}got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
         `expected ${ctx.outFrames} @ ${ctx.probe.fps.str}`,
     );
   }
@@ -482,7 +482,7 @@ async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
   );
 }
 
-async function renderToOutput(env: RenderStageEnv): Promise<void> {
+async function renderToOutput(env: RunStageEnv): Promise<void> {
   const { ctx, deps, tools, options } = env;
   const html = buildPageHtml(recordingPageOpts(ctx, ctx.config));
   fs.mkdirSync(path.dirname(ctx.outPath), { recursive: true });
@@ -545,7 +545,7 @@ export async function processRecording(
   const t0 = Date.now();
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfmpegTools(config);
-  if (options.signal?.aborted) throw new Error('render canceled');
+  if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
 
   const prep = await prepareSession(videoPath, config, log, {
     ...options,
@@ -560,7 +560,7 @@ export async function processRecording(
   const tileStats = await tileWarmStage(deps, config, prep.overview, log);
   const range = resolveFrameRange(options.range, prep.probe.frames);
   const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
-  const ctx: RenderContext = {
+  const ctx: RunContext = {
     ...prep,
     videoPath,
     outPath,
@@ -591,29 +591,40 @@ export async function runBatch(
 
   const plans = planOutputs(videos, config);
 
-  for (const [idx, video] of videos.entries()) {
-    const base = path.basename(video);
-    log(`=== ${base} ===`);
-
-    const plan = plans[idx];
+  function collisionWarning(base: string, plan: PlannedOutput): void {
     if (plan.out !== plan.plain) {
       log(
         `warning: output name collision for ${base} - writing ${path.basename(plan.out)} instead`,
       );
     }
-    if (config.skipExisting && (await deps.outputMatchesSource(tools, video, plan.out))) {
-      log(`SKIP  ${plan.out}  (exists and matches the source)`);
+  }
+
+  async function maybeSkip(video: string, plan: PlannedOutput): Promise<'skipped' | null> {
+    if (!(config.skipExisting && (await deps.outputMatchesSource(tools, video, plan.out)))) {
+      return null;
+    }
+    log(`SKIP  ${plan.out}  (exists and matches the source)`);
+    return 'skipped';
+  }
+
+  async function runOne(video: string, plan: PlannedOutput): Promise<RecordingSummary> {
+    return processRecording(video, config, log, plan.out, { ...options, deps, tools });
+  }
+
+  for (const [idx, video] of videos.entries()) {
+    const base = path.basename(video);
+    log(`=== ${base} ===`);
+
+    const plan = plans[idx];
+    collisionWarning(base, plan);
+    if ((await maybeSkip(video, plan)) !== null) {
       emit({ video, out: plan.out, status: 'skipped', elapsedSec: 0 });
       result.skipped++;
       continue;
     }
 
     try {
-      const summary = await processRecording(video, config, log, plan.out, {
-        ...options,
-        deps,
-        tools,
-      });
+      const summary = await runOne(video, plan);
       emit(summary);
       log(`OK  ${plan.out}  (${summary.frames} frames @ ${summary.fps}, ${summary.elapsedSec} s)`);
       result.ok++;

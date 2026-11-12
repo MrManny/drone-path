@@ -2,12 +2,10 @@ import fs from 'node:fs';
 import type http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-import { mimeFor, resolveAsset } from './assets.js';
+import { resolveAsset } from './assets.js';
 import type { AssetRoutes } from './assets.js';
-import { planByteRange } from './range.js';
 
 const require_ = createRequire(import.meta.url);
 const LEAFLET_DIR = path.dirname(require_.resolve('leaflet/dist/leaflet.js'));
@@ -37,37 +35,4 @@ export function serveAsset(
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('not found');
   return true;
-}
-
-export function serveFileWithRange(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  filePath: string,
-): Promise<void> {
-  let size: number;
-  try {
-    size = fs.statSync(filePath).size;
-  } catch {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('not found');
-    return Promise.resolve();
-  }
-  const mime = mimeFor(filePath);
-  const plan = planByteRange(req.headers['range'], size, mime);
-  res.writeHead(plan.status, plan.headers);
-  if (plan.status === 416) {
-    res.end(plan.body);
-    return Promise.resolve();
-  }
-  if (req.method === 'HEAD') {
-    res.end();
-    return Promise.resolve();
-  }
-  const stream =
-    plan.status === 206
-      ? fs.createReadStream(filePath, { start: plan.span.start, end: plan.span.end })
-      : fs.createReadStream(filePath);
-  return new Promise<void>((resolve) => {
-    pipeline(stream, res, () => resolve());
-  });
 }

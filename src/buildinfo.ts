@@ -1,12 +1,10 @@
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 
+import { runToolMain } from './errors.js';
+import { runTool } from './exec-tool.js';
 import { VERSION } from './version.js';
-
-const execFileAsync = promisify(execFile);
 
 /** What the git probe found at build time; null when git was unavailable. */
 export interface GitProbe {
@@ -63,14 +61,14 @@ export function buildBuildinfo(
 
 async function tryGit(args: readonly string[]): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', [...args]);
+    const { stdout } = await runTool('git', [...args]);
     return stdout;
   } catch {
     return null;
   }
 }
 
-export async function probeGit(): Promise<GitProbe | null> {
+async function probeGit(): Promise<GitProbe | null> {
   const head = await tryGit(['rev-parse', 'HEAD']);
   if (head === null) return null;
   // A missing tag list only means HEAD is untagged, not that git is gone.
@@ -85,17 +83,12 @@ export async function probeGit(): Promise<GitProbe | null> {
 }
 
 async function main(): Promise<void> {
-  try {
-    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-    const git = buildBuildinfo(defaultBuildinfoPaths(root), VERSION, await probeGit());
-    const detail = git === null ? 'no git' : git.tagged ? 'tagged' : `commit ${git.commit}`;
-    process.stderr.write(`[drone-path] buildinfo: ${VERSION} (${detail})\n`);
-  } catch (e) {
-    process.stderr.write(`[drone-path] ERROR: ${(e as Error).message}\n`);
-    process.exitCode = 1;
-  }
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const git = buildBuildinfo(defaultBuildinfoPaths(root), VERSION, await probeGit());
+  const detail = git === null ? 'no git' : git.tagged ? 'tagged' : `commit ${git.commit}`;
+  process.stderr.write(`[drone-path] buildinfo: ${VERSION} (${detail})\n`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  void main();
+  void runToolMain(main);
 }

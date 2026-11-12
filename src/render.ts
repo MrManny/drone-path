@@ -6,9 +6,9 @@ import type { Writable } from 'node:stream';
 import type { Browser, Page } from 'playwright-core';
 
 import { MIME } from './assets.js';
-import { errorMessage } from './errors.js';
+import { ERR_RENDER_CANCELED, errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
-import type { CaptureFormat, Codec, EncodeSettings, EncoderPreset, Quality, MapStyle, RenderConfig } from './config.js';
+import type { CaptureFormat, Codec, EncodeSettings, Quality, MapStyle, RenderConfig } from './config.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import type { LogFn } from './logging.js';
 
@@ -234,21 +234,26 @@ interface StageTiming {
   emitMs: number;
 }
 
-interface RenderContext {
-  width: number;
-  height: number;
-  frames: number;
-  frameStart: number;
-  fpsStr: string;
-  outPath: string;
-  capture: CaptureFormat;
-  codec: Codec;
-  quality: Quality;
-  preset: EncoderPreset;
-  signal: AbortSignal | undefined;
-  log: (msg: string) => void;
-  onCapture: ((progress: CaptureProgress) => void) | undefined;
-  tools: FfmpegToolPaths;
+interface RenderContext
+  extends Pick<
+    RenderJobOptions,
+    | 'width'
+    | 'height'
+    | 'frames'
+    | 'fpsStr'
+    | 'outPath'
+    | 'capture'
+    | 'codec'
+    | 'quality'
+    | 'preset'
+    | 'tools'
+  > {
+  // The job's optional knobs, resolved to concrete values at entry: same
+  // names and types, required here.
+  frameStart: NonNullable<RenderJobOptions['frameStart']>;
+  signal: RenderJobOptions['signal'];
+  log: NonNullable<RenderJobOptions['log']>;
+  onCapture: RenderJobOptions['onCapture'];
 }
 
 interface RenderStageEnv {
@@ -264,17 +269,9 @@ interface FrameLoopState {
   failed: boolean;
 }
 
-interface WorkerRun {
+interface WorkerRun extends RenderContext {
   active: Browser;
   url: string;
-  width: number;
-  height: number;
-  frames: number;
-  frameStart: number;
-  capture: CaptureFormat;
-  signal: AbortSignal | undefined;
-  log: (msg: string) => void;
-  onCapture: ((progress: CaptureProgress) => void) | undefined;
   stream: OrderedFrameStream;
   timing: StageTiming;
 }
@@ -323,7 +320,7 @@ async function workerLoop(
     await page.waitForFunction('window.__READY === true', null, { timeout: PAGE_LOAD_TIMEOUT_MS });
     for (;;) {
       if (loop.failed) return;
-      if (run.signal?.aborted) throw new Error('render canceled');
+      if (run.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
       const idx = loop.cursor++;
       if (idx >= run.frames) break;
       await captureFrame(run, loop, page, idx);
@@ -375,32 +372,13 @@ function formatProfile(profile: RenderProfile, workerCount: number): string {
 
 async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<void> {
   const { ctx, url, timing, workerCount } = env;
-  const {
-    fpsStr, codec, quality, preset, outPath, signal,
-    width, height, frames, frameStart, capture, log, onCapture, tools,
-  } = ctx;
+  const { fpsStr, codec, quality, preset, outPath, signal, log, tools } = ctx;
   const encoder = spawnEncoder(tools.ffmpeg, fpsStr, { codec, quality, preset }, outPath);
   const killOnAbort = (): void => encoder.kill();
   signal?.addEventListener('abort', killOnAbort, { once: true });
   const stream = new OrderedFrameStream(encoder);
   try {
-    await runWorkers(
-      {
-        active,
-        url,
-        width,
-        height,
-        frames,
-        frameStart,
-        capture,
-        signal,
-        log,
-        onCapture,
-        stream,
-        timing,
-      },
-      workerCount,
-    );
+    await runWorkers({ ...ctx, active, url, stream, timing }, workerCount);
     await finishEncode(encoder, stream, log, outPath);
   } catch (e) {
     encoder.kill();
@@ -450,7 +428,7 @@ export async function renderVideo(
     onCapture,
     tools,
   };
-  if (signal?.aborted) throw new Error('render canceled');
+  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
   const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
   const { server, url } = await startServer({ html, style, tileCache });
   const env: RenderStageEnv = { ctx, url, timing, workerCount };

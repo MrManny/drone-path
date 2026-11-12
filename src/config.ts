@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const MAP_STYLE_VALUES = ['satellite', 'topo'] as const;
 export type MapStyle = (typeof MAP_STYLE_VALUES)[number];
-export const VIEW_MODE_VALUES = ['follow', 'overview'] as const;
+const VIEW_MODE_VALUES = ['follow', 'overview'] as const;
 export type ViewMode = (typeof VIEW_MODE_VALUES)[number];
 const CAPTURE_FORMAT_VALUES = ['jpeg', 'png'] as const;
 export type CaptureFormat = (typeof CAPTURE_FORMAT_VALUES)[number];
@@ -139,7 +139,7 @@ export function strictShape<T extends z.ZodRawShape>(
   });
 }
 
-export function numberValue(name: string): z.ZodType<number> {
+function numberValue(name: string): z.ZodType<number> {
   return z.number({ error: invalidNumber(name) });
 }
 
@@ -583,12 +583,12 @@ export function parseAppearanceSettings(raw: unknown): AppearanceSettings {
   );
   const zoom = parseValue(numberValue('zoom'), look.zoom);
   const zoomOut = parseValue(numberValue('zoom-out'), look.zoomOut);
-  if (!(zoom >= 0)) throw new Error('zoom must be >= 0 (0 = auto-fit)');
-  if (!(zoomOut >= 0)) throw new Error('zoom-out must be >= 0');
+  requireNonNegative(zoom, 'zoom must be >= 0 (0 = auto-fit)');
+  requireNonNegative(zoomOut, 'zoom-out must be >= 0');
   const introSec = parseValue(numberValue('intro'), look.introSec);
   const outroSec = parseValue(numberValue('outro'), look.outroSec);
-  if (!(introSec >= 0)) throw new Error('intro must be 0 or more');
-  if (!(outroSec >= 0)) throw new Error('outro must be 0 or more');
+  requireNonNegative(introSec, 'intro must be 0 or more');
+  requireNonNegative(outroSec, 'outro must be 0 or more');
   const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
   const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
   return {
@@ -605,9 +605,13 @@ export function parseAppearanceSettings(raw: unknown): AppearanceSettings {
 
 export const MIN_DIMENSION = 64;
 
-// Negated comparisons are NaN-safe (NaN would slip through <).
-export function validateDimensions(width: number, height: number): void {
-  if (!(width >= MIN_DIMENSION) || !(height >= MIN_DIMENSION)) {
+export function isValidDimensions(width: number, height: number): boolean {
+  // NaN-safe: the >= form fails for NaN, where a plain < would let it pass.
+  return width >= MIN_DIMENSION && height >= MIN_DIMENSION;
+}
+
+function validateDimensions(width: number, height: number): void {
+  if (!isValidDimensions(width, height)) {
     throw new Error(`width and height must be at least ${MIN_DIMENSION}`);
   }
 }
@@ -622,14 +626,40 @@ export function normalizeDimensions(
   };
 }
 
+// One bounds rule for both validator wordings; the message travels with the
+// call so the CLI and IPC surfaces keep their deliberately distinct text.
+function isNonNegative(value: number): boolean {
+  return value >= 0;
+}
+
+function requireNonNegative(value: number, message: string): void {
+  if (!isNonNegative(value)) throw new Error(message);
+}
+
+function isValidWorkerCount(workers: number): boolean {
+  return Number.isInteger(workers) && workers >= 1;
+}
+
+export function isValidRenderConfig(config: RenderConfig): boolean {
+  return (
+    isValidDimensions(config.width, config.height) &&
+    isValidWorkerCount(config.workers) &&
+    isNonNegative(config.zoom) &&
+    isNonNegative(config.zoomOut) &&
+    isNonNegative(config.introSec) &&
+    isNonNegative(config.outroSec) &&
+    config.outSuffix !== ''
+  );
+}
+
 export function validateRenderConfig(config: RenderConfig): void {
   validateDimensions(config.width, config.height);
-  if (!Number.isInteger(config.workers) || config.workers < 1) {
+  if (!isValidWorkerCount(config.workers)) {
     throw new Error('workers must be a positive integer');
   }
-  if (!(config.zoom >= 0)) throw new Error('zoom must be >= 0 (0 = auto-fit)');
-  if (!(config.zoomOut >= 0)) throw new Error('zoom-out must be >= 0');
-  if (!(config.introSec >= 0) || !(config.outroSec >= 0)) {
+  requireNonNegative(config.zoom, 'zoom must be >= 0 (0 = auto-fit)');
+  requireNonNegative(config.zoomOut, 'zoom-out must be >= 0');
+  if (!isNonNegative(config.introSec) || !isNonNegative(config.outroSec)) {
     throw new Error('intro-sec and outro-sec must be >= 0');
   }
   if (!config.outSuffix) throw new Error('out-suffix must not be empty');
@@ -646,7 +676,7 @@ export interface ExportRequest {
   range: FrameRange | null;
 }
 
-export function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
+function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
   if (!Number.isInteger(range.start) || !Number.isInteger(range.end)) {
     throw new Error(`invalid ${name}: start and end must be integer frame indices`);
   }

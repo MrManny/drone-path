@@ -8,11 +8,10 @@ import {
   parseFrameRange,
   parseAppearanceSettings,
   parseValue,
-  resolveFrameRange,
   strictShape,
 } from './config.js';
 import type { FrameRange, AppearanceSettings, RenderConfig } from './config.js';
-import { errorMessage } from './errors.js';
+import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from './errors.js';
 import type { VideoProbe } from './ffmpeg.js';
 import { timeAt } from './frametime.js';
 import type { Bbox } from './geo.js';
@@ -26,7 +25,7 @@ import {
 } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { PipelineDeps, PrepareProgressFn } from './pipeline.js';
-import { writeTelemetryDocument } from './telemetry-json.js';
+import { segmentTelemetryInput, writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 
 export interface PageVideo {
@@ -167,21 +166,6 @@ function isReadableVideo(filePath: string): boolean {
   }
 }
 
-function segmentTelemetryInput(
-  input: TelemetryDocumentInput,
-  range: FrameRange | null,
-): TelemetryDocumentInput {
-  const segment = resolveFrameRange(range, input.frameCount);
-  if (!segment) return input;
-  return {
-    ...input,
-    frameCount: segment.end - segment.start + 1,
-    frames: input.frames.slice(segment.start, segment.end + 1),
-    headingDeg: input.headingDeg.slice(segment.start, segment.end + 1),
-    frameStart: segment.start,
-  };
-}
-
 export function createAppSession(options: AppSessionOptions): AppSession {
   const { config, pickFile } = options;
   const prepare = options.prepare ?? prepareUiSession;
@@ -202,7 +186,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         const resolved = path.resolve(picked);
         if (!isReadableVideo(resolved)) {
           log(`rejected: ${resolved}`);
-          return { ok: false, error: `not a readable .mp4 file: ${resolved}` };
+          return { ok: false, error: `${ERR_NOT_READABLE_MP4}${resolved}` };
         }
         onPreparing(resolved);
         prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
@@ -219,7 +203,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     getSession: () => prepared?.session ?? null,
     videoPath: () => videoPath,
     saveTelemetryJson(file: string, range: FrameRange | null): void {
-      if (!prepared) throw new Error('no recording loaded');
+      if (!prepared) throw new Error(ERR_NO_RECORDING);
       writeTelemetryDocument(file, segmentTelemetryInput(prepared.telemetry, range));
     },
   };

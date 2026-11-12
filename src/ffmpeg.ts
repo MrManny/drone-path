@@ -1,12 +1,9 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
+import { ERR_NO_FRAME_RATE } from './errors.js';
+import { runTool } from './exec-tool.js';
 import { framesForSeconds, parseFpsRate, parseRate } from './frametime.js';
 import type { Fps } from './frametime.js';
 import { FFMPEG_TOOL_NAMES } from './ffmpeg-tools.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
-
-const execFileAsync = promisify(execFile);
 
 export interface VideoProbe {
   fps: Fps;
@@ -28,12 +25,14 @@ const INSTALL_HINT =
   '(Windows), "brew install ffmpeg" (macOS) or "apt install ffmpeg" (Linux)';
 
 const FFPROBE_MAX_BUFFER = 64 * 1024 * 1024;
+const TOOL_VERSION_MAX_BUFFER = 1 << 20;
+const RATE_PROBE_MAX_BUFFER = 1 << 20;
 
 export async function requireFfmpegTools(tools: FfmpegToolPaths): Promise<void> {
   for (const tool of FFMPEG_TOOL_NAMES) {
     const command = tools[tool];
     try {
-      await execFileAsync(command, ['-version'], { maxBuffer: 1 << 20 });
+      await runTool(command, ['-version'], { maxBuffer: TOOL_VERSION_MAX_BUFFER });
     } catch (e) {
       throw new Error(
         `${tool} is required but could not be run (${command}) - ${INSTALL_HINT}`,
@@ -48,7 +47,7 @@ export async function ffprobeJson(
   videoPath: string,
   args: string[],
 ): Promise<Record<string, unknown>> {
-  const { stdout } = await execFileAsync(
+  const { stdout } = await runTool(
     tools.ffprobe,
     ['-v', 'error', ...args, videoPath],
     { maxBuffer: FFPROBE_MAX_BUFFER },
@@ -93,7 +92,7 @@ export async function probeVideo(
   const fps =
     parseFpsRate(stream.r_frame_rate) ??
     parseFpsRate(stream.avg_frame_rate);
-  if (!fps) throw new Error('could not determine the frame rate of the video');
+  if (!fps) throw new Error(ERR_NO_FRAME_RATE);
 
   const durationSec = Number.parseFloat(format.duration ?? '');
   let frames = parseCount(stream.nb_frames);
@@ -142,14 +141,14 @@ export async function verifyOutput(
 }
 
 async function probeRateFrames(ffprobe: string, file: string): Promise<string> {
-  const { stdout } = await execFileAsync(
+  const { stdout } = await runTool(
     ffprobe,
     [
       '-v', 'error', '-select_streams', 'v:0',
       '-show_entries', 'stream=avg_frame_rate,nb_frames',
       '-of', 'csv=p=0', '--', file,
     ],
-    { maxBuffer: 1 << 20 },
+    { maxBuffer: RATE_PROBE_MAX_BUFFER },
   );
   return stdout.trim();
 }

@@ -2,7 +2,7 @@ import { timeAt } from '../../src/frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
 import { hasLoop } from './loop.js';
 
-export { framesForSeconds, timeAt } from '../../src/frametime.js';
+export { framesForSeconds } from '../../src/frametime.js';
 
 // requestVideoFrameCallback quantizes mediaTime to the microsecond, so the
 // product can land just under frame i's integer; the slack covers that error

@@ -4,8 +4,8 @@ import type * as childProcessModule from 'node:child_process';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { decodePacketSamples } from '../src/cammeta.js';
-import type { CamMetaPacket } from '../src/cammeta.js';
+import { decodePacketSamples } from '../src/cammeta-decode.js';
+import type { CamMetaPacket } from '../src/cammeta-decode.js';
 import type * as ffmpegModule from '../src/ffmpeg.js';
 import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 import { parseSrtText } from '../src/srt.js';

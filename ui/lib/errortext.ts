@@ -1,3 +1,21 @@
+import {
+  ERR_APP_BRIDGE_UNAVAILABLE,
+  ERR_COULD_NOT_REPLACE,
+  ERR_EXPORT_ALREADY_RUNNING,
+  ERR_EXPORT_COULD_NOT_BE_CANCELED,
+  ERR_EXPORT_COULD_NOT_START,
+  ERR_NO_FRAME_RATE,
+  ERR_NO_RECORDING,
+  ERR_NO_TELEMETRY,
+  ERR_NOT_READABLE_MP4,
+  ERR_OUTPUT_OVERWRITES_SOURCE,
+  ERR_OUTPUT_PATH_ABSOLUTE,
+  ERR_OUTPUT_VERIFICATION,
+  ERR_RENDER_KEPT_AT,
+  ERR_RENDER_CANCELED,
+  ERR_UNKNOWN,
+} from '../../src/errors.js';
+
 export interface ErrorText {
   text: string;
   technical: string | null;
@@ -50,34 +68,43 @@ const NODE_SENTENCES: Record<string, NodeSentence> = {
   },
 };
 
+// Patterns derive from the src/errors.ts message vocabulary so the backend
+// wording and its UI sentence cannot drift apart.
+const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const exactMessage = (message: string): RegExp => new RegExp(`^${escaped(message)}$`);
+const messagePrefix = (prefix: string): RegExp => new RegExp(`^${escaped(prefix)}`);
+
 const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) => string]> = [
-  [/^no recording loaded$/, () => 'No recording is loaded. Open a recording first.'],
-  [/^an export is already running$/, () => 'An export is already running. Wait for it to finish or cancel it.'],
-  [/^export could not start$/, () => 'The export could not start. Try again.'],
-  [/^export could not be canceled$/, () => 'The export could not be canceled. Try again.'],
+  [exactMessage(ERR_NO_RECORDING), () => 'No recording is loaded. Open a recording first.'],
+  [exactMessage(ERR_EXPORT_ALREADY_RUNNING), () => 'An export is already running. Wait for it to finish or cancel it.'],
+  [exactMessage(ERR_EXPORT_COULD_NOT_START), () => 'The export could not start. Try again.'],
+  [exactMessage(ERR_EXPORT_COULD_NOT_BE_CANCELED), () => 'The export could not be canceled. Try again.'],
   [
-    /^the output must not overwrite the source recording$/,
+    exactMessage(ERR_OUTPUT_OVERWRITES_SOURCE),
     () => 'The export would replace the source recording. Choose another file name.',
   ],
-  [/^output path must be absolute: /, () => 'The export needs a full path to its destination.'],
-  [/^app bridge unavailable$/, () => 'The app backend is not available. Restart the app.'],
-  [/^render canceled$/, () => 'The export was canceled.'],
-  [/^not a readable \.mp4 file: (.+)$/, (m) => `"${leafName(m[1])}" is not a readable .mp4 recording.`],
+  [messagePrefix(ERR_OUTPUT_PATH_ABSOLUTE), () => 'The export needs a full path to its destination.'],
+  [exactMessage(ERR_APP_BRIDGE_UNAVAILABLE), () => 'The app backend is not available. Restart the app.'],
+  [exactMessage(ERR_RENDER_CANCELED), () => 'The export was canceled.'],
   [
-    /^no telemetry found: /,
+    new RegExp(`^${escaped(ERR_NOT_READABLE_MP4)}(.+)$`),
+    (m) => `"${leafName(m[1])}" is not a readable .mp4 recording.`,
+  ],
+  [
+    messagePrefix(ERR_NO_TELEMETRY),
     () => 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
   ],
   [
-    /^output verification failed: /,
+    messagePrefix(ERR_OUTPUT_VERIFICATION),
     () => 'The finished file does not match the recording frame count or frame rate.',
   ],
   [
-    /^could not replace .*\(the finished render is at (.+)\)$/,
+    new RegExp(`^${escaped(ERR_COULD_NOT_REPLACE)}.*\\(${escaped(ERR_RENDER_KEPT_AT)}(.+)\\)$`),
     (m) =>
       `The export finished, but its file could not replace the destination. The render is kept at ${m[1]}.`,
   ],
-  [/^could not determine the frame rate of the video$/, () => "This video's frame rate could not be read."],
-  [/^unknown error$/, () => 'Something went wrong. Try again.'],
+  [exactMessage(ERR_NO_FRAME_RATE), () => "This video's frame rate could not be read."],
+  [exactMessage(ERR_UNKNOWN), () => 'Something went wrong. Try again.'],
 ];
 
 export function describeError(message: string): ErrorText {

@@ -1,6 +1,6 @@
 import type { TelemetrySaveRequest } from '../../src/appsession.js';
 import type { FrameRange } from '../../src/config.js';
-import { errorMessage } from '../../src/errors.js';
+import { ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
 import type { ExportAck, PickOutputResult } from './backend.js';
 import { formatFrameRange, formatTime } from './frametime.js';
 
@@ -60,7 +60,7 @@ export async function telemetrySaveFlow(
     const picked = await deps.pickTelemetryOutput();
     if (picked.canceled) return { type: 'canceled' };
     if (!picked.ok || picked.path === undefined) {
-      return { type: 'failed', message: picked.error ?? 'unknown error' };
+      return { type: 'failed', message: picked.error ?? ERR_UNKNOWN };
     }
     onSaving();
     const ack = await deps.saveTelemetryJson({ outPath: picked.path, range });

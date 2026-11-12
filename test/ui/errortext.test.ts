@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  ERR_APP_BRIDGE_UNAVAILABLE,
+  ERR_COULD_NOT_REPLACE,
+  ERR_EXPORT_ALREADY_RUNNING,
+  ERR_EXPORT_COULD_NOT_BE_CANCELED,
+  ERR_EXPORT_COULD_NOT_START,
+  ERR_NO_FRAME_RATE,
+  ERR_NO_RECORDING,
+  ERR_NO_TELEMETRY,
+  ERR_NOT_READABLE_MP4,
+  ERR_OUTPUT_OVERWRITES_SOURCE,
+  ERR_OUTPUT_PATH_ABSOLUTE,
+  ERR_OUTPUT_VERIFICATION,
+  ERR_RENDER_KEPT_AT,
+  ERR_RENDER_CANCELED,
+  ERR_UNKNOWN,
+} from '../../src/errors.js';
 import { describeError } from '../../ui/lib/errortext.js';
 
 describe.for([
@@ -130,3 +147,118 @@ describe.for([{ message: 'boom' }, { message: 'Disk on fire: 42' }, { message: '
     });
   },
 );
+
+// N-1 contract: the APP_SENTENCES patterns are built from these throw-site
+// constants (src/errors.ts), so pinning both the frozen wording and the
+// mapping keeps a reworded producer from silently losing its UI sentence.
+describe.for([
+  {
+    name: 'ERR_NO_RECORDING',
+    constant: ERR_NO_RECORDING,
+    message: 'no recording loaded',
+    raw: ERR_NO_RECORDING,
+    text: 'No recording is loaded. Open a recording first.',
+  },
+  {
+    name: 'ERR_EXPORT_ALREADY_RUNNING',
+    constant: ERR_EXPORT_ALREADY_RUNNING,
+    message: 'an export is already running',
+    raw: ERR_EXPORT_ALREADY_RUNNING,
+    text: 'An export is already running. Wait for it to finish or cancel it.',
+  },
+  {
+    name: 'ERR_EXPORT_COULD_NOT_START',
+    constant: ERR_EXPORT_COULD_NOT_START,
+    message: 'export could not start',
+    raw: ERR_EXPORT_COULD_NOT_START,
+    text: 'The export could not start. Try again.',
+  },
+  {
+    name: 'ERR_EXPORT_COULD_NOT_BE_CANCELED',
+    constant: ERR_EXPORT_COULD_NOT_BE_CANCELED,
+    message: 'export could not be canceled',
+    raw: ERR_EXPORT_COULD_NOT_BE_CANCELED,
+    text: 'The export could not be canceled. Try again.',
+  },
+  {
+    name: 'ERR_OUTPUT_OVERWRITES_SOURCE',
+    constant: ERR_OUTPUT_OVERWRITES_SOURCE,
+    message: 'the output must not overwrite the source recording',
+    raw: ERR_OUTPUT_OVERWRITES_SOURCE,
+    text: 'The export would replace the source recording. Choose another file name.',
+  },
+  {
+    name: 'ERR_OUTPUT_PATH_ABSOLUTE',
+    constant: ERR_OUTPUT_PATH_ABSOLUTE,
+    message: 'output path must be absolute: ',
+    raw: `${ERR_OUTPUT_PATH_ABSOLUTE}E:\\exports\\out.mp4`,
+    text: 'The export needs a full path to its destination.',
+  },
+  {
+    name: 'ERR_APP_BRIDGE_UNAVAILABLE',
+    constant: ERR_APP_BRIDGE_UNAVAILABLE,
+    message: 'app bridge unavailable',
+    raw: ERR_APP_BRIDGE_UNAVAILABLE,
+    text: 'The app backend is not available. Restart the app.',
+  },
+  {
+    name: 'ERR_RENDER_CANCELED',
+    constant: ERR_RENDER_CANCELED,
+    message: 'render canceled',
+    raw: ERR_RENDER_CANCELED,
+    text: 'The export was canceled.',
+  },
+  {
+    name: 'ERR_NOT_READABLE_MP4',
+    constant: ERR_NOT_READABLE_MP4,
+    message: 'not a readable .mp4 file: ',
+    raw: `${ERR_NOT_READABLE_MP4}C:\\Windows\\win.ini`,
+    text: '"win.ini" is not a readable .mp4 recording.',
+  },
+  {
+    name: 'ERR_NO_TELEMETRY',
+    constant: ERR_NO_TELEMETRY,
+    message: 'no telemetry found: ',
+    raw: `${ERR_NO_TELEMETRY}no CAM meta (DVTM) stream and no .SRT sidecar`,
+    text: 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
+  },
+  {
+    name: 'ERR_OUTPUT_VERIFICATION',
+    constant: ERR_OUTPUT_VERIFICATION,
+    message: 'output verification failed: ',
+    raw: `${ERR_OUTPUT_VERIFICATION}got 120 frames @ 30, expected 121 @ 60000/1001`,
+    text: 'The finished file does not match the recording frame count or frame rate.',
+  },
+  {
+    name: 'ERR_COULD_NOT_REPLACE',
+    constant: ERR_COULD_NOT_REPLACE,
+    message: 'could not replace ',
+    raw:
+      `${ERR_COULD_NOT_REPLACE}E:\\exports\\a.mp4: EBUSY: resource busy or locked ` +
+      `(${ERR_RENDER_KEPT_AT}E:\\exports\\a.partial.mp4)`,
+    text: 'The export finished, but its file could not replace the destination. The render is kept at E:\\exports\\a.partial.mp4.',
+  },
+  {
+    name: 'ERR_NO_FRAME_RATE',
+    constant: ERR_NO_FRAME_RATE,
+    message: 'could not determine the frame rate of the video',
+    raw: ERR_NO_FRAME_RATE,
+    text: "This video's frame rate could not be read.",
+  },
+  {
+    name: 'ERR_UNKNOWN',
+    constant: ERR_UNKNOWN,
+    message: 'unknown error',
+    raw: ERR_UNKNOWN,
+    text: 'Something went wrong. Try again.',
+  },
+])('error protocol constant $name', ({ constant, message, raw, text }) => {
+  it('keeps its frozen wording and maps to its app sentence', () => {
+    expect(constant).toBe(message);
+    expect(describeError(raw)).toEqual({ text, technical: raw });
+  });
+});
+
+it('pins the kept-render fragment wording', () => {
+  expect(ERR_RENDER_KEPT_AT).toBe('the finished render is at ');
+});

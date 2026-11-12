@@ -6,6 +6,7 @@ import type {
   UiSession,
 } from '../../src/appsession.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
+import { ERR_APP_BRIDGE_UNAVAILABLE } from '../../src/errors.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { PrepareProgress } from '../../src/pipeline.js';
@@ -56,6 +57,6 @@ declare global {
 
 export function appBridge(): AppBridge {
   const bridge = window.dronepath;
-  if (!bridge) throw new Error('app bridge unavailable');
+  if (!bridge) throw new Error(ERR_APP_BRIDGE_UNAVAILABLE);
   return bridge;
 }

@@ -3,12 +3,11 @@
 import { useEffect, useReducer } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import type { EncodeSettings, ExportRequest, FrameRange, RenderConfig } from '../../src/config.js';
-import { errorMessage } from '../../src/errors.js';
-import type { AppBridge, ExportAck } from '../lib/backend.js';
+import type { EncodeSettings, FrameRange, RenderConfig } from '../../src/config.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
-import type { ExportEvent } from '../lib/exportstate.js';
+import type { ExportFlowDeps } from '../lib/exportflow.js';
+import { cancelExport, chooseAndExport, runDoneAction } from '../lib/exportflow.js';
 import {
   captureFraction,
   exportReducer,
@@ -106,67 +105,15 @@ export function ExportModal({
       }
     : null;
 
-  async function runBridgeAction<T extends ExportAck>(
-    call: (bridge: AppBridge) => Promise<T>,
-    onFailure: (error: string) => ExportEvent,
-    fallback?: string,
-  ): Promise<T | null> {
-    try {
-      const ack = await call(appBridge());
-      if (!ack.ok) {
-        const refused = ack.error ?? fallback;
-        if (refused) dispatch(onFailure(refused));
-      }
-      return ack;
-    } catch (e) {
-      dispatch(onFailure(errorMessage(e)));
-      return null;
-    }
-  }
-
-  const pickDestination = async (): Promise<string | null> => {
-    const picked = await runBridgeAction(
-      (bridge) => bridge.pickExportOutput(),
-      (error) => ({ type: 'failed', error }),
-    );
-    return picked?.ok && picked.path ? picked.path : null;
-  };
-
-  const buildRequest = (outPath: string): ExportRequest => ({
-    outPath,
-    config: { ...settings, width: form.width, height: form.height },
-    range: segment && form.range ? segment.range : null,
+  // Every method resolves the bridge inside the flow's call so an absent
+  // backend surfaces as a failure event, never an unhandled throw.
+  const flowDeps = (): ExportFlowDeps => ({
+    pickExportOutput: () => appBridge().pickExportOutput(),
+    startExport: (request) => appBridge().startExport(request),
+    cancelExport: () => appBridge().cancelExport(),
+    revealExportOutput: (payload) => appBridge().revealExportOutput(payload),
+    openExportOutput: (payload) => appBridge().openExportOutput(payload),
   });
-
-  const startJob = async (request: ExportRequest): Promise<void> => {
-    dispatch({ type: 'start', request });
-    await runBridgeAction(
-      (bridge) => bridge.startExport(request),
-      (error) => ({ type: 'startFailed', error }),
-      'export could not start',
-    );
-  };
-
-  const chooseAndExport = async (): Promise<void> => {
-    const outPath = await pickDestination();
-    if (outPath === null) return;
-    dispatch({ type: 'choose', path: outPath });
-    await startJob(buildRequest(outPath));
-  };
-
-  const cancelExport = (): void => {
-    dispatch({ type: 'cancelRequested' });
-    void runBridgeAction(
-      (bridge) => bridge.cancelExport(),
-      (error) => ({ type: 'cancelFailed', error }),
-      'export could not be canceled',
-    );
-  };
-
-  const runDoneAction = (call: (bridge: AppBridge) => Promise<ExportAck>): void => {
-    dispatch({ type: 'clearError' });
-    void runBridgeAction(call, (error) => ({ type: 'failed', error }), 'action failed');
-  };
 
   const changeEncoder = (patch: Partial<EncodeSettings>): void => {
     dispatch({ type: 'clearError' });
@@ -201,7 +148,9 @@ export function ExportModal({
               dispatch={dispatch}
               onEncoderChange={changeEncoder}
               onClose={onClose}
-              onStart={() => void chooseAndExport()}
+              onStart={() =>
+                void chooseAndExport(flowDeps(), { settings, form, segment }, dispatch)
+              }
             />
           ) : null}
 
@@ -210,7 +159,7 @@ export function ExportModal({
               fraction={captureFraction(state.capture)}
               canceling={canceling}
               error={error}
-              onCancel={cancelExport}
+              onCancel={() => cancelExport(flowDeps(), dispatch)}
             />
           ) : null}
 
@@ -219,9 +168,19 @@ export function ExportModal({
               result={result}
               error={error}
               onReveal={() =>
-                runDoneAction((bridge) => bridge.revealExportOutput({ out: result.out }))
+                runDoneAction(
+                  flowDeps(),
+                  (deps) => deps.revealExportOutput({ out: result.out }),
+                  dispatch,
+                )
               }
-              onOpen={() => runDoneAction((bridge) => bridge.openExportOutput({ out: result.out }))}
+              onOpen={() =>
+                runDoneAction(
+                  flowDeps(),
+                  (deps) => deps.openExportOutput({ out: result.out }),
+                  dispatch,
+                )
+              }
               onClose={onClose}
             />
           ) : null}

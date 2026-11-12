@@ -13,7 +13,7 @@ export interface MenuState {
 export const INITIAL_MENU_STATE: MenuState = { open: null, active: null, altPending: false };
 
 /** What the host should run for this transition, if anything. */
-export type MenuCommand = { type: 'activate'; item: MenuItemId } | null;
+type MenuCommand = { type: 'activate'; item: MenuItemId } | null;
 
 interface MenuKeyEvent {
   key: string;
