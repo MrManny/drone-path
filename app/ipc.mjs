@@ -72,9 +72,34 @@ async function confirmReplace(state, chosen) {
   return confirm.response === 0;
 }
 
-export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
+// The CLI's default naming, with a relative out dir anchored at the
+// recording: the app process has no meaningful working directory.
+function exportDefaultFor(state, video) {
+  const outDir = state.config.outDir
+    ? path.resolve(path.dirname(video), state.config.outDir)
+    : null;
+  return outputPathFor(video, { ...state.config, outDir });
+}
+
+async function pickSavePath(state, { title, defaultPath, filters, extension }) {
+  const options = { title, defaultPath, filters };
+  const result = state.win
+    ? await dialog.showSaveDialog(state.win, options)
+    : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+  const chosen = result.filePath.toLowerCase().endsWith(`.${extension}`)
+    ? result.filePath
+    : `${result.filePath}.${extension}`;
+  if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
+  return { ok: true, path: chosen };
+}
+
+function registerSessionHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:pick', (raw) => state.session.pick(parsePickRequest(raw)));
   handle(devUrl, 'dronepath:session', () => state.session.getSession());
+}
+
+function registerSettingsHandlers(state, devUrl, log) {
   handle(devUrl, 'dronepath:settings', () => state.config);
   handle(devUrl, 'dronepath:settings:save', (raw) => {
     const settings = parseSettingsPatch(raw, 'settings');
@@ -88,61 +113,18 @@ export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
     }
     return { ok: true };
   });
+}
 
+function registerExportHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:export:pick-output', async () => {
     const video = requireVideo(state);
-    // The CLI's default naming, with a relative out dir anchored at the
-    // recording: the app process has no meaningful working directory.
-    const outDir = state.config.outDir
-      ? path.resolve(path.dirname(video), state.config.outDir)
-      : null;
-    const options = {
+    return pickSavePath(state, {
       title: 'Export video',
-      defaultPath: outputPathFor(video, { ...state.config, outDir }),
+      defaultPath: exportDefaultFor(state, video),
       filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
-    };
-    const result = state.win
-      ? await dialog.showSaveDialog(state.win, options)
-      : await dialog.showSaveDialog(options);
-    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-    const chosen = result.filePath.toLowerCase().endsWith('.mp4')
-      ? result.filePath
-      : `${result.filePath}.mp4`;
-    if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
-    return { ok: true, path: chosen };
+      extension: 'mp4',
+    });
   });
-  handle(devUrl, 'dronepath:telemetry:pick-output', async () => {
-    const video = requireVideo(state);
-    // The export dialog's default folder, named after the recording
-    // (<basename>.telemetry.json).
-    const outDir = state.config.outDir
-      ? path.resolve(path.dirname(video), state.config.outDir)
-      : null;
-    const exportDefault = outputPathFor(video, { ...state.config, outDir });
-    const options = {
-      title: 'Export telemetry',
-      defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
-      filters: [{ name: 'JSON document', extensions: ['json'] }],
-    };
-    const result = state.win
-      ? await dialog.showSaveDialog(state.win, options)
-      : await dialog.showSaveDialog(options);
-    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-    const chosen = result.filePath.toLowerCase().endsWith('.json')
-      ? result.filePath
-      : `${result.filePath}.json`;
-    if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
-    return { ok: true, path: chosen };
-  });
-  handle(devUrl, 'dronepath:telemetry:save', (raw) => {
-    requireVideo(state);
-    const request = parseTelemetrySaveRequest(raw);
-    state.session.saveTelemetryJson(request.outPath, request.range);
-    state.lastTelemetryOut = request.outPath;
-    log(`telemetry JSON: wrote ${request.outPath}`);
-    return { ok: true };
-  });
-
   handle(devUrl, 'dronepath:export:start', (raw) => {
     const video = requireVideo(state);
     state.exportRunner.start(video, parseExportRequest(raw, state.config));
@@ -160,7 +142,32 @@ export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
     const error = await shell.openPath(knownOutputOf(state, payload));
     return error ? { ok: false, error } : { ok: true };
   });
+}
 
+function registerTelemetryHandlers(state, devUrl, log) {
+  handle(devUrl, 'dronepath:telemetry:pick-output', async () => {
+    const video = requireVideo(state);
+    // The export dialog's default folder, named after the recording
+    // (<basename>.telemetry.json).
+    const exportDefault = exportDefaultFor(state, video);
+    return pickSavePath(state, {
+      title: 'Export telemetry',
+      defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
+      filters: [{ name: 'JSON document', extensions: ['json'] }],
+      extension: 'json',
+    });
+  });
+  handle(devUrl, 'dronepath:telemetry:save', (raw) => {
+    requireVideo(state);
+    const request = parseTelemetrySaveRequest(raw);
+    state.session.saveTelemetryJson(request.outPath, request.range);
+    state.lastTelemetryOut = request.outPath;
+    log(`telemetry JSON: wrote ${request.outPath}`);
+    return { ok: true };
+  });
+}
+
+function registerUpdateHandlers(state, devUrl, sendToWindow) {
   handle(devUrl, 'dronepath:update:restart', () => {
     if (!state.updates) return { ok: false, error: 'this build does not self-update' };
     // No pendingClose here: the prompt never opens over a running export, and
@@ -170,9 +177,20 @@ export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
     });
   });
   handle(devUrl, 'dronepath:update:state', () => ({ ready: state.updateReady }));
+}
 
+function registerWindowHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:window:close', () => {
     // The window's close handler runs the running-export guard.
     if (state.win && !state.win.isDestroyed()) state.win.close();
   });
+}
+
+export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
+  registerSessionHandlers(state, devUrl);
+  registerSettingsHandlers(state, devUrl, log);
+  registerExportHandlers(state, devUrl);
+  registerTelemetryHandlers(state, devUrl, log);
+  registerUpdateHandlers(state, devUrl, sendToWindow);
+  registerWindowHandlers(state, devUrl);
 }
