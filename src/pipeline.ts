@@ -591,29 +591,40 @@ export async function runBatch(
 
   const plans = planOutputs(videos, config);
 
-  for (const [idx, video] of videos.entries()) {
-    const base = path.basename(video);
-    log(`=== ${base} ===`);
-
-    const plan = plans[idx];
+  function collisionWarning(base: string, plan: PlannedOutput): void {
     if (plan.out !== plan.plain) {
       log(
         `warning: output name collision for ${base} - writing ${path.basename(plan.out)} instead`,
       );
     }
-    if (config.skipExisting && (await deps.outputMatchesSource(tools, video, plan.out))) {
-      log(`SKIP  ${plan.out}  (exists and matches the source)`);
+  }
+
+  async function maybeSkip(video: string, plan: PlannedOutput): Promise<'skipped' | null> {
+    if (!(config.skipExisting && (await deps.outputMatchesSource(tools, video, plan.out)))) {
+      return null;
+    }
+    log(`SKIP  ${plan.out}  (exists and matches the source)`);
+    return 'skipped';
+  }
+
+  async function runOne(video: string, plan: PlannedOutput): Promise<RecordingSummary> {
+    return processRecording(video, config, log, plan.out, { ...options, deps, tools });
+  }
+
+  for (const [idx, video] of videos.entries()) {
+    const base = path.basename(video);
+    log(`=== ${base} ===`);
+
+    const plan = plans[idx];
+    collisionWarning(base, plan);
+    if ((await maybeSkip(video, plan)) !== null) {
       emit({ video, out: plan.out, status: 'skipped', elapsedSec: 0 });
       result.skipped++;
       continue;
     }
 
     try {
-      const summary = await processRecording(video, config, log, plan.out, {
-        ...options,
-        deps,
-        tools,
-      });
+      const summary = await runOne(video, plan);
       emit(summary);
       log(`OK  ${plan.out}  (${summary.frames} frames @ ${summary.fps}, ${summary.elapsedSec} s)`);
       result.ok++;

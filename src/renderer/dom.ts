@@ -2,15 +2,13 @@ import type { HudLayout } from '../config.js';
 import type { TileSource } from './tilesources.js';
 import type { Theme } from './theme.js';
 
-export function sceneCss(
+function mapCss(
+  at: string,
   src: TileSource,
   theme: Theme,
   width: number,
   height: number,
-  scale: number,
-  scope: string,
 ): string {
-  const at = `.${scope}`;
   return `
   ${at} { margin: 0; padding: 0; overflow: hidden; background: ${src.bg}; }
   ${at}, ${at} * { animation: none !important; transition: none !important; }
@@ -28,7 +26,11 @@ export function sceneCss(
     position: absolute; inset: 0; z-index: 500; pointer-events: none;
     background: radial-gradient(ellipse 78% 78% at 50% 44%,
       rgba(0,0,0,0) 52%, rgba(0,0,0,${theme.vignette}) 100%);
-  }
+  }`;
+}
+
+function droneCss(at: string, theme: Theme, scale: number): string {
+  return `
   ${at} .drone-wrap {
     width: ${Math.round(46 * scale)}px; height: ${Math.round(46 * scale)}px;
     border-radius: 50%;
@@ -41,7 +43,11 @@ export function sceneCss(
     box-sizing: border-box;
   }
   ${at} .drone-arrow { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  ${at} .drone-arrow svg { width: 72%; height: 72%; display: block; }
+  ${at} .drone-arrow svg { width: 72%; height: 72%; display: block; }`;
+}
+
+function chipCss(at: string, theme: Theme, scale: number): string {
+  return `
   ${at} #hud {
     position: absolute; top: ${Math.round(16 * scale)}px; left: ${Math.round(16 * scale)}px;
     display: flex; flex-direction: column; gap: ${Math.round(8 * scale)}px;
@@ -70,7 +76,11 @@ export function sceneCss(
     font-size: 0.55em; font-weight: 700; letter-spacing: 1.2px;
     color: ${theme.core}; opacity: 0.95;
   }
-  ${at} .chip .unit { font-weight: 500; opacity: 0.72; font-size: 0.68em; }
+  ${at} .chip .unit { font-weight: 500; opacity: 0.72; font-size: 0.68em; }`;
+}
+
+function attrCss(at: string, scale: number): string {
+  return `
   ${at} #attr {
     position: absolute; right: 0; bottom: 0; z-index: 1000; max-width: 72%;
     background: rgba(12, 14, 22, 0.62); color: rgba(255,255,255,0.78);
@@ -80,7 +90,11 @@ export function sceneCss(
     border-radius: ${Math.round(4 * scale)}px 0 0 0;
     pointer-events: none;
   }
-  ${at} #attr a { color: rgba(255,255,255,0.92); text-decoration: none; }
+  ${at} #attr a { color: rgba(255,255,255,0.92); text-decoration: none; }`;
+}
+
+function scaleBarCss(at: string, scale: number): string {
+  return `
   ${at} #scalebar {
     position: absolute; left: ${Math.round(10 * scale)}px; bottom: ${Math.round(8 * scale)}px;
     z-index: 1000; pointer-events: none;
@@ -95,6 +109,24 @@ export function sceneCss(
     border: 1px solid rgba(255,255,255,0.85); border-top: none;
     box-shadow: 0 1px 2px rgba(0,0,0,0.6);
   }`;
+}
+
+export function sceneCss(
+  src: TileSource,
+  theme: Theme,
+  width: number,
+  height: number,
+  scale: number,
+  scope: string,
+): string {
+  const at = `.${scope}`;
+  return (
+    mapCss(at, src, theme, width, height) +
+    droneCss(at, theme, scale) +
+    chipCss(at, theme, scale) +
+    attrCss(at, scale) +
+    scaleBarCss(at, scale)
+  );
 }
 
 export function hudMarkup(hud: HudLayout): string {
