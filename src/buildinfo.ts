@@ -1,13 +1,10 @@
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 
 import { runToolMain } from './errors.js';
+import { runTool } from './exec-tool.js';
 import { VERSION } from './version.js';
-
-const execFileAsync = promisify(execFile);
 
 /** What the git probe found at build time; null when git was unavailable. */
 export interface GitProbe {
@@ -64,7 +61,7 @@ export function buildBuildinfo(
 
 async function tryGit(args: readonly string[]): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', [...args]);
+    const { stdout } = await runTool('git', [...args]);
     return stdout;
   } catch {
     return null;

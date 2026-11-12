@@ -1,8 +1,6 @@
-import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 
 import {
   decodePacketSamples,
@@ -10,10 +8,9 @@ import {
   spreadSampleTimes,
 } from './cammeta-decode.js';
 import type { CamMetaPacket, CamMetaResult } from './cammeta-decode.js';
+import { runTool } from './exec-tool.js';
 import { ffprobeJson } from './ffmpeg.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
-
-const execFileAsync = promisify(execFile);
 
 const FFMPEG_MAX_BUFFER = 64 * 1024 * 1024;
 
@@ -83,7 +80,7 @@ async function dumpCamMetaStream(
   );
   try {
     try {
-      await execFileAsync(
+      await runTool(
         tools.ffmpeg,
         [
           '-v', 'error', '-y', '-i', videoPath,
