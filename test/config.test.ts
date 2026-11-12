@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_OPTIONS,
   DEFAULT_CONFIG,
+  SETTINGS_KEYS,
   asTrailColor,
   cliDefaultOf,
   formatHud,
@@ -468,6 +469,14 @@ describe('parseSettingsPatch', () => {
     ['a mistyped trail color', { ...complete, trailColor: 5 }],
   ])('rejects %s', (_label, raw) => {
     expect(() => parseSettingsPatch(raw, 'test')).toThrow();
+  });
+
+  it.for(SETTINGS_KEYS)('rejects a patch missing %s', (key) => {
+    const partial: Record<string, unknown> = { ...complete };
+    delete partial[key];
+    expect(() => parseSettingsPatch(partial, 'test')).toThrow(
+      `missing settings key ${key} in test`,
+    );
   });
 
   it('echoes the raw trail color input in the error', () => {

@@ -1,11 +1,17 @@
 import { z } from 'zod';
 
-export type MapStyle = 'satellite' | 'topo';
-export type ViewMode = 'follow' | 'overview';
-export type CaptureFormat = 'jpeg' | 'png';
-export type Codec = 'h264' | 'h265';
-export type Quality = 'near-lossless' | 'high' | 'medium' | 'low';
-export type EncoderPreset = 'medium' | 'veryfast';
+export const MAP_STYLE_VALUES = ['satellite', 'topo'] as const;
+export type MapStyle = (typeof MAP_STYLE_VALUES)[number];
+export const VIEW_MODE_VALUES = ['follow', 'overview'] as const;
+export type ViewMode = (typeof VIEW_MODE_VALUES)[number];
+const CAPTURE_FORMAT_VALUES = ['jpeg', 'png'] as const;
+export type CaptureFormat = (typeof CAPTURE_FORMAT_VALUES)[number];
+export const CODEC_VALUES = ['h264', 'h265'] as const;
+export type Codec = (typeof CODEC_VALUES)[number];
+export const QUALITY_VALUES = ['near-lossless', 'high', 'medium', 'low'] as const;
+export type Quality = (typeof QUALITY_VALUES)[number];
+export const ENCODER_PRESET_VALUES = ['medium', 'veryfast'] as const;
+export type EncoderPreset = (typeof ENCODER_PRESET_VALUES)[number];
 
 export interface HudLayout {
   heading: boolean;
@@ -50,13 +56,6 @@ export const CONFIG_FILE_OPTION = {
   flags: '--config <path>',
   help: 'config file (default: .dronepath.json discovered upward from the working directory)',
 } as const;
-
-export const MAP_STYLE_VALUES: readonly MapStyle[] = ['satellite', 'topo'];
-export const VIEW_MODE_VALUES: readonly ViewMode[] = ['follow', 'overview'];
-const CAPTURE_FORMAT_VALUES: CaptureFormat[] = ['jpeg', 'png'];
-export const CODEC_VALUES: readonly Codec[] = ['h264', 'h265'];
-export const QUALITY_VALUES: readonly Quality[] = ['near-lossless', 'high', 'medium', 'low'];
-export const ENCODER_PRESET_VALUES: readonly EncoderPreset[] = ['medium', 'veryfast'];
 
 type OverrideNormalizer = (value: unknown, name: string) => ConfigOverrides;
 
@@ -471,14 +470,22 @@ export function effectiveZoomOut(config: Pick<RenderConfig, 'zoom' | 'zoomOut'>)
   return config.zoom > 0 ? 0 : config.zoomOut;
 }
 
-export type EncodeSettings = Pick<RenderConfig, 'codec' | 'quality' | 'preset'>;
+const LOOK_SETTINGS_KEYS = [
+  'style',
+  'view',
+  'zoom',
+  'zoomOut',
+  'hud',
+  'introSec',
+  'outroSec',
+  'trailColor',
+] as const;
+const ENCODE_SETTINGS_KEYS = ['codec', 'quality', 'preset'] as const;
+export const SETTINGS_KEYS = [...LOOK_SETTINGS_KEYS, ...ENCODE_SETTINGS_KEYS] as const;
 
-export type AppearanceSettings = Pick<
-  RenderConfig,
-  'style' | 'view' | 'zoom' | 'zoomOut' | 'hud' | 'introSec' | 'outroSec' | 'trailColor'
->;
-
-export type SettingsPatch = AppearanceSettings & EncodeSettings;
+export type AppearanceSettings = Pick<RenderConfig, (typeof LOOK_SETTINGS_KEYS)[number]>;
+export type EncodeSettings = Pick<RenderConfig, (typeof ENCODE_SETTINGS_KEYS)[number]>;
+export type SettingsPatch = Pick<RenderConfig, (typeof SETTINGS_KEYS)[number]>;
 
 export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   return {
@@ -495,20 +502,6 @@ export function settingsPatchOf(config: RenderConfig): SettingsPatch {
     preset: config.preset,
   };
 }
-
-export const SETTINGS_KEYS = [
-  'style',
-  'view',
-  'zoom',
-  'zoomOut',
-  'hud',
-  'introSec',
-  'outroSec',
-  'trailColor',
-  'codec',
-  'quality',
-  'preset',
-] as const;
 
 const SETTINGS_SHAPE = Object.fromEntries(
   SETTINGS_KEYS.map((key) => [key, z.unknown().optional()]),

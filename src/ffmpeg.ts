@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 
 import { framesForSeconds, parseFpsRate, parseRate } from './frametime.js';
 import type { Fps } from './frametime.js';
+import { FFMPEG_TOOL_NAMES } from './ffmpeg-tools.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 
 const execFileAsync = promisify(execFile);
@@ -29,7 +30,7 @@ const INSTALL_HINT =
 const FFPROBE_MAX_BUFFER = 64 * 1024 * 1024;
 
 export async function requireFfmpegTools(tools: FfmpegToolPaths): Promise<void> {
-  for (const tool of ['ffmpeg', 'ffprobe'] as const) {
+  for (const tool of FFMPEG_TOOL_NAMES) {
     const command = tools[tool];
     try {
       await execFileAsync(command, ['-version'], { maxBuffer: 1 << 20 });
