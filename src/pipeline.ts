@@ -415,7 +415,7 @@ export function recordingPageOpts(
   });
 }
 
-interface RenderContext extends PreparedRecording {
+interface RunContext extends PreparedRecording {
   videoPath: string;
   outPath: string;
   config: RenderConfig;
@@ -425,14 +425,14 @@ interface RenderContext extends PreparedRecording {
   tileStats: PrefetchStats;
 }
 
-interface RenderStageEnv {
-  ctx: RenderContext;
+interface RunStageEnv {
+  ctx: RunContext;
   deps: PipelineDeps;
   tools: FfmpegToolPaths;
   options: PipelineOptions;
 }
 
-function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummary {
+function buildOkSummary(ctx: RunContext, elapsedSec: number): RecordingSummary {
   const { config, probe, tel, hud, introOutro, overview, tileStats } = ctx;
   const telemetry = telemetrySummary(tel);
   return {
@@ -466,7 +466,7 @@ function buildOkSummary(ctx: RenderContext, elapsedSec: number): RecordingSummar
   };
 }
 
-async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
+async function verifyRenderedOutput(env: RunStageEnv): Promise<void> {
   const { ctx, deps, tools } = env;
   const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
   if (!verify.ok) {
@@ -482,7 +482,7 @@ async function verifyRenderedOutput(env: RenderStageEnv): Promise<void> {
   );
 }
 
-async function renderToOutput(env: RenderStageEnv): Promise<void> {
+async function renderToOutput(env: RunStageEnv): Promise<void> {
   const { ctx, deps, tools, options } = env;
   const html = buildPageHtml(recordingPageOpts(ctx, ctx.config));
   fs.mkdirSync(path.dirname(ctx.outPath), { recursive: true });
@@ -560,7 +560,7 @@ export async function processRecording(
   const tileStats = await tileWarmStage(deps, config, prep.overview, log);
   const range = resolveFrameRange(options.range, prep.probe.frames);
   const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
-  const ctx: RenderContext = {
+  const ctx: RunContext = {
     ...prep,
     videoPath,
     outPath,
