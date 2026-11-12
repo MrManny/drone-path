@@ -1,5 +1,7 @@
 # Pull requests
 
+An agent **should** wait for human approval before opening a PR.
+
 ## Titles
 
 Short and imperative in a Conventional Commits style, e.g. `docs(agents): Agent instructions`.
@@ -8,9 +10,8 @@ Release PRs are titled `release: vX.Y.Z`; since PRs squash-merge, that title bec
 
 ## Body
 
-Keep the body up to date if any fix-up commits render any part of the previous body stale.
-Use `Closes #n` or `Fixes #n` to close an underlying issue.
-Use `Refs #n` if only partially solving an underlying issue, leaving it open.
+Keep the body current when fix-ups make it stale.
+Use `Closes #n` or `Fixes #n` to close an underlying issue; `Refs #n` leaves it open when only partially solved.
 
 ## Labels
 
@@ -23,6 +24,4 @@ Keep the draft body light; write the full description when undrafting, once the 
 
 ## Merging
 
-The default and recommended merge strategy is squash-merge.
-
-Agents may not merge PRs themselves without explicit instructions to do so by the human.
+The default and recommended merge strategy is squash-merge. Agents never merge PRs themselves (see hard rules).

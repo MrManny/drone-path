@@ -10,7 +10,7 @@ Standing reference for the Electron desktop UI. Read before changing anything un
 4. Say what happened and what to do next. Failures read as sentences, not codes. Give actionable and constructive guidance how to resolve errors.
 5. The drone footage is the hero. The video is the main pane beside a synchronized flight-map pane.
 
-[Jakob Nielsen's 10 usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/) guide every screen: system status, real-world match, user control, consistency, error prevention, recognition over recall, efficiency, minimalist design, error recovery and help.
+[Jakob Nielsen's 10 usability heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/) guide every screen.
 
 Look and feel: layered neutral surfaces, 1 px hairline borders, one warm coral accent, 8 px and 12 px radii with pills, the Segoe UI Variable stack, icon plus label for actions (icon-only buttons carry `aria-label` and `title`).
 
@@ -65,9 +65,10 @@ Measured contrast (WCAG): open label 6.1:1, hover label 8.9:1, hover hint/icon 5
 
 ## Keyboard
 
-Player shortcuts (`ui/lib/hotkeys.ts`): Space or K play and pause; 1–4 set speed; Left and Right step one frame, Shift jumps a second; Home and End seek; I and O set loop points; S swaps the stage layouts; Ctrl+O opens a recording; Escape closes the open dialog or the map appearance popover, or clears the loop. Only the arrow keys repeat when held.
-
-Menu keys: Alt opens the menu bar (File first) and a second Alt closes it; Alt+F, Alt+V and Alt+H open File, View and Help directly; the arrow keys move through items and between open menus; Enter and Space activate; Escape closes without action. While a menu is open it owns the keyboard and the player shortcuts stay inert.
+The key vocabulary lives in `ui/lib/hotkeys.ts` and is documented in
+[keyboard-shortcuts.md](user/keyboard-shortcuts.md). Behavior rules: only the
+arrow keys repeat when held; while a menu is open it owns the keyboard and the
+player shortcuts stay inert; menus follow the Windows menu key conventions.
 
 ## Components, copy and errors
 

@@ -22,20 +22,18 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 - When adding a new dependency, pin it to a patch-level range (i.e. `~1.2.3`);
   new dependencies **must not** have high or critical security issues on
   Snyk. Check `https://security.snyk.io/package/npm/<package_name>`.
-- Unit tests need nothing beyond Node — no ffmpeg, browser or network. Real
-  render runs need Chrome/Edge plus ffmpeg/ffprobe: the embedded binaries, a
-  `--ffmpeg`/`--ffprobe` override, or on PATH.
+- Real render runs need Chrome/Edge plus ffmpeg/ffprobe: the embedded
+  binaries, a `--ffmpeg`/`--ffprobe` override, or on PATH.
 
 ## Testing
 
 - One `test/<module>.test.ts` per source module; fixtures in `test/fixtures.ts`
   (`tmpDir()` + `afterEach(cleanupTmpDirs)`).
-- Deterministic and offline: no network, tile downloads, ffmpeg/ffprobe or
-  browser.
-- New behaviors need suitable testing: sunny case, as well as common rainy cases.
-- Use parameterized tests with `describe.for`/`describe.each` for "bulk" testing.
-- Behavior changes ship with tests (a bug fix gets a regression test).
-  Never commit `.only`, `.skip` or `.todo`.
+- Deterministic and offline, needing nothing beyond Node: no network, tile
+  downloads, ffmpeg/ffprobe or browser.
+- Behavior changes ship with tests: sunny and common rainy cases; a bug fix
+  gets a regression test. Use parameterized tests (`describe.for`/
+  `describe.each`) for bulk cases. Never commit `.only`, `.skip` or `.todo`.
 - `npm test` regenerates the manual bundle (`npm run build:manual`), then
   type-checks the test tree (`npm run typecheck:test`, `tsc --noEmit` over
   `test/tsconfig.json`); keep it clean.
@@ -53,13 +51,11 @@ vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 
 ## Conventions
 
-- Use American English language, not British English. Nothing against the Brits though;
-  would love to see you come back into the European Union.
+- Use American English, not British English.
 - TypeScript strict, ESM, NodeNext: relative imports carry `.js`, built-ins use
   `node:`, types via `import type`.
 - camelCase / PascalCase / UPPER_SNAKE_CASE; one concern per file;
-  comments say *why*, not *what*. Do not add any comments where it contributes
-  no value beyond what's clearly visible whatsoever.
+  comments say *why*, not *what* — and only where they add something.
 - Progress/errors → stderr; `--json` output → stdout.
 - Errors: throw plain `Error` with a lowercase message; when catching and
   rethrowing, wrap the original with `{ cause }` instead of dropping it.
@@ -85,11 +81,9 @@ UI tokens and design principles.
 - `npm run lint`, `npm test`, `npm run build` green (CI gates on lint + test
   over Node 24 + 26, then adds `npm pack --dry-run` and a desktop packaging
   smoke on Node 24).
-- Behavior changes ship with tests; docs updated (README: user-visible, here:
-  commands and standards).
-- PRs titled `feat:`/`fix:` add a `.changeset/*.md` fragment, `release:` PRs
-  change `CHANGELOG.md` (CI enforces this); releases fold the fragments into
-  `CHANGELOG.md` (see `.changeset/README.md`).
+- Docs updated (README: user-visible, here: commands and standards).
+- Release bookkeeping (changesets, `CHANGELOG.md`) is defined in
+  [`.changeset/README.md`](.changeset/README.md); CI enforces it.
 
 ## Agent helper
 
@@ -100,25 +94,21 @@ never part of the application or its bundle, and not linted or unit-tested.
 Every script opens with a tl;dr comment of at most 10 lines on how/when to use
 it, so an agent can read just the first 10 lines.
 
-- `node scripts/start-work.mjs <branch>` — assign the issue in
-  `<type>/<issue-number>-<slug>`, create the branch, set it "In progress".
-- `node scripts/safe-push.mjs` — lint, test and build ("lint ok", "tests okay",
-  "build okay"), then push the current branch; on failure the full error is on stderr.
-- `node scripts/open-pr.mjs <title> <body_path> [base]` — safe-push, fail fast when a
-  `feat:`/`fix:` title lacks a `.changeset/*.md` fragment, label the PR from the first
-  referenced issue and set it "In review", then open the PR (base defaults to `main`)
-  and assign it to `@me` (best-effort: a failure notes to stderr and the PR still opens).
+- `node scripts/start-work.mjs <branch>` — assign the issue, create the
+  branch, set it "In progress".
+- `node scripts/safe-push.mjs` — lint, test and build, then push the current
+  branch; on failure the full error is on stderr.
+- `node scripts/open-pr.mjs <title> <body_path> [base]` — safe-push, then open
+  the PR (base defaults to `main`) with label and status bookkeeping.
 
-Project status steps are best-effort: they are skipped silently only when the
-project cannot be read at all (no project access, or `gh` cannot see the repo);
-when a readable project's status cannot be set, a short note goes to stderr.
-Every helper spawns external commands through
-`scripts/lib/exec.mjs` (one child-process policy: hidden windows on Windows) — do not
-call `node:child_process` directly.
+Project status and assignment steps are best-effort (details in each script's
+tl;dr and `scripts/lib/project.mjs`). Every helper spawns external commands
+through `scripts/lib/exec.mjs` (one child-process policy: hidden windows on
+Windows) — do not call `node:child_process` directly.
 
 ### Paths
 
-If you need to write temporary files, use `.scratch`. It is a git-ignored space.
+Temporary files go in `.scratch` (git-ignored).
 
 ## GitHub interactions
 

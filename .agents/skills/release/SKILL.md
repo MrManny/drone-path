@@ -11,7 +11,7 @@ description: Release workflow. Use when preparing a release.
   - at least one changeset must be pending; if user-visible changes landed without a fragment, write the missing ones first (ask the user)
 
 3. Confirm the target version with the user — they may want a different one for scope; if it differs from the derived version, adjust `package.json` and the new `CHANGELOG.md` heading, then re-sync the lock file (`npm install --package-lock-only`)
-  - while the version is `0.x`, a `major` fragment would mean a `1.0.0` release; say so explicitly when asking
+  - if the pending fragment is `major`, say so explicitly when asking: while the version is `0.x` it means a `1.0.0` release (see `.changeset/README.md`)
 
 4. Switch to a dedicated release branch `release/vX.Y.Z`
 
