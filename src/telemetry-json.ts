@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
+import { resolveFrameRange } from './config.js';
+import type { FrameRange } from './config.js';
 import type { HeadingMode, TelemetrySource } from './telemetry-math.js';
 
 export const TELEMETRY_JSON_SCHEMA_VERSION = 1;
@@ -126,6 +128,21 @@ function buildRecord(
   record.headingSource = input.headingMode;
   for (const key of EXPOSURE_KEYS) copyValue(record, key, row[key]);
   return record as TelemetryRecord;
+}
+
+export function segmentTelemetryInput(
+  input: TelemetryDocumentInput,
+  range: FrameRange | null,
+): TelemetryDocumentInput {
+  const segment = resolveFrameRange(range, input.frameCount);
+  if (!segment) return input;
+  return {
+    ...input,
+    frameCount: segment.end - segment.start + 1,
+    frames: input.frames.slice(segment.start, segment.end + 1),
+    headingDeg: input.headingDeg.slice(segment.start, segment.end + 1),
+    frameStart: segment.start,
+  };
 }
 
 export function buildTelemetryDocument(

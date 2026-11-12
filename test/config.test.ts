@@ -10,6 +10,7 @@ import {
   formatHud,
   normalizeDimensions,
   normalizeOverrides,
+  parseAppearanceSettings,
   parseExportRequest,
   parseFrameRange,
   parseHud,
@@ -176,6 +177,49 @@ describe('validateRenderConfig', () => {
     expect(() =>
       validateRenderConfig({ ...DEFAULT_CONFIG, ...patch }),
     ).toThrow();
+  });
+});
+
+describe('bounds wording stays per-surface', () => {
+  const look = {
+    style: 'satellite',
+    view: 'follow',
+    zoom: 0,
+    zoomOut: 1,
+    hud: { heading: true, alt: false, speed: false },
+    introSec: 2,
+    outroSec: 2,
+    trailColor: null,
+  };
+
+  it('keeps the CLI messages of validateRenderConfig', () => {
+    expect(() => validateRenderConfig({ ...DEFAULT_CONFIG, zoom: -1 })).toThrow(
+      new Error('zoom must be >= 0 (0 = auto-fit)'),
+    );
+    expect(() => validateRenderConfig({ ...DEFAULT_CONFIG, zoomOut: -1 })).toThrow(
+      new Error('zoom-out must be >= 0'),
+    );
+    expect(() => validateRenderConfig({ ...DEFAULT_CONFIG, introSec: -1 })).toThrow(
+      new Error('intro-sec and outro-sec must be >= 0'),
+    );
+    expect(() => validateRenderConfig({ ...DEFAULT_CONFIG, outroSec: -1 })).toThrow(
+      new Error('intro-sec and outro-sec must be >= 0'),
+    );
+  });
+
+  it('keeps the IPC messages of parseAppearanceSettings', () => {
+    expect(() => parseAppearanceSettings({ ...look, zoom: -1 })).toThrow(
+      new Error('zoom must be >= 0 (0 = auto-fit)'),
+    );
+    expect(() => parseAppearanceSettings({ ...look, zoomOut: -1 })).toThrow(
+      new Error('zoom-out must be >= 0'),
+    );
+    expect(() => parseAppearanceSettings({ ...look, introSec: -1 })).toThrow(
+      new Error('intro must be 0 or more'),
+    );
+    expect(() => parseAppearanceSettings({ ...look, outroSec: -1 })).toThrow(
+      new Error('outro must be 0 or more'),
+    );
   });
 });
 

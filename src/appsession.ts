@@ -8,7 +8,6 @@ import {
   parseFrameRange,
   parseAppearanceSettings,
   parseValue,
-  resolveFrameRange,
   strictShape,
 } from './config.js';
 import type { FrameRange, AppearanceSettings, RenderConfig } from './config.js';
@@ -26,7 +25,7 @@ import {
 } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { PipelineDeps, PrepareProgressFn } from './pipeline.js';
-import { writeTelemetryDocument } from './telemetry-json.js';
+import { segmentTelemetryInput, writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 
 export interface PageVideo {
@@ -165,21 +164,6 @@ function isReadableVideo(filePath: string): boolean {
   } catch {
     return false;
   }
-}
-
-function segmentTelemetryInput(
-  input: TelemetryDocumentInput,
-  range: FrameRange | null,
-): TelemetryDocumentInput {
-  const segment = resolveFrameRange(range, input.frameCount);
-  if (!segment) return input;
-  return {
-    ...input,
-    frameCount: segment.end - segment.start + 1,
-    frames: input.frames.slice(segment.start, segment.end + 1),
-    headingDeg: input.headingDeg.slice(segment.start, segment.end + 1),
-    frameStart: segment.start,
-  };
 }
 
 export function createAppSession(options: AppSessionOptions): AppSession {

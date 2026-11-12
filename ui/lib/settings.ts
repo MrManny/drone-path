@@ -1,4 +1,4 @@
-import { normalizeDimensions, validateRenderConfig } from '../../src/config.js';
+import { isValidRenderConfig, normalizeDimensions } from '../../src/config.js';
 import type {
   ConfigOverrides,
   HudLayout,
@@ -12,11 +12,7 @@ export function patchConfig(
   patch: ConfigOverrides,
 ): RenderConfig | null {
   const next: RenderConfig = { ...config, ...patch, hud: patch.hud ?? config.hud };
-  try {
-    validateRenderConfig(next);
-  } catch {
-    return null;
-  }
+  if (!isValidRenderConfig(next)) return null;
   return { ...next, ...normalizeDimensions(next.width, next.height) };
 }
 
