@@ -3,7 +3,7 @@ export interface ByteRange {
   end: number;
 }
 
-export function parseRange(
+export function parseByteRange(
   header: string | string[] | undefined,
   size: number,
 ): ByteRange | null | 'unsatisfiable' {
@@ -30,17 +30,17 @@ export function parseRange(
   return { start, end: Math.min(end, size - 1) };
 }
 
-export type RangePlan =
+export type ByteRangePlan =
   | { status: 200; headers: Record<string, string> }
   | { status: 206; headers: Record<string, string>; span: ByteRange }
   | { status: 416; headers: Record<string, string>; body: string };
 
-export function rangePlan(
+export function planByteRange(
   header: string | string[] | undefined,
   size: number,
   mime: string,
-): RangePlan {
-  const range = parseRange(header, size);
+): ByteRangePlan {
+  const range = parseByteRange(header, size);
   if (range === 'unsatisfiable') {
     return {
       status: 416,

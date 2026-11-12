@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { Style } from './config.js';
+import type { MapStyle } from './config.js';
 import type { TileCoord } from './plan.js';
 import { parseTilePathname, tilePaths } from './tilecache.js';
 
@@ -20,10 +20,10 @@ export function mimeFor(filePath: string): string {
   return MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 }
 
-export type TilePolicy = { style: Style } | { anyStyle: true };
+export type TilePolicy = { style: MapStyle } | { anyStyle: true };
 
 export interface TileRoute {
-  style: Style;
+  style: MapStyle;
   tile: TileCoord;
   filePath: string;
   placeholderPath: string;
@@ -48,7 +48,7 @@ export function resolveTileRoute(
 
 export interface AssetRoutes {
   leafletDir: string;
-  style: Style;
+  style: MapStyle;
   tileCache: string;
   rendererDir: string;
 }

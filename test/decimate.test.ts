@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { decimateTrack } from '../src/decimate.js';
 import { project, unproject } from '../src/geo.js';
-import type { Pixel } from '../src/geo.js';
+import type { MercatorPixel } from '../src/geo.js';
 
 const ZOOM = 17;
 
-function trackFromPixels(points: Pixel[]): { lat: number[]; lon: number[] } {
+function trackFromPixels(points: MercatorPixel[]): { lat: number[]; lon: number[] } {
   const lat: number[] = [];
   const lon: number[] = [];
   for (const p of points) {
@@ -17,18 +17,18 @@ function trackFromPixels(points: Pixel[]): { lat: number[]; lon: number[] } {
   return { lat, lon };
 }
 
-function linePixels(n: number): Pixel[] {
+function linePixels(n: number): MercatorPixel[] {
   return Array.from({ length: n }, (_, i) => ({ x: i * 2, y: 500 }));
 }
 
-function zigzagPixels(n: number, amplitude: number): Pixel[] {
+function zigzagPixels(n: number, amplitude: number): MercatorPixel[] {
   return Array.from({ length: n }, (_, i) => ({
     x: i * 2,
     y: 500 + (i % 2 === 0 ? 0 : amplitude),
   }));
 }
 
-function deviationFromPolylinePx(points: Pixel[], kept: Pixel[]): number {
+function deviationFromPolylinePx(points: MercatorPixel[], kept: MercatorPixel[]): number {
   let worst = 0;
   for (const p of points) {
     let best = Infinity;
@@ -41,7 +41,7 @@ function deviationFromPolylinePx(points: Pixel[], kept: Pixel[]): number {
   return worst;
 }
 
-function distanceToSegmentPx(p: Pixel, a: Pixel, b: Pixel): number {
+function distanceToSegmentPx(p: MercatorPixel, a: MercatorPixel, b: MercatorPixel): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;

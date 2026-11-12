@@ -1,5 +1,5 @@
 import { project } from './geo.js';
-import type { Pixel } from './geo.js';
+import type { MercatorPixel } from './geo.js';
 
 export interface DecimatedTrack {
   lat: number[];
@@ -35,7 +35,7 @@ export function decimateTrack(
   if (n === 0) return { lat: [], lon: [], frame: [] };
   if (n === 1) return { lat: [lat[0]], lon: [lon[0]], frame: [0] };
 
-  const px: Pixel[] = new Array(n);
+  const px: MercatorPixel[] = new Array(n);
   for (let i = 0; i < n; i++) px[i] = project(lon[i], lat[i], zoom);
 
   let keep = douglasPeucker(px, epsilonPx);
@@ -58,7 +58,7 @@ export function decimateTrack(
   return track;
 }
 
-function douglasPeucker(px: readonly Pixel[], epsilon: number): number[] {
+function douglasPeucker(px: readonly MercatorPixel[], epsilon: number): number[] {
   const n = px.length;
   const keep = new Uint8Array(n);
   keep[0] = 1;
@@ -93,7 +93,7 @@ function douglasPeucker(px: readonly Pixel[], epsilon: number): number[] {
   return indices;
 }
 
-function distanceToSegment(p: Pixel, a: Pixel, b: Pixel): number {
+function distanceToSegment(p: MercatorPixel, a: MercatorPixel, b: MercatorPixel): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;

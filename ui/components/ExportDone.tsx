@@ -1,6 +1,6 @@
 'use client';
 
-import type { RecordingSummary } from '../../src/run.js';
+import type { RecordingSummary } from '../../src/pipeline.js';
 import { formatExportSummary } from '../lib/exportsummary.js';
 import { ErrorNotice } from './ErrorNotice.js';
 import { Notice } from './Notice.js';

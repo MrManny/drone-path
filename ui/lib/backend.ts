@@ -8,7 +8,7 @@ import type {
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
-import type { PrepareProgress } from '../../src/run.js';
+import type { PrepareProgress } from '../../src/pipeline.js';
 
 export interface PickOutputResult extends IpcResult {
   path?: string;

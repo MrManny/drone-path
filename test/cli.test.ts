@@ -7,9 +7,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildProgram, longFlagOf, parseCliArgs } from '../src/cli.js';
 import { CONFIG_OPTIONS, DEFAULT_CONFIG } from '../src/config.js';
 import { defaultTileCache, resolveConfig } from '../src/configfile.js';
-import type * as ffModule from '../src/ff.js';
-import type * as inputsModule from '../src/inputs.js';
-import type * as runModule from '../src/run.js';
+import type * as ffmpegModule from '../src/ffmpeg.js';
+import type * as recordingsModule from '../src/recordings.js';
+import type * as pipelineModule from '../src/pipeline.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);
@@ -208,16 +208,16 @@ describe('main OTEL_* removal regression', () => {
   ) {
     for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
     vi.resetModules();
-    vi.doMock('../src/ff.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof ffModule>()),
-      requireTools: async () => {},
+    vi.doMock('../src/ffmpeg.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof ffmpegModule>()),
+      requireFfmpegTools: async () => {},
     }));
-    vi.doMock('../src/inputs.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof inputsModule>()),
+    vi.doMock('../src/recordings.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof recordingsModule>()),
       collectRecordings: () => [path.join('clips', 'clip.mp4')],
     }));
-    vi.doMock('../src/run.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof runModule>()),
+    vi.doMock('../src/pipeline.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof pipelineModule>()),
       runBatch,
     }));
     const stderr = vi
@@ -233,9 +233,9 @@ describe('main OTEL_* removal regression', () => {
       ]);
       return stderr.mock.calls.map((c) => String(c[0])).join('');
     } finally {
-      vi.doUnmock('../src/ff.js');
-      vi.doUnmock('../src/inputs.js');
-      vi.doUnmock('../src/run.js');
+      vi.doUnmock('../src/ffmpeg.js');
+      vi.doUnmock('../src/recordings.js');
+      vi.doUnmock('../src/pipeline.js');
       vi.resetModules();
     }
   }

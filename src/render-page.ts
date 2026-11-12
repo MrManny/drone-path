@@ -1,25 +1,25 @@
-import { hasAltitude, resolveHudSpec } from './config.js';
-import type { HudSpec, LookSettings, Style, View } from './config.js';
+import { hasAltitude, resolveHudLayout } from './config.js';
+import type { HudLayout, AppearanceSettings, MapStyle, ViewMode } from './config.js';
 import { decimateTrack } from './decimate.js';
 import type { DecimatedTrack } from './decimate.js';
 import { unproject } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
 import { planIntroOutroFrames, planView } from './plan.js';
-import type { IntroOutroFrames, Overview } from './plan.js';
+import type { IntroOutroFrames, OverviewPlan } from './plan.js';
 import type { SceneData } from './renderer/scene.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
 import type { FrameChannels } from './telemetry-math.js';
 
-export interface PageOpts extends FrameChannels {
+export interface RenderPageOpts extends FrameChannels {
   width: number;
   height: number;
-  style: Style;
+  style: MapStyle;
   trailColor: string | null;
-  view: View;
+  view: ViewMode;
   center: LatLon;
   zoom: number;
   attribution: string;
-  hud: HudSpec;
+  hud: HudLayout;
   decimated: DecimatedTrack;
   introN?: number;
   outroN?: number;
@@ -29,16 +29,16 @@ export function planPageOpts(opts: {
   bbox: Bbox;
   width: number;
   height: number;
-  config: LookSettings;
+  config: AppearanceSettings;
   source: { fps: number; frames: number };
   frames: FrameChannels;
-  planned?: { overview: Overview; introOutro: IntroOutroFrames; hud: HudSpec };
+  planned?: { overview: OverviewPlan; introOutro: IntroOutroFrames; hud: HudLayout };
   previous?: { zoom: number; decimated: DecimatedTrack };
-}): PageOpts {
+}): RenderPageOpts {
   const { bbox, width, height, config, source, frames, planned, previous } = opts;
   const overview = planned?.overview ?? planView(bbox, width, height, config);
   const introOutro = planned?.introOutro ?? planIntroOutroFrames(config, source);
-  const hud = planned?.hud ?? resolveHudSpec(config.hud, hasAltitude(frames.alt));
+  const hud = planned?.hud ?? resolveHudLayout(config.hud, hasAltitude(frames.alt));
   const decimated =
     previous && previous.zoom === overview.zoom
       ? previous.decimated
@@ -64,7 +64,7 @@ export function planPageOpts(opts: {
   };
 }
 
-export function buildSceneData(opts: PageOpts, tileBase: string): SceneData {  const {
+export function buildSceneData(opts: RenderPageOpts, tileBase: string): SceneData {  const {
     width, height, style, trailColor, view, center, zoom, attribution,
     lat, lon, alt, speed, headingDeg, hud, decimated,
     introN = 0, outroN = 0,
@@ -98,7 +98,7 @@ window.__relayout = function () { scene.relayout(); };
 scene.ready.then(function () { window.__READY = true; });`;
 }
 
-export function buildPageHtml(opts: PageOpts): string {
+export function buildPageHtml(opts: RenderPageOpts): string {
   const data = buildSceneData(opts, '/tiles');
   // "</" must not appear verbatim: the JSON is inlined into a <script> tag.
   const json = JSON.stringify(data).replace(/</g, '\\u003c');

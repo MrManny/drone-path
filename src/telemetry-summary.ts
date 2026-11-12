@@ -9,7 +9,7 @@ export interface TelemetrySummary {
   source: TelemetrySource;
   method: TelemetryMethod;
   headingMode: HeadingMode;
-  fixes: number;
+  fixCount: number;
   noLock: number;
   trackDistanceM: number;
 }
@@ -19,17 +19,17 @@ export function telemetrySummary(tel: Telemetry): TelemetrySummary {
     source: tel.source,
     method: tel.method,
     headingMode: tel.headingMode,
-    fixes: tel.fixCount,
+    fixCount: tel.fixCount,
     noLock: tel.noLock,
     trackDistanceM: Math.round(tel.trackDistanceM),
   };
 }
 
-export function fixesLabel(fixes: number): string {
-  return `${fixes} fixes`;
+export function fixCountLabel(fixCount: number): string {
+  return `${fixCount} fixes`;
 }
 
-export function noLockCuesLabel(noLock: number): string {
+export function noLockCountLabel(noLock: number): string {
   return `${noLock} no-lock cues`;
 }
 

@@ -6,11 +6,11 @@ import { VERSION } from './version.js';
 import { CONFIG_FILE_OPTION, CONFIG_OPTIONS, cliDefaultOf } from './config.js';
 import { resolveConfig } from './configfile.js';
 import type { ConfigOverrides, RenderConfig } from './config.js';
-import { collectRecordings } from './inputs.js';
-import { requireTools } from './ff.js';
-import { resolveFfTools } from './fftools.js';
-import { runBatch } from './run.js';
-import type { LogFn, RecordingSummary } from './run.js';
+import { collectRecordings } from './recordings.js';
+import { requireFfmpegTools } from './ffmpeg.js';
+import { resolveFfmpegTools } from './ffmpeg-tools.js';
+import { runBatch } from './pipeline.js';
+import type { LogFn, RecordingSummary } from './pipeline.js';
 
 export interface ParsedCli {
   inputs: string[];
@@ -122,8 +122,8 @@ async function runPipeline(
   log: LogFn,
 ): Promise<void> {
   const { inputs, config, configPath } = invocation;
-  const tools = resolveFfTools(config);
-  await requireTools(tools);
+  const tools = resolveFfmpegTools(config);
+  await requireFfmpegTools(tools);
   const videos = collectRecordings(inputs, { recurse: config.recurse });
   if (config.outDir) fs.mkdirSync(config.outDir, { recursive: true });
   log(

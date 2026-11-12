@@ -35,7 +35,7 @@ export interface Telemetry {
   trackDistanceM: number;
 }
 
-export interface TelSample {
+export interface TelemetrySample {
   tSec: number;
   fix: LatLon | null;
   relAlt: number | null;
@@ -44,7 +44,7 @@ export interface TelSample {
 }
 
 export interface TelemetrySamples {
-  samples: TelSample[];
+  samples: TelemetrySample[];
   source: TelemetrySource;
   method: TelemetryMethod;
   noLock: number;
@@ -55,7 +55,7 @@ interface FramePosition {
   alt: number | null;
 }
 
-type FixSample = TelSample & { fix: LatLon };
+type FixSample = TelemetrySample & { fix: LatLon };
 
 type FixRef = FixSample & { index: number };
 
@@ -67,11 +67,11 @@ const HEADING_MAX_BASELINE_S = 3;
 const HEADING_MIN_SPEED_MPS = 0.5;
 const HEADING_SMOOTHING_SPAN = 4;
 
-function isFixSample(sample: TelSample): sample is FixSample {
+function isFixSample(sample: TelemetrySample): sample is FixSample {
   return sample.fix !== null;
 }
 
-function fixRefs(samples: TelSample[]): FixRef[] {
+function fixRefs(samples: TelemetrySample[]): FixRef[] {
   const refs: FixRef[] = [];
   samples.forEach((sample, index) => {
     if (isFixSample(sample)) refs.push({ ...sample, index });
@@ -79,17 +79,17 @@ function fixRefs(samples: TelSample[]): FixRef[] {
   return refs;
 }
 
-function altitudeOf(sample: TelSample): number | null {
+function altitudeOf(sample: TelemetrySample): number | null {
   return sample.relAlt ?? sample.absAlt ?? null;
 }
 
-function positionOfSample(sample: TelSample): FramePosition {
+function positionOfSample(sample: TelemetrySample): FramePosition {
   return { fix: sample.fix, alt: altitudeOf(sample) };
 }
 
 function interpolateAltitude(
-  a: TelSample,
-  b: TelSample,
+  a: TelemetrySample,
+  b: TelemetrySample,
   fraction: number,
 ): number | null {
   const altA = altitudeOf(a);
@@ -100,7 +100,7 @@ function interpolateAltitude(
 }
 
 function nearestFix(
-  samples: TelSample[],
+  samples: TelemetrySample[],
   idx: number,
   direction: number,
 ): FixSample | null {
@@ -114,7 +114,7 @@ function nearestFix(
 }
 
 function positionAt(
-  samples: TelSample[],
+  samples: TelemetrySample[],
   t: number,
   maxGapSec = MAX_INTERPOLATION_GAP_S,
 ): FramePosition {
@@ -143,7 +143,7 @@ function positionAt(
   };
 }
 
-function sampleIndexBefore(samples: TelSample[], t: number): number {
+function sampleIndexBefore(samples: TelemetrySample[], t: number): number {
   let lo = 0;
   let hi = samples.length - 1;
   while (hi - lo > 1) {
@@ -154,7 +154,7 @@ function sampleIndexBefore(samples: TelSample[], t: number): number {
   return lo;
 }
 
-function nearestSampleIndex(samples: TelSample[], t: number): number {
+function nearestSampleIndex(samples: TelemetrySample[], t: number): number {
   const lo = sampleIndexBefore(samples, t);
   const hi = Math.min(lo + 1, samples.length - 1);
   return t - samples[lo].tSec <= samples[hi].tSec - t ? lo : hi;
@@ -222,7 +222,7 @@ interface HeadingResult {
 }
 
 function computeHeadingBySample(
-  samples: TelSample[],
+  samples: TelemetrySample[],
   fixes: FixRef[],
   speedBySample: number[],
 ): HeadingResult {
@@ -306,7 +306,7 @@ function firstKnownHeading(rawHeading: (number | null)[]): number | null {
 }
 
 function buildFrameData(
-  samples: TelSample[],
+  samples: TelemetrySample[],
   frames: number,
   fpsValue: number,
   speedBySample: number[],
@@ -343,7 +343,7 @@ function bridgeMissingFramePositions(frameData: FrameData[]): void {
   }
 }
 
-export function buildTelemetry(
+export function computeTelemetry(
   loaded: TelemetrySamples,
   timing: { frames: number; fpsValue: number },
 ): Telemetry {

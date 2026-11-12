@@ -6,16 +6,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { planView } from '../src/plan.js';
 import {
-  frameArrays,
+  frameChannelsOf,
   outputPathFor,
   planOutputs,
   prepareSession,
   processRecording,
   recordingPageOpts,
   runBatch,
-} from '../src/run.js';
-import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/run.js';
-import type { FfToolPaths } from '../src/fftools.js';
+} from '../src/pipeline.js';
+import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/pipeline.js';
+import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 import { tilePaths } from '../src/tilecache.js';
 import { START_PREPARE_PROGRESS } from '../ui/lib/pickstate.js';
 import {
@@ -78,9 +78,9 @@ describe('planOutputs', () => {
   });
 });
 
-describe('frameArrays', () => {
+describe('frameChannelsOf', () => {
   it('collects positions and per-frame values into parallel arrays', () => {
-    const arrays = frameArrays(telemetryFixture());
+    const arrays = frameChannelsOf(telemetryFixture());
     expect(arrays.lat).toEqual([46.6, 46.61, 46.62]);
     expect(arrays.lon).toEqual([14.2, 14.21, 14.22]);
     expect(arrays.alt).toEqual([3.3, 3.4, 3.5]);
@@ -95,7 +95,7 @@ describe('frameArrays', () => {
         { fix: null, alt: 3.4, speed: 1.3, headingDeg: 91 },
       ],
     });
-    expect(() => frameArrays(tel)).toThrow('telemetry frame 1 has no GPS position');
+    expect(() => frameChannelsOf(tel)).toThrow('telemetry frame 1 has no GPS position');
   });
 });
 
@@ -376,8 +376,8 @@ describe('processRecording encoder settings', () => {
 
 describe('tool threading', () => {
   it('passes the resolved tools to every tool-using dep', async () => {
-    const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
-    const seen: [string, FfToolPaths][] = [];
+    const tools: FfmpegToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+    const seen: [string, FfmpegToolPaths][] = [];
     const deps = stubDeps({
       probeVideo: async (t) => {
         seen.push(['probeVideo', t]);
@@ -409,8 +409,8 @@ describe('tool threading', () => {
   });
 
   it('passes the resolved tools to the skip check in runBatch', async () => {
-    const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
-    const seen: FfToolPaths[] = [];
+    const tools: FfmpegToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+    const seen: FfmpegToolPaths[] = [];
     const deps = stubDeps({
       outputMatchesSource: async (t) => {
         seen.push(t);

@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 
 import { framesForSeconds, parseFpsRate, parseRate } from './frametime.js';
 import type { Fps } from './frametime.js';
-import type { FfToolPaths } from './fftools.js';
+import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,7 +15,7 @@ export interface VideoProbe {
   height: number;
 }
 
-export interface VerifyResult {
+export interface OutputVerifyResult {
   frames: number;
   fps: string | null;
   ok: boolean;
@@ -28,7 +28,7 @@ const INSTALL_HINT =
 
 const FFPROBE_MAX_BUFFER = 64 * 1024 * 1024;
 
-export async function requireTools(tools: FfToolPaths): Promise<void> {
+export async function requireFfmpegTools(tools: FfmpegToolPaths): Promise<void> {
   for (const tool of ['ffmpeg', 'ffprobe'] as const) {
     const command = tools[tool];
     try {
@@ -43,7 +43,7 @@ export async function requireTools(tools: FfToolPaths): Promise<void> {
 }
 
 export async function ffprobeJson(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
   args: string[],
 ): Promise<Record<string, unknown>> {
@@ -76,7 +76,7 @@ function firstStream(j: Record<string, unknown>): ProbeStream {
 }
 
 export async function probeVideo(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
   log: (msg: string) => void = () => {},
 ): Promise<VideoProbe> {
@@ -116,11 +116,11 @@ export async function probeVideo(
 }
 
 export async function verifyOutput(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   outPath: string,
   frames: number,
   fpsValue: number,
-): Promise<VerifyResult> {
+): Promise<OutputVerifyResult> {
   const j = await ffprobeJson(tools, outPath, [
     '-select_streams', 'v:0',
     '-show_entries', 'stream=nb_frames,r_frame_rate',
@@ -154,7 +154,7 @@ async function probeRateFrames(ffprobe: string, file: string): Promise<string> {
 }
 
 export async function outputMatchesSource(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   src: string,
   out: string,
 ): Promise<boolean> {

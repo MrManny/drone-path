@@ -4,9 +4,9 @@ import type * as childProcessModule from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderVideo } from '../src/render.js';
-import type { CaptureProgress, RenderOpts } from '../src/render.js';
+import type { CaptureProgress, RenderJobOptions } from '../src/render.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
-import type { FfToolPaths } from '../src/fftools.js';
+import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 import { captureFraction, exportReducer, initialExportState } from '../ui/lib/exportstate.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
@@ -77,9 +77,9 @@ beforeEach(() => {
 
 afterEach(cleanupTmpDirs);
 
-const TOOLS: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+const TOOLS: FfmpegToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
 
-function renderOpts(overrides: Partial<RenderOpts> = {}): RenderOpts {
+function renderOpts(overrides: Partial<RenderJobOptions> = {}): RenderJobOptions {
   return {
     html: '<html></html>',
     style: 'satellite',

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRange, rangePlan } from '../src/range.js';
+import { parseByteRange, planByteRange } from '../src/range.js';
 
-describe('parseRange', () => {
+describe('parseByteRange', () => {
   it.for([
     { name: 'closed range', header: 'bytes=2-5', want: { start: 2, end: 5 } },
     { name: 'open-ended range', header: 'bytes=5-', want: { start: 5, end: 9 } },
@@ -16,15 +16,15 @@ describe('parseRange', () => {
     { name: 'absent header is ignored', header: undefined, want: null },
     { name: 'reversed suffix past the size', header: 'bytes=-20', want: { start: 0, end: 9 } },
   ])('$name', ({ header, want }) => {
-    expect(parseRange(header, 10)).toEqual(want);
+    expect(parseByteRange(header, 10)).toEqual(want);
   });
 
   it('takes the first header when several arrive', () => {
-    expect(parseRange(['bytes=1-2', 'bytes=3-4'], 10)).toEqual({ start: 1, end: 2 });
+    expect(parseByteRange(['bytes=1-2', 'bytes=3-4'], 10)).toEqual({ start: 1, end: 2 });
   });
 });
 
-describe('rangePlan', () => {
+describe('planByteRange', () => {
   const SIZE = 10;
   const MIME = 'video/mp4';
 
@@ -72,17 +72,17 @@ describe('rangePlan', () => {
       want: partial(1, 2, '2'),
     },
   ])('$name', ({ header, want }) => {
-    expect(rangePlan(header, SIZE, MIME)).toEqual(want);
+    expect(planByteRange(header, SIZE, MIME)).toEqual(want);
   });
 
   it('carries the caller-provided mime type on body responses', () => {
-    expect(rangePlan(undefined, SIZE, 'application/octet-stream').headers['Content-Type']).toBe(
+    expect(planByteRange(undefined, SIZE, 'application/octet-stream').headers['Content-Type']).toBe(
       'application/octet-stream',
     );
   });
 
   it('marks body responses as never cacheable (#160)', () => {
-    expect(rangePlan(undefined, SIZE, MIME).headers['Cache-Control']).toBe('no-store');
-    expect(rangePlan('bytes=2-5', SIZE, MIME).headers['Cache-Control']).toBe('no-store');
+    expect(planByteRange(undefined, SIZE, MIME).headers['Cache-Control']).toBe('no-store');
+    expect(planByteRange('bytes=2-5', SIZE, MIME).headers['Cache-Control']).toBe('no-store');
   });
 });

@@ -4,19 +4,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { ffprobeJson } from './ff.js';
-import type { FfToolPaths } from './fftools.js';
-import { gpsFix } from './geo.js';
+import { ffprobeJson } from './ffmpeg.js';
+import type { FfmpegToolPaths } from './ffmpeg-tools.js';
+import { gpsFixOrNull } from './geo.js';
 import type { LatLon } from './geo.js';
 import {
-  firstDouble,
-  firstFloat,
-  firstString,
-  firstVarint,
+  firstDoubleField,
+  firstFloatField,
+  firstStringField,
+  firstVarintField,
   parseProtoFields,
-  subMessage,
-} from './proto.js';
-import type { ProtoFieldMap } from './proto.js';
+  firstSubMessage,
+} from './protobuf-wire.js';
+import type { ProtoFieldMap } from './protobuf-wire.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -121,7 +121,7 @@ function emptyProductMeta(): ProductMeta {
 }
 
 async function findCamMetaIndex(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
 ): Promise<number | null> {
   let probe: Record<string, unknown>;
@@ -153,10 +153,10 @@ export function decodeProductMeta(
   end = buf.length,
 ): ProductMeta {
   const top = parseProtoFields(buf, start, end);
-  const frameMeta = subMessage(buf, top, FRAME_META);
-  const camera = frameMeta ? subMessage(buf, frameMeta, CAMERA) : null;
-  const drone = frameMeta ? subMessage(buf, frameMeta, DRONE) : null;
-  const gimbal = frameMeta ? subMessage(buf, frameMeta, GIMBAL) : null;
+  const frameMeta = firstSubMessage(buf, top, FRAME_META);
+  const camera = frameMeta ? firstSubMessage(buf, frameMeta, CAMERA) : null;
+  const drone = frameMeta ? firstSubMessage(buf, frameMeta, DRONE) : null;
+  const gimbal = frameMeta ? firstSubMessage(buf, frameMeta, GIMBAL) : null;
   const absAlt = camera ? decodeAbsoluteAltitude(buf, camera) : null;
   const gps = drone ? decodeGps(buf, drone) : null;
   const euler = drone ? decodeEulerAngles(buf, drone, EULER_ANGLE) : null;
@@ -164,7 +164,7 @@ export function decodeProductMeta(
     ? decodeEulerAngles(buf, gimbal, GIMBAL_EULER_ANGLE)
     : null;
   const gimbalHeader = gimbal
-    ? subMessage(buf, gimbal, GIMBAL_DEVICE_HEADER)
+    ? firstSubMessage(buf, gimbal, GIMBAL_DEVICE_HEADER)
     : null;
   return {
     fix: gps?.fix ?? null,
@@ -179,7 +179,7 @@ export function decodeProductMeta(
     gimbalRollDeg: gimbalEuler?.rollDeg ?? null,
     gimbalYawDeg: gimbalEuler?.yawDeg ?? null,
     gimbalDeviceTimestampMs: gimbalHeader
-      ? (firstVarint(gimbalHeader, DEVICE_TIMESTAMP) ?? 0)
+      ? (firstVarintField(gimbalHeader, DEVICE_TIMESTAMP) ?? 0)
       : null,
     iso: camera ? decodeCameraVarint(buf, camera, ISO) : null,
     whiteBalanceCctK: camera ? decodeCameraVarint(buf, camera, WHITE_BALANCE_CCT) : null,
@@ -191,17 +191,17 @@ function decodeCameraVarint(
   camera: ProtoFieldMap,
   fieldNumber: number,
 ): number | null {
-  const message = subMessage(buf, camera, fieldNumber);
-  return message ? (firstVarint(message, VALUE) ?? 0) : null;
+  const message = firstSubMessage(buf, camera, fieldNumber);
+  return message ? (firstVarintField(message, VALUE) ?? 0) : null;
 }
 
 function decodeAbsoluteAltitude(
   buf: Buffer,
   camera: ProtoFieldMap,
 ): number | null {
-  const absoluteAltitude = subMessage(buf, camera, ABSOLUTE_ALTITUDE);
+  const absoluteAltitude = firstSubMessage(buf, camera, ABSOLUTE_ALTITUDE);
   if (!absoluteAltitude) return null;
-  const meters = firstFloat(absoluteAltitude, VALUE) ?? 0;
+  const meters = firstFloatField(absoluteAltitude, VALUE) ?? 0;
   return Number.isFinite(meters) ? meters : null;
 }
 
@@ -217,20 +217,20 @@ function gpsAltMeters(gpsAltMm: number | null): number | null {
 
 function decodeGps(buf: Buffer, drone: ProtoFieldMap): GpsDecode {
   const out: GpsDecode = { fix: null, noLock: false, gpsAltMm: null };
-  const gps = subMessage(buf, drone, GPS_BASIC);
+  const gps = firstSubMessage(buf, drone, GPS_BASIC);
   if (!gps) return out;
 
-  const coord = subMessage(buf, gps, POSITION_COORD);
+  const coord = firstSubMessage(buf, gps, POSITION_COORD);
   if (coord) {
-    const lat = firstDouble(coord, LAT);
-    const lon = firstDouble(coord, LON);
+    const lat = firstDoubleField(coord, LAT);
+    const lon = firstDoubleField(coord, LON);
     if (lat !== null && lon !== null) {
-      const fix = gpsFix(lat, lon);
+      const fix = gpsFixOrNull(lat, lon);
       if (fix !== null) out.fix = fix;
       else out.noLock = true;
     }
   }
-  out.gpsAltMm = firstVarint(gps, GPS_ALTITUDE_MM) ?? 0;
+  out.gpsAltMm = firstVarintField(gps, GPS_ALTITUDE_MM) ?? 0;
   return out;
 }
 
@@ -238,9 +238,9 @@ function decodeRelativeAltitude(
   buf: Buffer,
   drone: ProtoFieldMap,
 ): number | null {
-  const relative = subMessage(buf, drone, RELATIVE_ALTITUDE);
+  const relative = firstSubMessage(buf, drone, RELATIVE_ALTITUDE);
   if (!relative) return null;
-  const millimeters = firstFloat(relative, VALUE) ?? 0;
+  const millimeters = firstFloatField(relative, VALUE) ?? 0;
   return Number.isFinite(millimeters) ? millimeters / 1000 : null;
 }
 
@@ -255,12 +255,12 @@ function decodeEulerAngles(
   fields: ProtoFieldMap,
   fieldNumber: number,
 ): EulerDecode | null {
-  const euler = subMessage(buf, fields, fieldNumber);
+  const euler = firstSubMessage(buf, fields, fieldNumber);
   if (!euler) return null;
   return {
-    pitchDeg: (firstVarint(euler, PITCH) ?? 0) / 10,
-    rollDeg: (firstVarint(euler, ROLL) ?? 0) / 10,
-    yawDeg: (firstVarint(euler, YAW) ?? 0) / 10,
+    pitchDeg: (firstVarintField(euler, PITCH) ?? 0) / 10,
+    rollDeg: (firstVarintField(euler, ROLL) ?? 0) / 10,
+    yawDeg: (firstVarintField(euler, YAW) ?? 0) / 10,
   };
 }
 
@@ -277,8 +277,8 @@ export function decodeProvenance(
 }
 
 function decodeProtoFile(buf: Buffer, top: ProtoFieldMap): string | null {
-  const clipMeta = subMessage(buf, top, CLIP_META);
-  const header = clipMeta && subMessage(buf, clipMeta, CLIP_META_HEADER);
+  const clipMeta = firstSubMessage(buf, top, CLIP_META);
+  const header = clipMeta && firstSubMessage(buf, clipMeta, CLIP_META_HEADER);
   if (!header) return null;
   const name = nonEmptyString(buf, header, PROTO_FILE_NAME);
   const version = nonEmptyString(buf, header, PRODUCT_PROTO_VERSION);
@@ -291,7 +291,7 @@ function nonEmptyString(
   fields: ProtoFieldMap,
   fieldNumber: number,
 ): string | null {
-  const value = firstString(buf, fields, fieldNumber)?.trim() ?? '';
+  const value = firstStringField(buf, fields, fieldNumber)?.trim() ?? '';
   return value === '' ? null : value;
 }
 
@@ -299,16 +299,16 @@ function decodeGimbalDevice(
   buf: Buffer,
   top: ProtoFieldMap,
 ): GimbalDeviceConstants | null {
-  const frameMeta = subMessage(buf, top, FRAME_META);
-  const gimbal = frameMeta && subMessage(buf, frameMeta, GIMBAL);
-  const header = gimbal && subMessage(buf, gimbal, GIMBAL_DEVICE_HEADER);
+  const frameMeta = firstSubMessage(buf, top, FRAME_META);
+  const gimbal = frameMeta && firstSubMessage(buf, frameMeta, GIMBAL);
+  const header = gimbal && firstSubMessage(buf, gimbal, GIMBAL_DEVICE_HEADER);
   if (!header) return null;
   return {
-    id: firstVarint(header, DEVICE_ID) ?? 0,
-    type: firstVarint(header, DEVICE_TYPE) ?? 0,
-    subType: firstVarint(header, DEVICE_SUB_TYPE) ?? 0,
-    name: firstString(buf, header, DEVICE_NAME) ?? '',
-    frequency: firstFloat(header, DEVICE_FREQUENCY) ?? 0,
+    id: firstVarintField(header, DEVICE_ID) ?? 0,
+    type: firstVarintField(header, DEVICE_TYPE) ?? 0,
+    subType: firstVarintField(header, DEVICE_SUB_TYPE) ?? 0,
+    name: firstStringField(buf, header, DEVICE_NAME) ?? '',
+    frequency: firstFloatField(header, DEVICE_FREQUENCY) ?? 0,
   };
 }
 
@@ -319,23 +319,23 @@ export function scanGpsPair(
 ): { fix: LatLon; at: number } | null {
   for (let i = offset; i <= end - GPS_PAIR_SPAN; i++) {
     if (buf[i] === 0x11 && buf[i + 9] === 0x19) {
-      const fix = gpsFix(buf.readDoubleLE(i + 1), buf.readDoubleLE(i + 10));
+      const fix = gpsFixOrNull(buf.readDoubleLE(i + 1), buf.readDoubleLE(i + 10));
       if (fix !== null) return { fix, at: i };
     }
   }
   return null;
 }
 
-export interface PacketInfo {
+export interface CamMetaPacket {
   tSec: number;
   size: number;
 }
 
 async function listCamMetaPackets(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
   streamIndex: number,
-): Promise<PacketInfo[]> {
+): Promise<CamMetaPacket[]> {
   let probe: Record<string, unknown>;
   try {
     probe = await ffprobeJson(tools, videoPath, [
@@ -360,7 +360,7 @@ async function listCamMetaPackets(
 }
 
 async function dumpCamMetaStream(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
   streamIndex: number,
 ): Promise<Buffer> {
@@ -393,7 +393,7 @@ function toCamSample(meta: ProductMeta, tSec: number): CamSample {
 
 export function decodePacketSamples(
   buf: Buffer,
-  packets: PacketInfo[],
+  packets: CamMetaPacket[],
   keepAll: boolean,
 ): { samples: CamSample[]; noLock: number; provenance: ClipProvenance } {
   const samples: CamSample[] = [];
@@ -451,7 +451,7 @@ function spreadSampleTimes(samples: CamSample[], durationSec: number): void {
 // present stream that yields nothing decodable resolves to empty samples so
 // callers can tell absence from a stream without GPS fix pairs.
 export async function parseCamMeta(
-  tools: FfToolPaths,
+  tools: FfmpegToolPaths,
   videoPath: string,
   durationSec: number,
   opts: { keepAll?: boolean } = {},

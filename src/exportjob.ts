@@ -5,15 +5,15 @@ import type { ExportRequest } from './config.js';
 import { errorMessage } from './errors.js';
 import { samePath, uniquePath } from './paths.js';
 import type { CaptureProgress } from './render.js';
-import { processRecording } from './run.js';
-import type { LogFn, PipelineDeps, RecordingSummary } from './run.js';
+import { processRecording } from './pipeline.js';
+import type { LogFn, PipelineDeps, RecordingSummary } from './pipeline.js';
 
 export type ExportOutcome =
   | { status: 'ok'; summary: RecordingSummary }
   | { status: 'error'; error: string }
   | { status: 'canceled' };
 
-export type RunExportJob = (
+export type RunExportJobFn = (
   videoPath: string,
   request: ExportRequest,
   log: LogFn,
@@ -23,7 +23,7 @@ export type RunExportJob = (
 ) => Promise<RecordingSummary>;
 
 const runViaPipeline =
-  (deps: Partial<PipelineDeps> | undefined): RunExportJob =>
+  (deps: Partial<PipelineDeps> | undefined): RunExportJobFn =>
   (videoPath, request, log, workingPath, signal, onCapture) =>
     processRecording(videoPath, request.config, log, workingPath, {
       range: request.range ?? undefined,
@@ -36,7 +36,7 @@ export interface ExportRunnerOptions {
   log?: LogFn;
   onDone: (outcome: ExportOutcome) => void;
   onCapture?: (progress: CaptureProgress) => void;
-  run?: RunExportJob;
+  run?: RunExportJobFn;
   deps?: Partial<PipelineDeps>;
 }
 

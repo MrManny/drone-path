@@ -11,8 +11,8 @@ import { applyAppState, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
 import { errorMessage } from '../dist/errors.js';
-import { videoBaseName } from '../dist/inputs.js';
-import { outputPathFor } from '../dist/run.js';
+import { videoBaseName } from '../dist/recordings.js';
+import { outputPathFor } from '../dist/pipeline.js';
 
 // Only this app's window may drive the session state machine.
 function assertTrusted(event, devUrl) {

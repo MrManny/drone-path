@@ -10,12 +10,12 @@ import {
 import type {
   PickRequest,
   PreparedUiSession,
-  PrepareUiSession,
+  PrepareUiSessionFn,
   UiSession,
 } from '../src/appsession.js';
 import type { RenderConfig } from '../src/config.js';
-import { processRecording } from '../src/run.js';
-import type { PrepareProgress } from '../src/run.js';
+import { processRecording } from '../src/pipeline.js';
+import type { PrepareProgress } from '../src/pipeline.js';
 import { TelemetryDocumentSchema } from '../src/telemetry-json.js';
 import type { TelemetryDocumentInput } from '../src/telemetry-json.js';
 import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
@@ -253,7 +253,7 @@ describe('createAppSession onPrepareProgress hook', () => {
   it('hands the hook to preparation and forwards its reports', async () => {
     const file = mp4();
     const onPrepareProgress = vi.fn();
-    const prepare = vi.fn<PrepareUiSession>(async (_file, _config, _log, onProgress) => {
+    const prepare = vi.fn<PrepareUiSessionFn>(async (_file, _config, _log, onProgress) => {
       onProgress?.(reported);
       return PREPARED;
     });

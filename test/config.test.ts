@@ -12,7 +12,7 @@ import {
   parseFrameRange,
   parseHud,
   parseSettingsPatch,
-  resolveHudSpec,
+  resolveHudLayout,
   validateRenderConfig,
 } from '../src/config.js';
 
@@ -228,21 +228,21 @@ describe('CONFIG_OPTIONS', () => {
   });
 });
 
-describe('resolveHudSpec', () => {
+describe('resolveHudLayout', () => {
   it('keeps the alt chip when the telemetry has altitude', () => {
     const hud = { heading: true, alt: true, speed: false };
-    expect(resolveHudSpec(hud, true)).toEqual(hud);
+    expect(resolveHudLayout(hud, true)).toEqual(hud);
   });
 
   it('drops the alt chip when the telemetry has no altitude', () => {
     expect(
-      resolveHudSpec({ heading: true, alt: true, speed: true }, false),
+      resolveHudLayout({ heading: true, alt: true, speed: true }, false),
     ).toEqual({ heading: true, alt: false, speed: true });
   });
 
   it('leaves the other chips untouched when alt is already off', () => {
     const hud = { heading: true, alt: false, speed: true };
-    expect(resolveHudSpec(hud, false)).toEqual(hud);
+    expect(resolveHudLayout(hud, false)).toEqual(hud);
   });
 });
 

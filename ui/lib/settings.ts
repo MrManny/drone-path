@@ -1,10 +1,10 @@
 import { normalizeDimensions, validateRenderConfig } from '../../src/config.js';
 import type {
   ConfigOverrides,
-  HudSpec,
+  HudLayout,
   RenderConfig,
-  Style,
-  View,
+  MapStyle,
+  ViewMode,
 } from '../../src/config.js';
 
 export function patchConfig(
@@ -21,21 +21,21 @@ export function patchConfig(
 }
 
 export function setHudChip(
-  hud: HudSpec,
-  chip: keyof HudSpec,
+  hud: HudLayout,
+  chip: keyof HudLayout,
   on: boolean,
-): HudSpec {
+): HudLayout {
   const next = { ...hud };
   next[chip] = on;
   return next;
 }
 
-export const STYLE_LABELS: Record<Style, string> = {
+export const STYLE_LABELS: Record<MapStyle, string> = {
   satellite: 'Satellite',
   topo: 'Topographic',
 };
 
-export const VIEW_LABELS: Record<View, string> = {
+export const VIEW_LABELS: Record<ViewMode, string> = {
   follow: 'Follow',
   overview: 'Overview',
 };

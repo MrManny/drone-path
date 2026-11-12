@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PrepareProgress } from '../../src/run.js';
+import type { PrepareProgress } from '../../src/pipeline.js';
 import { prepareNoticeText, preparePercent } from '../../ui/lib/preparetext.js';
 
 function progress(overrides: Partial<PrepareProgress> = {}): PrepareProgress {

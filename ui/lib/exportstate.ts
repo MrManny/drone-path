@@ -2,7 +2,7 @@ import type { ExportRequest, FrameRange } from '../../src/config.js';
 import { normalizeDimensions } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
-import type { RecordingSummary } from '../../src/run.js';
+import type { RecordingSummary } from '../../src/pipeline.js';
 
 type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
 

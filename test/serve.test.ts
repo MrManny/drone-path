@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { serveAsset, serveFileWithRange } from '../src/serve.js';
-import type { Style } from '../src/config.js';
+import type { MapStyle } from '../src/config.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 interface Host {
@@ -16,7 +16,7 @@ interface Host {
 async function startHost(
   tileCache: string,
   videoPath: string | null,
-  style: Style = 'satellite',
+  style: MapStyle = 'satellite',
   rendererDir: string = tmpDir(),
 ): Promise<Host> {
   const streams: Array<Promise<void>> = [];

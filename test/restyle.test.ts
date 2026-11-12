@@ -3,8 +3,8 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { RenderConfig } from '../src/config.js';
-import { buildSceneData } from '../src/page.js';
-import { prepareSession, recordingPageOpts } from '../src/run.js';
+import { buildSceneData } from '../src/render-page.js';
+import { prepareSession, recordingPageOpts } from '../src/pipeline.js';
 import { restyleSceneData } from '../src/restyle.js';
 import type { RestyleMeta } from '../src/restyle.js';
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PrepareProgress } from '../../src/run.js';
+import type { PrepareProgress } from '../../src/pipeline.js';
 import { START_PREPARE_PROGRESS, pickReducer } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 

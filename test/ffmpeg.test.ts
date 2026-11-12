@@ -2,8 +2,8 @@ import type * as childProcessModule from 'node:child_process';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { requireTools } from '../src/ff.js';
-import type { FfToolPaths } from '../src/fftools.js';
+import { requireFfmpegTools } from '../src/ffmpeg.js';
+import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 
 const mocks = vi.hoisted(() => ({ execFile: vi.fn() }));
 
@@ -12,13 +12,13 @@ vi.mock('node:child_process', async (importOriginal) => ({
   execFile: mocks.execFile,
 }));
 
-const tools: FfToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
+const tools: FfmpegToolPaths = { ffmpeg: '/opt/ff/ffmpeg', ffprobe: '/opt/ff/ffprobe' };
 
 beforeEach(() => {
   mocks.execFile.mockReset();
 });
 
-describe('requireTools', () => {
+describe('requireFfmpegTools', () => {
   it('resolves when both tools respond, probing the resolved paths', async () => {
     mocks.execFile.mockImplementation(
       (
@@ -28,7 +28,7 @@ describe('requireTools', () => {
         cb: (e: null, result: { stdout: string; stderr: string }) => void,
       ) => cb(null, { stdout: 'ok', stderr: '' }),
     );
-    await expect(requireTools(tools)).resolves.toBeUndefined();
+    await expect(requireFfmpegTools(tools)).resolves.toBeUndefined();
     expect(mocks.execFile.mock.calls.map((c) => c[0])).toEqual([
       '/opt/ff/ffmpeg',
       '/opt/ff/ffprobe',
@@ -48,7 +48,7 @@ describe('requireTools', () => {
         ) =>
           running === tools[tool] ? cb(failure) : cb(null, { stdout: 'ok', stderr: '' }),
       );
-      const err = await requireTools(tools).then(
+      const err = await requireFfmpegTools(tools).then(
         () => null,
         (e: unknown) => e as Error,
       );
