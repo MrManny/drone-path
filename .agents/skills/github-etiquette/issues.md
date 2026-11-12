@@ -9,6 +9,8 @@ Two templates live in `.github/ISSUE_TEMPLATE/`:
 
 Fill in every section they contain; if one does not apply, write `N/A` instead of deleting it. Extra reader context goes under the last section ("Additional context") or the template's closing comment slot.
 
+To refine an existing issue, discuss the wording first, then apply it with `gh issue edit <n> --body-file <file>`.
+
 ## Labels
 
 Current taxonomy on the repository:
@@ -20,17 +22,12 @@ Current taxonomy on the repository:
 | `enhancement` | Applied automatically by `feature-request.md` |
 | `documentation` | Doc-only work (README, AGENTS.md, templates) |
 | `maintenance` | Chores, refactors, and code hygiene; no user-visible behavior change |
-| `accessibility` | Whenever the report concerns accessibility |
-| `question` | More of a question than a defect or feature |
-| `duplicate` | After pointing at the original |
-| `wontfix` | Maintainer decision only |
-| `dependencies` | Automated dependency PRs |
-| `javascript` | Companion label for JS dependency bumps |
+| `duplicate` | Resolves the issue; apply only with a comment pointing at the original |
+| `wontfix` | Maintainer decision only; apply only with a comment explaining the decision |
+| `dependencies` | Automated dependency PRs only (`.github/dependabot.yml`, weekly npm and github-actions); never handed out otherwise |
+| `javascript` | Companion label for JS dependency bumps (same rule as `dependencies`) |
 
-Notes:
-
-- `dependencies` / `javascript` belong to automated dependency PRs (see `.github/dependabot.yml`, monthly npm and github-actions updates); do not hand them out to other PRs.
-- `duplicate` and `wontfix` resolve an issue: apply them only together with a comment pointing at the original / briefly explaining the decision.
+`accessibility` and `question` need no rules beyond their names.
 
 ## Planning
 
@@ -47,16 +44,10 @@ shippable slices; the first sub-issue is the smallest increment that is runnable
 and useful. Keep the epic body lean (problem, decision summary, acceptance
 sketch) and let GitHub render sub-issues below it — don't list them in the body.
 
-- Structural sub-issues (not body checklists):
-  `gh api -X POST repos/<owner>/<repo>/issues/<parent-number>/sub_issues -F sub_issue_id=<int-id>`;
-  get the integer id from `gh api repos/<owner>/<repo>/issues/<n> --jq .id`.
-  Use `-F` (typed integer) for id fields — `-f` sends a string and gets a 422.
-- Dependencies (sidebar "Relationships"): "X blocked by Y" =
-  `gh api -X POST repos/<owner>/<repo>/issues/<X>/dependencies/blocked_by -F issue_id=<Y-int-id>`,
-  "X relates to Y" likewise with `.../relates_to`. There is no REST "blocking"
-  add endpoint — set it from the blocked side.
-- GraphQL alternative: `addBlockedBy`/`addRelatesTo` mutations with node ids.
+- Link sub-issues structurally via the API, not as body checklists.
+- Dependencies (sidebar "Relationships") are set from the side the relationship
+  names: "X blocked by Y" is added to X — there is no REST "blocking" add
+  endpoint. "X relates to Y" works the same way.
 
-## Refining an existing issue
-
-Discuss the wording first, then apply it with `gh issue edit <n> --body-file <file>`.
+The commands, the `-F` id gotcha and the GraphQL alternative live in
+[commands.md](commands.md#issue-relationships).

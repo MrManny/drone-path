@@ -5,28 +5,25 @@ description: Launch, drive and instrument the Drone Path Electron app from an ag
 
 # Automating the Electron App
 
-How an agent session can launch and operate the Electron desktop app
-programmatically. Re-check `package.json` and `app/main.mjs` before relying
-on exact flags.
+Re-check `package.json` and `app/main.mjs` before relying on exact flags.
 
 ## How the app launches
 
-- **Production:** `npm run build` (compiles `src/` to `dist/`, builds the
-  Next.js static export to `ui/out/`), then `npm run app` (`electron
+- **Production:** `npm run build`, then `npm run app` (`electron
   app/main.mjs`). `npm ci` runs `build` via `prepare`, so a fresh checkout is
   launchable as-is.
-- **Dev:** `npm run app:dev` starts `next dev ui --webpack -p 3210` and
+- **Dev:** `npm run app:dev` serves the UI at `http://localhost:3210` and
   launches Electron with `--dev-url http://localhost:3210` once the server
-  responds. `--webpack` is mandatory: Turbopack cannot resolve the renderer's
-  NodeNext `.js` specifiers.
+  responds (see AGENTS.md for the webpack build note).
 - The shell (`app/main.mjs`) is thin: one window, a privileged `app://bundle`
   scheme serving `ui/out` plus media and tiles, and three IPC handlers
   (`dronepath:pick`, `-:session`, `-:settings`) bridged through
   `app/preload.cjs` as `window.dronepath`.
-- **Tool check at startup:** ffmpeg/ffprobe resolve via `src/fftools.ts`
-  (`requireTools()`: config override, embedded binaries, then PATH); without a
-  runnable pair the app dies at startup behind a native error box. Check first
-  (`where.exe ffmpeg` / `where.exe ffprobe` or the bundled pair).
+- **Tool check at startup:** ffmpeg/ffprobe resolve via
+  `src/ffmpeg-tools.ts` (`resolveFfmpegTools()`: config override, embedded
+  binaries, then PATH); without a runnable pair the app dies at startup
+  behind a native error box. Check first (`where.exe ffmpeg` /
+  `where.exe ffprobe` or the bundled pair).
 
 ## Recommended: Playwright's Electron launcher
 
@@ -103,21 +100,19 @@ write raw JSON for offline analysis.
 
 Timing assertions need the right clock model: fake timers cannot produce late
 wakes (`vi.setSystemTime` shifts pending timer deadlines with it, and nothing
-models thread starvation). To reproduce production jitter (a busy event loop
-delaying a scheduled wake), drive on real timers and stall with a spun
-busy-wait (`while (Date.now() < until) {}`) inside the intercepted request,
-then assert *lower bounds* — every start at least the gate interval after the
-previous one plus its wake lateness — not exact values. Slot- or release-based
-gates show millisecond-level jitter (single pairs can dip 1–2 ms below the
-nominal interval), so judge rate budgets by sustained rate and absence of
-cross-lane interleave. Plan-sized at 2 requests/s, runs take tens of seconds
-per lane: give generous timeouts and measure the timeline over wall-clock
-guesses.
+models thread starvation). To reproduce production jitter, drive on real
+timers and stall with a spun busy-wait (`while (Date.now() < until) {}`)
+inside the intercepted request, then assert *lower bounds* — every start at
+least the gate interval after the previous one plus its wake lateness — not
+exact values. Slot- or release-based gates jitter 1–2 ms below the nominal
+interval on single pairs, so judge rate budgets by sustained rate and absence
+of cross-lane interleave. Plan-sized at 2 requests/s, runs take tens of
+seconds per lane: give generous timeouts.
 
 ## Operational notes
 
-- **Logs:** progress and errors go to stderr as `[drone-path] <msg>` /
-  `[drone-path] ERROR: <message>`; parse these for `loaded:` confirmations.
+- **Logs:** progress and errors follow the AGENTS.md stderr conventions;
+  parse `[drone-path]` lines for `loaded:` confirmations.
   `ELECTRON_ENABLE_LOGGING=1` adds Chromium-level logs; capture lines via
   `app.process().stderr.on('data', ...)`.
 - **Quit/kill:** closing the window quits (`window-all-closed ->
