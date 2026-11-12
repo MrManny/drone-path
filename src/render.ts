@@ -8,8 +8,9 @@ import type { Browser, Page } from 'playwright-core';
 import { MIME } from './assets.js';
 import { errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
-import type { CaptureFormat, Codec, EncodeSettings, EncoderPreset, Quality, MapStyle } from './config.js';
+import type { CaptureFormat, Codec, EncodeSettings, EncoderPreset, Quality, MapStyle, RenderConfig } from './config.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
+import type { LogFn } from './logging.js';
 
 const PAGE_LOAD_TIMEOUT_MS = 60000;
 const SCREENSHOT_TIMEOUT_MS = 60000;
@@ -196,24 +197,27 @@ export interface CaptureProgress {
   total: number;
 }
 
-export interface RenderJobOptions {
+export interface RenderJobOptions
+  extends Pick<
+    RenderConfig,
+    | 'style'
+    | 'tileCache'
+    | 'width'
+    | 'height'
+    | 'workers'
+    | 'capture'
+    | 'codec'
+    | 'quality'
+    | 'preset'
+  > {
   html: string;
-  style: MapStyle;
-  tileCache: string;
-  width: number;
-  height: number;
   frames: number;
   frameStart?: number;
   fpsStr: string;
-  workers: number;
   outPath: string;
-  log?: (msg: string) => void;
+  log?: LogFn;
   browserPath?: string | null;
   tools: FfmpegToolPaths;
-  capture: CaptureFormat;
-  codec: Codec;
-  quality: Quality;
-  preset: EncoderPreset;
   signal?: AbortSignal;
   onCapture?: (progress: CaptureProgress) => void;
 }

@@ -10,7 +10,8 @@ import { collectRecordings } from './recordings.js';
 import { requireFfmpegTools } from './ffmpeg.js';
 import { resolveFfmpegTools } from './ffmpeg-tools.js';
 import { runBatch } from './pipeline.js';
-import type { LogFn, RecordingSummary } from './pipeline.js';
+import type { LogFn } from './logging.js';
+import type { RecordingSummary } from './pipeline.js';
 
 export interface ParsedCli {
   inputs: string[];

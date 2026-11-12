@@ -11,17 +11,11 @@ import type { GimbalDeviceConstants } from './cammeta.js';
 import { videoBaseName } from './recordings.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
-import type {
-  FrameChannels,
-  HeadingMode,
-  Telemetry,
-  TelemetryMethod,
-  TelemetrySource,
-} from './telemetry-math.js';
+import type { FrameChannels, Telemetry } from './telemetry-math.js';
 import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-json.js';
 import { prefetchTiles } from './tiles.js';
-import type { PrefetchStats, WarmOptions } from './tiles.js';
+import type { PrefetchStats } from './tiles.js';
 import { planIntroOutroFrames, planView } from './plan.js';
 import type { IntroOutroFrames, OverviewPlan } from './plan.js';
 import { buildPageHtml, planPageOpts } from './render-page.js';
@@ -41,7 +35,8 @@ import {
   telemetrySummary,
   trackDistanceLabel,
 } from './telemetry-summary.js';
-export type LogFn = (msg: string) => void;
+import type { TelemetrySummary } from './telemetry-summary.js';
+import type { LogFn } from './logging.js';
 
 const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
 
@@ -55,30 +50,30 @@ export interface PrepareProgress {
 
 export type PrepareProgressFn = (progress: PrepareProgress) => void;
 
-export interface RecordingSummary {
+export interface RecordingSummary
+  extends Partial<
+      Pick<
+        TelemetrySummary,
+        'source' | 'method' | 'headingMode' | 'noLock' | 'trackDistanceM'
+      >
+    >,
+    Partial<
+      Pick<RenderConfig, 'width' | 'height' | 'style' | 'view' | 'zoom' | 'zoomOut'>
+    > {
   video: string;
   out: string;
   status: 'ok' | 'skipped' | 'error';
-  width?: number;
-  height?: number;
-  style?: string;
-  view?: string;
+  // The --json wire key is frozen as 'fixes', so only its type derives from
+  // TelemetrySummary (see the field-by-field mapping in buildOkSummary).
+  fixes?: TelemetrySummary['fixCount'];
   introFrames?: number;
   outroFrames?: number;
   hud?: HudLayout;
-  source?: TelemetrySource;
-  method?: TelemetryMethod;
-  headingMode?: HeadingMode;
-  fixes?: number;
-  noLock?: number;
   frames?: number;
   fps?: string;
   frameRange?: FrameRange;
-  trackDistanceM?: number;
   bbox?: Bbox;
-  zoom?: number;
   zoomFixed?: boolean;
-  zoomOut?: number;
   tilesDownloaded?: number;
   verified?: boolean;
   elapsedSec: number;
@@ -196,7 +191,11 @@ async function renderWithOutputCleanup(
   }
 }
 
-export type TileWarmFn = (options: WarmOptions) => Promise<PrefetchStats>;
+// cacheDir is deliberately absent from the seam: resolveDeps injects it, and
+// the warm call must not see the cache directory (pinned by the export job test).
+export type TileWarmFn = (
+  options: Omit<Parameters<typeof prefetchTiles>[0], 'cacheDir'>,
+) => ReturnType<typeof prefetchTiles>;
 
 export interface PipelineDeps {
   probeVideo: typeof probeVideo;

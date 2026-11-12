@@ -24,7 +24,8 @@ import {
   recordingPageOpts,
   telemetryExportInput,
 } from './pipeline.js';
-import type { LogFn, PipelineDeps, PrepareProgressFn } from './pipeline.js';
+import type { LogFn } from './logging.js';
+import type { PipelineDeps, PrepareProgressFn } from './pipeline.js';
 import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 
