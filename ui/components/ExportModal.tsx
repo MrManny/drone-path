@@ -4,7 +4,11 @@ import { useEffect, useReducer } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
 import type { EncodeSettings, ExportRequest, FrameRange, RenderConfig } from '../../src/config.js';
-import { errorMessage } from '../../src/errors.js';
+import {
+  ERR_EXPORT_COULD_NOT_BE_CANCELED,
+  ERR_EXPORT_COULD_NOT_START,
+  errorMessage,
+} from '../../src/errors.js';
 import type { AppBridge, ExportAck } from '../lib/backend.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
@@ -143,7 +147,7 @@ export function ExportModal({
     await runBridgeAction(
       (bridge) => bridge.startExport(request),
       (error) => ({ type: 'startFailed', error }),
-      'export could not start',
+      ERR_EXPORT_COULD_NOT_START,
     );
   };
 
@@ -159,7 +163,7 @@ export function ExportModal({
     void runBridgeAction(
       (bridge) => bridge.cancelExport(),
       (error) => ({ type: 'cancelFailed', error }),
-      'export could not be canceled',
+      ERR_EXPORT_COULD_NOT_BE_CANCELED,
     );
   };
 

@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { ERR_NO_FRAME_RATE } from './errors.js';
 import { framesForSeconds, parseFpsRate, parseRate } from './frametime.js';
 import type { Fps } from './frametime.js';
 import { FFMPEG_TOOL_NAMES } from './ffmpeg-tools.js';
@@ -93,7 +94,7 @@ export async function probeVideo(
   const fps =
     parseFpsRate(stream.r_frame_rate) ??
     parseFpsRate(stream.avg_frame_rate);
-  if (!fps) throw new Error('could not determine the frame rate of the video');
+  if (!fps) throw new Error(ERR_NO_FRAME_RATE);
 
   const durationSec = Number.parseFloat(format.duration ?? '');
   let frames = parseCount(stream.nb_frames);

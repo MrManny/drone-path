@@ -6,7 +6,7 @@ import type { Writable } from 'node:stream';
 import type { Browser, Page } from 'playwright-core';
 
 import { MIME } from './assets.js';
-import { errorMessage } from './errors.js';
+import { ERR_RENDER_CANCELED, errorMessage } from './errors.js';
 import { RENDERER_DIR, serveAsset } from './serve.js';
 import type { CaptureFormat, Codec, EncodeSettings, Quality, MapStyle, RenderConfig } from './config.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
@@ -320,7 +320,7 @@ async function workerLoop(
     await page.waitForFunction('window.__READY === true', null, { timeout: PAGE_LOAD_TIMEOUT_MS });
     for (;;) {
       if (loop.failed) return;
-      if (run.signal?.aborted) throw new Error('render canceled');
+      if (run.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
       const idx = loop.cursor++;
       if (idx >= run.frames) break;
       await captureFrame(run, loop, page, idx);
@@ -428,7 +428,7 @@ export async function renderVideo(
     onCapture,
     tools,
   };
-  if (signal?.aborted) throw new Error('render canceled');
+  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
   const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
   const { server, url } = await startServer({ html, style, tileCache });
   const env: RenderStageEnv = { ctx, url, timing, workerCount };

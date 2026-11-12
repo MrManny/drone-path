@@ -12,6 +12,7 @@ import {
   strictShape,
 } from './config.js';
 import type { RenderConfig, SettingsPatch } from './config.js';
+import { errorMessage } from './errors.js';
 
 export const APP_STATE_VERSION = 1;
 
@@ -117,7 +118,7 @@ export function writeAppState(file: string, state: AppState): void {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, serializeAppState(state));
   } catch (e) {
-    throw new Error(`cannot write app state ${file}: ${(e as Error).message}`, {
+    throw new Error(`cannot write app state ${file}: ${errorMessage(e)}`, {
       cause: e,
     });
   }

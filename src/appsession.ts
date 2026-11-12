@@ -12,7 +12,7 @@ import {
   strictShape,
 } from './config.js';
 import type { FrameRange, AppearanceSettings, RenderConfig } from './config.js';
-import { errorMessage } from './errors.js';
+import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from './errors.js';
 import type { VideoProbe } from './ffmpeg.js';
 import { timeAt } from './frametime.js';
 import type { Bbox } from './geo.js';
@@ -202,7 +202,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         const resolved = path.resolve(picked);
         if (!isReadableVideo(resolved)) {
           log(`rejected: ${resolved}`);
-          return { ok: false, error: `not a readable .mp4 file: ${resolved}` };
+          return { ok: false, error: `${ERR_NOT_READABLE_MP4}${resolved}` };
         }
         onPreparing(resolved);
         prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
@@ -219,7 +219,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     getSession: () => prepared?.session ?? null,
     videoPath: () => videoPath,
     saveTelemetryJson(file: string, range: FrameRange | null): void {
-      if (!prepared) throw new Error('no recording loaded');
+      if (!prepared) throw new Error(ERR_NO_RECORDING);
       writeTelemetryDocument(file, segmentTelemetryInput(prepared.telemetry, range));
     },
   };

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { runToolMain } from '../errors.js';
 import type { CompiledPage } from './markdown.js';
 import { compileMarkdown } from './markdown.js';
 import { bundleModuleSource } from './module.js';
@@ -83,18 +84,13 @@ export function buildManual(paths: ManualBuildPaths): ManualBuildResult {
 }
 
 function main(): void {
-  try {
-    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-    const result = buildManual(defaultManualPaths(root));
-    process.stderr.write(
-      `[drone-path] manual: ${result.pages} page(s), ${result.images.length} image(s)\n`,
-    );
-  } catch (e) {
-    process.stderr.write(`[drone-path] ERROR: ${(e as Error).message}\n`);
-    process.exitCode = 1;
-  }
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const result = buildManual(defaultManualPaths(root));
+  process.stderr.write(
+    `[drone-path] manual: ${result.pages} page(s), ${result.images.length} image(s)\n`,
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main();
+  void runToolMain(main);
 }

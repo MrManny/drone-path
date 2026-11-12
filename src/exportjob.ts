@@ -2,7 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import type { ExportRequest } from './config.js';
-import { errorMessage } from './errors.js';
+import {
+  ERR_COULD_NOT_REPLACE,
+  ERR_EXPORT_ALREADY_RUNNING,
+  ERR_OUTPUT_OVERWRITES_SOURCE,
+  ERR_OUTPUT_PATH_ABSOLUTE,
+  ERR_RENDER_KEPT_AT,
+  errorMessage,
+} from './errors.js';
 import { samePath, uniquePath } from './paths.js';
 import type { CaptureProgress } from './render.js';
 import { processRecording } from './pipeline.js';
@@ -67,8 +74,8 @@ function swapIntoPlace(working: string, outPath: string): void {
     fs.renameSync(working, outPath);
   } catch (e) {
     throw new Error(
-      `could not replace ${outPath}: ${errorMessage(e)} ` +
-        `(the finished render is at ${working})`,
+      `${ERR_COULD_NOT_REPLACE}${outPath}: ${errorMessage(e)} ` +
+        `(${ERR_RENDER_KEPT_AT}${working})`,
       { cause: e },
     );
   }
@@ -105,12 +112,12 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
 
   return {
     start(videoPath: string, request: ExportRequest): void {
-      if (job) throw new Error('an export is already running');
+      if (job) throw new Error(ERR_EXPORT_ALREADY_RUNNING);
       if (!path.isAbsolute(request.outPath)) {
-        throw new Error(`output path must be absolute: ${request.outPath}`);
+        throw new Error(`${ERR_OUTPUT_PATH_ABSOLUTE}${request.outPath}`);
       }
       if (samePath(request.outPath, videoPath)) {
-        throw new Error('the output must not overwrite the source recording');
+        throw new Error(ERR_OUTPUT_OVERWRITES_SOURCE);
       }
       const controller = new AbortController();
       job = { abort: () => controller.abort() };

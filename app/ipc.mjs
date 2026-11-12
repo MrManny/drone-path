@@ -10,7 +10,7 @@ import { parsePickRequest, parseTelemetrySaveRequest } from '../dist/appsession.
 import { applyAppState, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
-import { errorMessage } from '../dist/errors.js';
+import { ERR_NO_RECORDING, errorMessage } from '../dist/errors.js';
 import { videoBaseName } from '../dist/recordings.js';
 import { outputPathFor } from '../dist/pipeline.js';
 
@@ -38,7 +38,7 @@ function handle(devUrl, channel, fn) {
 
 function requireVideo(state) {
   const video = state.session ? state.session.videoPath() : null;
-  if (!video) throw new Error('no recording loaded');
+  if (!video) throw new Error(ERR_NO_RECORDING);
   return video;
 }
 

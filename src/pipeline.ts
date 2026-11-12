@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { errorMessage } from './errors.js';
+import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, errorMessage } from './errors.js';
 import type { Bbox } from './geo.js';
 import { outputMatchesSource, probeVideo, verifyOutput } from './ffmpeg.js';
 import { resolveFfmpegTools } from './ffmpeg-tools.js';
@@ -471,7 +471,7 @@ async function verifyRenderedOutput(env: RunStageEnv): Promise<void> {
   const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
   if (!verify.ok) {
     throw new Error(
-      `output verification failed: got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
+      `${ERR_OUTPUT_VERIFICATION}got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
         `expected ${ctx.outFrames} @ ${ctx.probe.fps.str}`,
     );
   }
@@ -545,7 +545,7 @@ export async function processRecording(
   const t0 = Date.now();
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfmpegTools(config);
-  if (options.signal?.aborted) throw new Error('render canceled');
+  if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
 
   const prep = await prepareSession(videoPath, config, log, {
     ...options,
