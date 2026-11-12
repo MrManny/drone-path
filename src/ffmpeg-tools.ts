@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import type { RenderConfig } from './config.js';
 
-export type FfmpegToolName = 'ffmpeg' | 'ffprobe';
+export const FFMPEG_TOOL_NAMES = ['ffmpeg', 'ffprobe'] as const;
+export type FfmpegToolName = (typeof FFMPEG_TOOL_NAMES)[number];
 
 export interface FfmpegToolPaths {
   ffmpeg: string;
