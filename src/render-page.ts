@@ -1,5 +1,5 @@
 import { hasAltitude, resolveHudLayout } from './config.js';
-import type { HudLayout, AppearanceSettings, MapStyle, ViewMode } from './config.js';
+import type { AppearanceSettings, HudLayout, RenderConfig } from './config.js';
 import { decimateTrack } from './decimate.js';
 import type { DecimatedTrack } from './decimate.js';
 import { unproject } from './geo.js';
@@ -10,16 +10,12 @@ import type { SceneData } from './renderer/scene.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
 import type { FrameChannels } from './telemetry-math.js';
 
-export interface RenderPageOpts extends FrameChannels {
-  width: number;
-  height: number;
-  style: MapStyle;
-  trailColor: string | null;
-  view: ViewMode;
+export interface RenderPageOpts
+  extends FrameChannels,
+    Pick<RenderConfig, 'width' | 'height'>,
+    Pick<AppearanceSettings, 'style' | 'view' | 'zoom' | 'trailColor' | 'hud'> {
   center: LatLon;
-  zoom: number;
   attribution: string;
-  hud: HudLayout;
   decimated: DecimatedTrack;
   introN?: number;
   outroN?: number;

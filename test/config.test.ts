@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFIG_OPTIONS,
   DEFAULT_CONFIG,
+  OVERRIDE_NORMALIZERS,
   SETTINGS_KEYS,
   asTrailColor,
   cliDefaultOf,
@@ -185,6 +186,10 @@ describe('CONFIG_OPTIONS', () => {
     const keys = CONFIG_OPTIONS.map((row) => row.key);
     expect([...keys].sort()).toEqual([...CONFIG_KEYS].sort());
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('keeps one normalizer per config key', () => {
+    expect(Object.keys(OVERRIDE_NORMALIZERS).sort()).toEqual([...CONFIG_KEYS].sort());
   });
 
   it('derives DEFAULT_CONFIG from the table', () => {

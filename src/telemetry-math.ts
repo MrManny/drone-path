@@ -50,10 +50,7 @@ export interface TelemetrySamples {
   noLock: number;
 }
 
-interface FramePosition {
-  fix: LatLon | null;
-  alt: number | null;
-}
+type FramePosition = Pick<FrameData, 'fix' | 'alt'>;
 
 type FixSample = TelemetrySample & { fix: LatLon };
 

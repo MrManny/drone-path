@@ -1,18 +1,9 @@
-import type {
-  HeadingMode,
-  Telemetry,
-  TelemetryMethod,
-  TelemetrySource,
-} from './telemetry-math.js';
+import type { Telemetry } from './telemetry-math.js';
 
-export interface TelemetrySummary {
-  source: TelemetrySource;
-  method: TelemetryMethod;
-  headingMode: HeadingMode;
-  fixCount: number;
-  noLock: number;
-  trackDistanceM: number;
-}
+export type TelemetrySummary = Pick<
+  Telemetry,
+  'source' | 'method' | 'headingMode' | 'fixCount' | 'noLock' | 'trackDistanceM'
+>;
 
 export function telemetrySummary(tel: Telemetry): TelemetrySummary {
   return {

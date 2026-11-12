@@ -57,7 +57,10 @@ export const CONFIG_FILE_OPTION = {
   help: 'config file (default: .dronepath.json discovered upward from the working directory)',
 } as const;
 
-type OverrideNormalizer = (value: unknown, name: string) => ConfigOverrides;
+type OverrideNormalizer<K extends keyof RenderConfig> = (
+  value: unknown,
+  name: string,
+) => Pick<ConfigOverrides, K>;
 
 export function parseHud(list: string): HudLayout {
   const hud: HudLayout = { heading: false, alt: false, speed: false };
@@ -232,39 +235,74 @@ export interface ConfigOption<K extends keyof RenderConfig = keyof RenderConfig>
   key: K;
   cli: CliOptionSpec;
   default: RenderConfig[K];
-  normalize: OverrideNormalizer;
+  normalize: OverrideNormalizer<K>;
 }
 
-export const CONFIG_OPTIONS: readonly ConfigOption[] = [
+export type AnyConfigOption = {
+  [K in keyof RenderConfig]: ConfigOption<K>;
+}[keyof RenderConfig];
+
+// Literal-first on purpose: the mapped satisfies turns a missing or extra key
+// into a compile error, so every RenderConfig key keeps exactly one normalizer.
+export const OVERRIDE_NORMALIZERS = {
+  outDir: (v, name) => ({ outDir: parseValue(nullableStringValue(name), v) }),
+  outSuffix: (v, name) => ({ outSuffix: parseValue(stringValue(name), v) }),
+  width: (v, name) => ({ width: parseValue(numberValue(name), v) }),
+  height: (v, name) => ({ height: parseValue(numberValue(name), v) }),
+  style: (v, name) => ({ style: parseValue(enumValue(name, MAP_STYLE_VALUES), v) }),
+  view: (v, name) => ({ view: parseValue(enumValue(name, VIEW_MODE_VALUES), v) }),
+  zoom: (v, name) => ({ zoom: parseValue(numberValue(name), v) }),
+  zoomOut: (v, name) => ({ zoomOut: parseValue(numberValue(name), v) }),
+  introSec: (v, name) => ({ introSec: parseValue(numberValue(name), v) }),
+  outroSec: (v, name) => ({ outroSec: parseValue(numberValue(name), v) }),
+  trailColor: (v, name) => ({ trailColor: asTrailColor(v, name) }),
+  hud: (v, name) => ({ hud: parseHud(parseValue(stringValue(name), v)) }),
+  workers: (v, name) => ({ workers: parseValue(numberValue(name), v) }),
+  capture: (v, name) => ({ capture: parseValue(enumValue(name, CAPTURE_FORMAT_VALUES), v) }),
+  codec: (v, name) => ({ codec: parseValue(enumValue(name, CODEC_VALUES), v) }),
+  quality: (v, name) => ({ quality: parseValue(enumValue(name, QUALITY_VALUES), v) }),
+  preset: (v, name) => ({ preset: parseValue(enumValue(name, ENCODER_PRESET_VALUES), v) }),
+  tileCache: (v, name) => ({ tileCache: parseValue(stringValue(name), v) }),
+  browser: (v, name) => ({ browser: parseValue(nullableStringValue(name), v) }),
+  ffmpeg: (v, name) => ({ ffmpeg: parseValue(nullableStringValue(name), v) }),
+  ffprobe: (v, name) => ({ ffprobe: parseValue(nullableStringValue(name), v) }),
+  skipExisting: (v, name) => ({ skipExisting: parseValue(boolValue(name), v) }),
+  recurse: (v, name) => ({ recurse: parseValue(boolValue(name), v) }),
+  telemetryJson: (v, name) => ({ telemetryJson: parseValue(nullableStringValue(name), v) }),
+  json: (v, name) => ({ json: parseValue(boolValue(name), v) }),
+  quiet: (v, name) => ({ quiet: parseValue(boolValue(name), v) }),
+} satisfies { [K in keyof RenderConfig]: OverrideNormalizer<K> };
+
+export const CONFIG_OPTIONS: readonly AnyConfigOption[] = [
   {
     key: 'outDir',
     cli: { flags: '--out-dir <dir>', help: 'output folder' },
     default: 'out',
-    normalize: (v, name) => ({ outDir: parseValue(nullableStringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.outDir,
   },
   {
     key: 'outSuffix',
     cli: { flags: '--out-suffix <suffix>', help: 'output name = <basename><suffix>.mp4' },
     default: '_map',
-    normalize: (v, name) => ({ outSuffix: parseValue(stringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.outSuffix,
   },
   {
     key: 'width',
     cli: { flags: '--width <px>', help: 'canvas width in pixels (rounded down to even)', parse: cliNumber },
     default: 768,
-    normalize: (v, name) => ({ width: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.width,
   },
   {
     key: 'height',
     cli: { flags: '--height <px>', help: 'canvas height in pixels (rounded down to even)', parse: cliNumber },
     default: 768,
-    normalize: (v, name) => ({ height: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.height,
   },
   {
     key: 'style',
     cli: { flags: '--style <name>', help: 'map look', choices: MAP_STYLE_VALUES },
     default: 'satellite',
-    normalize: (v, name) => ({ style: parseValue(enumValue(name, MAP_STYLE_VALUES), v) }),
+    normalize: OVERRIDE_NORMALIZERS.style,
   },
   {
     key: 'view',
@@ -275,31 +313,31 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       choices: VIEW_MODE_VALUES,
     },
     default: 'follow',
-    normalize: (v, name) => ({ view: parseValue(enumValue(name, VIEW_MODE_VALUES), v) }),
+    normalize: OVERRIDE_NORMALIZERS.view,
   },
   {
     key: 'zoom',
     cli: { flags: '--zoom <n>', help: 'fixed view zoom level (0 = auto-fit to the track)', parse: cliNumber },
     default: 0,
-    normalize: (v, name) => ({ zoom: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.zoom,
   },
   {
     key: 'zoomOut',
     cli: { flags: '--zoom-out <n>', help: 'auto-fit only: pull back n zoom levels', parse: cliNumber },
     default: 1,
-    normalize: (v, name) => ({ zoomOut: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.zoomOut,
   },
   {
     key: 'introSec',
     cli: { flags: '--intro-sec <s>', help: 'intro: zoom in from one level out over s seconds', parse: cliNumber },
     default: 2,
-    normalize: (v, name) => ({ introSec: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.introSec,
   },
   {
     key: 'outroSec',
     cli: { flags: '--outro-sec <s>', help: 'outro: zoom back out over s seconds', parse: cliNumber },
     default: 2,
-    normalize: (v, name) => ({ outroSec: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.outroSec,
   },
   {
     key: 'trailColor',
@@ -309,7 +347,7 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
         'trail color as hex, RGB or RGBA (e.g. e63946 or #e63946cc; default: the map style\'s color)',
     },
     default: null,
-    normalize: (v, name) => ({ trailColor: asTrailColor(v, name) }),
+    normalize: OVERRIDE_NORMALIZERS.trailColor,
   },
   {
     key: 'hud',
@@ -318,61 +356,61 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       help: 'comma list of heading,alt,speed - or none (alt hides when unavailable)',
     },
     default: { heading: true, alt: false, speed: false },
-    normalize: (v, name) => ({ hud: parseHud(parseValue(stringValue(name), v)) }),
+    normalize: OVERRIDE_NORMALIZERS.hud,
   },
   {
     key: 'workers',
     cli: { flags: '--workers <n>', help: 'parallel browser pages', parse: cliNumber },
     default: 4,
-    normalize: (v, name) => ({ workers: parseValue(numberValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.workers,
   },
   {
     key: 'capture',
     cli: { flags: '--capture <mode>', help: 'frame capture mode (canvas is parked)', choices: CAPTURE_FORMAT_VALUES },
     default: 'jpeg',
-    normalize: (v, name) => ({ capture: parseValue(enumValue(name, CAPTURE_FORMAT_VALUES), v) }),
+    normalize: OVERRIDE_NORMALIZERS.capture,
   },
   {
     key: 'codec',
     cli: { flags: '--codec <name>', help: 'video codec (mp4 container)', choices: CODEC_VALUES },
     default: 'h264',
-    normalize: (v, name) => ({ codec: parseValue(enumValue(name, CODEC_VALUES), v) }),
+    normalize: OVERRIDE_NORMALIZERS.codec,
   },
   {
     key: 'quality',
     cli: { flags: '--quality <level>', help: 'encoding quality', choices: QUALITY_VALUES },
     default: 'high',
-    normalize: (v, name) => ({ quality: parseValue(enumValue(name, QUALITY_VALUES), v) }),
+    normalize: OVERRIDE_NORMALIZERS.quality,
   },
   {
     key: 'preset',
     cli: { flags: '--preset <name>', help: 'encoding speed', choices: ENCODER_PRESET_VALUES },
     default: 'medium',
-    normalize: (v, name) => ({ preset: parseValue(enumValue(name, ENCODER_PRESET_VALUES), v) }),
+    normalize: OVERRIDE_NORMALIZERS.preset,
   },
   {
     key: 'tileCache',
     cli: { flags: '--tile-cache <dir>', help: 'tile cache directory (default: per-user cache dir)' },
     default: '',
-    normalize: (v, name) => ({ tileCache: parseValue(stringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.tileCache,
   },
   {
     key: 'browser',
     cli: { flags: '--browser <path>', help: 'Chromium/Chrome/Edge executable (default: system Chrome/Edge)' },
     default: null,
-    normalize: (v, name) => ({ browser: parseValue(nullableStringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.browser,
   },
   {
     key: 'ffmpeg',
     cli: { flags: '--ffmpeg <path>', help: 'ffmpeg executable (default: embedded binary, then PATH)' },
     default: null,
-    normalize: (v, name) => ({ ffmpeg: parseValue(nullableStringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.ffmpeg,
   },
   {
     key: 'ffprobe',
     cli: { flags: '--ffprobe <path>', help: 'ffprobe executable (default: embedded binary, then PATH)' },
     default: null,
-    normalize: (v, name) => ({ ffprobe: parseValue(nullableStringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.ffprobe,
   },
   {
     key: 'skipExisting',
@@ -381,13 +419,13 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       help: 'skip recordings whose output already exists and matches the source',
     },
     default: false,
-    normalize: (v, name) => ({ skipExisting: parseValue(boolValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.skipExisting,
   },
   {
     key: 'recurse',
     cli: { flags: '--recurse', help: 'scan input folders recursively' },
     default: false,
-    normalize: (v, name) => ({ recurse: parseValue(boolValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.recurse,
   },
   {
     key: 'telemetryJson',
@@ -396,19 +434,19 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
       help: 'write one JSON document with per-frame telemetry to <file> (one recording per run)',
     },
     default: null,
-    normalize: (v, name) => ({ telemetryJson: parseValue(nullableStringValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.telemetryJson,
   },
   {
     key: 'json',
     cli: { flags: '--json', help: 'print one NDJSON summary line per recording on stdout' },
     default: false,
-    normalize: (v, name) => ({ json: parseValue(boolValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.json,
   },
   {
     key: 'quiet',
     cli: { flags: '-q, --quiet', help: 'suppress progress output' },
     default: false,
-    normalize: (v, name) => ({ quiet: parseValue(boolValue(name), v) }),
+    normalize: OVERRIDE_NORMALIZERS.quiet,
   },
 ];
 
@@ -434,11 +472,6 @@ export const DEFAULT_CONFIG: RenderConfig = Object.freeze(
   ) as unknown as RenderConfig,
 );
 Object.freeze(DEFAULT_CONFIG.hud);
-
-const OVERRIDE_NORMALIZERS: Record<keyof RenderConfig, OverrideNormalizer> =
-  Object.fromEntries(
-    CONFIG_OPTIONS.map((row) => [row.key, row.normalize]),
-  ) as Record<keyof RenderConfig, OverrideNormalizer>;
 
 const OVERRIDE_SHAPE = Object.fromEntries(
   CONFIG_OPTIONS.map((row) => [row.key, z.unknown().optional()]),

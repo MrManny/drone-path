@@ -6,7 +6,8 @@ import { errorMessage } from './errors.js';
 import { samePath, uniquePath } from './paths.js';
 import type { CaptureProgress } from './render.js';
 import { processRecording } from './pipeline.js';
-import type { LogFn, PipelineDeps, RecordingSummary } from './pipeline.js';
+import type { LogFn } from './logging.js';
+import type { PipelineDeps, RecordingSummary } from './pipeline.js';
 
 export type ExportOutcome =
   | { status: 'ok'; summary: RecordingSummary }
