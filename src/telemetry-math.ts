@@ -1,6 +1,6 @@
 import { bearingDeg, circularMeanDeg, haversineM } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
-import type { CamMetaMethod } from './cammeta.js';
+import type { CamMetaMethod } from './cammeta-decode.js';
 import { timeAt } from './frametime.js';
 
 export type TelemetrySource = 'srt' | 'cammeta';

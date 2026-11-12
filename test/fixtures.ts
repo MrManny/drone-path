@@ -236,7 +236,7 @@ function eulerMessage(spec: PacketEuler): Buffer {
 }
 
 // CAM meta packet with a position pair at minimum (field map per
-// src/cammeta.ts): ProductMeta { 3 frame_meta { 4 drone { 4 GpsBasic
+// src/cammeta-decode.ts): ProductMeta { 3 frame_meta { 4 drone { 4 GpsBasic
 // { 1 PositionCoord { 2 lat, 3 lon } } } } }; meta adds the optional fields.
 export function productMetaPacket(
   lat: number,

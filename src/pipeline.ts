@@ -7,7 +7,7 @@ import { outputMatchesSource, probeVideo, verifyOutput } from './ffmpeg.js';
 import { resolveFfmpegTools } from './ffmpeg-tools.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import type { VideoProbe } from './ffmpeg.js';
-import type { GimbalDeviceConstants } from './cammeta.js';
+import type { GimbalDeviceConstants } from './cammeta-decode.js';
 import { videoBaseName } from './recordings.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
