@@ -40,6 +40,7 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 - **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
 - **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on `--surface-1` and `--surface-2`.
+- **Documented deviation — control borders (WCAG 1.4.11):** interactive-control borders measure 1.94:1 against their control fill, where non-text contrast wants 3:1. The 2026-11-13 WCAG 2.2 AA review accepted this as a design deviation: the hairline border language is deliberate, and control boundaries stay perceivable through fill contrast and layout. Do not tighten the borders toward 3:1 without a new design review.
 
 ## Player workspace
 
@@ -49,7 +50,7 @@ Rows are flush, one column: menu bar, header, stage, transport, and timeline.
 
 The top row of every workspace is a slim menu bar — window chrome, not a control row: 32px plus a 1px `--hairline` bottom border on `--page`, flat 14px text labels ("File" and "View" left, "Help" right) as 24px pills (`--radius-control`, 0 10px padding). It owns every workspace command; the header keeps only brand and project identity.
 
-Dropdowns reuse the map-popover floating-panel anatomy: `--surface-1` fill, 1px `--hairline-strong` border, `--radius-panel`, `--shadow-float`, hung directly under their label. Item rows are 32px high — a deliberate deviation from the 36px `--control-h` recipe, matching Windows menu density — borderless at `--radius-control` with 8px side padding: 16px icon, 12px gap, 14px `--text` label, right-aligned 13px shortcut hint. Separators sit on the `--hairline` tier; disabled rows use the `button:disabled` treatment; menus open instantly, with no motion.
+Dropdowns reuse the map-popover floating-panel anatomy: `--surface-1` fill, 1px `--hairline-strong` border, `--radius-panel`, `--shadow-float`, hung directly under their label. Item rows are 32px high — a deliberate deviation from the 36px `--control-h` recipe, matching Windows menu density — borderless at `--radius-control` with 8px side padding: 16px icon, 12px gap, 14px `--text` label, right-aligned 13px shortcut hint. Separators sit on the `--hairline` tier; disabled rows use the `button:disabled` look through `aria-disabled` (the row stays focusable so the keyboard highlight is announced, see [Keyboard](#keyboard)); menus open instantly, with no motion.
 
 **Accent's extended role: menu state color.** Per the approved "accent forward" scheme, accent marks where the user is (the open top-level label) and where they are about to go (the hovered or keyboard-focused row) — never resting rows, never decoration:
 
@@ -69,6 +70,8 @@ The key vocabulary lives in `ui/lib/hotkeys.ts` and is documented in
 [keyboard-shortcuts.md](user/keyboard-shortcuts.md). Behavior rules: only the
 arrow keys repeat when held; while a menu is open it owns the keyboard and the
 player shortcuts stay inert; menus follow the Windows menu key conventions.
+The menubar is one Tab stop: Left/Right move between the top-level labels,
+disabled rows hold focus through `aria-disabled`, and Tab closes an open menu.
 
 ## Components, copy and errors
 

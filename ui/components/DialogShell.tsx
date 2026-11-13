@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { useModalFocus } from '../hooks/useModalFocus.js';
 import { DialogClose } from './DialogClose.js';
 
 export interface DialogShellProps {
@@ -25,12 +26,8 @@ export function DialogShell({
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Focus belongs on the dialog, not the opener behind the scrim; closing
-  // returns it.
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    return () => opener?.focus();
-  }, []);
+  // returns it. Tab stays inside the panel for the same reason.
+  useModalFocus(panelRef);
 
   return (
     <div

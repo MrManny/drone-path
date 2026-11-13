@@ -224,6 +224,13 @@ describe('TimelinePanel track', () => {
     expect(scrubTo).toHaveBeenCalledWith(42);
   });
 
+  it('announces the scrubber position as a time, not a frame index', () => {
+    renderPanel();
+    const slider = screen.getByRole('slider', { name: 'Playback position' });
+    fireEvent.change(slider, { target: { value: '42' } });
+    expect(slider.getAttribute('aria-valuetext')).toBe('0:01 / 0:03');
+  });
+
   it('bands the engaged loop over the track and shows its handles', () => {
     renderPanel({ loop: { in: 30, out: 60 } });
     const band = document.querySelector('.loop-band') as HTMLElement;

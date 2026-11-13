@@ -14,6 +14,7 @@ export interface ColorFieldProps {
 export function ColorField({ label, value, parse, rule, hint, onValue }: ColorFieldProps) {
   const id = useId();
   const messageId = `${id}-message`;
+  const hintId = `${id}-hint`;
   const [draft, setDraft] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
   return (
@@ -26,7 +27,7 @@ export function ColorField({ label, value, parse, rule, hint, onValue }: ColorFi
         type="text"
         value={draft ?? value ?? ''}
         aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? messageId : undefined}
+        aria-describedby={invalid ? messageId : hint ? hintId : undefined}
         onChange={(e) => {
           const raw = e.target.value;
           setDraft(raw);
@@ -54,7 +55,9 @@ export function ColorField({ label, value, parse, rule, hint, onValue }: ColorFi
           {`Must be ${rule}.`}
         </span>
       ) : hint ? (
-        <span className="hint">{hint}</span>
+        <span className="hint" id={hintId}>
+          {hint}
+        </span>
       ) : null}
     </div>
   );

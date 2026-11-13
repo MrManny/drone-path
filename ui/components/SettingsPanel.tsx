@@ -1,5 +1,7 @@
 'use client';
 
+import { useId } from 'react';
+
 import { asTrailColor, MAP_STYLE_VALUES } from '../../src/config.js';
 import type { MapStyle, RenderConfig, ViewMode } from '../../src/config.js';
 import { patchConfig, setHudChip, STYLE_LABELS, VIEW_LABELS } from '../lib/settings.js';
@@ -26,6 +28,7 @@ const VIEW_CHOICES: ReadonlyArray<{ value: ViewMode; label: string }> = [
 ];
 
 export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelProps) {
+  const viewHintId = useId();
   const apply = (patch: Parameters<typeof patchConfig>[1]): boolean => {
     const next = patchConfig(config, patch);
     if (!next) return false;
@@ -57,7 +60,7 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
         />
         <div className="settings-row">
           <span className="settings-label">View</span>
-          <div className="segmented" role="group" aria-label="View">
+          <div className="segmented" role="group" aria-label="View" aria-describedby={viewHintId}>
             {VIEW_CHOICES.map(({ value, label }) => (
               <button
                 key={value}
@@ -70,7 +73,9 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
               </button>
             ))}
           </div>
-          <span className="hint">Camera framing</span>
+          <span className="hint" id={viewHintId}>
+            Camera framing
+          </span>
         </div>
         <NumberField
           label="Zoom"

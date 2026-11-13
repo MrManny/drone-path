@@ -35,6 +35,15 @@ describe.each(['#e63946', '41f0ff', '#f00c'])('a valid color %s', (value) => {
   });
 });
 
+describe('ColorField hint association (#238)', () => {
+  it('puts the hint in aria-describedby', () => {
+    const { input } = renderColor();
+    const hint = screen.getByText("empty = map style's color");
+    expect(hint.id).not.toBe('');
+    expect(input.getAttribute('aria-describedby')).toBe(hint.id);
+  });
+});
+
 describe('an empty ColorField', () => {
   it('commits the unset value so the default applies', () => {
     const { input, onValue } = renderColor({ value: '#41f0ff' });

@@ -96,6 +96,17 @@ describe('usePlayback', () => {
     expect(document.querySelector('span')?.textContent).toBe('0:01 / 0:03');
   });
 
+  it('keeps the scrubber aria-valuetext on the time readout', () => {
+    render(<Harness />);
+    stubPlayback();
+    act(() => {
+      api.scrubTo(30);
+    });
+    act(() => flushRaf());
+    const scrubber = document.querySelector('input') as HTMLInputElement;
+    expect(scrubber.getAttribute('aria-valuetext')).toBe('0:01 / 0:03');
+  });
+
   it('applies the frame the driver already reached when the scene arrives', () => {
     render(<Harness />);
     stubPlayback();

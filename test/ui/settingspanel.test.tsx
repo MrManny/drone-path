@@ -176,6 +176,14 @@ describe('SettingsPanel', () => {
     ).toBeNull();
     expect(screen.queryByText('Map-only export')).toBeNull();
   });
+
+  it('associates the View group hint via aria-describedby (#238)', () => {
+    renderPanel(DEFAULT_CONFIG, true);
+    const hint = screen.getByText('Camera framing');
+    const group = screen.getByRole('group', { name: 'View' });
+    expect(hint.id).not.toBe('');
+    expect(group.getAttribute('aria-describedby')).toBe(hint.id);
+  });
 });
 
 describe.each([{ field: 'Zoom' }, { field: 'Zoom-out' }, { field: 'Intro (s)' }, { field: 'Outro (s)' }])(

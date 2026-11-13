@@ -26,6 +26,22 @@ describe('SelectField', () => {
     ]);
     expect(select.value).toBe('satellite');
   });
+
+  it('puts the hint in aria-describedby (#238)', () => {
+    render(
+      <SelectField
+        label="Map style"
+        value="satellite"
+        options={OPTIONS}
+        hint="Satellite imagery"
+        onValue={vi.fn()}
+      />,
+    );
+    const select = screen.getByLabelText<HTMLSelectElement>('Map style');
+    const hint = screen.getByText('Satellite imagery');
+    expect(hint.id).not.toBe('');
+    expect(select.getAttribute('aria-describedby')).toBe(hint.id);
+  });
 });
 
 describe.each(['satellite', 'topo'])('choosing %s', (value) => {

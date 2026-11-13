@@ -27,6 +27,9 @@ export function MenuRow({
   onActivate,
   buttonRef,
 }: MenuRowProps) {
+  // aria-disabled instead of the disabled attribute: a disabled button cannot
+  // hold focus, but the APG menu pattern keeps the highlight's focus on the
+  // row so it is announced. Activation stays guarded in the handlers.
   return (
     <button
       type="button"
@@ -34,7 +37,7 @@ export function MenuRow({
       role="menuitem"
       aria-disabled={disabled || undefined}
       className={`menu-row${active ? ' active' : ''}`}
-      disabled={disabled}
+      tabIndex={-1}
       title={title}
       aria-keyshortcuts={hint?.replace('Ctrl+', 'Control+')}
       onClick={disabled ? undefined : onActivate}

@@ -5,7 +5,7 @@ import type { RefObject } from 'react';
 
 import { ArrowLeftFromLine, ArrowRightFromLine, X } from 'lucide-react';
 
-import { formatLoopReadout, formatTime, timelineTicks } from '../lib/frametime.js';
+import { formatLoopReadout, formatTime, formatTimeReadout, timelineTicks } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 import type { LoopState } from '../lib/loop.js';
 import { clampHandleFrame, engagedLoop, frameAtPointer, hasLoop } from '../lib/loop.js';
@@ -158,7 +158,12 @@ export function TimelinePanel({
           step={1}
           defaultValue={0}
           disabled={disabled}
-          onChange={(e) => scrubTo(Number(e.target.value))}
+          onChange={(e) => {
+            const frame = Number(e.currentTarget.value);
+            // Keyboard scrubbing announces the time, not the raw frame index.
+            e.currentTarget.setAttribute('aria-valuetext', formatTimeReadout(frame, fps, durationSec));
+            scrubTo(frame);
+          }}
         />
       </div>
     </section>

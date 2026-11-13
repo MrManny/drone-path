@@ -132,15 +132,18 @@ button svg {
   height: 16px;
   flex: none;
 }
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--surface-3);
   border-color: var(--hairline-hover);
 }
-button:active:not(:disabled) {
+button:active:not(:disabled):not([aria-disabled='true']) {
   background: var(--surface-4);
   transform: translateY(1px);
 }
-button:disabled {
+/* aria-disabled keeps a button focusable (menu rows hold focus and get
+   announced), so it takes the disabled look in place of :disabled. */
+button:disabled,
+button[aria-disabled='true'] {
   opacity: var(--disabled-opacity);
   cursor: default;
 }
@@ -152,13 +155,13 @@ button.dialog-primary {
   border-color: transparent;
   font-weight: 600;
 }
-button.primary:hover:not(:disabled),
-button.dialog-primary:hover:not(:disabled) {
+button.primary:hover:not(:disabled):not([aria-disabled='true']),
+button.dialog-primary:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--accent-hover);
   border-color: transparent;
 }
-button.primary:active:not(:disabled),
-button.dialog-primary:active:not(:disabled) {
+button.primary:active:not(:disabled):not([aria-disabled='true']),
+button.dialog-primary:active:not(:disabled):not([aria-disabled='true']) {
   background: var(--accent-press);
 }
 button.primary {
@@ -812,7 +815,7 @@ button.primary {
 }
 /* The pressed row already carries the live-row treatment; cancel the global
    pressed transform only. */
-.menu-panel .menu-row:active:not(:disabled) {
+.menu-panel .menu-row:active:not(:disabled):not([aria-disabled='true']) {
   transform: none;
 }
 .menu-panel .menu-item-icon {

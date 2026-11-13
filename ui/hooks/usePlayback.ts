@@ -62,8 +62,12 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
       },
       onIndex: (i) => {
         latestIndexRef.current = i;
-        if (scrubRef.current) scrubRef.current.value = String(i);
         const readout = formatTimeReadout(i, video.fps, durationSec);
+        if (scrubRef.current) {
+          scrubRef.current.value = String(i);
+          // The slider announces its position as a time, not a frame index.
+          scrubRef.current.setAttribute('aria-valuetext', readout);
+        }
         if (timeRef.current) timeRef.current.textContent = readout;
         if (playheadRef.current) {
           const pct = video.frames > 1 ? (i / (video.frames - 1)) * 100 : 0;

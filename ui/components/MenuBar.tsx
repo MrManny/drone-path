@@ -34,13 +34,17 @@ export function MenuBar({
     () => ({ hasRecording, opening }),
     [hasRecording, opening],
   );
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const labelRefs = useRef<Partial<Record<MenuId, HTMLButtonElement | null>>>({});
   const { state, dispatch } = useMenuKeys(flags, {
     modalOpen,
     onActivate,
     onOpenChange: onMenuOpenChange,
+    // The closed bar claims Left/Right as label navigation (see useMenuKeys);
+    // that claim applies only to events inside the bar.
+    inBar: (target) => target instanceof Node && rootRef.current?.contains(target) === true,
   });
 
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const setRoot = useCallback(
     (node: HTMLDivElement | null) => {
       rootRef.current = node;
@@ -59,8 +63,18 @@ export function MenuBar({
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [dispatch]);
 
-  const labelRefs = useRef<Partial<Record<MenuId, HTMLButtonElement | null>>>({});
   const wasOpen = useRef<MenuId | null>(null);
+  const wasLabel = useRef(0);
+  // Keyboard label navigation moves DOM focus onto the label that now holds
+  // the roving Tab stop. Pointer-driven label changes never reach this: they
+  // open a menu in the same transition and focus belongs on its rows.
+  useEffect(() => {
+    const moved = wasLabel.current !== state.label;
+    wasLabel.current = state.label;
+    if (!moved || state.open !== null) return;
+    labelRefs.current[MENU_BAR[state.label]?.id]?.focus();
+  }, [state.label, state.open]);
+
   // Closing must not strand focus on a removed row: return it to the label of
   // the menu that closed, unless an outside click already moved it away.
   useEffect(() => {
@@ -80,8 +94,28 @@ export function MenuBar({
   }, [state.open]);
 
   return (
-    <div className="menu-bar" role="menubar" ref={setRoot} tabIndex={-1}>
-      {MENU_BAR.map((menu) => {
+    <div
+      className="menu-bar"
+      role="menubar"
+      aria-label="Main menu"
+      ref={setRoot}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        // Tab closes the open menu and stays unclaimed so the browser
+        // continues in normal navigation order from the label.
+        if (e.key !== 'Tab' || state.open === null) return;
+        const menu = state.open;
+        dispatch({ type: 'close' });
+        labelRefs.current[menu]?.focus();
+      }}
+      onBlur={(e) => {
+        // Focus leaving the bar closes the open menu, like an outside click.
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          dispatch({ type: 'close' });
+        }
+      }}
+    >
+      {MENU_BAR.map((menu, index) => {
         const open = state.open === menu.id;
         return (
           <div
@@ -98,6 +132,7 @@ export function MenuBar({
               className={`menu-bar-label${open ? ' open' : ''}`}
               aria-haspopup="menu"
               aria-expanded={open}
+              tabIndex={index === state.label ? 0 : -1}
               onClick={() => dispatch({ type: 'toggle', menu: menu.id })}
               onMouseEnter={() => dispatch({ type: 'hoverMenu', menu: menu.id })}
             >

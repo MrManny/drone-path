@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 
 import type { ManualBundle } from '../../src/manual/model.js';
+import { useModalFocus } from '../hooks/useModalFocus.js';
 import { dropManualToc } from '../lib/helpindex.js';
 import { DialogClose } from './DialogClose.js';
 
@@ -18,6 +19,10 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
   const [slug, setSlug] = useState(startSlug);
   const [anchor, setAnchor] = useState<{ id: string } | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  // The overlay is modal like DialogShell: focus in on open, back to the
+  // opener on close, Tab kept inside the panel.
+  useModalFocus(panelRef);
   const page = bundle.pages[slug];
   const contentHtml = useMemo(() => {
     const html = page?.html ?? '';
@@ -51,9 +56,12 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div
+        ref={panelRef}
         className="settings-panel help-panel"
         role="dialog"
+        aria-modal="true"
         aria-label="Help"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="settings-header">

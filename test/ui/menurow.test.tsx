@@ -76,10 +76,15 @@ describe('MenuRow', () => {
     expect(onActivate).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the button:disabled treatment and stays inert when disabled', () => {
+  it('stays focusable but inert when disabled', () => {
     const { onHover, onActivate } = renderRow({ disabled: true, active: false });
     const row = screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' });
-    expect(row.disabled).toBe(true);
+    // aria-disabled instead of the disabled attribute: the row holds the
+    // keyboard focus so its disabled state gets announced.
+    expect(row.disabled).toBe(false);
+    expect(row.tabIndex).toBe(-1);
+    row.focus();
+    expect(document.activeElement).toBe(row);
     fireEvent.mouseEnter(row);
     fireEvent.click(row);
     expect(onHover).not.toHaveBeenCalled();

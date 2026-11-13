@@ -84,14 +84,14 @@ describe('EmptyWorkspace skeleton', () => {
   it('disables the recording-bound menu items while keeping Open live', () => {
     renderWorkspace();
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
-    const open = within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' });
-    expect(open.disabled).toBe(false);
+    const open = within(menu()).getByRole('menuitem', { name: 'Open…' });
+    expect(open.getAttribute('aria-disabled')).toBeNull();
     for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
-      expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name }).disabled).toBe(true);
+      expect(within(menu()).getByRole('menuitem', { name }).getAttribute('aria-disabled')).toBe(
+        'true',
+      );
     }
-    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(
-      false,
-    );
+    expect(within(menu()).getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
   });
 
   it('disables the transport cluster and the speed group', () => {
@@ -115,13 +115,13 @@ describe('EmptyWorkspace skeleton', () => {
   it('disables Settings and Swap in the menu while Documentation stays available', () => {
     const { onHelp, onExit } = renderWorkspace();
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
-    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Settings' }).disabled).toBe(
-      true,
-    );
+    expect(
+      within(menu()).getByRole('menuitem', { name: 'Settings' }).getAttribute('aria-disabled'),
+    ).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Swap' }).disabled).toBe(
-      true,
-    );
+    expect(
+      within(menu()).getByRole('menuitem', { name: 'Swap' }).getAttribute('aria-disabled'),
+    ).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
     expect(onHelp).toHaveBeenCalledTimes(1);
@@ -133,8 +133,8 @@ describe('EmptyWorkspace skeleton', () => {
   it('opens About from the Help menu without a recording', () => {
     const { dialogs } = renderWorkspace();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    const about = within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'About' });
-    expect(about.disabled).toBe(false);
+    const about = within(menu()).getByRole('menuitem', { name: 'About' });
+    expect(about.getAttribute('aria-disabled')).toBeNull();
     fireEvent.click(about);
     expect(dialogs.dispatchDialog).toHaveBeenCalledWith({ type: 'openAbout' });
   });
@@ -184,12 +184,12 @@ describe('EmptyWorkspace open states', () => {
   it('disables the menu Open item while the flow prepares', () => {
     renderWorkspace({ kind: 'preparing', progress: { stage: 'probe', done: 0, total: 3 } });
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
-    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(
-      true,
-    );
-    expect(within(menu()).getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(
-      false,
-    );
+    expect(
+      within(menu()).getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled'),
+    ).toBe('true');
+    expect(
+      within(menu()).getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled'),
+    ).toBeNull();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' }).disabled).toBe(
       true,
     );

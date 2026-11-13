@@ -144,3 +144,41 @@ describe('HelpOverlay', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe('HelpOverlay focus management (#238)', () => {
+  it('takes focus on open and restores it to the opener on close', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const view = render(<HelpOverlay bundle={BUNDLE} onClose={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'Help' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(dialog);
+    view.unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it('wraps Tab inside the overlay', () => {
+    renderHelp();
+    const dialog = screen.getByRole('dialog', { name: 'Help' });
+    const controls = [
+      ...dialog.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('button, a[href]'),
+    ];
+    const last = controls[controls.length - 1];
+    last.focus();
+    expect(fireEvent.keyDown(last, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(controls[0]);
+  });
+
+  it('wraps Shift+Tab inside the overlay', () => {
+    renderHelp();
+    const dialog = screen.getByRole('dialog', { name: 'Help' });
+    const controls = [
+      ...dialog.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('button, a[href]'),
+    ];
+    controls[0].focus();
+    expect(fireEvent.keyDown(controls[0], { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(controls[controls.length - 1]);
+  });
+});

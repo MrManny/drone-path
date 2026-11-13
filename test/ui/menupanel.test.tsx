@@ -71,7 +71,7 @@ describe('MenuPanel', () => {
     const state = Object.fromEntries(
       [...panel.querySelectorAll<HTMLButtonElement>('.menu-row')].map((row) => [
         row.textContent,
-        row.disabled,
+        row.getAttribute('aria-disabled') === 'true',
       ]),
     );
     expect(state).toEqual({

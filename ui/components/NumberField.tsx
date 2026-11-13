@@ -15,6 +15,7 @@ export interface NumberFieldProps {
 export function NumberField({ label, value, min, rule, step, hint, onValue }: NumberFieldProps) {
   const id = useId();
   const messageId = `${id}-message`;
+  const hintId = `${id}-hint`;
   const [draft, setDraft] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
   return (
@@ -29,7 +30,7 @@ export function NumberField({ label, value, min, rule, step, hint, onValue }: Nu
         step={step ?? 1}
         value={draft ?? String(value)}
         aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? messageId : undefined}
+        aria-describedby={invalid ? messageId : hint ? hintId : undefined}
         onChange={(e) => {
           const raw = e.target.value;
           setDraft(raw);
@@ -50,7 +51,9 @@ export function NumberField({ label, value, min, rule, step, hint, onValue }: Nu
           {`Must be ${rule}.`}
         </span>
       ) : hint ? (
-        <span className="hint">{hint}</span>
+        <span className="hint" id={hintId}>
+          {hint}
+        </span>
       ) : null}
     </div>
   );
