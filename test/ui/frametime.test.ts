@@ -88,9 +88,9 @@ describe('formatTimeReadout', () => {
 describe('formatFrameSpan', () => {
   it.for([
     { name: 'both points set', start: 300, end: 360, fps: 30, want: '0:10–0:12' },
-    { name: 'unset start reads as ?', start: null, end: 360, fps: 30, want: '?–0:12' },
-    { name: 'unset end reads as ?', start: 300, end: null, fps: 30, want: '0:10–?' },
-    { name: 'both unset read as ?', start: null, end: null, fps: 30, want: '?–?' },
+    { name: 'unset start reads as …', start: null, end: 360, fps: 30, want: '…–0:12' },
+    { name: 'unset end reads as …', start: 300, end: null, fps: 30, want: '0:10–…' },
+    { name: 'both unset read as …', start: null, end: null, fps: 30, want: '…–…' },
   ])('$name', ({ start, end, fps, want }) => {
     expect(formatFrameSpan(start, end, fps)).toBe(want);
   });
@@ -109,12 +109,17 @@ describe('formatFrameRange', () => {
 describe('formatLoopReadout', () => {
   it.for([
     { name: 'engaged loop', loop: { in: 300, out: 360 }, fps: 30, want: 'loop 0:10–0:12' },
-    { name: 'unset in point still reads', loop: { in: null, out: 360 }, fps: 30, want: 'loop ?–0:12' },
-    { name: 'unset out point still reads', loop: { in: 300, out: null }, fps: 30, want: 'loop 0:10–?' },
+    { name: 'unset in point still reads', loop: { in: null, out: 360 }, fps: 30, want: 'loop …–0:12' },
+    { name: 'unset out point still reads', loop: { in: 300, out: null }, fps: 30, want: 'loop 0:10–…' },
     { name: 'out-of-order points still read', loop: { in: 360, out: 300 }, fps: 30, want: 'loop 0:12–0:10' },
     { name: 'no points reads empty', loop: { in: null, out: null }, fps: 30, want: '' },
   ])('$name', ({ loop, fps, want }) => {
     expect(formatLoopReadout(loop, fps)).toBe(want);
+  });
+
+  it('says what is missing instead of showing a bare ? (#233)', () => {
+    expect(formatLoopReadout({ in: 300, out: null }, 30)).toBe('loop 0:10–…');
+    expect(formatLoopReadout({ in: null, out: 360 }, 30)).toBe('loop …–0:12');
   });
 });
 

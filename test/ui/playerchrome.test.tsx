@@ -518,7 +518,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
     key(window, { key: 'o' });
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('loop ?–0:00')).toBeTruthy();
+    expect(screen.getByText('loop …–0:00')).toBeTruthy();
     const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
     key(scrub, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(2);
@@ -555,7 +555,7 @@ describe('PlayerChrome loop region', () => {
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
     key(window, { key: 'Escape' });
-    expect(document.querySelector('.loop-readout')).toBeNull();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(true);
   });
 
@@ -563,7 +563,17 @@ describe('PlayerChrome loop region', () => {
     await renderPlayer();
     setLoopRegion(30, 60);
     fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));
-    expect(document.querySelector('.loop-readout')).toBeNull();
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('');
+  });
+
+  it('pins the readout slot left of the loop controls at the right edge (#233)', async () => {
+    await renderPlayer();
+    setLoopRegion(30, 60);
+    const actions = document.querySelector('.timeline-actions') as HTMLElement;
+    expect([...actions.children].map((child) => child.className)).toEqual([
+      'readout loop-readout',
+      'segmented',
+    ]);
   });
 
   it('states why Clear is disabled without a loop', async () => {

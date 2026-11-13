@@ -31,8 +31,10 @@ export function formatFrameSpan(
   end: number | null,
   fps: number,
 ): string {
+  // A missing endpoint reads as "…" so a partial span says what is not set
+  // yet instead of asking a bare question.
   const at = (f: number | null): string =>
-    f === null ? '?' : formatTime(timeAt(f, fps));
+    f === null ? '…' : formatTime(timeAt(f, fps));
   return `${at(start)}–${at(end)}`;
 }
 
