@@ -3,7 +3,8 @@
 import { formatTime } from '../lib/frametime.js';
 
 export interface WorkspaceHeaderProps {
-  durationSec: number;
+  /** Recording length in seconds; null while no recording is loaded. */
+  durationSec: number | null;
 }
 
 export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
@@ -16,7 +17,7 @@ export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
       <div className="header-divider" />
       <div className="header-project">
         <strong>Flight workspace</strong>
-        <small>{`Recording · ${formatTime(durationSec)}`}</small>
+        {durationSec === null ? null : <small>{`Recording · ${formatTime(durationSec)}`}</small>}
       </div>
     </header>
   );

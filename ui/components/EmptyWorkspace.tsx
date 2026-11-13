@@ -9,7 +9,6 @@ import type { MenuItemId } from '../lib/menumodel.js';
 import type { PickState } from '../lib/pickstate.js';
 import { EmptyStage } from './EmptyStage.js';
 import { MenuBar } from './MenuBar.js';
-import { StatusBar } from './StatusBar.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
@@ -70,7 +69,7 @@ export function EmptyWorkspace({
         onActivate={(item) => menuActions[item]?.()}
         onMenuOpenChange={setMenuOpen}
       />
-      <WorkspaceHeader durationSec={0} />
+      <WorkspaceHeader durationSec={null} />
       <EmptyStage state={state} onPick={onPick} onDismiss={onDismiss} />
       <TransportBar
         dispatch={dispatch}
@@ -96,7 +95,6 @@ export function EmptyWorkspace({
         playheadRef={playheadRef}
         src=""
       />
-      <StatusBar disabled hasTelemetry={false} />
     </div>
   );
 }

@@ -151,7 +151,7 @@ function openWorkspace() {
   return stageCta();
 }
 
-const ROWS = ['.menu-bar', '.workspace-header', '.stage', '.transport', '.timeline', '.status-bar'];
+const ROWS = ['.menu-bar', '.workspace-header', '.stage', '.transport', '.timeline'];
 
 function rowGeometry(): string[] {
   return ROWS.map((selector) => {
@@ -179,7 +179,7 @@ afterEach(() => {
 });
 
 describe('the empty workspace at launch', () => {
-  it('lands in the six-row skeleton with disabled controls and one accent CTA', () => {
+  it('lands in the five-row skeleton with disabled controls and one accent CTA', () => {
     installBridge();
     openWorkspace();
     expect(rowGeometry().map((row) => row.split(' @ ')[0])).toEqual([
@@ -188,8 +188,8 @@ describe('the empty workspace at launch', () => {
       'stage stage-split',
       'transport',
       'timeline',
-      'status-bar',
     ]);
+    expect(document.querySelector('.status-bar')).toBeNull();
     expect(stageCta().textContent).toContain('Open…');
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
@@ -206,8 +206,9 @@ describe('the empty workspace at launch', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     expect(menuItem('Documentation').disabled).toBe(false);
     expect(screen.getByText('No telemetry yet')).toBeTruthy();
-    expect(screen.getByText('No recording loaded')).toBeTruthy();
-    expect(screen.getByText(/SRT sidecar/)).toBeTruthy();
+    expect(screen.queryByText('No recording loaded')).toBeNull();
+    expect(screen.queryByText(/SRT sidecar/)).toBeNull();
+    expect(screen.queryByText(/Recording ·/)).toBeNull();
   });
 
   it('shows no busy status while the native picker is open', () => {
@@ -256,6 +257,8 @@ describe('the empty workspace at launch', () => {
     expect(rowGeometry()).toEqual(before);
     expect(stageCta()).toBeNull();
     expect(document.querySelector('.workspace')).not.toBeNull();
+    expect(screen.getByText('Recording · 0:03')).toBeTruthy();
+    expect(document.querySelector('.status-bar')).toBeNull();
   });
 
   it('ignores a second Open while the first pick is still running', async () => {
@@ -265,6 +268,38 @@ describe('the empty workspace at launch', () => {
     fireEvent.click(open);
     expect(harness.bridge.pickRecording).toHaveBeenCalledTimes(1);
     await harness.settle({ ok: false, canceled: true });
+  });
+});
+
+describe('workspace row fitting (#234)', () => {
+  // The fixed chrome rows must fit the app's 600px minimum window height
+  // (app/main.mjs minHeight) with room left for the footage stage at every
+  // timeline height, or rows clip and the window grows stray scrollbars.
+  const cssText = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
+
+  function allTokenPx(name: string): number[] {
+    return [...cssText.matchAll(new RegExp(`${name}:\\s*(\\d+)px`, 'g'))].map((m) => Number(m[1]));
+  }
+
+  it('leaves stage headroom at the minimum window height', () => {
+    const MIN_WINDOW_H = 600;
+    const MIN_STAGE_H = 250;
+    const menuH = 33; // .menu-bar: the 32px row plus its 1px hairline border
+    const fixed = menuH + allTokenPx('--header-h')[0] + allTokenPx('--transport-h')[0];
+    const timelines = allTokenPx('--timeline-h');
+    expect(timelines.length).toBeGreaterThanOrEqual(2);
+    for (const timelineH of timelines) {
+      expect(fixed + timelineH + MIN_STAGE_H).toBeLessThanOrEqual(MIN_WINDOW_H);
+    }
+  });
+
+  it('keeps the workspace unscrollable with the stage as the only flexible row', () => {
+    expect(cssText).toMatch(/\.workspace\s*\{[^}]*height: 100vh/);
+    for (const row of ['\\.menu-bar', '\\.workspace-header', '\\.transport', '\\.timeline']) {
+      expect(cssText).toMatch(new RegExp(`${row}\\s*\\{[^}]*flex: none`));
+    }
+    expect(cssText).toMatch(/\.stage\s*\{[^}]*flex: 1 1 auto/);
+    expect(cssText).not.toMatch(/\.status-(bar|item)\s*\{/);
   });
 });
 
