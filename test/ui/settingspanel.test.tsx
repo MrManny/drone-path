@@ -16,9 +16,15 @@ function renderPanel(
   config: RenderConfig,
   hasAltitude: boolean,
   onChange: (config: RenderConfig) => void = () => {},
+  hasRecording = true,
 ) {
   return render(
-    <SettingsPanel config={config} hasAltitude={hasAltitude} onChange={onChange} />,
+    <SettingsPanel
+      config={config}
+      hasRecording={hasRecording}
+      hasAltitude={hasAltitude}
+      onChange={onChange}
+    />,
   );
 }
 
@@ -94,7 +100,7 @@ describe('SettingsPanel', () => {
   it('keeps a rejected value visible with its message until blur, then reverts', () => {
     function Harness() {
       const [current, setCurrent] = useState(DEFAULT_CONFIG);
-      return <SettingsPanel config={current} hasAltitude onChange={setCurrent} />;
+      return <SettingsPanel config={current} hasRecording hasAltitude onChange={setCurrent} />;
     }
     render(<Harness />);
     const intro = screen.getByLabelText<HTMLInputElement>('Intro (s)');
@@ -127,7 +133,9 @@ describe('SettingsPanel', () => {
     const { rerender } = renderPanel(DEFAULT_CONFIG, false);
     const alt = screen.getByLabelText<HTMLInputElement>('Altitude (ALT)');
     expect(alt.disabled).toBe(true);
-    rerender(<SettingsPanel config={DEFAULT_CONFIG} hasAltitude onChange={() => {}} />);
+    rerender(
+      <SettingsPanel config={DEFAULT_CONFIG} hasRecording hasAltitude onChange={() => {}} />,
+    );
     expect(alt.disabled).toBe(false);
   });
 
@@ -163,9 +171,10 @@ describe('SettingsPanel', () => {
     );
   });
 
-  it('labels the map style hint and leaves the export rule to the export form', () => {
+  it('keeps the map style hint option-neutral and leaves the export rule to the export form', () => {
     renderPanel(DEFAULT_CONFIG, true);
-    expect(screen.getByText('Satellite imagery')).toBeTruthy();
+    expect(screen.getByText('Tiles used in the preview and export')).toBeTruthy();
+    expect(screen.queryByText('Satellite imagery')).toBeNull();
     expect(
       screen.getByText(
         'Customize how your flight path appears in the preview and map export.',
@@ -175,6 +184,12 @@ describe('SettingsPanel', () => {
       screen.queryByText('Export renders the map, not the source video.'),
     ).toBeNull();
     expect(screen.queryByText('Map-only export')).toBeNull();
+  });
+
+  it('never contradicts the selected map style', () => {
+    renderPanel({ ...DEFAULT_CONFIG, style: 'topo' }, true);
+    expect(screen.getByText('Tiles used in the preview and export')).toBeTruthy();
+    expect(screen.queryByText('Satellite imagery')).toBeNull();
   });
 
   it('associates the View group hint via aria-describedby (#238)', () => {
@@ -202,12 +217,36 @@ describe.each([{ field: 'Zoom' }, { field: 'Zoom-out' }, { field: 'Intro (s)' },
 );
 
 describe.each([
-  { hasAltitude: true, note: false },
-  { hasAltitude: false, note: true },
-])('HUD altitude note when hasAltitude is $hasAltitude', ({ hasAltitude, note }) => {
-  it('explains the missing ALT chip only when the telemetry has no altitude', () => {
-    renderPanel(DEFAULT_CONFIG, hasAltitude);
-    const text = 'This recording has no altitude telemetry, so the ALT chip stays off.';
-    expect(screen.queryByText(text) !== null).toBe(note);
+  {
+    name: 'recording with altitude',
+    hasRecording: true,
+    hasAltitude: true,
+    note: null,
+  },
+  {
+    name: 'recording without altitude',
+    hasRecording: true,
+    hasAltitude: false,
+    note: 'This recording has no altitude telemetry, so the ALT chip stays off.',
+  },
+  {
+    name: 'no recording',
+    hasRecording: false,
+    hasAltitude: false,
+    note: 'No recording is loaded, so the ALT chip stays off.',
+  },
+])('HUD altitude reason for a $name', ({ hasRecording, hasAltitude, note }) => {
+  it('states the altitude-unavailable reason exactly once, in the notice', () => {
+    renderPanel(DEFAULT_CONFIG, hasAltitude, undefined, hasRecording);
+    for (const text of [
+      'This recording has no altitude telemetry, so the ALT chip stays off.',
+      'No recording is loaded, so the ALT chip stays off.',
+    ]) {
+      expect(screen.queryByText(text) !== null).toBe(text === note);
+    }
+    const alt = screen.getByLabelText<HTMLInputElement>('Altitude (ALT)');
+    expect(alt.disabled).toBe(!hasRecording || !hasAltitude);
+    // The notice owns the reason: the checkbox carries no duplicate tooltip.
+    expect(alt.title).toBe('');
   });
 });

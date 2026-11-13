@@ -48,7 +48,7 @@ describe('MenuPanel', () => {
       'Open…Ctrl+O',
       'Export video…',
       'Export telemetry…',
-      'Settings',
+      'Map appearance…',
       'Exit',
     ]);
     const order = [...panel.querySelectorAll('.menu-row, .menu-separator')].map((el) =>
@@ -59,7 +59,7 @@ describe('MenuPanel', () => {
       'Export video…',
       'Export telemetry…',
       '—',
-      'Settings',
+      'Map appearance…',
       '—',
       'Exit',
     ]);
@@ -78,7 +78,7 @@ describe('MenuPanel', () => {
       'Open…Ctrl+O': false,
       'Export video…': true,
       'Export telemetry…': true,
-      Settings: true,
+      'Map appearance…': false,
       Exit: false,
     });
   });

@@ -190,6 +190,8 @@ export default function Page() {
       ) : (
         <EmptyWorkspace
           state={pickState}
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
           onPick={handlePick}
           onHelp={openHelp}
           onExit={handleExit}

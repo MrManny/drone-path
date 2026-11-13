@@ -8,13 +8,19 @@ import { useSceneIsland } from '../../ui/hooks/useSceneIsland.js';
 import type { FakeObserver } from './harness.js';
 import { installResizeObserverStub } from './harness.js';
 
-const boot = vi.hoisted(() => ({ scenes: [] as Scene[], calls: 0 }));
+const boot = vi.hoisted(() => ({
+  scenes: [] as Scene[],
+  calls: 0,
+  hudHosts: [] as Array<HTMLElement | undefined>,
+}));
 
 vi.mock('../../src/renderer/boot.js', async () => {
   const { createFakeScene } = await import('./harness.js');
   return {
-    bootScene: (): Scene => {
+    bootScene: (...args: unknown[]): Scene => {
       boot.calls += 1;
+      const opts = args[3] as { hudHost?: HTMLElement } | undefined;
+      boot.hudHosts.push(opts?.hudHost);
       const scene = createFakeScene();
       boot.scenes.push(scene);
       return scene;
@@ -47,8 +53,8 @@ const DATA = {
   trailFrame: [0],
 } satisfies SceneData;
 
-function Island({ data, frame, onScene }: SceneIslandOptions) {
-  const hostRef = useSceneIsland({ data, frame, onScene });
+function Island({ data, frame, onScene, hudHostRef }: SceneIslandOptions) {
+  const hostRef = useSceneIsland({ data, frame, onScene, hudHostRef });
   return <div ref={hostRef} />;
 }
 
@@ -62,6 +68,7 @@ beforeEach(() => {
   observers = installResizeObserverStub();
   boot.calls = 0;
   boot.scenes.length = 0;
+  boot.hudHosts.length = 0;
 });
 
 afterEach(() => {
@@ -75,6 +82,15 @@ describe('useSceneIsland', () => {
     render(<Island data={DATA} onScene={onScene} />);
     await waitFor(() => expect(onScene).toHaveBeenCalledTimes(1));
     expect(boot.calls).toBe(1);
+    expect(boot.hudHosts[0]).toBeUndefined();
+  });
+
+  it('hands the external chip strip to the scene (#236)', async () => {
+    const strip = document.createElement('div');
+    document.body.appendChild(strip);
+    render(<Island data={DATA} hudHostRef={{ current: strip }} />);
+    await waitFor(() => expect(boot.calls).toBe(1));
+    expect(boot.hudHosts[0]).toBe(strip);
   });
 
   it('seeks the given frame and re-seeks on change', async () => {

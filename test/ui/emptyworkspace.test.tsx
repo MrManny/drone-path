@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EmptyWorkspace } from '../../ui/components/EmptyWorkspace.js';
+import { DEFAULT_CONFIG } from '../../src/config.js';
+import type { RenderConfig } from '../../src/config.js';
 import type { Dialogs } from '../../ui/hooks/useDialogs.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 
@@ -27,7 +29,11 @@ function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
   };
 }
 
-function renderWorkspace(state: PickState = { kind: 'idle' }, dialogs = fakeDialogs()) {
+function renderWorkspace(
+  state: PickState = { kind: 'idle' },
+  dialogs = fakeDialogs(),
+  onSettingsChange: (config: RenderConfig) => void = vi.fn(),
+) {
   const onPick = vi.fn();
   const onHelp = vi.fn();
   const onExit = vi.fn();
@@ -35,6 +41,8 @@ function renderWorkspace(state: PickState = { kind: 'idle' }, dialogs = fakeDial
   render(
     <EmptyWorkspace
       state={state}
+      settings={DEFAULT_CONFIG}
+      onSettingsChange={onSettingsChange}
       onPick={onPick}
       onHelp={onHelp}
       onExit={onExit}
@@ -42,7 +50,7 @@ function renderWorkspace(state: PickState = { kind: 'idle' }, dialogs = fakeDial
       dialogs={dialogs}
     />,
   );
-  return { onPick, onHelp, onExit, onDismiss, dialogs };
+  return { onPick, onHelp, onExit, onDismiss, dialogs, onSettingsChange };
 }
 
 function menu(): HTMLElement {
@@ -86,11 +94,14 @@ describe('EmptyWorkspace skeleton', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     const open = within(menu()).getByRole('menuitem', { name: 'Open…' });
     expect(open.getAttribute('aria-disabled')).toBeNull();
-    for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
+    for (const name of ['Export video…', 'Export telemetry…']) {
       expect(within(menu()).getByRole('menuitem', { name }).getAttribute('aria-disabled')).toBe(
         'true',
       );
     }
+    expect(
+      within(menu()).getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
+    ).toBeNull();
     expect(within(menu()).getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
   });
 
@@ -112,12 +123,12 @@ describe('EmptyWorkspace skeleton', () => {
     }
   });
 
-  it('disables Settings and Swap in the menu while Documentation stays available', () => {
+  it('keeps Map appearance and Documentation live while Swap stays disabled', () => {
     const { onHelp, onExit } = renderWorkspace();
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     expect(
-      within(menu()).getByRole('menuitem', { name: 'Settings' }).getAttribute('aria-disabled'),
-    ).toBe('true');
+      within(menu()).getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
+    ).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
       within(menu()).getByRole('menuitem', { name: 'Swap' }).getAttribute('aria-disabled'),
@@ -199,5 +210,36 @@ describe('EmptyWorkspace open states', () => {
     renderWorkspace({ kind: 'error', message: 'boom' });
     expect(screen.getByRole('alert').textContent).toContain('Could not open the recording: boom');
     expect(document.querySelector('.workspace')).not.toBeNull();
+  });
+});
+
+describe('EmptyWorkspace map appearance', () => {
+  function openMapAppearance() {
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Map appearance…' }));
+  }
+
+  it('opens the popover with no recording loaded (#236)', () => {
+    renderWorkspace();
+    openMapAppearance();
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    expect(screen.getByText('No recording is loaded, so the ALT chip stays off.')).toBeTruthy();
+  });
+
+  it('applies map look changes with no recording loaded', () => {
+    const { onSettingsChange } = renderWorkspace();
+    openMapAppearance();
+    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ style: 'topo' }),
+    );
+  });
+
+  it('closes with Escape without dispatching a dialog close', () => {
+    const { dialogs } = renderWorkspace();
+    openMapAppearance();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(dialogs.dispatchDialog).not.toHaveBeenCalled();
   });
 });

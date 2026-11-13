@@ -144,14 +144,18 @@ export function hudMarkup(hud: HudLayout): string {
   return chips.map((chip) => `  ${chip}`).join('\n');
 }
 
-export function mapMarkup(hud: HudLayout, attribution: string): string {
+/** A null hud keeps the chips out of the map frame: the caller mounts them in
+    a strip outside the map image instead. */
+export function mapMarkup(hud: HudLayout | null, attribution: string): string {
+  const hudBlock =
+    hud === null ? '' : `<div id="hud">
+${hudMarkup(hud)}
+</div>
+`;
   return `<div id="map-frame">
 <div id="map"></div>
 <div id="vignette"></div>
-<div id="hud">
-${hudMarkup(hud)}
-</div>
-<div id="attr">${attribution}</div>
+${hudBlock}<div id="attr">${attribution}</div>
 <div id="scalebar"><span id="scaletext"></span><div id="scaleline"></div></div>
 </div>`;
 }

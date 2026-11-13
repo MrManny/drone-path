@@ -142,3 +142,28 @@ describe('MapIsland', () => {
     expect(onScene).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('MapIsland chip placement (#236)', () => {
+  it('renders the chips into the external strip, not over the map', async () => {
+    const strip = document.createElement('div');
+    const onScene = vi.fn();
+    const { container } = render(
+      <MapIsland data={DATA} onScene={onScene} hudHostRef={{ current: strip }} />,
+    );
+    await waitFor(() => expect(onScene).toHaveBeenCalledTimes(1));
+    expect(strip.querySelector('#chip-alt')).toBeTruthy();
+    expect(strip.querySelector('#chip-speed')).toBeTruthy();
+    const host = container.querySelector('#scene-host') as HTMLElement;
+    expect(host.querySelector('#hud')).toBeNull();
+    expect(host.querySelector('#chip-alt')).toBeNull();
+  });
+
+  it('keeps the chips in the map frame when no strip is given', async () => {
+    const onScene = vi.fn();
+    const { container } = render(<MapIsland data={DATA} onScene={onScene} />);
+    await waitFor(() => expect(onScene).toHaveBeenCalledTimes(1));
+    const host = container.querySelector('#scene-host') as HTMLElement;
+    expect(host.querySelector('#chip-alt')).toBeTruthy();
+    expect(host.querySelector('#chip-speed')).toBeTruthy();
+  });
+});

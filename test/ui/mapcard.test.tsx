@@ -1,4 +1,8 @@
 // @vitest-environment jsdom
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -131,4 +135,80 @@ describe('MapCard map-loading busy state', () => {
       expect(screen.queryByRole('status')).toBeNull();
     },
   );
+});
+
+describe('MapCard chip strip (#236)', () => {
+  it.for(['split', 'overlay'] as const)(
+    'mounts the strip outside the map area in the %s layout',
+    (layout) => {
+      const { container } = render(<MapCard data={DATA} onScene={() => {}} layout={layout} />);
+      const card = container.querySelector('.map-card') as HTMLElement;
+      const map = card.querySelector('.map-card-map') as HTMLElement;
+      const strip = card.querySelector('.map-card-strip') as HTMLElement;
+      expect(map).toBeTruthy();
+      expect(strip).toBeTruthy();
+      expect(map.nextElementSibling).toBe(strip);
+    },
+  );
+
+  it('keeps the island in the map area and the busy label on the card', () => {
+    const { container } = render(<MapCard data={DATA} onScene={() => {}} layout="split" />);
+    const card = container.querySelector('.map-card') as HTMLElement;
+    expect(card.querySelector('.map-card-map [data-testid="map-island"]')).toBeTruthy();
+    expect(card.querySelector('.map-card-busy')?.parentElement).toBe(card);
+  });
+
+  it('renders no strip on the quiet placeholder', () => {
+    const { container } = render(<MapCard data={null} layout="split" />);
+    expect(container.querySelector('.map-card-strip')).toBeNull();
+    expect(container.querySelector('.map-card-map')).toBeNull();
+  });
+
+  it('keeps one strip element alive across layout swaps for the scene', () => {
+    const { container, rerender } = render(
+      <MapCard data={DATA} onScene={() => {}} layout="split" />,
+    );
+    const strip = container.querySelector('.map-card-strip');
+    rerender(<MapCard data={DATA} onScene={() => {}} layout="overlay" />);
+    expect(container.querySelector('.map-card-strip')).toBe(strip);
+  });
+});
+
+describe('MapCard style contract (#236)', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const cssText = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
+
+  it('keeps the chips in a bottom strip outside the map image', () => {
+    expect(cssText).toMatch(/\.map-card \{[^}]*flex-direction: column/);
+    expect(cssText).toMatch(/\.map-card-map \{[^}]*flex: 1 1 auto/);
+    expect(cssText).toMatch(/\.map-card-strip \{[^}]*flex: none/);
+    expect(cssText).toMatch(/\.map-card-strip:empty \{[^}]*display: none/);
+  });
+
+  it('scales the chip micro-labels down in the compact card', () => {
+    expect(cssText).toMatch(/\.map-card-strip \.chip \.label \{[^}]*font-size: 10px/);
+    expect(cssText).toMatch(
+      /\.map-card-overlay \.map-card-strip \.chip \.label \{[^}]*font-size: 9px/,
+    );
+    expect(cssText).toMatch(
+      /\.map-card-overlay \.map-card-strip \.chip \{[^}]*font-size: 12px/,
+    );
+  });
+
+  it('renders the compact attribution on one line clear of the scale bar', () => {
+    const rule = /\.map-card\.map-card-overlay #attr \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(rule).toContain('white-space: nowrap');
+    expect(rule).toContain('text-overflow: ellipsis');
+    expect(rule).toContain('bottom: 32px');
+    expect(rule).toContain('pointer-events: auto');
+    expect(cssText).toMatch(/\.map-card\.map-card-overlay #attr a \{[^}]*pointer-events: none/);
+  });
+
+  it('leaves the map-loading busy label rules untouched (#234)', () => {
+    const rule = /\.map-card-busy \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(rule).toContain('z-index: 1300');
+    expect(rule).toContain('bottom: calc(50% + 56px)');
+    expect(cssText).toMatch(/\.map-card-overlay \.map-card-busy \{[^}]*top: 34px/);
+    expect(cssText).toMatch(/\.map-card-overlay \.map-card-busy \{[^}]*bottom: auto/);
+  });
 });

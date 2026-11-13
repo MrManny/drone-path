@@ -134,7 +134,7 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Open…': 'File',
   'Export video…': 'File',
   'Export telemetry…': 'File',
-  Settings: 'File',
+  'Map appearance…': 'File',
   Exit: 'File',
   Swap: 'View',
   Documentation: 'Help',
@@ -195,6 +195,7 @@ describe('the empty workspace at launch', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     expect(menuItem('Open…').getAttribute('aria-disabled')).toBeNull();
     expect(menuItem('Export video…').getAttribute('aria-disabled')).toBe('true');
+    expect(menuItem('Map appearance…').getAttribute('aria-disabled')).toBeNull();
     for (const name of ['Jump to start', 'Play', 'Jump to end', '1×', '2×', '3×', '4×']) {
       expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
     }
@@ -209,6 +210,13 @@ describe('the empty workspace at launch', () => {
     expect(screen.queryByText('No recording loaded')).toBeNull();
     expect(screen.queryByText(/SRT sidecar/)).toBeNull();
     expect(screen.queryByText(/Recording ·/)).toBeNull();
+  });
+
+  it('opens the Map appearance popover with no recording loaded (#236)', () => {
+    installBridge();
+    openWorkspace();
+    clickMenuItem('Map appearance…');
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
   });
 
   it('shows no busy status while the native picker is open', () => {
@@ -480,7 +488,7 @@ describe('settings persistence', () => {
 
   it('seeds the map appearance popover from the persisted look', async () => {
     await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
     expect(
       screen.getByRole('button', { name: 'Overview' }).getAttribute('aria-pressed'),
@@ -491,7 +499,7 @@ describe('settings persistence', () => {
   it('persists every panel change through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({

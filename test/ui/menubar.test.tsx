@@ -65,7 +65,13 @@ describe('MenuBar', () => {
     const names = within(panel)
       .getAllByRole('menuitem')
       .map((row) => row.textContent);
-    expect(names).toEqual(['Open…Ctrl+O', 'Export video…', 'Export telemetry…', 'Settings', 'Exit']);
+    expect(names).toEqual([
+      'Open…Ctrl+O',
+      'Export video…',
+      'Export telemetry…',
+      'Map appearance…',
+      'Exit',
+    ]);
   });
 
   it('marks disabled rows with aria-disabled', () => {
@@ -98,7 +104,7 @@ describe('MenuBar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Export telemetry…' }));
 
     openFile();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Map appearance…' }));
 
     openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Exit' }));
@@ -126,10 +132,13 @@ describe('MenuBar', () => {
   it('marks the recording-bound rows disabled without a recording', () => {
     renderBar({ hasRecording: false });
     openFile();
-    for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
+    for (const name of ['Export video…', 'Export telemetry…']) {
       expect(screen.getByRole('menuitem', { name }).getAttribute('aria-disabled')).toBe('true');
     }
     expect(screen.getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled')).toBeNull();
+    expect(
+      screen.getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
+    ).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(screen.getByRole('menuitem', { name: 'Swap' }).getAttribute('aria-disabled')).toBe('true');
