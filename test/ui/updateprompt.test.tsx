@@ -16,14 +16,14 @@ function renderPrompt(overrides: Partial<Parameters<typeof UpdatePrompt>[0]> = {
 }
 
 describe('UpdatePrompt', () => {
-  it('opens as the Update dialog with the message and both actions', () => {
+  it('opens as the Update dialog with the message and one footer action', () => {
     renderPrompt();
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toContain(
       'A new version is ready to install. Restart now to finish updating, or keep working and the update installs when you quit.',
     );
-    expect(screen.getByRole('button', { name: 'Later' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
   });
 
   it('makes Restart now the primary action', () => {
@@ -32,9 +32,14 @@ describe('UpdatePrompt', () => {
     expect(restart.className).toBe('dialog-primary');
   });
 
-  it('postpones the update on Later', () => {
+  it('keeps exactly one dismissal control, the header ✕', () => {
+    renderPrompt();
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+  });
+
+  it('postpones the update on the header ✕', () => {
     const { onRestart, onLater } = renderPrompt();
-    fireEvent.click(screen.getByRole('button', { name: 'Later' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onLater).toHaveBeenCalledTimes(1);
     expect(onRestart).not.toHaveBeenCalled();
   });
@@ -51,7 +56,6 @@ describe('UpdatePrompt', () => {
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Restarting…' }).disabled,
     ).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Later' }).disabled).toBe(true);
     const close = screen.getByRole<HTMLButtonElement>('button', { name: 'Close' });
     expect(close.disabled).toBe(true);
     expect(close.getAttribute('title')).toBe('The app is restarting.');

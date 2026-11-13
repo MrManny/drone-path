@@ -23,4 +23,21 @@ describe('ProgressBar', () => {
     expect(bar.className).toBe('progress-track');
     expect((bar.firstElementChild as HTMLElement).className).toBe('progress-fill');
   });
+
+  describe('without a known level', () => {
+    it('keeps the bar in the indeterminate shape', () => {
+      render(<ProgressBar label="Export progress" percent={null} />);
+      const bar = screen.getByRole('progressbar', { name: 'Export progress' });
+      expect(bar.getAttribute('aria-valuenow')).toBeNull();
+      expect(bar.getAttribute('aria-valuemin')).toBeNull();
+      expect(bar.getAttribute('aria-valuemax')).toBeNull();
+    });
+
+    it('paints a shimmering fill instead of an empty track', () => {
+      render(<ProgressBar label="Export progress" percent={null} />);
+      const fill = screen.getByRole('progressbar').firstElementChild as HTMLElement;
+      expect(fill.className).toBe('progress-fill progress-shimmer');
+      expect(fill.style.width).toBe('');
+    });
+  });
 });

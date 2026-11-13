@@ -163,18 +163,18 @@ describe('SettingsPanel', () => {
     );
   });
 
-  it('labels the map style hint and the map-only export note', () => {
+  it('labels the map style hint and leaves the export rule to the export form', () => {
     renderPanel(DEFAULT_CONFIG, true);
     expect(screen.getByText('Satellite imagery')).toBeTruthy();
-    expect(screen.getByText('Map-only export')).toBeTruthy();
-    expect(
-      screen.getByText('Export renders the map, not the source video.'),
-    ).toBeTruthy();
     expect(
       screen.getByText(
         'Customize how your flight path appears in the preview and map export.',
       ),
     ).toBeTruthy();
+    expect(
+      screen.queryByText('Export renders the map, not the source video.'),
+    ).toBeNull();
+    expect(screen.queryByText('Map-only export')).toBeNull();
   });
 });
 

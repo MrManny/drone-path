@@ -132,7 +132,7 @@ export function ExportForm({
         <button type="button" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="dialog-primary" onClick={onStart}>
+        <button type="button" className="dialog-primary" data-phase-focus onClick={onStart}>
           Start export
         </button>
       </div>

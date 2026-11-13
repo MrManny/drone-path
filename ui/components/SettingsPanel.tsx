@@ -135,11 +135,6 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
           </Notice>
         )}
       </fieldset>
-
-      <div className="popover-note">
-        <strong>Map-only export</strong>
-        <span>Export renders the map, not the source video.</span>
-      </div>
     </div>
   );
 }

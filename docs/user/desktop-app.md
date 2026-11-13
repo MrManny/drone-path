@@ -99,7 +99,7 @@ The **File → Settings** menu item opens the *Map appearance* popover with the 
 - **Trail color** — any RGB or RGBA hex color like `#e63946` or `#e63946cc`; leave it empty to keep the map style's own trail color.
 - **HUD chips** — heading arrow, altitude (ALT) and speed (SPD). Altitude and speed are off by default, and altitude is unavailable when the telemetry has none.
 
-The panel repeats the rule under the settings: *Export renders the map, not the source video.* Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults.
+Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults.
 
 ![The map appearance panel with map style, view, zoom and HUD chips](../images/app-review-map-appearance.jpg)
 
@@ -107,7 +107,7 @@ The panel repeats the rule under the settings: *Export renders the map, not the 
 
 ## Updates
 
-Packaged builds update themselves: when a newer [release](https://github.com/MrManny/drone-path/releases) exists, the app downloads it in the background and asks once whether to **Restart now** into it or keep working with **Later**. The update installs when you quit.
+Packaged builds update themselves: when a newer [release](https://github.com/MrManny/drone-path/releases) exists, the app downloads it in the background and asks once whether to **Restart now** into it; closing the dialog keeps working, and the update installs when you quit.
 
 ## Help
 

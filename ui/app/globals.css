@@ -1112,8 +1112,19 @@ input[type='radio']:disabled {
   text-decoration: none;
 }
 
+/* The persistent phase line leads the phase column: the announced running
+   progress and the result sentences live here. */
+.phase-status {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.phase-status:empty {
+  margin: 0;
+}
 .export-progress {
-  margin-top: 16px;
+  margin-top: 0;
 }
 .progress-track {
   height: 8px;
@@ -1126,19 +1137,36 @@ input[type='radio']:disabled {
   background: var(--accent);
   border-radius: var(--radius-pill);
 }
-.progress-label {
-  margin-top: 8px;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-2);
+/* Without a known level the fill shimmers instead of sitting empty; reduced
+   motion keeps the striped fill static but visible. */
+.progress-fill.progress-shimmer {
+  width: 100%;
+  background: repeating-linear-gradient(
+    115deg,
+    var(--accent) 0 12px,
+    var(--accent-press) 12px 24px
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 1.2s linear infinite;
+}
+@keyframes progress-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill.progress-shimmer {
+    animation: none;
+  }
 }
 .export-path {
   margin: 16px 0 0;
   font: 12px/1.5 var(--font-mono);
   color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* Export: the widened panel holds the output preview beside the phase column.

@@ -75,13 +75,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderPreview(overrides: Partial<{ config: RenderConfig; frame: number }> = {}) {
+function renderPreview(overrides: Partial<{ config: RenderConfig; frame: number; note: boolean }> = {}) {
   return render(
     <ExportPreview
       session={SESSION}
       config={overrides.config ?? CONFIG}
       size={{ width: 1280, height: 720 }}
       frame={overrides.frame ?? 100}
+      note={overrides.note ?? false}
     />,
   );
 }
@@ -158,11 +159,25 @@ describe('ExportPreview scene', () => {
 });
 
 describe('ExportPreview output framing', () => {
-  it('shows the caption, the committed size and the map-only note', () => {
+  it('shows the caption and the committed size', () => {
     const { getByText } = renderPreview();
     expect(getByText('Output preview')).toBeTruthy();
     expect(getByText('1280×720')).toBeTruthy();
+  });
+
+  it('states the map-only rule only when the form asks for it', () => {
+    const { getByText, queryByText, rerender } = renderPreview({ note: true });
     expect(getByText('Export renders the map, not the source video.')).toBeTruthy();
+    rerender(
+      <ExportPreview
+        session={SESSION}
+        config={CONFIG}
+        size={{ width: 1280, height: 720 }}
+        frame={100}
+        note={false}
+      />,
+    );
+    expect(queryByText('Export renders the map, not the source video.')).toBeNull();
   });
 
   it('keeps the frame box at the output aspect ratio', () => {

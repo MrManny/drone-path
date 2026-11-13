@@ -15,9 +15,11 @@ export interface ExportPreviewProps {
   config: RenderConfig;
   size: { width: number; height: number };
   frame: number;
+  /** Shows the map-only rule at the decision point (the form phase), once per flow. */
+  note?: boolean;
 }
 
-export function ExportPreview({ session, config, size, frame }: ExportPreviewProps) {
+export function ExportPreview({ session, config, size, frame, note = false }: ExportPreviewProps) {
   const { width, height } = size;
   const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = config;
   const data = useMemo(
@@ -49,7 +51,9 @@ export function ExportPreview({ session, config, size, frame }: ExportPreviewPro
       >
         <div className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />
       </div>
-      <p className="export-preview-note">Export renders the map, not the source video.</p>
+      {note ? (
+        <p className="export-preview-note">Export renders the map, not the source video.</p>
+      ) : null}
     </div>
   );
 }

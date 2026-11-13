@@ -4,9 +4,11 @@ import type { ExportRequest } from '../../src/config.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import {
   captureFraction,
+  exportPhaseText,
   exportReducer,
   initialExportState,
   previewFrame,
+  runningPhaseText,
 } from '../../ui/lib/exportstate.js';
 import type { ExportEvent, ExportState } from '../../ui/lib/exportstate.js';
 
@@ -284,5 +286,51 @@ describe('previewFrame', () => {
 
   it('stays inside an empty recording', () => {
     expect(previewFrame(null, 0)).toBe(0);
+  });
+});
+
+describe('runningPhaseText', () => {
+  it.for([
+    { fraction: null, canceling: false, want: 'Preparing…' },
+    { fraction: 0.83, canceling: false, want: 'Rendering 83%' },
+    { fraction: 0.5, canceling: true, want: 'Canceling…' },
+    { fraction: null, canceling: true, want: 'Canceling…' },
+  ])('reads $want', ({ fraction, canceling, want }) => {
+    expect(runningPhaseText(fraction, canceling)).toBe(want);
+  });
+});
+
+describe('exportPhaseText', () => {
+  it('is empty in the form phase', () => {
+    expect(exportPhaseText(initialExportState(768, 768))).toBe('');
+  });
+
+  it('reports the running phase from the capture fraction', () => {
+    expect(exportPhaseText(running())).toBe('Preparing…');
+    expect(exportPhaseText({ ...running(), capture: { done: 83, total: 100 } })).toBe('Rendering 83%');
+    expect(
+      exportPhaseText({ ...running(), capture: { done: 83, total: 100 }, canceling: true }),
+    ).toBe('Canceling…');
+  });
+
+  it('leads the done phase with the success sentence', () => {
+    const done = exportReducer(running(), {
+      type: 'finish',
+      outcome: { status: 'ok', summary: OK_SUMMARY },
+    });
+    expect(exportPhaseText(done)).toBe('Export finished.');
+  });
+
+  it('carries the canceled sentence', () => {
+    const canceled = exportReducer(running(), { type: 'finish', outcome: { status: 'canceled' } });
+    expect(exportPhaseText(canceled)).toBe('Export canceled; its working file was removed.');
+  });
+
+  it('stays empty in the error phase, which announces through its alert', () => {
+    const failed = exportReducer(running(), {
+      type: 'finish',
+      outcome: { status: 'error', error: 'boom' },
+    });
+    expect(exportPhaseText(failed)).toBe('');
   });
 });

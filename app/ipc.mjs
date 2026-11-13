@@ -81,15 +81,24 @@ function exportDefaultFor(state, video) {
   return outputPathFor(video, { ...state.config, outDir });
 }
 
+// Pure name rule for save dialogs: the typed name stands as typed when it
+// already ends in the expected extension (any case); otherwise the extension
+// is appended to it as typed, so "notes.csv" becomes "notes.csv.json". The
+// dialogs that report the result show this final name, so the append is
+// never silent.
+export function resolveSavePath(typedPath, extension) {
+  return typedPath.toLowerCase().endsWith(`.${extension}`)
+    ? typedPath
+    : `${typedPath}.${extension}`;
+}
+
 async function pickSavePath(state, { title, defaultPath, filters, extension }) {
   const options = { title, defaultPath, filters };
   const result = state.win
     ? await dialog.showSaveDialog(state.win, options)
     : await dialog.showSaveDialog(options);
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-  const chosen = result.filePath.toLowerCase().endsWith(`.${extension}`)
-    ? result.filePath
-    : `${result.filePath}.${extension}`;
+  const chosen = resolveSavePath(result.filePath, extension);
   if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
   return { ok: true, path: chosen };
 }
