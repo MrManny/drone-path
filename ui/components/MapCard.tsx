@@ -21,6 +21,10 @@ export function MapCard(props: MapCardProps) {
   const [delivery, setDelivery] = useState<SceneDelivery | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const seq = useRef(0);
+  // The scene writes the chip readouts into this strip. It stays mounted for
+  // the whole scene lifetime (CSS hides it while empty) so the element the
+  // scene holds never goes stale when the HUD toggles.
+  const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!delivery) return;
@@ -51,7 +55,10 @@ export function MapCard(props: MapCardProps) {
         <div className="map-card-empty">No telemetry yet</div>
       ) : (
         <>
-          <MapIsland data={withScene.data} onScene={handleScene} />
+          <div className="map-card-map">
+            <MapIsland data={withScene.data} onScene={handleScene} hudHostRef={stripRef} />
+          </div>
+          <div className="map-card-strip" ref={stripRef} />
           {mapReady ? null : (
             <div className="map-card-busy" role="status">
               Preparing map…

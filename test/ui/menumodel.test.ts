@@ -17,7 +17,7 @@ describe('MENU_BAR', () => {
       { id: 'open', label: 'Open…', icon: 'folderOpen', hint: 'Ctrl+O' },
       { id: 'exportVideo', label: 'Export video…', icon: 'export' },
       { id: 'exportTelemetry', label: 'Export telemetry…', icon: 'telemetry' },
-      { id: 'settings', label: 'Settings', icon: 'settings', separatorBefore: true },
+      { id: 'settings', label: 'Map appearance…', icon: 'settings', separatorBefore: true },
       { id: 'exit', label: 'Exit', icon: 'exit', separatorBefore: true },
     ]);
   });
@@ -61,7 +61,7 @@ describe('itemEnabled', () => {
       flags: { hasRecording: true, opening: false },
       want: true,
     },
-    ...(['exportVideo', 'exportTelemetry', 'settings', 'swap'] as const).map(
+    ...(['exportVideo', 'exportTelemetry', 'swap'] as const).map(
       (id): FlagCase => ({
         name: `${id} needs a recording`,
         id,
@@ -69,7 +69,7 @@ describe('itemEnabled', () => {
         want: false,
       }),
     ),
-    ...(['exportVideo', 'exportTelemetry', 'settings', 'swap'] as const).map(
+    ...(['exportVideo', 'exportTelemetry', 'swap'] as const).map(
       (id): FlagCase => ({
         name: `${id} stays live while a recording is opening`,
         id,
@@ -77,6 +77,18 @@ describe('itemEnabled', () => {
         want: true,
       }),
     ),
+    {
+      name: 'Map appearance is live with no recording (#236)',
+      id: 'settings',
+      flags: { hasRecording: false, opening: false },
+      want: true,
+    },
+    {
+      name: 'Map appearance stays live while a recording is opening',
+      id: 'settings',
+      flags: { hasRecording: false, opening: true },
+      want: true,
+    },
     {
       name: 'Open is live when idle',
       id: 'open',

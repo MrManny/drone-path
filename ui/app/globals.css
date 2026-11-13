@@ -34,9 +34,8 @@
   --header-h: 56px;
   --transport-h: 48px;
   --timeline-h: 200px;
-  /* Bottom clearance for the map appearance popover: the status row this
-     once measured is gone; #236 redocks the popover. */
-  --status-h: 32px;
+  /* The menu bar's 32px row plus its 1px hairline border. */
+  --menu-h: 33px;
   --rail-w: clamp(280px, 28%, 372px);
   --dialog-top: 56px;
   --shadow-float: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -373,10 +372,74 @@ button.primary {
 .map-card {
   position: relative;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 .map-card-split {
   flex: none;
   width: var(--rail-w);
+}
+/* The map image area: the card column's growable pane above the chip strip. */
+.map-card-map {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The ALT/SPD strip along the card's bottom edge, outside the map image so
+   the readouts never cover the map. The scene writes the chips in; the strip
+   stays mounted and hides itself while no chip is rendered. */
+.map-card-strip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
+}
+.map-card-strip:empty {
+  display: none;
+}
+.map-card-strip .chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.map-card-strip .chip .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-2);
+}
+.map-card-strip .chip .unit {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+/* The compact PiP card scales the chips' micro-labels with the furniture. */
+.map-card-overlay .map-card-strip {
+  gap: 6px;
+  padding: 4px 6px;
+}
+.map-card-overlay .map-card-strip .chip {
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.map-card-overlay .map-card-strip .chip .label {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+.map-card-overlay .map-card-strip .chip .unit {
+  font-size: 9px;
 }
 /* The map rail before a recording loads: a quiet pane that says so. */
 .map-card-empty {
@@ -447,6 +510,26 @@ button.primary {
   background: var(--bar);
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-control);
+}
+/* The compact card keeps the credit flush in the bottom-right corner of the
+   map, sharing the bottom row with the scale bar: one legible line kept clear
+   of the bar by width instead of by lifting it off the edge, with the hover
+   title carrying the full text the ellipsis hides. The higher specificity
+   beats the scene's scoped rule; the links stay inert while the credit itself
+   can hover. */
+.map-card.map-card-overlay #attr {
+  bottom: 0;
+  /* Clears the scale bar's worst-case footprint at any map render size. */
+  max-width: calc(100% - 128px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9px;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+.map-card.map-card-overlay #attr a {
+  pointer-events: none;
 }
 .player-notices {
   position: absolute;
@@ -731,7 +814,7 @@ button.primary {
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 33px;
+  height: var(--menu-h);
   padding: 0 8px;
   box-sizing: border-box;
   background: var(--page);
@@ -854,15 +937,17 @@ button.primary {
   background: var(--hairline);
 }
 
-/* The map appearance popover: a non-modal panel at the lower right, beside
-   the map it affects, below dialogs in the stacking order. */
+/* The map appearance popover: a non-modal panel docked left of the map card,
+   over the video letterbox, so the map preview and the transport and loop
+   controls stay visible while adjusting. Below dialogs in the stacking order. */
 .map-popover {
   position: fixed;
-  bottom: calc(var(--status-h) + 8px);
-  right: 16px;
+  top: calc(var(--menu-h) + var(--header-h) + 8px);
+  right: calc(var(--rail-w) + 24px);
   z-index: 1500;
-  width: min(360px, calc(100% - 32px));
-  max-height: calc(100vh - var(--status-h) - 24px);
+  width: 360px;
+  max-width: calc(100% - var(--rail-w) - 48px);
+  max-height: calc(100vh - var(--menu-h) - var(--header-h) - var(--transport-h) - var(--timeline-h) - 16px);
   overflow-x: hidden;
   overflow-y: auto;
   box-sizing: border-box;
@@ -871,6 +956,11 @@ button.primary {
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-float);
+}
+/* Swap (PiP): dock left of the floating mini-map card instead of the rail. */
+.stage-overlay ~ .map-popover {
+  right: calc(18px + clamp(180px, 36%, 242px) + 8px);
+  max-width: calc(100% - clamp(180px, 36%, 242px) - 58px);
 }
 /* Narrow panel: rows wrap instead of scrolling sideways. */
 .map-popover .settings-row {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { bootScene } from '../../src/renderer/boot.js';
 import type { LeafletApi, Scene, SceneData } from '../../src/renderer/scene.js';
@@ -9,19 +10,23 @@ export interface SceneIslandOptions {
   data: SceneData;
   frame?: number;
   onScene?: (scene: Scene) => void;
+  /** External chip container (a map-card strip) outside the map image. */
+  hudHostRef?: RefObject<HTMLElement | null>;
 }
 
-export function useSceneIsland({ data, frame, onScene }: SceneIslandOptions) {
+export function useSceneIsland({ data, frame, onScene, hudHostRef }: SceneIslandOptions) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<Scene | null>(null);
   const dataRef = useRef(data);
   const frameRef = useRef(frame);
   const onSceneRef = useRef(onScene);
+  const hudHostRefRef = useRef(hudHostRef);
 
   useEffect(() => {
     dataRef.current = data;
     frameRef.current = frame;
     onSceneRef.current = onScene;
+    hudHostRefRef.current = hudHostRef;
   });
 
   useEffect(() => {
@@ -37,7 +42,9 @@ export function useSceneIsland({ data, frame, onScene }: SceneIslandOptions) {
         default: LeafletApi;
       };
       if (cancelled) return;
-      const created = bootScene(host, dataRef.current, L);
+      const created = bootScene(host, dataRef.current, L, {
+        hudHost: hudHostRefRef.current?.current ?? undefined,
+      });
       sceneRef.current = created;
       onSceneRef.current?.(created);
       if (frameRef.current !== undefined) created.setFrame(frameRef.current);

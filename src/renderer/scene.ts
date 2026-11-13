@@ -99,9 +99,11 @@ class SceneState implements Scene {
   private decor!: Decor;
   private altEl: HTMLElement | null = null;
   private speedEl: HTMLElement | null = null;
+  /** Chip container: inside the map frame for exports, or an external strip. */
+  private readonly hudRoot: HTMLElement;
   private curIdx = 0;
 
-  constructor(host: HTMLElement, firstData: SceneData, L: LeafletApi) {
+  constructor(host: HTMLElement, firstData: SceneData, L: LeafletApi, hudHost?: HTMLElement) {
     this.host = host;
     this.data = firstData;
     this.L = L;
@@ -109,7 +111,8 @@ class SceneState implements Scene {
 
     this.styleEl = document.createElement('style');
     document.head.appendChild(this.styleEl);
-    host.innerHTML = mapMarkup(firstData.hud, firstData.attribution);
+    host.innerHTML = mapMarkup(hudHost ? null : firstData.hud, firstData.attribution);
+    this.hudRoot = hudHost ?? el<HTMLElement>(host, '#hud');
     this.attrEl = el<HTMLElement>(host, '#attr');
     this.applyChrome();
 
@@ -176,6 +179,9 @@ class SceneState implements Scene {
       this.scopeClass,
     );
     this.attrEl.innerHTML = this.data.attribution;
+    // The compact map card truncates the credit to one line; the hover title
+    // carries the full text wherever the browser can show it.
+    this.attrEl.title = this.attrEl.textContent ?? '';
     quietAttributionLinks(this.attrEl);
   }
 
@@ -331,9 +337,11 @@ class SceneState implements Scene {
   }
 
   private rebuildHud(): void {
-    el<HTMLElement>(this.host, '#hud').innerHTML = hudMarkup(this.data.hud);
-    this.altEl = this.host.querySelector<HTMLElement>('#chip-alt .num');
-    this.speedEl = this.host.querySelector<HTMLElement>('#chip-speed .num');
+    // Scoped to the chip container so an external strip and a second scene
+    // (the export preview) can never cross-write.
+    this.hudRoot.innerHTML = hudMarkup(this.data.hud);
+    this.altEl = this.hudRoot.querySelector<HTMLElement>('#chip-alt .num');
+    this.speedEl = this.hudRoot.querySelector<HTMLElement>('#chip-speed .num');
     if (this.decor.arrowEl) {
       this.decor.arrowEl.style.display = this.data.hud.heading ? '' : 'none';
     }
@@ -432,7 +440,7 @@ class SceneState implements Scene {
 export function createScene(
   host: HTMLElement,
   firstData: SceneData,
-  deps: { L: LeafletApi },
+  deps: { L: LeafletApi; hudHost?: HTMLElement },
 ): Scene {
-  return new SceneState(host, firstData, deps.L);
+  return new SceneState(host, firstData, deps.L, deps.hudHost);
 }

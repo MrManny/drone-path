@@ -242,6 +242,47 @@ describe('createScene', () => {
     expect((host.querySelector('#drone-arrow') as HTMLElement).style.display).toBe('none');
   });
 
+  it('renders the chips into an external hud host instead of the map frame', async () => {
+    const { host } = mount();
+    const strip = document.createElement('div');
+    document.body.appendChild(strip);
+    const { L } = fakeL(host);
+    const scene = createScene(host, sceneData(), { L, hudHost: strip });
+    expect(strip.querySelector('#chip-alt')).toBeTruthy();
+    expect(strip.querySelector('#chip-speed')).toBeTruthy();
+    expect(host.querySelector('#hud')).toBeNull();
+    expect(host.querySelector('#chip-alt')).toBeNull();
+
+    await applyFrame(scene, 1);
+    expect(strip.querySelector('#chip-alt .num')?.textContent).toBe('11');
+    expect(strip.querySelector('#chip-speed .num')?.textContent).toBe('2.5');
+
+    const updated = scene.update(sceneData({ hud: { heading: true, alt: false, speed: true } }));
+    flushRaf();
+    flushRaf();
+    await updated;
+    expect(strip.querySelector('#chip-alt')).toBeNull();
+    expect(strip.querySelector('#chip-speed')).toBeTruthy();
+    expect(host.querySelector('#chip-speed')).toBeNull();
+  });
+
+  it('carries the full credit text in the attribution title', async () => {
+    const { host } = mount();
+    const { L } = fakeL(host);
+    const scene = createScene(
+      host,
+      sceneData({ attribution: 'Imagery &copy; <a href="https://example.com/">Example</a>' }),
+      { L },
+    );
+    const attr = host.querySelector('#attr') as HTMLElement;
+    expect(attr.title).toBe('Imagery © Example');
+    const updated = scene.update(sceneData({ attribution: 'Second credit' }));
+    flushRaf();
+    flushRaf();
+    await updated;
+    expect(attr.title).toBe('Second credit');
+  });
+
   it('keeps trail, marker, arrow and HUD on the same frame index', async () => {
     const { host } = mount();
     const { L, polylines, markers } = fakeL(host);
@@ -477,6 +518,47 @@ describe('coexisting scenes', () => {
     expect(cssA).not.toContain(scopeB);
     expect(cssB).toContain(`.${scopeB} #map`);
     expect(cssB).not.toContain(scopeA);
+  });
+
+  it('binds each scene chips to its own hud root (#236)', async () => {
+    const a = mount();
+    const strip = document.createElement('div');
+    document.body.appendChild(strip);
+    const sceneA = createScene(a.host, sceneData(), { L: fakeL(a.host).L, hudHost: strip });
+    const b = mount();
+    const sceneB = createScene(b.host, sceneData(), { L: fakeL(b.host).L });
+
+    const chip = (root: ParentNode, id: string): string | null | undefined =>
+      root.querySelector<HTMLElement>(`${id} .num`)?.textContent;
+
+    await applyFrame(sceneA, 1);
+    expect(chip(strip, '#chip-alt')).toBe('11');
+    expect(chip(strip, '#chip-speed')).toBe('2.5');
+    expect(chip(b.host, '#chip-alt')).toBe('--');
+
+    await applyFrame(sceneB, 0);
+    expect(chip(b.host, '#chip-alt')).toBe('10');
+    expect(chip(strip, '#chip-alt')).toBe('11');
+
+    const updated = sceneB.update(sceneData({ alt: [20, 21, null] }));
+    flushRaf();
+    flushRaf();
+    await updated;
+    expect(chip(b.host, '#chip-alt')).toBe('20');
+    expect(chip(strip, '#chip-alt')).toBe('11');
+
+    // A HUD toggle rebuilds A's strip only; B keeps writing into its own chips.
+    const rebuilt = sceneA.update(sceneData({ hud: { heading: true, alt: true, speed: false } }));
+    flushRaf();
+    flushRaf();
+    await rebuilt;
+    expect(strip.querySelector('#chip-speed')).toBeNull();
+    const refilled = sceneB.update(sceneData({ alt: [30, 31, null] }));
+    flushRaf();
+    flushRaf();
+    await refilled;
+    expect(chip(b.host, '#chip-alt')).toBe('30');
+    expect(chip(strip, '#chip-alt')).toBe('11');
   });
 
   it('dispose removes the injected style and the map and settles ready', async () => {

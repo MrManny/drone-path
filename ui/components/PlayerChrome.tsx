@@ -193,6 +193,7 @@ export function PlayerChrome({
         <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
           <SettingsPanel
             config={settings}
+            hasRecording
             hasAltitude={hasAltitude(session.scene.alt)}
             onChange={onSettingsChange}
           />

@@ -50,6 +50,14 @@ describe('sceneCss', () => {
 });
 
 describe('mapMarkup', () => {
+  it('omits the HUD block when the chips mount outside the frame', () => {
+    const markup = mapMarkup(null, 'attr');
+    expect(markup).not.toContain('id="hud"');
+    expect(markup).not.toContain('chip-alt');
+    expect(markup).toContain('id="attr"');
+    expect(markup).toContain('id="map-frame"');
+  });
+
   it('carries the renderer DOM contract', () => {
     const markup = mapMarkup({ heading: true, alt: true, speed: true }, 'Test Attribution');
     for (const id of [

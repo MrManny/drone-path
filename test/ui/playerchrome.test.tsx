@@ -78,7 +78,7 @@ describe('PlayerChrome workspace structure', () => {
   it('keeps the menu, transport and timeline actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('File');
-    for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Settings', 'Exit']) {
+    for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Map appearance…', 'Exit']) {
       expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
     }
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
@@ -256,17 +256,17 @@ describe('PlayerChrome map appearance popover', () => {
   it('opens from the File menu and closes with Escape', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
   });
 
-  it('closes on a second Settings run instead of flapping open', () => {
+  it('closes on a second Map appearance… run instead of flapping open', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     // Menu actions return focus to their menu's label, the home of the item.
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'File' }));
@@ -282,7 +282,7 @@ describe('PlayerChrome map appearance popover', () => {
         onOpen={() => {}}
       />,
     );
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
     expect(onSettingsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ style: 'topo' }),
@@ -345,7 +345,7 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Open…': 'File',
   'Export video…': 'File',
   'Export telemetry…': 'File',
-  Settings: 'File',
+  'Map appearance…': 'File',
   Exit: 'File',
   Swap: 'View',
   Documentation: 'Help',
@@ -549,7 +549,7 @@ describe('PlayerChrome loop region', () => {
   it('closes the popover on Esc first and clears the loop on the second', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
@@ -622,7 +622,7 @@ describe('PlayerChrome shortcut guard rails', () => {
   it('keeps player keys inert while typing in a popover field', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     const field = document.querySelector('input[type="number"]') as HTMLInputElement;
     key(field, { key: '3' });
     key(field, { key: ' ' });
@@ -635,14 +635,14 @@ describe('PlayerChrome shortcut guard rails', () => {
 
   it('keeps player keys live while the popover is open', async () => {
     const fake = await renderPlayer();
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     key(window, { key: ' ' });
     expect(fake.play).toHaveBeenCalledTimes(1);
   });
 
   it('leaves Esc on an open select dropdown to the select', async () => {
     await renderPlayer();
-    clickMenuItem('Settings');
+    clickMenuItem('Map appearance…');
     const select = document.querySelector('select') as HTMLSelectElement;
     key(select, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();

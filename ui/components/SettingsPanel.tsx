@@ -12,6 +12,8 @@ import { SelectField } from './SelectField.js';
 
 export interface SettingsPanelProps {
   config: RenderConfig;
+  /** Without a recording the altitude chip stays off for lack of telemetry. */
+  hasRecording: boolean;
   hasAltitude: boolean;
   onChange: (config: RenderConfig) => void;
 }
@@ -27,7 +29,7 @@ const VIEW_CHOICES: ReadonlyArray<{ value: ViewMode; label: string }> = [
   { value: 'follow', label: VIEW_LABELS.follow },
 ];
 
-export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelProps) {
+export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: SettingsPanelProps) {
   const viewHintId = useId();
   const apply = (patch: Parameters<typeof patchConfig>[1]): boolean => {
     const next = patchConfig(config, patch);
@@ -47,7 +49,7 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
           label="Map style"
           value={config.style}
           options={MAP_STYLE_VALUES.map((value) => ({ value, label: STYLE_LABELS[value] }))}
-          hint="Satellite imagery"
+          hint="Tiles used in the preview and export"
           onValue={(style) => apply({ style: style as MapStyle })}
         />
         <ColorField
@@ -114,18 +116,13 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
       <fieldset className="settings-group">
         <legend>HUD chips</legend>
         {HUD_CHIPS.map(({ chip, label }) => {
-          const altUnavailable = chip === 'alt' && !hasAltitude;
+          const altUnavailable = chip === 'alt' && (!hasRecording || !hasAltitude);
           return (
             <label key={chip} className="settings-row">
               <input
                 type="checkbox"
                 checked={config.hud[chip] && !altUnavailable}
                 disabled={altUnavailable}
-                title={
-                  altUnavailable
-                    ? 'Altitude unavailable in this telemetry'
-                    : undefined
-                }
                 onChange={(e) =>
                   apply({ hud: setHudChip(config.hud, chip, e.target.checked) })
                 }
@@ -134,9 +131,11 @@ export function SettingsPanel({ config, hasAltitude, onChange }: SettingsPanelPr
             </label>
           );
         })}
-        {hasAltitude ? null : (
+        {hasRecording && hasAltitude ? null : (
           <Notice tone="warning">
-            This recording has no altitude telemetry, so the ALT chip stays off.
+            {hasRecording
+              ? 'This recording has no altitude telemetry, so the ALT chip stays off.'
+              : 'No recording is loaded, so the ALT chip stays off.'}
           </Notice>
         )}
       </fieldset>

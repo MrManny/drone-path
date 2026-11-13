@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## The menu bar
 
-Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…**, **Settings** and **Exit**; **View** holds **Swap** (`S`); **Help**, at the right edge, holds **Documentation**, which opens this manual, and **About** under a separator. Items that cannot act right now — export, telemetry, Settings and Swap without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…**, **Map appearance…** and **Exit**; **View** holds **Swap** (`S`); **Help**, at the right edge, holds **Documentation**, which opens this manual, and **About** under a separator. Items that cannot act right now — export, telemetry and Swap without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
 
 ## Loading a recording
 
@@ -91,7 +91,7 @@ Choosing it opens the native save dialog, which suggests `<recording>.telemetry.
 
 ## Map appearance
 
-The **File → Settings** menu item opens the *Map appearance* popover with the map look settings:
+The **File → Map appearance…** menu item opens the *Map appearance* popover with the map look settings (it is available with or without a recording, since the look applies to future exports):
 
 - **Map style** — satellite or topographic.
 - **View** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it.

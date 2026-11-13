@@ -49,7 +49,7 @@ export const MENU_BAR: readonly MenuDef[] = [
       { id: 'open', label: 'Open…', icon: 'folderOpen', hint: 'Ctrl+O' },
       { id: 'exportVideo', label: 'Export video…', icon: 'export' },
       { id: 'exportTelemetry', label: 'Export telemetry…', icon: 'telemetry' },
-      { id: 'settings', label: 'Settings', icon: 'settings', separatorBefore: true },
+      { id: 'settings', label: 'Map appearance…', icon: 'settings', separatorBefore: true },
       { id: 'exit', label: 'Exit', icon: 'exit', separatorBefore: true },
     ],
   },
@@ -83,9 +83,11 @@ export function itemEnabled(id: MenuItemId, flags: MenuFlags): boolean {
       return !flags.opening;
     case 'exportVideo':
     case 'exportTelemetry':
-    case 'settings':
     case 'swap':
       return flags.hasRecording;
+    case 'settings':
+      // Map appearance applies to future exports, so it is live from startup.
+      return true;
     case 'exit':
     case 'documentation':
     case 'about':
