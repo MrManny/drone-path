@@ -573,12 +573,14 @@ button.primary {
   align-items: center;
   gap: 8px;
 }
-/* The readout keeps a fixed slot — sized past the widest loop span — so the
-   loop button group never moves as a readout appears or changes. */
+/* The readout keeps a fixed slot — sized past the widest loop span — left of
+   the loop button group, so the group hugs the right edge and never moves as
+   a readout appears or changes; the slot's slack dissolves into the header
+   whitespace. */
 .timeline-actions .loop-readout {
   display: inline-block;
   min-width: 16ch;
-  margin-left: 8px;
+  margin-right: 8px;
   text-align: right;
 }
 .ruler {

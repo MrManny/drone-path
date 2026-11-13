@@ -165,6 +165,15 @@ describe('TimelinePanel header', () => {
     expect(parseFloat(getComputedStyle(slot).minWidth)).toBeGreaterThan(0);
   });
 
+  it('pins the readout slot left of the loop group at the right edge (#233)', () => {
+    renderPanel({ loop: { in: 30, out: 60 } });
+    const actions = document.querySelector('.timeline-actions') as HTMLElement;
+    expect([...actions.children].map((child) => child.className)).toEqual([
+      'readout loop-readout',
+      'segmented',
+    ]);
+  });
+
   it('keeps the loop group at one position with and without a readout (#233)', () => {
     const shape = (): string[] => {
       const actions = document.querySelector('.timeline-actions') as HTMLElement;

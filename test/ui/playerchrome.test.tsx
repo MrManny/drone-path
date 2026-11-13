@@ -566,6 +566,16 @@ describe('PlayerChrome loop region', () => {
     expect(document.querySelector('.loop-readout')?.textContent).toBe('');
   });
 
+  it('pins the readout slot left of the loop controls at the right edge (#233)', async () => {
+    await renderPlayer();
+    setLoopRegion(30, 60);
+    const actions = document.querySelector('.timeline-actions') as HTMLElement;
+    expect([...actions.children].map((child) => child.className)).toEqual([
+      'readout loop-readout',
+      'segmented',
+    ]);
+  });
+
   it('states why Clear is disabled without a loop', async () => {
     await renderPlayer();
     const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' });

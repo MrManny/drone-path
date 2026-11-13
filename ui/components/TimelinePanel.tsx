@@ -73,6 +73,7 @@ export function TimelinePanel({
           <span className="preview-title">Timeline</span>
         </div>
         <div className="timeline-actions">
+          <span className="readout loop-readout">{loopReadout}</span>
           <div className="segmented" role="group" aria-label="Loop">
             <button
               type="button"
@@ -105,7 +106,6 @@ export function TimelinePanel({
               <X size={16} />
             </button>
           </div>
-          <span className="readout loop-readout">{loopReadout}</span>
         </div>
       </div>
       <div className="ruler">
