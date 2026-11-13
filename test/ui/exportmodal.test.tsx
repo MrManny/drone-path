@@ -19,16 +19,19 @@ vi.mock('../../ui/components/ExportPreview.js', () => ({
     config,
     size,
     frame,
+    note,
   }: {
     config: RenderConfig;
     size: { width: number; height: number };
     frame: number;
+    note?: boolean;
   }) => (
     <div
       data-testid="export-preview"
       data-codec={config.codec}
       data-size={`${size.width}x${size.height}`}
       data-frame={frame}
+      data-note={note ? '1' : '0'}
     />
   ),
 }));
@@ -62,9 +65,9 @@ type Phase = 'form' | 'running' | 'done' | 'error' | 'canceled';
 const FOOTERS: Record<Phase, string[]> = {
   form: ['Cancel', 'Start export'],
   running: ['Cancel export'],
-  done: ['Reveal in folder', 'Open video', 'Close'],
-  error: ['Close'],
-  canceled: ['Close'],
+  done: ['Open video', 'Reveal in folder'],
+  error: [],
+  canceled: [],
 };
 
 function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
@@ -162,8 +165,8 @@ async function reachPhase(phase: Phase, emitDone: (outcome: ExportOutcome) => vo
   if (phase === 'canceled') emitDone({ status: 'canceled' });
 }
 
-function dialogFooter(): HTMLElement {
-  return screen.getByRole('dialog', { name: 'Export video' }).querySelector('.dialog-actions') as HTMLElement;
+function dialogFooter(): HTMLElement | null {
+  return screen.getByRole('dialog', { name: 'Export video' }).querySelector('.dialog-actions');
 }
 
 function headerClose(): HTMLButtonElement {
@@ -180,7 +183,7 @@ describe('ExportModal form memory', () => {
 
   it('offers no segment choice without a loop', () => {
     render(<Harness loop={{ in: null, out: null }} />);
-    expect(screen.queryByRole('group', { name: 'What' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Export range' })).toBeNull();
   });
 
   it('seeds the sizes from the session', () => {
@@ -259,7 +262,7 @@ describe('ExportModal what-to-export choice', () => {
   it('does not offer a segment choice when no loop is engaged', () => {
     installBridge();
     renderModal({ in: null, out: null });
-    expect(screen.queryByRole('group', { name: 'What' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Export range' })).toBeNull();
     expect(screen.queryByText(/set loop points first/)).toBeNull();
   });
 
@@ -310,9 +313,11 @@ describe.each<Phase>(['form', 'running', 'done', 'error', 'canceled'])(
     it('offers exactly the actions of that phase', async () => {
       const { emitDone } = installBridge();
       await reachPhase(phase, emitDone);
-      expect([...dialogFooter().querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual(
-        FOOTERS[phase],
-      );
+      const footer = dialogFooter();
+      const labels = footer
+        ? [...footer.querySelectorAll('button')].map((b) => b.textContent?.trim())
+        : [];
+      expect(labels).toEqual(FOOTERS[phase]);
     });
   },
 );
@@ -614,5 +619,91 @@ describe('ExportModal output preview content', () => {
     expect(screen.getByTestId('export-preview').getAttribute('data-codec')).toBe('h264');
     rerender(<Harness loop={{ in: null, out: null }} settings={{ ...SETTINGS, codec: 'h265' }} />);
     expect(screen.getByTestId('export-preview').getAttribute('data-codec')).toBe('h264');
+  });
+});
+
+describe('ExportModal phase lead', () => {
+  it('leads the done dialog with the success sentence before the stats', async () => {
+    const { emitDone } = installBridge();
+    await reachPhase('done', emitDone);
+    const column = document.querySelector('.export-phase') as HTMLElement;
+    expect(screen.getByText('Export finished.')).toBeTruthy();
+    expect(column.firstElementChild?.textContent).toBe('Export finished.');
+  });
+
+  it('announces the phase text in one persistent status region', async () => {
+    const { emitDone } = installBridge();
+    renderModal({ in: null, out: null });
+    const status = document.querySelector('.phase-status') as HTMLElement;
+    expect(status.getAttribute('role')).toBe('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    expect(status.textContent).toBe('Preparing…');
+    emitDone({ status: 'ok', summary: SUMMARY });
+    await screen.findByText('Export finished.');
+    expect(status.textContent).toBe('Export finished.');
+    expect(document.querySelector('.phase-status')).toBe(status);
+  });
+
+  it('carries the canceled sentence in the same region', async () => {
+    const { emitDone } = installBridge();
+    await reachPhase('canceled', emitDone);
+    const status = document.querySelector('.phase-status') as HTMLElement;
+    expect(status.textContent).toBe('Export canceled; its working file was removed.');
+  });
+});
+
+describe('ExportModal focus on phase changes', () => {
+  it('moves focus to the new phase action and never to <body>', async () => {
+    const { emitDone } = installBridge();
+    renderModal({ in: null, out: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    const cancel = await screen.findByRole('button', { name: 'Cancel export' });
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    emitDone({ status: 'ok', summary: SUMMARY });
+    const reveal = await screen.findByRole('button', { name: 'Reveal in folder' });
+    await waitFor(() => expect(document.activeElement).toBe(reveal));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('falls back to the dialog when the phase carries no action', async () => {
+    const { emitDone } = installBridge();
+    await reachPhase('canceled', emitDone);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'Export video' })),
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('returns focus to Start export when the job fails to start', async () => {
+    installBridge({
+      // The real IPC ack lands in a later task, so the running phase commits
+      // before the failure returns the form.
+      startExport: vi.fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return { ok: false, error: 'an export is already running' };
+      }),
+    });
+    renderModal({ in: null, out: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByText('An export is already running. Wait for it to finish or cancel it.');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start export' })),
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
+describe('ExportModal map-only note', () => {
+  it('shows the rule at the form phase only, once per flow', async () => {
+    const { emitDone } = installBridge();
+    renderModal({ in: null, out: null });
+    expect(screen.getByTestId('export-preview').getAttribute('data-note')).toBe('1');
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    expect(screen.getByTestId('export-preview').getAttribute('data-note')).toBe('0');
+    emitDone({ status: 'ok', summary: SUMMARY });
+    await screen.findByRole('button', { name: 'Reveal in folder' });
+    expect(screen.getByTestId('export-preview').getAttribute('data-note')).toBe('0');
   });
 });

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { registerIpcHandlers } from '../app/ipc.mjs';
+import { registerIpcHandlers, resolveSavePath } from '../app/ipc.mjs';
 import type { IpcState, IpcWindow } from '../app/ipc.mjs';
 import { APP_ORIGIN } from '../src/apppaths.js';
 import { emptyAppState } from '../src/appstate.js';
@@ -269,6 +269,18 @@ describe('dronepath:telemetry:pick-output', () => {
     expect(result).toEqual({ ok: true, path: `${chosen}.json` });
   });
 
+  it('appends .json behind a typed name with another extension', async () => {
+    setup(fakeState());
+    const typed = path.join(tmpDir(), 'exports', 'telemetry-test.csv');
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: typed });
+
+    const result = await invoke('dronepath:telemetry:pick-output');
+
+    // The approved name rule keeps the append; the dialogs report this final
+    // name so it is never silent.
+    expect(result).toEqual({ ok: true, path: `${typed}.json` });
+  });
+
   it('keeps a typed .json name untouched', async () => {
     setup(fakeState());
     const chosen = path.join(tmpDir(), 'exports', 'A.JSON');
@@ -308,5 +320,20 @@ describe('dronepath:telemetry:pick-output', () => {
     const result = await invoke('dronepath:telemetry:pick-output');
 
     expect(result).toEqual({ ok: false, error: 'no recording loaded' });
+  });
+});
+
+describe('resolveSavePath', () => {
+  it.for([
+    { typed: 'a', extension: 'json', want: 'a.json' },
+    { typed: 'a.json', extension: 'json', want: 'a.json' },
+    { typed: 'A.JSON', extension: 'json', want: 'A.JSON' },
+    { typed: 'telemetry-test.csv', extension: 'json', want: 'telemetry-test.csv.json' },
+    { typed: 'flight.telemetry', extension: 'json', want: 'flight.telemetry.json' },
+    { typed: 'map', extension: 'mp4', want: 'map.mp4' },
+    { typed: 'map.MP4', extension: 'mp4', want: 'map.MP4' },
+    { typed: 'map.mov', extension: 'mp4', want: 'map.mov.mp4' },
+  ])('resolves $typed with .$extension to $want', ({ typed, extension, want }) => {
+    expect(resolveSavePath(typed, extension)).toBe(want);
   });
 });

@@ -2,20 +2,25 @@
 
 export interface ProgressBarProps {
   label: string;
-  percent: number;
+  /** Known fraction percent, or null while no progress figure exists yet. */
+  percent: number | null;
 }
 
 export function ProgressBar({ label, percent }: ProgressBarProps) {
+  const determinate = percent !== null;
   return (
     <div
       className="progress-track"
       role="progressbar"
       aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
+      {...(determinate
+        ? { 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': percent }
+        : {})}
     >
-      <div className="progress-fill" style={{ width: `${percent}%` }} />
+      <div
+        className={determinate ? 'progress-fill' : 'progress-fill progress-shimmer'}
+        style={determinate ? { width: `${percent}%` } : undefined}
+      />
     </div>
   );
 }

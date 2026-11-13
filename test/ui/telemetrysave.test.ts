@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TelemetrySaveRequest } from '../../src/appsession.js';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';
 import {
+  telemetryPhaseText,
   telemetrySaveFlow,
   telemetrySaveReducer,
   telemetryScope,
@@ -197,5 +198,21 @@ describe('telemetryScope', () => {
 
   it('names the In-Out segment with its frames', () => {
     expect(telemetryScope(RANGE, 30, 10)).toBe('In–Out segment (0:04–0:10 · 181 frames)');
+  });
+});
+
+describe('telemetryPhaseText', () => {
+  it('reads the saving phase', () => {
+    expect(telemetryPhaseText({ kind: 'saving' })).toBe('Exporting telemetry…');
+  });
+
+  it('leads the done phase with the success sentence', () => {
+    expect(
+      telemetryPhaseText({ kind: 'done', path: '/exports/a.json', scope: 'full recording (0:10)' }),
+    ).toBe('Telemetry exported.');
+  });
+
+  it('stays empty in the error phase, which announces through its alert', () => {
+    expect(telemetryPhaseText({ kind: 'error', message: 'disk full' })).toBe('');
   });
 });

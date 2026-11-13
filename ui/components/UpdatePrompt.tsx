@@ -22,9 +22,6 @@ export function UpdatePrompt({ restarting, onRestart, onLater }: UpdatePromptPro
         working and the update installs when you quit.
       </Notice>
       <div className="dialog-actions">
-        <button type="button" onClick={onLater} disabled={restarting}>
-          Later
-        </button>
         <button
           type="button"
           className="dialog-primary"

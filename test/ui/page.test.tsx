@@ -480,7 +480,9 @@ describe('update prompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Later' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Update' })).getByRole('button', { name: 'Close' }),
+    );
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
     harness.updateReady();
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();

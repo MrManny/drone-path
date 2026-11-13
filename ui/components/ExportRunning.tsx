@@ -11,22 +11,15 @@ export interface ExportRunningProps {
 }
 
 export function ExportRunning({ fraction, canceling, error, onCancel }: ExportRunningProps) {
-  const percent = Math.round((fraction ?? 0) * 100);
+  const percent = fraction === null ? null : Math.round(fraction * 100);
   return (
     <>
       <div className="export-progress">
         <ProgressBar label="Export progress" percent={percent} />
-        <div className="progress-label">
-          {canceling
-            ? 'Canceling…'
-            : fraction === null
-              ? 'Preparing…'
-              : `Rendering ${percent}%`}
-        </div>
       </div>
       {error ? <ErrorNotice message={error} /> : null}
       <div className="dialog-actions">
-        <button type="button" onClick={onCancel} disabled={canceling}>
+        <button type="button" data-phase-focus onClick={onCancel} disabled={canceling}>
           Cancel export
         </button>
       </div>

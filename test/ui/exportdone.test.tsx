@@ -22,18 +22,10 @@ const RESULT: RecordingSummary = {
 function renderDone(overrides: Partial<ExportDoneProps> = {}) {
   const onReveal = overrides.onReveal ?? vi.fn();
   const onOpen = overrides.onOpen ?? vi.fn();
-  const onClose = overrides.onClose ?? vi.fn();
   render(
-    <ExportDone
-      result={RESULT}
-      error={null}
-      {...overrides}
-      onReveal={onReveal}
-      onOpen={onOpen}
-      onClose={onClose}
-    />,
+    <ExportDone result={RESULT} error={null} {...overrides} onReveal={onReveal} onOpen={onOpen} />,
   );
-  return { onReveal, onOpen, onClose };
+  return { onReveal, onOpen };
 }
 
 describe('ExportDone outcome', () => {
@@ -41,6 +33,13 @@ describe('ExportDone outcome', () => {
     renderDone();
     expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
     expect(screen.getByText('/exports/flight-map.mp4')).toBeTruthy();
+  });
+
+  it('keeps the file name visible and carries the full path as its tooltip', () => {
+    renderDone();
+    const out = screen.getByText('/exports/flight-map.mp4');
+    expect(out.className).toBe('export-path');
+    expect(out.getAttribute('title')).toBe('/exports/flight-map.mp4');
   });
 
   it('drops the rate clause when the summary carries no rate', () => {
@@ -56,13 +55,22 @@ describe('ExportDone outcome', () => {
 });
 
 describe('ExportDone actions', () => {
-  it('offers Reveal in folder, Open video and Close', () => {
-    const { onReveal, onOpen, onClose } = renderDone();
+  it('offers Reveal in folder and Open video', () => {
+    const { onReveal, onOpen } = renderDone();
     fireEvent.click(screen.getByRole('button', { name: 'Reveal in folder' }));
     expect(onReveal).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Open video' }));
     expect(onOpen).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('makes Reveal in folder the one accent primary', () => {
+    renderDone();
+    expect(screen.getByRole('button', { name: 'Reveal in folder' }).className).toBe('dialog-primary');
+    expect(screen.getByRole('button', { name: 'Open video' }).className).toBe('');
+  });
+
+  it('carries no footer dismissal; the header ✕ closes the dialog', () => {
+    renderDone();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
   });
 });

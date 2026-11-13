@@ -24,6 +24,19 @@ export type TelemetrySaveAction =
   | { type: 'result'; event: TelemetrySaveEvent; scope: string }
   | { type: 'revealFailed'; error: string };
 
+// The persistent phase line; the failure phase announces through its alert
+// notice, so it leaves the line empty.
+export function telemetryPhaseText(phase: TelemetrySavePhase): string {
+  switch (phase.kind) {
+    case 'saving':
+      return 'Exporting telemetry…';
+    case 'done':
+      return 'Telemetry exported.';
+    case 'error':
+      return '';
+  }
+}
+
 export function telemetrySaveReducer(
   state: TelemetrySavePhase | null,
   action: TelemetrySaveAction,

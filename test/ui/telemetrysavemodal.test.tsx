@@ -28,15 +28,17 @@ function renderModal(overrides: Partial<TelemetrySaveModalProps> = {}) {
   return { onReveal, onClose };
 }
 
-function actions(): HTMLElement {
-  return document.querySelector('.dialog-actions') as HTMLElement;
+function actions(): HTMLElement | null {
+  return document.querySelector('.dialog-actions');
 }
 
 describe('TelemetrySaveModal saving phase', () => {
-  it('says the write is in flight and offers no action yet', () => {
+  it('says the write is in flight in the status line and offers no action yet', () => {
     renderModal({ phase: { kind: 'saving' } });
-    expect(screen.getByText('Exporting telemetry…')).toBeTruthy();
-    expect(document.querySelector('.dialog-actions')).toBeNull();
+    const status = document.querySelector('.phase-status') as HTMLElement;
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.textContent).toBe('Exporting telemetry…');
+    expect(actions()).toBeNull();
   });
 
   it('names the dialog', () => {
@@ -62,12 +64,27 @@ describe('TelemetrySaveModal done phase', () => {
     expect(screen.getByText('Scope: In–Out segment (0:04–0:10 · 181 frames)')).toBeTruthy();
   });
 
-  it('offers Reveal in folder and Close', () => {
-    const { onReveal, onClose } = renderModal();
-    fireEvent.click(screen.getByRole('button', { name: 'Reveal in folder' }));
+  it('keeps the file name visible and carries the full path as its tooltip', () => {
+    renderModal();
+    const out = screen.getByText('/exports/flight.telemetry.json');
+    expect(out.getAttribute('title')).toBe('/exports/flight.telemetry.json');
+  });
+
+  it('offers Reveal in folder as the sole accent primary and no footer dismissal', () => {
+    const { onReveal } = renderModal();
+    const footer = actions() as HTMLElement;
+    const reveal = within(footer).getByRole('button', { name: 'Reveal in folder' });
+    expect(reveal.className).toBe('dialog-primary');
+    expect([...footer.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
+      'Reveal in folder',
+    ]);
+    fireEvent.click(reveal);
     expect(onReveal).toHaveBeenCalledTimes(1);
-    fireEvent.click(within(actions()).getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps exactly one dismissal control, the header ✕', () => {
+    renderModal();
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
   });
 
   it('surfaces a reveal failure above the done content', () => {
@@ -78,14 +95,57 @@ describe('TelemetrySaveModal done phase', () => {
     expect(screen.getByText('Telemetry exported.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal in folder' })).toBeTruthy();
   });
+
+  it('moves focus to Reveal in folder when the write finishes', () => {
+    const { rerender } = render(
+      <TelemetrySaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
+    );
+    rerender(<TelemetrySaveModal phase={DONE} dismissible onReveal={vi.fn()} onClose={vi.fn()} />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reveal in folder' }));
+    expect(document.activeElement).not.toBe(document.body);
+  });
 });
 
 describe('TelemetrySaveModal error phase', () => {
-  it('reports the failure and offers only Close', () => {
-    const { onClose } = renderModal({ phase: { kind: 'error', message: 'disk full' } });
+  it('reports the failure and offers no footer', () => {
+    renderModal({ phase: { kind: 'error', message: 'disk full' } });
     expect(screen.getByText('disk full')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Reveal in folder' })).toBeNull();
-    fireEvent.click(within(actions()).getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(actions()).toBeNull();
+  });
+
+  it('keeps exactly one dismissal control, the header ✕', () => {
+    renderModal({ phase: { kind: 'error', message: 'disk full' } });
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+  });
+
+  it('drops focus to the dialog, never to <body>', () => {
+    const { rerender } = render(
+      <TelemetrySaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
+    );
+    rerender(
+      <TelemetrySaveModal
+        phase={{ kind: 'error', message: 'disk full' }}
+        dismissible
+        onReveal={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole('dialog', { name: 'Export telemetry' }),
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
+describe('TelemetrySaveModal status region', () => {
+  it('keeps one status region across the phase change', () => {
+    const { rerender } = render(
+      <TelemetrySaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
+    );
+    const status = document.querySelector('.phase-status') as HTMLElement;
+    rerender(<TelemetrySaveModal phase={DONE} dismissible onReveal={vi.fn()} onClose={vi.fn()} />);
+    expect(document.querySelector('.phase-status')).toBe(status);
+    expect(status.textContent).toBe('Telemetry exported.');
   });
 });

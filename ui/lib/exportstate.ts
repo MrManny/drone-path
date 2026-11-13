@@ -13,6 +13,29 @@ export function captureFraction(capture: CaptureProgress | null): number | null 
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
 }
 
+export function runningPhaseText(fraction: number | null, canceling: boolean): string {
+  if (canceling) return 'Canceling…';
+  return fraction === null ? 'Preparing…' : `Rendering ${Math.round(fraction * 100)}%`;
+}
+
+// The persistent phase line carries the running progress and the result
+// sentences; the form and failure phases announce through their own notices,
+// so they leave it empty.
+export function exportPhaseText(state: ExportState): string {
+  switch (state.phase) {
+    case 'form':
+      return '';
+    case 'running':
+      return runningPhaseText(captureFraction(state.capture), state.canceling);
+    case 'done':
+      return 'Export finished.';
+    case 'canceled':
+      return 'Export canceled; its working file was removed.';
+    case 'error':
+      return '';
+  }
+}
+
 export function previewFrame(range: FrameRange | null, frames: number): number {
   const start = range ? range.start : 0;
   const end = range ? range.end : Math.max(0, frames - 1);

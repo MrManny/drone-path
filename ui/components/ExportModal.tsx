@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
 import type { EncodeSettings, FrameRange, RenderConfig } from '../../src/config.js';
@@ -10,6 +10,7 @@ import type { ExportFlowDeps } from '../lib/exportflow.js';
 import { cancelExport, chooseAndExport, runDoneAction } from '../lib/exportflow.js';
 import {
   captureFraction,
+  exportPhaseText,
   exportReducer,
   initialExportState,
   previewFrame,
@@ -18,7 +19,6 @@ import { formatFrameRange, formatTime } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { engagedLoop } from '../lib/loop.js';
 import { DialogShell } from './DialogShell.js';
-import { ExportCanceled } from './ExportCanceled.js';
 import { ExportDone } from './ExportDone.js';
 import { ExportError } from './ExportError.js';
 import { ExportForm } from './ExportForm.js';
@@ -94,6 +94,20 @@ export function ExportModal({
   }, []);
 
   const { phase, form, result, error, canceling } = state;
+
+  // A phase change unmounts the old phase's action; focus follows the flow to
+  // the new primary action (or the dialog) so it never lands on <body>.
+  const phaseColumnRef = useRef<HTMLDivElement>(null);
+  const seenPhase = useRef(phase);
+  useEffect(() => {
+    if (seenPhase.current === phase) return;
+    seenPhase.current = phase;
+    const column = phaseColumnRef.current;
+    const target = column?.querySelector<HTMLElement>('[data-phase-focus]');
+    const fallback = column?.closest('[role="dialog"]') as HTMLElement | null;
+    (target ?? fallback)?.focus();
+  }, [phase]);
+
   const showPreview = phase === 'form' || phase === 'running' || phase === 'done';
   const previewConfig = state.request?.config ?? settings;
   const previewRange = state.request ? state.request.range : form.range;
@@ -135,9 +149,13 @@ export function ExportModal({
             config={previewConfig}
             size={{ width: form.width, height: form.height }}
             frame={previewFrame(previewRange, video.frames)}
+            note={phase === 'form'}
           />
         ) : null}
-        <div className="export-phase">
+        <div className="export-phase" ref={phaseColumnRef}>
+          <p className="phase-status" role="status">
+            {exportPhaseText(state)}
+          </p>
           {phase === 'form' ? (
             <ExportForm
               form={form}
@@ -181,13 +199,10 @@ export function ExportModal({
                   dispatch,
                 )
               }
-              onClose={onClose}
             />
           ) : null}
 
-          {phase === 'canceled' ? <ExportCanceled onClose={onClose} /> : null}
-
-          {phase === 'error' && error ? <ExportError error={error} onClose={onClose} /> : null}
+          {phase === 'error' && error ? <ExportError error={error} /> : null}
         </div>
       </div>
     </DialogShell>

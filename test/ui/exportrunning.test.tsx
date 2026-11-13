@@ -21,22 +21,25 @@ function renderRunning(overrides: Partial<ExportRunningProps> = {}) {
   return { onCancel };
 }
 
-describe('ExportRunning progress label', () => {
-  it('reads Preparing… before any capture progress', () => {
+describe('ExportRunning progress bar', () => {
+  it('shimmers before any capture progress', () => {
     renderRunning();
-    expect(screen.getByText('Preparing…')).toBeTruthy();
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('0');
+    const bar = screen.getByRole('progressbar', { name: 'Export progress' });
+    expect(bar.getAttribute('aria-valuenow')).toBeNull();
+    expect((bar.firstElementChild as HTMLElement).className).toContain('progress-shimmer');
   });
 
-  it('reads Rendering N% from the typed capture fraction', () => {
+  it('fills determinately from the typed capture fraction', () => {
     renderRunning({ fraction: 0.83 });
-    expect(screen.getByText('Rendering 83%')).toBeTruthy();
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('83');
+    const bar = screen.getByRole('progressbar', { name: 'Export progress' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('83');
+    expect((bar.firstElementChild as HTMLElement).style.width).toBe('83%');
   });
 
-  it('reads Canceling… while the cancel is in flight', () => {
+  it('keeps the last level while the cancel is in flight', () => {
     renderRunning({ fraction: 0.5, canceling: true });
-    expect(screen.getByText('Canceling…')).toBeTruthy();
+    const bar = screen.getByRole('progressbar', { name: 'Export progress' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('50');
   });
 });
 
@@ -45,6 +48,13 @@ describe('ExportRunning cancel action', () => {
     const { onCancel } = renderRunning();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks Cancel export as the phase action', () => {
+    renderRunning();
+    expect(
+      screen.getByRole('button', { name: 'Cancel export' }).hasAttribute('data-phase-focus'),
+    ).toBe(true);
   });
 
   it('disables Cancel export while canceling', () => {

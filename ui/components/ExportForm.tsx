@@ -55,25 +55,27 @@ export function ExportForm({
     <>
       {segment ? (
         <fieldset className="settings-group">
-          <legend>What</legend>
-          <label className="settings-row export-choice">
-            <input
-              type="radio"
-              name="export-range"
-              checked={form.range === null}
-              onChange={() => dispatch({ type: 'setRange', range: null })}
-            />
-            <span>Full recording ({totalText})</span>
-          </label>
-          <label className="settings-row export-choice">
-            <input
-              type="radio"
-              name="export-range"
-              checked={form.range !== null}
-              onChange={() => dispatch({ type: 'setRange', range: segment.range })}
-            />
-            <span>In–Out segment ({segment.label})</span>
-          </label>
+          <legend>Export range</legend>
+          <div className="export-range">
+            <label className="settings-row export-choice">
+              <input
+                type="radio"
+                name="export-range"
+                checked={form.range === null}
+                onChange={() => dispatch({ type: 'setRange', range: null })}
+              />
+              <span>Full recording ({totalText})</span>
+            </label>
+            <label className="settings-row export-choice">
+              <input
+                type="radio"
+                name="export-range"
+                checked={form.range !== null}
+                onChange={() => dispatch({ type: 'setRange', range: segment.range })}
+              />
+              <span>In–Out segment ({segment.label})</span>
+            </label>
+          </div>
         </fieldset>
       ) : null}
 
@@ -132,7 +134,7 @@ export function ExportForm({
         <button type="button" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="dialog-primary" onClick={onStart}>
+        <button type="button" className="dialog-primary" data-phase-focus onClick={onStart}>
           Start export
         </button>
       </div>
