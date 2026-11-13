@@ -203,7 +203,7 @@ describe('MapCard style contract (#236)', () => {
     // corner and the credit clears it by width, never by lifting off the edge.
     expect(rule).toContain('bottom: 0');
     expect(rule).not.toContain('bottom: 32px');
-    expect(rule).toContain('max-width: calc(100% - 96px)');
+    expect(rule).toContain('max-width: calc(100% - 128px)');
     expect(rule).toContain('pointer-events: auto');
     expect(cssText).toMatch(/\.map-card\.map-card-overlay #attr a \{[^}]*pointer-events: none/);
   });

@@ -519,7 +519,8 @@ button.primary {
    can hover. */
 .map-card.map-card-overlay #attr {
   bottom: 0;
-  max-width: calc(100% - 96px);
+  /* Clears the scale bar's worst-case footprint at any map render size. */
+  max-width: calc(100% - 128px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
