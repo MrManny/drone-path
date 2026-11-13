@@ -390,20 +390,30 @@ button.primary {
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-panel);
 }
-/* Map loading: the quiet busy state over the map until its tiles settle,
-   so the load transition is never a silent black pane. */
+/* Map loading: the quiet busy state over the map. The label sits above the
+   center where the drone marker and the track draw, and stacks above every
+   map layer, so the load text is always legible and never occluded. */
 .map-card-busy {
   position: absolute;
-  inset: 0;
-  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: calc(50% + 56px);
+  z-index: 1300;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 0 16px;
   text-align: center;
   font-size: 13px;
   color: var(--text-3);
   pointer-events: none;
+}
+/* The compact overlay card crowds its furniture: the label tucks under the
+   layout tag and right of the chips, still clear of the center marker. */
+.map-card-overlay .map-card-busy {
+  top: 34px;
+  bottom: auto;
+  justify-content: flex-end;
+  padding-right: 8px;
 }
 .map-overlay-tag {
   display: none;
