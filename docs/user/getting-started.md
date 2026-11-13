@@ -4,9 +4,9 @@
 
 Drone Path renders flight-path map-overlay videos from DJI drone recordings (the DJI Neo 2 and similar) at exactly the source frame rate and frame count. Telemetry comes from the embedded CAM meta (DVTM) stream when the recording has one, otherwise from the `.SRT` sidecar. A recording with a CAM meta stream never falls back to the sidecar: when that stream carries no GPS positions, the run fails with a clear error.
 
-![Desktop app: drone footage beside the synchronized flight map](../images/app-main-window.jpg)
+![Desktop app: a drone recording beside the synchronized flight map](../images/app-main-window.jpg)
 
-*The desktop app playing a recording: footage beside the synchronized flight map, with the flight trail, drone position and HUD chips on one shared timeline.*
+*The desktop app playing a recording: the recording beside the synchronized flight map, with the flight trail, drone position and HUD chips on one shared timeline.*
 
 ## Getting it
 

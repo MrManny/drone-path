@@ -108,18 +108,18 @@ describe('formatFrameRange', () => {
 
 describe('formatLoopReadout', () => {
   it.for([
-    { name: 'engaged loop', loop: { in: 300, out: 360 }, fps: 30, want: 'loop 0:10–0:12' },
-    { name: 'unset in point still reads', loop: { in: null, out: 360 }, fps: 30, want: 'loop …–0:12' },
-    { name: 'unset out point still reads', loop: { in: 300, out: null }, fps: 30, want: 'loop 0:10–…' },
-    { name: 'out-of-order points still read', loop: { in: 360, out: 300 }, fps: 30, want: 'loop 0:12–0:10' },
+    { name: 'engaged loop', loop: { in: 300, out: 360 }, fps: 30, want: 'in 0:10 · out 0:12' },
+    { name: 'unset in point still reads', loop: { in: null, out: 360 }, fps: 30, want: 'in … · out 0:12' },
+    { name: 'unset out point still reads', loop: { in: 300, out: null }, fps: 30, want: 'in 0:10 · out …' },
+    { name: 'out-of-order points still read', loop: { in: 360, out: 300 }, fps: 30, want: 'in 0:12 · out 0:10' },
     { name: 'no points reads empty', loop: { in: null, out: null }, fps: 30, want: '' },
   ])('$name', ({ loop, fps, want }) => {
     expect(formatLoopReadout(loop, fps)).toBe(want);
   });
 
   it('says what is missing instead of showing a bare ? (#233)', () => {
-    expect(formatLoopReadout({ in: 300, out: null }, 30)).toBe('loop 0:10–…');
-    expect(formatLoopReadout({ in: null, out: 360 }, 30)).toBe('loop …–0:12');
+    expect(formatLoopReadout({ in: 300, out: null }, 30)).toBe('in 0:10 · out …');
+    expect(formatLoopReadout({ in: null, out: 360 }, 30)).toBe('in … · out 0:12');
   });
 });
 

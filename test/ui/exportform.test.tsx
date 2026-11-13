@@ -60,15 +60,15 @@ describe('ExportForm what-to-export choice', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'setRange', range: null });
   });
 
-  it('needs no group legend without a choice to make', () => {
+  it('keeps the Output and encoding legend even without a choice to make', () => {
     renderForm();
-    expect(screen.queryByRole('group', { name: 'How' })).toBeNull();
+    expect(screen.getByRole('group', { name: 'Output and encoding' })).toBeTruthy();
   });
 
-  it('names both groups when the loop offers a choice', () => {
+  it('names both groups when the segment offers a choice', () => {
     renderForm({ segment: SEGMENT });
     expect(screen.getByRole('group', { name: 'Export range' })).toBeTruthy();
-    expect(screen.getByRole('group', { name: 'How' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Output and encoding' })).toBeTruthy();
   });
 });
 
@@ -100,9 +100,9 @@ describe('ExportForm dimensions', () => {
 describe('ExportForm encoding', () => {
   it('shows the encoder vocabulary values in plain words', () => {
     renderForm({ encode: { codec: 'h265', quality: 'low', preset: 'veryfast' } });
-    expect(screen.getByLabelText<HTMLSelectElement>('Format').value).toBe('h265');
+    expect(screen.getByLabelText<HTMLSelectElement>('Codec').value).toBe('h265');
     expect(screen.getByLabelText<HTMLSelectElement>('Quality').value).toBe('low');
-    expect(screen.getByLabelText<HTMLSelectElement>('Speed').value).toBe('veryfast');
+    expect(screen.getByLabelText<HTMLSelectElement>('Encode speed').value).toBe('veryfast');
     expect(screen.getByRole('option', { name: 'H.265' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Near-lossless' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Balanced' })).toBeTruthy();
@@ -111,11 +111,11 @@ describe('ExportForm encoding', () => {
 
   it('reports each change back as vocabulary values', () => {
     const { onEncoderChange } = renderForm();
-    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
+    fireEvent.change(screen.getByLabelText('Codec'), { target: { value: 'h265' } });
     expect(onEncoderChange).toHaveBeenLastCalledWith({ codec: 'h265' });
     fireEvent.change(screen.getByLabelText('Quality'), { target: { value: 'near-lossless' } });
     expect(onEncoderChange).toHaveBeenLastCalledWith({ quality: 'near-lossless' });
-    fireEvent.change(screen.getByLabelText('Speed'), { target: { value: 'veryfast' } });
+    fireEvent.change(screen.getByLabelText('Encode speed'), { target: { value: 'veryfast' } });
     expect(onEncoderChange).toHaveBeenLastCalledWith({ preset: 'veryfast' });
   });
 });
@@ -140,9 +140,9 @@ describe('ExportForm actions', () => {
 describe('ExportForm scan hierarchy', () => {
   it('runs the output-size fields above the encoding controls', () => {
     renderForm({ segment: SEGMENT });
-    const how = screen.getByRole('group', { name: 'How' });
+    const how = screen.getByRole('group', { name: 'Output and encoding' });
     const labels = [...how.querySelectorAll('.settings-label')].map((el) => el.textContent);
-    expect(labels).toEqual(['Width', 'Height', 'Format', 'Quality', 'Speed']);
+    expect(labels).toEqual(['Width', 'Height', 'Codec', 'Quality', 'Encode speed']);
   });
 
   it('renders the range choices as one choice set', () => {
@@ -151,7 +151,7 @@ describe('ExportForm scan hierarchy', () => {
     expect(range.querySelectorAll('.export-range')).toHaveLength(1);
     const container = range.querySelector('.export-range') as HTMLElement;
     expect(container.querySelectorAll('.export-choice')).toHaveLength(2);
-    const how = screen.getByRole('group', { name: 'How' });
+    const how = screen.getByRole('group', { name: 'Output and encoding' });
     expect(how.querySelectorAll('.export-size .settings-row')).toHaveLength(2);
     expect(how.querySelectorAll('.export-encode .settings-row')).toHaveLength(3);
   });

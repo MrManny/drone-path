@@ -9,9 +9,9 @@ The review player in the desktop app is fully keyboard-operable, including the m
 | `Left` / `Right` | Step one frame |
 | `Shift+Left` / `Shift+Right` | Jump one second |
 | `Home` / `End` | Jump to the start / end |
-| `I` / `O` | Set the loop in / out point |
-| `Esc` | Close the open menu, dialog or popover, or clear the loop |
-| `S` | Swap the video and map layout |
+| `I` / `O` | Set the in / out point |
+| `Esc` | Close the open menu, dialog or popover, or clear the in and out points |
+| `P` | Toggle PiP — switch the map into a corner overlay and back |
 | `Ctrl+O` | Open a recording — works in the empty workspace and while typing |
 
 ## Menu bar
@@ -35,6 +35,6 @@ The menu bar at the top of the workspace follows the Windows menu conventions:
 - `Space` leaves activation to a focused button, link or disclosure instead of toggling playback.
 - While a menu is open it owns the keyboard: the player shortcuts wait until it closes.
 - While a dialog is open, only `Esc` works: it closes the dialog. The Map appearance popover is not a dialog — shortcuts stay live, and `Esc` closes it.
-- The first `Esc` over a focused select closes its dropdown; the next one closes the dialog, popover or loop as from anywhere else.
-- The loop band's end handles on the timeline are a pointer-only enhancement: with the keyboard, set the points with `I` / `O` or the loop buttons in the timeline header.
+- The first `Esc` over a focused select closes its dropdown; the next one closes the dialog or popover, or clears the in and out points, as from anywhere else.
+- The In–Out segment's end handles on the timeline are a pointer-only enhancement: with the keyboard, set the points with `I` / `O` or the in/out-point buttons in the timeline header.
 - Held keys auto-repeat only for stepping and jumping; every other shortcut acts once per press.

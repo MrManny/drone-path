@@ -80,7 +80,7 @@ export function ExportForm({
       ) : null}
 
       <fieldset className="settings-group">
-        {segment ? <legend>How</legend> : null}
+        <legend>Output and encoding</legend>
         <div className="export-size">
           <NumberField
             label="Width"
@@ -109,7 +109,7 @@ export function ExportForm({
         </div>
         <div className="export-encode">
           <SelectField
-            label="Format"
+            label="Codec"
             value={encode.codec}
             options={CODEC_VALUES.map((value) => ({ value, label: CODEC_LABELS[value] }))}
             onValue={(codec) => onEncoderChange({ codec: codec as Codec })}
@@ -121,7 +121,7 @@ export function ExportForm({
             onValue={(quality) => onEncoderChange({ quality: quality as Quality })}
           />
           <SelectField
-            label="Speed"
+            label="Encode speed"
             value={encode.preset}
             options={ENCODER_PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
             onValue={(preset) => onEncoderChange({ preset: preset as EncoderPreset })}

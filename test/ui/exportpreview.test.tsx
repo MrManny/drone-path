@@ -167,7 +167,7 @@ describe('ExportPreview output framing', () => {
 
   it('states the map-only rule only when the form asks for it', () => {
     const { getByText, queryByText, rerender } = renderPreview({ note: true });
-    expect(getByText('Export renders the map, not the source video.')).toBeTruthy();
+    expect(getByText('Export captures the map, not the source recording.')).toBeTruthy();
     rerender(
       <ExportPreview
         session={SESSION}
@@ -177,7 +177,7 @@ describe('ExportPreview output framing', () => {
         note={false}
       />,
     );
-    expect(queryByText('Export renders the map, not the source video.')).toBeNull();
+    expect(queryByText('Export captures the map, not the source recording.')).toBeNull();
   });
 
   it('keeps the frame box at the output aspect ratio', () => {

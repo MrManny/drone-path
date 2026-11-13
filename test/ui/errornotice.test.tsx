@@ -16,10 +16,11 @@ describe('ErrorNotice', () => {
     expect(screen.getByText("EEXIST: file already exists, mkdir '/exports/blocked-folder'")).toBeTruthy();
   });
 
-  it('passes an unknown message through with no technical text', () => {
+  it('never surfaces an unknown message: generic lead with the raw text as details', () => {
     render(<ErrorNotice message="the app backend went away" />);
+    expect(screen.getByText('Something went wrong. Try again.')).toBeTruthy();
+    expect(screen.getByText('Technical details')).toBeTruthy();
     expect(screen.getByText('the app backend went away')).toBeTruthy();
-    expect(screen.queryByText('Technical details')).toBeNull();
   });
 
   it('prefixes the lead sentence like the Open flow does', () => {
@@ -31,7 +32,9 @@ describe('ErrorNotice', () => {
 
   it('appends the tail sentence like the export outcome does', () => {
     render(<ErrorNotice message="boom" tail="The destination file was left untouched." />);
-    expect(screen.getByText('boom The destination file was left untouched.')).toBeTruthy();
+    expect(
+      screen.getByText('Something went wrong. Try again. The destination file was left untouched.'),
+    ).toBeTruthy();
   });
 
   it('announces as an alert', () => {

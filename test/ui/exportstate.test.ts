@@ -292,7 +292,7 @@ describe('previewFrame', () => {
 describe('runningPhaseText', () => {
   it.for([
     { fraction: null, canceling: false, want: 'Preparing…' },
-    { fraction: 0.83, canceling: false, want: 'Rendering 83%' },
+    { fraction: 0.83, canceling: false, want: 'Exporting 83%' },
     { fraction: 0.5, canceling: true, want: 'Canceling…' },
     { fraction: null, canceling: true, want: 'Canceling…' },
   ])('reads $want', ({ fraction, canceling, want }) => {
@@ -307,7 +307,7 @@ describe('exportPhaseText', () => {
 
   it('reports the running phase from the capture fraction', () => {
     expect(exportPhaseText(running())).toBe('Preparing…');
-    expect(exportPhaseText({ ...running(), capture: { done: 83, total: 100 } })).toBe('Rendering 83%');
+    expect(exportPhaseText({ ...running(), capture: { done: 83, total: 100 } })).toBe('Exporting 83%');
     expect(
       exportPhaseText({ ...running(), capture: { done: 83, total: 100 }, canceling: true }),
     ).toBe('Canceling…');
@@ -323,7 +323,7 @@ describe('exportPhaseText', () => {
 
   it('carries the canceled sentence', () => {
     const canceled = exportReducer(running(), { type: 'finish', outcome: { status: 'canceled' } });
-    expect(exportPhaseText(canceled)).toBe('Export canceled; its working file was removed.');
+    expect(exportPhaseText(canceled)).toBe('Export canceled; its unfinished file was removed.');
   });
 
   it('stays empty in the error phase, which announces through its alert', () => {

@@ -18,7 +18,8 @@ import type { DialogEvent } from '../lib/dialogstate.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
-import { shouldPrompt, updateReducer } from '../lib/updatestate.js';
+import { INITIAL_UPDATE, shouldPrompt, updateReducer } from '../lib/updatestate.js';
+import { ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
 
 interface LoadedSession {
   id: number;
@@ -31,7 +32,8 @@ export default function Page() {
   const [settings, setSettings] = useState<RenderConfig>(DEFAULT_CONFIG);
   const dialogs = useDialogs();
   const { modalOpen, helpOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
-  const [updatePhase, dispatchUpdate] = useReducer(updateReducer, 'idle');
+  const [update, dispatchUpdate] = useReducer(updateReducer, INITIAL_UPDATE);
+  const { phase: updatePhase, failure: updateFailure } = update;
   const dispatchDialog = useCallback(
     (event: DialogEvent) => {
       if (updatePhase === 'restarting' && event.type === 'close') return;
@@ -92,8 +94,8 @@ export default function Page() {
     let offFailed: (() => void) | null = null;
     try {
       offReady = appBridge().onUpdateReady(() => dispatchUpdate({ type: 'ready' }));
-      offFailed = appBridge().onUpdateRestartFailed(() =>
-        dispatchUpdate({ type: 'restartFailed' }),
+      offFailed = appBridge().onUpdateRestartFailed((message) =>
+        dispatchUpdate({ type: 'restartFailed', message }),
       );
       void appBridge()
         .getUpdateState()
@@ -142,16 +144,16 @@ export default function Page() {
 
   const restartUpdate = useCallback(() => {
     dispatchUpdate({ type: 'restart' });
-    const failed = () => dispatchUpdate({ type: 'restartFailed' });
+    const failed = (message: string) => dispatchUpdate({ type: 'restartFailed', message });
     try {
       void appBridge()
         .restartToUpdate()
         .then((ack) => {
-          if (!ack.ok) failed();
+          if (!ack.ok) failed(ack.error ?? ERR_UNKNOWN);
         })
-        .catch(failed);
+        .catch((e) => failed(errorMessage(e)));
     } catch {
-      failed();
+      failed(ERR_UNKNOWN);
     }
   }, []);
 
@@ -202,6 +204,7 @@ export default function Page() {
       {dialogs.updateOpen ? (
         <UpdatePrompt
           restarting={updatePhase === 'restarting'}
+          failure={updateFailure}
           onRestart={restartUpdate}
           onLater={postponeUpdate}
         />

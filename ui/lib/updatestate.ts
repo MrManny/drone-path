@@ -1,21 +1,33 @@
 export type UpdatePhase = 'idle' | 'ready' | 'prompted' | 'restarting';
 
+export interface UpdateState {
+  phase: UpdatePhase;
+  /** Backend message of a failed restart, shown under "Technical details". */
+  failure: string | null;
+}
+
 export type UpdateEvent =
   | { type: 'ready' }
   | { type: 'prompt' }
   | { type: 'restart' }
-  | { type: 'restartFailed' };
+  | { type: 'restartFailed'; message: string };
 
-export function updateReducer(phase: UpdatePhase, event: UpdateEvent): UpdatePhase {
+export const INITIAL_UPDATE: UpdateState = { phase: 'idle', failure: null };
+
+export function updateReducer(state: UpdateState, event: UpdateEvent): UpdateState {
   switch (event.type) {
     case 'ready':
-      return phase === 'idle' ? 'ready' : phase;
+      return state.phase === 'idle' ? { ...state, phase: 'ready' } : state;
     case 'prompt':
-      return phase === 'ready' ? 'prompted' : phase;
+      return state.phase === 'ready' ? { ...state, phase: 'prompted' } : state;
     case 'restart':
-      return phase === 'prompted' ? 'restarting' : phase;
+      return state.phase === 'prompted' ? { phase: 'restarting', failure: null } : state;
     case 'restartFailed':
-      return phase === 'restarting' ? 'prompted' : phase;
+      // Back to the prompt, keeping the failure message so the dialog can
+      // report what happened instead of silently reverting.
+      return state.phase === 'restarting'
+        ? { phase: 'prompted', failure: event.message }
+        : state;
   }
 }
 

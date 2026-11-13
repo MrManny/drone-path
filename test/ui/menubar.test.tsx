@@ -110,10 +110,12 @@ describe('MenuBar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Exit' }));
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Swap' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Toggle PiP' }));
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+    fireEvent.click(
+      within(screen.getByRole('menu', { name: 'Help' })).getByRole('menuitem', { name: 'Help' }),
+    );
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'About' }));
@@ -141,7 +143,9 @@ describe('MenuBar', () => {
     ).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    expect(screen.getByRole('menuitem', { name: 'Swap' }).getAttribute('aria-disabled')).toBe('true');
+    expect(
+      screen.getByRole('menuitem', { name: 'Toggle PiP' }).getAttribute('aria-disabled'),
+    ).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     expect(screen.getByRole('menuitem', { name: 'About' }).getAttribute('aria-disabled')).toBeNull();
   });
@@ -156,10 +160,10 @@ describe('MenuBar', () => {
   });
 
   it('passes item tooltips through to the rows', () => {
-    renderBar({ itemTitles: { exportTelemetry: 'Exports telemetry for the full recording (0:03)' } });
+    renderBar({ itemTitles: { exportTelemetry: 'Export telemetry for the full recording (0:03)' } });
     openFile();
     expect(screen.getByRole('menuitem', { name: 'Export telemetry…' }).title).toBe(
-      'Exports telemetry for the full recording (0:03)',
+      'Export telemetry for the full recording (0:03)',
     );
   });
 

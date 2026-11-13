@@ -122,12 +122,8 @@ function stageCta(): HTMLButtonElement {
   ) as HTMLButtonElement;
 }
 
-function menuBar(): HTMLElement {
-  return document.querySelector('.menu-bar') as HTMLElement;
-}
-
 function menuItem(name: string): HTMLButtonElement {
-  return within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name });
+  return within(screen.getByRole('menu')).getByRole<HTMLButtonElement>('menuitem', { name });
 }
 
 const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
@@ -136,8 +132,8 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Export telemetry…': 'File',
   'Map appearance…': 'File',
   Exit: 'File',
-  Swap: 'View',
-  Documentation: 'Help',
+  'Toggle PiP': 'View',
+  'Help': 'Help',
   About: 'Help',
 };
 
@@ -203,10 +199,10 @@ describe('the empty workspace at launch', () => {
       screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
     ).toBe(true);
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    expect(menuItem('Swap').getAttribute('aria-disabled')).toBe('true');
+    expect(menuItem('Toggle PiP').getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    expect(menuItem('Documentation').getAttribute('aria-disabled')).toBeNull();
-    expect(screen.getByText('No telemetry yet')).toBeTruthy();
+    expect(menuItem('Help').getAttribute('aria-disabled')).toBeNull();
+    expect(screen.getByText('No flight path yet.')).toBeTruthy();
     expect(screen.queryByText('No recording loaded')).toBeNull();
     expect(screen.queryByText(/SRT sidecar/)).toBeNull();
     expect(screen.queryByText(/Recording ·/)).toBeNull();
@@ -234,7 +230,7 @@ describe('the empty workspace at launch', () => {
     fireEvent.click(openWorkspace());
     expect(screen.queryByText(/Preparing/)).toBeNull();
     harness.prepare();
-    expect(screen.getByText('Probing the recording…')).toBeTruthy();
+    expect(screen.getByText('Reading the recording…')).toBeTruthy();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' }).disabled).toBe(true);
     await harness.settle({ ok: true });
   });
@@ -249,7 +245,7 @@ describe('the empty workspace at launch', () => {
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
     ).toBe('33');
     harness.report({ stage: 'plan', done: 2, total: 3 });
-    expect(screen.getByText('Planning the view…')).toBeTruthy();
+    expect(screen.getByText('Setting up the map…')).toBeTruthy();
     expect(
       screen.getByRole('progressbar', { name: 'Preparation progress' }).getAttribute('aria-valuenow'),
     ).toBe('67');
@@ -329,7 +325,7 @@ describe('keyboard before a recording loads', () => {
     { name: 'End', key: 'End' },
     { name: 'I', key: 'i' },
     { name: 'O', key: 'o' },
-    { name: 'S', key: 's' },
+    { name: 'P', key: 'p' },
     { name: '1', key: '1' },
     { name: '4', key: '4' },
   ])('lets the $name playback shortcut no-op', ({ key, shiftKey }) => {
@@ -433,13 +429,13 @@ describe.each([
   {
     outcome: 'the file is not a readable .mp4',
     result: { ok: false, error: 'not a readable .mp4 file: C:\\Windows\\win.ini' },
-    text: 'Could not open the recording: "win.ini" is not a readable .mp4 recording.',
+    text: 'Could not open the recording: "win.ini" is not a readable .mp4 recording. Choose a different .mp4 file.',
     role: 'alert',
   },
   {
     outcome: 'the backend reports an unknown failure',
     result: { ok: false, error: 'disk on fire' },
-    text: 'Could not open the recording: disk on fire',
+    text: 'Could not open the recording: Something went wrong. Try again.',
     role: 'alert',
   },
 ])('when $outcome', ({ result, text, role }) => {
@@ -513,7 +509,7 @@ describe('settings persistence', () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
     clickMenuItem('Export video…');
-    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
+    fireEvent.change(screen.getByLabelText('Codec'), { target: { value: 'h265' } });
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ codec: 'h265' }),
     );
@@ -534,7 +530,7 @@ describe('update prompt', () => {
     openWorkspace();
     await commitLoaded(harness);
 
-    clickMenuItem('Documentation');
+    clickMenuItem('Help');
     harness.updateReady();
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
 
@@ -557,13 +553,17 @@ describe('update prompt', () => {
     expect(harness.bridge.restartToUpdate).toHaveBeenCalledTimes(1);
   });
 
-  it('offers the prompt again when the restart could not start', async () => {
+  it('offers the prompt again with the failure when the restart could not start', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockRejectedValueOnce(new Error('shell gone'));
     openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain(
+      'The restart failed. Try again, or install the update when you quit.',
+    );
+    expect(screen.getByText('shell gone')).toBeTruthy();
   });
 
   it('dismisses the prompt with Escape', async () => {
@@ -586,16 +586,20 @@ describe('update prompt', () => {
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
   });
 
-  it('unlocks the prompt when the shell refuses to restart', async () => {
+  it('unlocks the prompt and reports the failure when the shell refuses to restart', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockResolvedValueOnce({ ok: false, error: 'no update' });
     openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain(
+      'The restart failed. Try again, or install the update when you quit.',
+    );
+    expect(screen.getByText('no update')).toBeTruthy();
   });
 
-  it('unlocks the prompt when the restart fails after the ack', async () => {
+  it('unlocks the prompt and reports the failure when the restart fails after the ack', async () => {
     const harness = installBridge();
     harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
     openWorkspace();
@@ -603,6 +607,10 @@ describe('update prompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     harness.restartFailed();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain(
+      'The restart failed. Try again, or install the update when you quit.',
+    );
+    expect(screen.getByText('restart failed')).toBeTruthy();
   });
 
   it('picks up a download that finished before the subscription', async () => {

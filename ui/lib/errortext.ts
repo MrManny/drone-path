@@ -83,28 +83,55 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =>
     exactMessage(ERR_OUTPUT_OVERWRITES_SOURCE),
     () => 'The export would replace the source recording. Choose another file name.',
   ],
-  [messagePrefix(ERR_OUTPUT_PATH_ABSOLUTE), () => 'The export needs a full path to its destination.'],
-  [exactMessage(ERR_APP_BRIDGE_UNAVAILABLE), () => 'The app backend is not available. Restart the app.'],
+  [
+    messagePrefix(ERR_OUTPUT_PATH_ABSOLUTE),
+    () => 'The export needs a full path to its destination. Choose the destination again.',
+  ],
+  [exactMessage(ERR_APP_BRIDGE_UNAVAILABLE), () => 'The app cannot reach its own services. Restart the app.'],
   [exactMessage(ERR_RENDER_CANCELED), () => 'The export was canceled.'],
   [
     new RegExp(`^${escaped(ERR_NOT_READABLE_MP4)}(.+)$`),
-    (m) => `"${leafName(m[1])}" is not a readable .mp4 recording.`,
+    (m) => `"${leafName(m[1])}" is not a readable .mp4 recording. Choose a different .mp4 file.`,
   ],
   [
     messagePrefix(ERR_NO_TELEMETRY),
     () => 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
   ],
   [
+    // The verification message carries the got-vs-expected numbers; surface
+    // them, and keep a diagnosis-only shape when the message format changes.
+    new RegExp(
+      `^${escaped(ERR_OUTPUT_VERIFICATION)}got (\\d+) frames @ ([^,]+), expected (\\d+) @ (.+)$`,
+    ),
+    (m) =>
+      `The finished file has ${m[1]} frames at ${m[2]} fps, but ${m[3]} at ${m[4]} fps ` +
+      'were expected. Try exporting again.',
+  ],
+  [
     messagePrefix(ERR_OUTPUT_VERIFICATION),
-    () => 'The finished file does not match the recording frame count or frame rate.',
+    () => 'The finished file does not match the recording frame count or frame rate. Try exporting again.',
   ],
   [
     new RegExp(`^${escaped(ERR_COULD_NOT_REPLACE)}.*\\(${escaped(ERR_RENDER_KEPT_AT)}(.+)\\)$`),
     (m) =>
-      `The export finished, but its file could not replace the destination. The render is kept at ${m[1]}.`,
+      `The export finished, but its file could not replace the destination. ` +
+      `The exported file is kept at ${m[1]}. Move it to the destination yourself.`,
   ],
-  [exactMessage(ERR_NO_FRAME_RATE), () => "This video's frame rate could not be read."],
+  [
+    exactMessage(ERR_NO_FRAME_RATE),
+    () => "The recording's frame rate could not be read. Choose a different recording.",
+  ],
   [exactMessage(ERR_UNKNOWN), () => 'Something went wrong. Try again.'],
+  // The UI fallbacks for a refused bridge call that carries no backend message
+  // (ui/lib/exportflow.ts, ui/lib/telemetrysave.ts, ui/hooks/useTelemetrySave.ts)
+  // live in the error-message slot, so they map here to sentences instead of
+  // surfacing as fragments.
+  [exactMessage('action failed'), () => 'The action could not be completed. Try again.'],
+  [
+    exactMessage('telemetry JSON could not be saved'),
+    () => 'The telemetry file could not be saved. Try again.',
+  ],
+  [exactMessage('the file could not be revealed'), () => 'The file could not be revealed. Try again.'],
 ];
 
 export function describeError(message: string): ErrorText {
@@ -119,5 +146,7 @@ export function describeError(message: string): ErrorText {
     const match = pattern.exec(message);
     if (match) return { text: render(match), technical: message };
   }
-  return { text: message, technical: null };
+  // Unmatched raw text never surfaces as the message: it goes to "Technical
+  // details" behind a generic sentence with a next step.
+  return { text: 'Something went wrong. Try again.', technical: message === '' ? null : message };
 }

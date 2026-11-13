@@ -61,7 +61,7 @@ describe('TelemetrySaveModal done phase', () => {
     renderModal();
     expect(screen.getByText('Telemetry exported.')).toBeTruthy();
     expect(screen.getByText('/exports/flight.telemetry.json')).toBeTruthy();
-    expect(screen.getByText('Scope: In–Out segment (0:04–0:10 · 181 frames)')).toBeTruthy();
+    expect(screen.getByText('Covers the In–Out segment (0:04–0:10 · 181 frames)')).toBeTruthy();
   });
 
   it('keeps the file name visible and carries the full path as its tooltip', () => {

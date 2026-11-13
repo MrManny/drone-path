@@ -100,7 +100,7 @@ describe('TransportBar', () => {
     expect(dispatch).toHaveBeenLastCalledWith({ type: 'speed', rate: 3 });
     expect(
       screen.getByRole('button', { name: '3×' }).getAttribute('title'),
-    ).toBe('Playback speed 3× (3)');
+    ).toBe('Playback speed 3× (key 3)');
   });
 });
 

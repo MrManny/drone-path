@@ -65,8 +65,8 @@ describe('docs/user/keyboard-shortcuts.md', () => {
     I: 'I',
     o: 'O',
     O: 'O',
-    s: 'S',
-    S: 'S',
+    p: 'P',
+    P: 'P',
     ArrowLeft: 'Left',
     ArrowRight: 'Right',
   };

@@ -52,7 +52,7 @@ export function MapCard(props: MapCardProps) {
   return (
     <div className={`map-card map-card-${layout}`}>
       {withScene === null ? (
-        <div className="map-card-empty">No telemetry yet</div>
+        <div className="map-card-empty">No flight path yet.</div>
       ) : (
         <>
           <div className="map-card-map">

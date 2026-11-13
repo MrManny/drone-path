@@ -101,9 +101,9 @@ describe('MenuPanel', () => {
   });
 
   it('passes per-item tooltips through', () => {
-    renderPanel({ titles: { exportTelemetry: 'Exports telemetry for the full recording (0:03)' } });
+    renderPanel({ titles: { exportTelemetry: 'Export telemetry for the full recording (0:03)' } });
     expect(screen.getByRole('menuitem', { name: 'Export telemetry…' }).title).toBe(
-      'Exports telemetry for the full recording (0:03)',
+      'Export telemetry for the full recording (0:03)',
     );
     expect(screen.getByRole('menuitem', { name: 'Export video…' }).title).toBe('');
   });

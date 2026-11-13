@@ -5,11 +5,13 @@ import { Notice } from './Notice.js';
 
 export interface UpdatePromptProps {
   restarting: boolean;
+  /** Backend message of a failed restart; null while none failed. */
+  failure: string | null;
   onRestart: () => void;
   onLater: () => void;
 }
 
-export function UpdatePrompt({ restarting, onRestart, onLater }: UpdatePromptProps) {
+export function UpdatePrompt({ restarting, failure, onRestart, onLater }: UpdatePromptProps) {
   return (
     <DialogShell
       title="Update"
@@ -17,10 +19,16 @@ export function UpdatePrompt({ restarting, onRestart, onLater }: UpdatePromptPro
       blockedReason={restarting ? 'The app is restarting.' : undefined}
       closeOnBackdrop={!restarting}
     >
-      <Notice tone="info">
-        A new version is ready to install. Restart now to finish updating, or keep
-        working and the update installs when you quit.
-      </Notice>
+      {failure ? (
+        <Notice tone="danger" details={failure}>
+          The restart failed. Try again, or install the update when you quit.
+        </Notice>
+      ) : (
+        <Notice tone="info">
+          A new version is ready to install. Restart now to finish updating, or keep
+          working and the update installs when you quit.
+        </Notice>
+      )}
       <div className="dialog-actions">
         <button
           type="button"

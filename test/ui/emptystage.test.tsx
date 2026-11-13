@@ -52,7 +52,7 @@ describe('EmptyStage', () => {
     renderStage();
     expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
     expect(
-      screen.getByText(/Pick a drone recording to watch its flight path on the map in sync with/),
+      screen.getByText(/Pick a drone recording to watch its flight path on the map in sync/),
     ).toBeTruthy();
     expect(screen.queryByText(/SRT sidecar/)).toBeNull();
   });
@@ -77,7 +77,7 @@ describe('EmptyStage', () => {
 
   it('reads the quiet map placeholder without mounting the map island', () => {
     renderStage();
-    expect(screen.getByText('No telemetry yet')).toBeTruthy();
+    expect(screen.getByText('No flight path yet.')).toBeTruthy();
     expect(screen.queryByTestId('map-island')).toBeNull();
   });
 
@@ -100,21 +100,21 @@ describe('EmptyStage', () => {
     renderStage({ kind: 'preparing', progress: START_PREPARE_PROGRESS });
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' });
     expect(button.disabled).toBe(true);
-    expect(screen.getByText('Probing the recording…')).toBeTruthy();
+    expect(screen.getByText('Reading the recording…')).toBeTruthy();
     const bar = screen.getByRole('progressbar', { name: 'Preparation progress' });
     expect(bar.getAttribute('aria-valuenow')).toBe('0');
   });
 
   it('keeps the loading feedback in the centered stack with the CTA (#167)', () => {
     renderStage({ kind: 'preparing', progress: START_PREPARE_PROGRESS });
-    const notice = screen.getByText('Probing the recording…').closest('.prepare-status');
+    const notice = screen.getByText('Reading the recording…').closest('.prepare-status');
     expect(notice?.closest('.stage-empty')).not.toBeNull();
     expect(document.querySelector('.player-notices')).toBeNull();
   });
 
   it('shows the running stage copy and the bar position with no warm-up copy', () => {
     renderStage({ kind: 'preparing', progress: { stage: 'plan', done: 2, total: 3 } });
-    expect(screen.getByText('Planning the view…')).toBeTruthy();
+    expect(screen.getByText('Setting up the map…')).toBeTruthy();
     expect(screen.queryByText(/Warming tiles/)).toBeNull();
     const bar = screen.getByRole('progressbar', { name: 'Preparation progress' });
     expect(bar.getAttribute('aria-valuenow')).toBe('67');
@@ -126,15 +126,20 @@ describe('EmptyStage', () => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Open…' }).disabled).toBe(false);
   });
 
-  it('reports failures with their message', () => {
+  it('reports failures as a sentence with a next step and keeps the raw message as details', () => {
     renderStage({ kind: 'error', message: 'boom' });
-    expect(screen.getByText('Could not open the recording: boom')).toBeTruthy();
+    expect(
+      screen.getByText('Could not open the recording: Something went wrong. Try again.'),
+    ).toBeTruthy();
+    expect(screen.getByText('boom')).toBeTruthy();
   });
 
   it('turns a known failure into a sentence and keeps the original as details', () => {
     renderStage({ kind: 'error', message: 'not a readable .mp4 file: C:\\Windows\\win.ini' });
     expect(
-      screen.getByText('Could not open the recording: "win.ini" is not a readable .mp4 recording.'),
+      screen.getByText(
+        'Could not open the recording: "win.ini" is not a readable .mp4 recording. Choose a different .mp4 file.',
+      ),
     ).toBeTruthy();
     expect(screen.getByText('Technical details')).toBeTruthy();
     expect(screen.getByText('not a readable .mp4 file: C:\\Windows\\win.ini')).toBeTruthy();

@@ -108,12 +108,12 @@ describe('SettingsPanel', () => {
     fireEvent.change(intro, { target: { value: '-1' } });
     expect(intro.value).toBe('-1');
     expect(intro.getAttribute('aria-invalid')).toBe('true');
-    expect(screen.getByText('Must be 0 or more.')).toBeTruthy();
+    expect(screen.getByText('Must be at least 0.')).toBeTruthy();
 
     fireEvent.blur(intro);
     expect(intro.value).toBe('2');
     expect(intro.getAttribute('aria-invalid')).toBeNull();
-    expect(screen.queryByText('Must be 0 or more.')).toBeNull();
+    expect(screen.queryByText('Must be at least 0.')).toBeNull();
 
     fireEvent.change(intro, { target: { value: '1.5' } });
     expect(intro.value).toBe('1.5');
@@ -181,7 +181,7 @@ describe('SettingsPanel', () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.queryByText('Export renders the map, not the source video.'),
+      screen.queryByText('Export captures the map, not the source recording.'),
     ).toBeNull();
     expect(screen.queryByText('Map-only export')).toBeNull();
   });
@@ -209,7 +209,7 @@ describe.each([{ field: 'Zoom' }, { field: 'Zoom-out' }, { field: 'Intro (s)' },
       renderPanel(DEFAULT_CONFIG, true, onChange);
       const input = screen.getByLabelText<HTMLInputElement>(field);
       fireEvent.change(input, { target: { value: '-1' } });
-      expect(screen.getByText('Must be 0 or more.')).toBeTruthy();
+      expect(screen.getByText('Must be at least 0.')).toBeTruthy();
       expect(input.getAttribute('aria-invalid')).toBe('true');
       expect(onChange).not.toHaveBeenCalled();
     });

@@ -11,7 +11,7 @@ drone-path <inputs...> [options]
 ## Examples
 
 ```sh
-# quick conversion: one video, all default settings
+# quick conversion: one recording, all default settings
 drone-path "flight.mp4"
 
 # full flight-path video: topographic map and the complete HUD
@@ -19,7 +19,7 @@ drone-path "flight.mp4"
 drone-path "flight.mp4" --style topo --hud heading,alt,speed
 
 # custom trail color: RGB or RGBA hex (the # is optional), e.g. when
-# the default trail color blends into the footage
+# the default trail color blends into the map
 drone-path "flight.mp4" --trail-color e63946
 drone-path "flight.mp4" --style topo --trail-color "#e63946cc"
 ```
@@ -28,9 +28,9 @@ drone-path "flight.mp4" --style topo --trail-color "#e63946cc"
 
 All frames below are from the same recording:
 
-![Source footage: autumn forest and mountain panorama](../images/example-source-frame.jpg)
+![Source recording: autumn forest and mountain panorama](../images/example-source-frame.jpg)
 
-*Source footage — the flight recording the examples below are rendered from.*
+*The source recording the examples below are rendered from.*
 
 ![Default output: satellite map with growing trail and heading arrow](../images/example-map-satellite.jpg)
 

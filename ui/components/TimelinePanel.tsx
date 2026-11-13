@@ -47,7 +47,7 @@ export function TimelinePanel({
   const clearable = hasLoop(loop);
 
   // The band's end handles are pointer-only by design: they are a drag
-  // enhancement of the I/O keys and the loop buttons, which stay the
+  // enhancement of the I/O keys and the in/out-point buttons, which stay the
   // keyboard path (documented in docs/user/keyboard-shortcuts.md).
   const startDrag = (which: 'in' | 'out'): void => {
     const track = trackRef.current;
@@ -74,12 +74,12 @@ export function TimelinePanel({
         </div>
         <div className="timeline-actions">
           <span className="readout loop-readout">{loopReadout}</span>
-          <div className="segmented" role="group" aria-label="Loop">
+          <div className="segmented" role="group" aria-label="In and out points">
             <button
               type="button"
               className="segment segment-icon"
-              aria-label="Set loop in"
-              title="Set loop in (I)"
+              aria-label="Set in point"
+              title="Set in point (I)"
               disabled={disabled}
               onClick={() => dispatch({ type: 'setLoopIn' })}
             >
@@ -88,8 +88,8 @@ export function TimelinePanel({
             <button
               type="button"
               className="segment segment-icon"
-              aria-label="Set loop out"
-              title="Set loop out (O)"
+              aria-label="Set out point"
+              title="Set out point (O)"
               disabled={disabled}
               onClick={() => dispatch({ type: 'setLoopOut' })}
             >
@@ -98,8 +98,8 @@ export function TimelinePanel({
             <button
               type="button"
               className="segment segment-icon"
-              aria-label="Clear loop"
-              title={clearable ? 'Clear loop (Esc)' : 'No loop to clear.'}
+              aria-label="Clear in and out points"
+              title={clearable ? 'Clear in and out points (Esc)' : 'No in or out point to clear'}
               disabled={disabled || !clearable}
               onClick={() => dispatch({ type: 'clearLoop' })}
             >
@@ -138,12 +138,12 @@ export function TimelinePanel({
           >
             <span
               className="loop-handle loop-handle-in"
-              title="Loop in (I)"
+              title="In point (I)"
               onPointerDown={() => startDrag('in')}
             />
             <span
               className="loop-handle loop-handle-out"
-              title="Loop out (O)"
+              title="Out point (O)"
               onPointerDown={() => startDrag('out')}
             />
           </div>

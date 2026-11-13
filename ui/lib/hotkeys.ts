@@ -153,8 +153,8 @@ function mapAction(
     case 'o':
     case 'O':
       return { type: 'setLoopOut' };
-    case 's':
-    case 'S':
+    case 'p':
+    case 'P':
       return { type: 'swapView' };
     case 'ArrowLeft':
       return shift ? { type: 'jump', seconds: -1 } : { type: 'step', frames: -1 };
