@@ -43,11 +43,11 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 
 ## Player workspace
 
-Rows are flush, one column: menu bar, header, stage, transport, timeline, and status footer.
+Rows are flush, one column: menu bar, header, stage, transport, and timeline.
 
 ## Menu bar
 
-The top row of every workspace is a slim menu bar — window chrome, not a control row: 32px plus a 1px `--hairline` bottom border on `--page`, flat 14px text labels ("File" and "View" left, "Help" right) as 24px pills (`--radius-control`, 0 10px padding). It owns every workspace command; the header keeps only brand and project identity, the status footer only its status text.
+The top row of every workspace is a slim menu bar — window chrome, not a control row: 32px plus a 1px `--hairline` bottom border on `--page`, flat 14px text labels ("File" and "View" left, "Help" right) as 24px pills (`--radius-control`, 0 10px padding). It owns every workspace command; the header keeps only brand and project identity.
 
 Dropdowns reuse the map-popover floating-panel anatomy: `--surface-1` fill, 1px `--hairline-strong` border, `--radius-panel`, `--shadow-float`, hung directly under their label. Item rows are 32px high — a deliberate deviation from the 36px `--control-h` recipe, matching Windows menu density — borderless at `--radius-control` with 8px side padding: 16px icon, 12px gap, 14px `--text` label, right-aligned 13px shortcut hint. Separators sit on the `--hairline` tier; disabled rows use the `button:disabled` treatment; menus open instantly, with no motion.
 

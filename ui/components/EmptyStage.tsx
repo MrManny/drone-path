@@ -30,11 +30,6 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
             Pick a drone recording to watch its flight path on the map in sync with
             the footage.
           </p>
-          <p className="hint">
-            ffmpeg/ffprobe are bundled; telemetry comes from the embedded CAM
-            meta (DVTM) stream, or from an .SRT sidecar when the recording has
-            no CAM meta stream.
-          </p>
         </div>
       </div>
       <MapCard data={null} layout="split" />

@@ -24,8 +24,16 @@ describe('WorkspaceHeader', () => {
     expect(document.querySelector('.header-status')).toBeNull();
   });
 
-  it('shows the zero-duration project slot', () => {
-    render(<WorkspaceHeader durationSec={0} />);
-    expect(screen.getByText('Recording · 0:00')).toBeTruthy();
+  it.for([
+    { name: 'a zero duration', durationSec: 0, line: 'Recording · 0:00' },
+    { name: 'a loaded recording', durationSec: 3, line: 'Recording · 0:03' },
+  ])('shows the recording line with $name', ({ durationSec, line }) => {
+    render(<WorkspaceHeader durationSec={durationSec} />);
+    expect(screen.getByText(line)).toBeTruthy();
+  });
+
+  it('hides the recording line while no recording is loaded', () => {
+    render(<WorkspaceHeader durationSec={null} />);
+    expect(screen.queryByText(/Recording/)).toBeNull();
   });
 });

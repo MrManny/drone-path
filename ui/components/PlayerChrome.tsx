@@ -24,7 +24,6 @@ import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
 import { Popover } from './Popover.js';
 import { SettingsPanel } from './SettingsPanel.js';
-import { StatusBar } from './StatusBar.js';
 import { TelemetrySaveModal } from './TelemetrySaveModal.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
@@ -190,7 +189,6 @@ export function PlayerChrome({
         playheadRef={playheadRef}
         src={video.src}
       />
-      <StatusBar hasTelemetry={session.scene.lat.length > 0} />
       {mapAppearanceOpen ? (
         <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
           <SettingsPanel

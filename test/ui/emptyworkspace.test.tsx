@@ -50,7 +50,7 @@ function menu(): HTMLElement {
 }
 
 describe('EmptyWorkspace skeleton', () => {
-  it('keeps the six workspace rows in the player order and geometry', () => {
+  it('keeps the five workspace rows in the player order and geometry', () => {
     renderWorkspace();
     const rows = [...(document.querySelector('.workspace') as HTMLElement).children].map(
       (row) => row.className,
@@ -61,15 +61,16 @@ describe('EmptyWorkspace skeleton', () => {
       'stage stage-split',
       'transport',
       'timeline',
-      'status-bar',
     ]);
+    expect(document.querySelector('.status-bar')).toBeNull();
   });
 
-  it('carries the one quiet state message and the map placeholder', () => {
+  it('carries the map placeholder with no status footer', () => {
     renderWorkspace();
-    expect(screen.getByText('No recording loaded')).toBeTruthy();
     expect(screen.getByText('No telemetry yet')).toBeTruthy();
-    expect(screen.queryByText('SRT telemetry loaded')).toBeNull();
+    expect(screen.queryByText('No recording loaded')).toBeNull();
+    expect(screen.queryByText(/Recording ·/)).toBeNull();
+    expect(document.querySelector('.status-bar')).toBeNull();
     expect(screen.queryByText(/Warming tiles/)).toBeNull();
   });
 

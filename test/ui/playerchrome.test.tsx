@@ -75,7 +75,7 @@ describe('PlayerChrome export form memory', () => {
 });
 
 describe('PlayerChrome workspace structure', () => {
-  it('keeps the menu, transport, timeline and status bar actions reachable', () => {
+  it('keeps the menu, transport and timeline actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('File');
     for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Settings', 'Exit']) {
@@ -90,10 +90,9 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Set loop out' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
-    expect(screen.getByText('SRT telemetry loaded')).toBeTruthy();
+    expect(document.querySelector('.status-bar')).toBeNull();
     // The moved commands live in the menu bar only.
     expect(document.querySelectorAll('.workspace-header button')).toHaveLength(0);
-    expect(document.querySelectorAll('.status-bar button')).toHaveLength(0);
   });
 
   it('keeps the transport row after the stage row, so it can mirror the stage layout', () => {
@@ -702,7 +701,7 @@ describe('PlayerChrome open notice', () => {
 describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'canceled' }, { kind: 'ready' }])(
   'PlayerChrome with the $kind open state',
   (openState) => {
-    it('shows no notice and keeps Open available', () => {
+    it('shows no notice and keeps Open available', async () => {
       render(
         <Chrome
           session={SESSION}
@@ -712,6 +711,8 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
           openState={openState}
         />,
       );
+      // The map busy state is a status line of its own until the map settles.
+      await waitFor(() => expect(screen.queryByText('Preparing map…')).toBeNull());
       expect(screen.queryByRole('alert')).toBeNull();
       expect(screen.queryByRole('status')).toBeNull();
       openMenu('File');

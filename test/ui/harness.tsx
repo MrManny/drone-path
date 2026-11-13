@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { vi } from 'vitest';
 
@@ -62,6 +62,24 @@ export function createFakeScene(): Scene {
   };
 }
 
+/** A scene whose `ready` promise settles only when the test says so. */
+export function createDeferredScene(): { scene: Scene; resolveReady: () => void } {
+  let resolveReady = (): void => {};
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
+  });
+  return {
+    scene: {
+      setFrame: vi.fn(() => Promise.resolve()),
+      relayout: vi.fn(),
+      update: vi.fn(() => Promise.resolve()),
+      ready,
+      dispose: vi.fn(),
+    },
+    resolveReady,
+  };
+}
+
 export const SESSION: UiSession = {
   scene: {
     style: 'satellite',
@@ -100,10 +118,12 @@ type MapIslandModule = { MapIsland: (props: MapIslandProps) => ReactElement };
 export function delayedMapIslandMock(scene: Scene): MapIslandModule {
   return {
     MapIsland: ({ onScene }) => {
+      const onSceneRef = useRef(onScene);
+      onSceneRef.current = onScene;
       useEffect(() => {
-        const t = setTimeout(() => onScene(scene), 0);
+        const t = setTimeout(() => onSceneRef.current(scene), 0);
         return () => clearTimeout(t);
-      }, [onScene]);
+      }, []);
       return <div data-testid="map-island" />;
     },
   };
@@ -112,7 +132,24 @@ export function delayedMapIslandMock(scene: Scene): MapIslandModule {
 export function immediateMapIslandMock(scene: Scene): MapIslandModule {
   return {
     MapIsland: ({ onScene }) => {
-      onScene(scene);
+      const onSceneRef = useRef(onScene);
+      onSceneRef.current = onScene;
+      useEffect(() => {
+        onSceneRef.current(scene);
+      }, []);
+      return <div data-testid="map-island" />;
+    },
+  };
+}
+
+export function slotMapIslandMock(getScene: () => Scene): MapIslandModule {
+  return {
+    MapIsland: ({ onScene }) => {
+      const onSceneRef = useRef(onScene);
+      onSceneRef.current = onScene;
+      useEffect(() => {
+        onSceneRef.current(getScene());
+      }, []);
       return <div data-testid="map-island" />;
     },
   };

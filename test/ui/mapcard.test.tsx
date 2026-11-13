@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Scene } from '../../src/renderer/scene.js';
 import type { SceneData } from '../../src/renderer/scene.js';
 import { MapCard } from '../../ui/components/MapCard.js';
+import { createDeferredScene } from './harness.js';
 
 const fakeScene = vi.hoisted((): Scene => ({
   setFrame: vi.fn(() => Promise.resolve()),
@@ -14,12 +15,18 @@ const fakeScene = vi.hoisted((): Scene => ({
   dispose: vi.fn(),
 }));
 
+const slots = vi.hoisted(() => ({ scene: fakeScene }));
+
 vi.mock('../../ui/components/MapIsland.js', async () => {
-  const { immediateMapIslandMock } = await import('./harness.js');
-  return immediateMapIslandMock(fakeScene);
+  const { slotMapIslandMock } = await import('./harness.js');
+  return slotMapIslandMock(() => slots.scene);
 });
 
 const DATA = {} as SceneData;
+
+beforeEach(() => {
+  slots.scene = fakeScene;
+});
 
 afterEach(() => {
   cleanup();
@@ -85,4 +92,43 @@ describe('MapCard empty variant', () => {
     expect(screen.getByTestId('map-island')).toBeTruthy();
     expect(screen.queryByText('No telemetry yet')).toBeNull();
   });
+});
+
+describe('MapCard map-loading busy state', () => {
+  it.for(['split', 'overlay'] as const)(
+    'shows the text busy state until the map settles in the %s layout',
+    async (layout) => {
+      const { scene, resolveReady } = createDeferredScene();
+      slots.scene = scene;
+      render(<MapCard data={DATA} onScene={() => {}} layout={layout} />);
+      const busy = screen.getByRole('status');
+      expect(busy.textContent).toBe('Preparing map…');
+      await act(async () => {
+        resolveReady();
+      });
+      expect(screen.queryByText('Preparing map…')).toBeNull();
+    },
+  );
+
+  it('stays busy across layout swaps until the map settles', async () => {
+    const { scene, resolveReady } = createDeferredScene();
+    slots.scene = scene;
+    const { rerender } = render(<MapCard data={DATA} onScene={() => {}} layout="split" />);
+    expect(screen.getByText('Preparing map…')).toBeTruthy();
+    rerender(<MapCard data={DATA} onScene={() => {}} layout="overlay" />);
+    expect(screen.getByText('Preparing map…')).toBeTruthy();
+    await act(async () => {
+      resolveReady();
+    });
+    expect(screen.queryByText('Preparing map…')).toBeNull();
+  });
+
+  it.for(['split', 'overlay'] as const)(
+    'shows no busy state on the quiet placeholder in the %s layout',
+    (layout) => {
+      render(<MapCard data={null} layout={layout} />);
+      expect(screen.queryByText('Preparing map…')).toBeNull();
+      expect(screen.queryByRole('status')).toBeNull();
+    },
+  );
 });

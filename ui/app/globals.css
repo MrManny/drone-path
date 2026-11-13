@@ -34,6 +34,8 @@
   --header-h: 56px;
   --transport-h: 48px;
   --timeline-h: 200px;
+  /* Bottom clearance for the map appearance popover: the status row this
+     once measured is gone; #236 redocks the popover. */
   --status-h: 32px;
   --rail-w: clamp(280px, 28%, 372px);
   --dialog-top: 56px;
@@ -235,7 +237,7 @@ button.primary {
   margin-top: 0;
 }
 
-/* The review workspace: header, stage, transport, timeline and status bar
+/* The review workspace: menu bar, header, stage, transport and timeline
    stacked in one column. The fixed chrome heights below size every row but
    the stage, which flexes into the rest of the window. */
 .workspace {
@@ -332,7 +334,7 @@ button.primary {
 }
 /* The empty stage's open call to action: the accent button centered in the
    footage pane with the Open flow's notice riding along, the explainer copy
-   and the hint under it as quiet text. */
+   under it as quiet text. */
 .stage-empty {
   position: absolute;
   inset: 0;
@@ -350,9 +352,6 @@ button.primary {
   max-width: 480px;
   line-height: 1.5;
   color: var(--text-2);
-}
-.stage-empty .hint {
-  margin: 0;
 }
 /* The notice sits in the gap-spaced stack: no top margin of its own. */
 .stage-empty > .notice,
@@ -390,6 +389,21 @@ button.primary {
   background: var(--surface-1);
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-panel);
+}
+/* Map loading: the quiet busy state over the map until its tiles settle,
+   so the load transition is never a silent black pane. */
+.map-card-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  pointer-events: none;
 }
 .map-overlay-tag {
   display: none;
@@ -542,7 +556,7 @@ button.primary {
    the playhead, and the range slider (the keyboard-accessible scrub
    control) over it all. The ruler shares the track's exact span so its
    ticks stay aligned with the band and playhead. The panel is a flush
-   surface — full window width, square, meeting the status bar — because
+   surface — full window width, square, meeting the window bottom — because
    the workspace rows carry no margins: the fixed row heights account for
    the whole window height. */
 .timeline {
@@ -692,24 +706,6 @@ button.primary {
   height: 100%;
   background: transparent;
   border: 0;
-}
-
-/* Status bar: readiness and telemetry notes at the left. */
-.status-bar {
-  flex: none;
-  height: var(--status-h);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 0 16px;
-  box-sizing: border-box;
-  font-size: 12px;
-  color: var(--text-3);
-  background: var(--surface-1);
-  border-top: 1px solid var(--hairline);
-}
-.status-item {
-  white-space: nowrap;
 }
 
 /* Menu bar: slim window chrome carrying every workspace command, with

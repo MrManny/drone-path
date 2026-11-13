@@ -48,13 +48,13 @@ describe('EmptyStage', () => {
     expect(stage.querySelector('.map-card')?.className).toBe('map-card map-card-split');
   });
 
-  it('offers the open call to action with the explainer and the hint', () => {
+  it('offers the open call to action with the explainer only', () => {
     renderStage();
     expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
     expect(
       screen.getByText(/Pick a drone recording to watch its flight path on the map in sync with/),
     ).toBeTruthy();
-    expect(screen.getByText(/SRT sidecar/)).toBeTruthy();
+    expect(screen.queryByText(/SRT sidecar/)).toBeNull();
   });
 
   it('wears the accent on the stage CTA alone', () => {
@@ -157,3 +157,16 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'ready'
     });
   },
 );
+
+describe.for<PickState>([
+  { kind: 'idle' },
+  { kind: 'picking' },
+  { kind: 'preparing', progress: START_PREPARE_PROGRESS },
+  { kind: 'canceled' },
+  { kind: 'error', message: 'boom' },
+])('an empty stage in the $kind state', (state) => {
+  it('carries no tooling hint (#234)', () => {
+    renderStage(state);
+    expect(screen.queryByText(/ffmpeg|ffprobe|DVTM|SRT sidecar/i)).toBeNull();
+  });
+});
