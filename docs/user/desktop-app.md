@@ -54,18 +54,18 @@ Press `I` to mark the loop in point and `O` the out point, or drag the band's en
 
 The **Export video…** item in the File menu is the export entry point; it stays disabled until a recording is loaded. The dialog opens with an **Output preview** beside the form: the preview shows the exact map output — the very scene the export captures, planned at the output size — and states the rule under the frame: *Export renders the map, not the source video.*
 
-With a loop set, the form groups into *What* and *How*:
+With a loop set, the form groups into *Export range* and *How*:
 
-- *What* — *Full recording* or the *In–Out segment*. Set the loop points with `I` / `O` first; once a loop is set, the segment comes preselected.
+- *Export range* — *Full recording* or the *In–Out segment*. Set the loop points with `I` / `O` first; once a loop is set, the segment comes preselected.
 - *How* — the output size and the encoding: format (H.264 or H.265), quality (*Near-lossless* down to *Low*) and speed (*Balanced* or *Faster*).
 
 Without a loop, the form just sets size and encoding.
 
 Press **Start export**, pick the destination file, and follow the progress beside the preview until the done state names the rendered output. The app remembers the encoding choices between launches like the look settings, and the output size while the recording is open.
 
-![The export dialog with the output preview beside the What and How form](../images/app-export-form.jpg)
+![The export dialog with the output preview beside the export form](../images/app-export-form.jpg)
 
-*The Export video dialog: the output preview shows the exact map output beside the What and How form.*
+*The Export video dialog: the output preview shows the exact map output beside the export form.*
 
 ![Export running with progress beside the frozen output preview](../images/app-export-running.jpg)
 

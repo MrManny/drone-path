@@ -1210,19 +1210,24 @@ input[type='radio']:disabled {
   line-height: 1.5;
   color: var(--text-3);
 }
-.export-choice {
-  box-sizing: border-box;
-  padding: 0 16px;
-  cursor: pointer;
+/* The range choices read as one choice set: a single bordered surface with
+   hairline-separated rows inside, not two chip-like controls. */
+.export-range {
+  overflow: hidden;
   background: var(--surface-2);
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-control);
 }
+.export-choice {
+  box-sizing: border-box;
+  padding: 0 16px;
+  cursor: pointer;
+}
 .export-choice:hover {
-  border-color: var(--hairline-hover);
+  background: var(--surface-3);
 }
 .export-choice + .export-choice {
-  margin-top: 8px;
+  border-top: 1px solid var(--hairline);
 }
 .export-encode {
   margin-top: 16px;

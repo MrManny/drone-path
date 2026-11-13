@@ -183,7 +183,7 @@ describe('ExportModal form memory', () => {
 
   it('offers no segment choice without a loop', () => {
     render(<Harness loop={{ in: null, out: null }} />);
-    expect(screen.queryByRole('group', { name: 'What' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Export range' })).toBeNull();
   });
 
   it('seeds the sizes from the session', () => {
@@ -262,7 +262,7 @@ describe('ExportModal what-to-export choice', () => {
   it('does not offer a segment choice when no loop is engaged', () => {
     installBridge();
     renderModal({ in: null, out: null });
-    expect(screen.queryByRole('group', { name: 'What' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Export range' })).toBeNull();
     expect(screen.queryByText(/set loop points first/)).toBeNull();
   });
 

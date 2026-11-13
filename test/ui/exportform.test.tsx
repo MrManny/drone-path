@@ -36,7 +36,7 @@ function renderForm(overrides: Partial<ExportFormProps> = {}) {
 describe('ExportForm what-to-export choice', () => {
   it('stays out of the way without an engaged loop', () => {
     renderForm();
-    expect(screen.queryByRole('group', { name: 'What' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Export range' })).toBeNull();
   });
 
   it('offers the full recording and the segment with an engaged loop', () => {
@@ -67,7 +67,7 @@ describe('ExportForm what-to-export choice', () => {
 
   it('names both groups when the loop offers a choice', () => {
     renderForm({ segment: SEGMENT });
-    expect(screen.getByRole('group', { name: 'What' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Export range' })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'How' })).toBeTruthy();
   });
 });
@@ -145,10 +145,12 @@ describe('ExportForm scan hierarchy', () => {
     expect(labels).toEqual(['Width', 'Height', 'Format', 'Quality', 'Speed']);
   });
 
-  it('renders the range choices as distinct rows', () => {
+  it('renders the range choices as one choice set', () => {
     renderForm({ segment: SEGMENT });
-    const what = screen.getByRole('group', { name: 'What' });
-    expect(what.querySelectorAll('.export-choice')).toHaveLength(2);
+    const range = screen.getByRole('group', { name: 'Export range' });
+    expect(range.querySelectorAll('.export-range')).toHaveLength(1);
+    const container = range.querySelector('.export-range') as HTMLElement;
+    expect(container.querySelectorAll('.export-choice')).toHaveLength(2);
     const how = screen.getByRole('group', { name: 'How' });
     expect(how.querySelectorAll('.export-size .settings-row')).toHaveLength(2);
     expect(how.querySelectorAll('.export-encode .settings-row')).toHaveLength(3);
