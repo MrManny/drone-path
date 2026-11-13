@@ -152,7 +152,7 @@ export function PlayerChrome({
         hasRecording
         opening={opening}
         modalOpen={modalOpen}
-        itemTitles={{ exportTelemetry: `Exports telemetry for the ${scope}` }}
+        itemTitles={{ exportTelemetry: `Export telemetry for the ${scope}` }}
         onActivate={(item) => menuActions[item]()}
         onMenuOpenChange={setMenuOpen}
         barRef={appearanceButtonRef}

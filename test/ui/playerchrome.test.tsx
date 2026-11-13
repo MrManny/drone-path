@@ -59,9 +59,9 @@ describe('PlayerChrome export form memory', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const scrub = screen.getByRole('slider', { name: 'Playback position' });
     fireEvent.change(scrub, { target: { value: '10' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Set loop in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set in point' }));
     fireEvent.change(scrub, { target: { value: '60' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Set loop out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set out point' }));
 
     clickMenuItem('Export video…');
     expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
@@ -86,9 +86,9 @@ describe('PlayerChrome workspace structure', () => {
     expect(screen.getByRole('button', { name: 'Jump to end' })).toBeTruthy();
     expect(screen.getAllByText('0:00 / 0:03')).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'Playback speed' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Set loop in' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Set loop out' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Clear loop' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set in point' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set out point' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear in and out points' })).toBeTruthy();
     expect(screen.getByRole('slider', { name: 'Playback position' })).toBeTruthy();
     expect(document.querySelector('.status-bar')).toBeNull();
     // The moved commands live in the menu bar only.
@@ -113,7 +113,7 @@ describe('PlayerChrome workspace structure', () => {
         onHelp={onHelp}
       />,
     );
-    clickMenuItem('Documentation');
+    clickMenuItem('Help');
     expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
@@ -155,7 +155,7 @@ describe('PlayerChrome workspace structure', () => {
   it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('View');
-    expect(within(menuBar()).getByRole('menuitem', { name: 'Swap' })).toBeTruthy();
+    expect(within(menuBar()).getByRole('menuitem', { name: 'Toggle PiP' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
     const card = document.querySelector('.map-card') as HTMLElement;
@@ -183,10 +183,10 @@ describe('PlayerChrome workspace structure', () => {
       .getAllByRole('button')
       .map((b) => b.getAttribute('title'));
     expect(titles).toEqual([
-      'Playback speed 1× (1)',
-      'Playback speed 2× (2)',
-      'Playback speed 3× (3)',
-      'Playback speed 4× (4)',
+      'Playback speed 1× (key 1)',
+      'Playback speed 2× (key 2)',
+      'Playback speed 3× (key 3)',
+      'Playback speed 4× (key 4)',
     ]);
   });
 
@@ -220,9 +220,9 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const card = document.querySelector('.map-card') as HTMLElement;
     expect(card.className).toContain('map-card-split');
-    clickMenuItem('Swap');
+    clickMenuItem('Toggle PiP');
     expect(card.className).toContain('map-card-overlay');
-    clickMenuItem('Swap');
+    clickMenuItem('Toggle PiP');
     expect(card.className).toContain('map-card-split');
   });
 
@@ -230,17 +230,17 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const stage = document.querySelector('.stage') as HTMLElement;
     expect(stage.className).toContain('stage-split');
-    clickMenuItem('Swap');
+    clickMenuItem('Toggle PiP');
     expect(stage.className).toContain('stage-overlay');
-    clickMenuItem('Swap');
+    clickMenuItem('Toggle PiP');
     expect(stage.className).toContain('stage-split');
   });
 
   it('keeps the map island mounted across the swap, so playback stays synchronized', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const island = screen.getByTestId('map-island');
-    clickMenuItem('Swap');
-    clickMenuItem('Swap');
+    clickMenuItem('Toggle PiP');
+    clickMenuItem('Toggle PiP');
     expect(screen.getByTestId('map-island')).toBe(island);
   });
 
@@ -347,8 +347,8 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Export telemetry…': 'File',
   'Map appearance…': 'File',
   Exit: 'File',
-  Swap: 'View',
-  Documentation: 'Help',
+  'Toggle PiP': 'View',
+  'Help': 'Help',
   About: 'Help',
 };
 
@@ -358,7 +358,7 @@ function openMenu(label: 'File' | 'View' | 'Help'): void {
 
 function clickMenuItem(label: string): void {
   openMenu(MENU_OF_ITEM[label]);
-  fireEvent.click(within(menuBar()).getByRole('menuitem', { name: label }));
+  fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: label }));
 }
 
 async function renderPlayer(onOpen: () => void = () => {}): Promise<FakePlayback> {
@@ -517,7 +517,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
     key(window, { key: 'o' });
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('loop …–0:00')).toBeTruthy();
+    expect(screen.getByText('in … · out 0:00')).toBeTruthy();
     const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
     key(scrub, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(2);
@@ -526,7 +526,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
   it('swaps the layout with S', async () => {
     await renderPlayer();
     const card = document.querySelector('.map-card') as HTMLElement;
-    key(window, { key: 's' });
+    key(window, { key: 'p' });
     expect(card.className).toContain('map-card-overlay');
   });
 });
@@ -535,7 +535,7 @@ describe('PlayerChrome loop region', () => {
   it('sets the loop with I and O, shows the region, and wraps playback into it', async () => {
     const fake = await renderPlayer();
     setLoopRegion(30, 60);
-    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:01 · out 0:02');
     const band = document.querySelector('.loop-band') as HTMLElement;
     expect(parseFloat(band.style.left)).toBeCloseTo((30 / 89) * 100);
     expect(parseFloat(band.style.width)).toBeCloseTo((30 / 89) * 100);
@@ -552,16 +552,16 @@ describe('PlayerChrome loop region', () => {
     clickMenuItem('Map appearance…');
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:01–0:02');
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:01 · out 0:02');
     key(window, { key: 'Escape' });
     expect(document.querySelector('.loop-readout')?.textContent).toBe('');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' }).disabled).toBe(true);
   });
 
   it('clears the loop from the Clear button', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear in and out points' }));
     expect(document.querySelector('.loop-readout')?.textContent).toBe('');
   });
 
@@ -577,19 +577,19 @@ describe('PlayerChrome loop region', () => {
 
   it('states why Clear is disabled without a loop', async () => {
     await renderPlayer();
-    const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' });
+    const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' });
     expect(clear.disabled).toBe(true);
-    expect(clear.getAttribute('title')).toBe('No loop to clear.');
+    expect(clear.getAttribute('title')).toBe('No in or out point to clear');
     setLoopRegion(30, 60);
-    expect(clear.getAttribute('title')).toBe('Clear loop (Esc)');
+    expect(clear.getAttribute('title')).toBe('Clear in and out points (Esc)');
   });
 
   it('shows no region for an out-of-order loop', async () => {
     await renderPlayer();
     setLoopRegion(60, 30);
     expect(document.querySelector('.loop-band')).toBeNull();
-    expect(document.querySelector('.loop-readout')?.textContent).toBe('loop 0:02–0:01');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' }).disabled).toBe(false);
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:02 · out 0:01');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' }).disabled).toBe(false);
   });
 
   it('resumes an end-of-file loop at the loop start, not the file start', async () => {
@@ -689,7 +689,7 @@ describe('PlayerChrome open notice', () => {
         openState={{ kind: 'preparing', progress: START_PREPARE_PROGRESS }}
       />,
     );
-    expect(screen.getByText('Probing the recording…')).toBeTruthy();
+    expect(screen.getByText('Reading the recording…')).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Preparation progress' })).toBeTruthy();
     openMenu('File');
     expect(
@@ -810,9 +810,9 @@ describe('PlayerChrome export telemetry', () => {
     clickMenuItem('Export telemetry…');
     await settle();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear loop' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear in and out points' }));
     if (finish) finish({ ok: true });
     await settle();
-    expect(screen.getByText('Scope: In–Out segment (0:00–0:02 · 51 frames)')).toBeTruthy();
+    expect(screen.getByText('Covers the In–Out segment (0:00–0:02 · 51 frames)')).toBeTruthy();
   });
 });

@@ -10,7 +10,13 @@ function renderPrompt(overrides: Partial<Parameters<typeof UpdatePrompt>[0]> = {
   const onRestart = vi.fn();
   const onLater = vi.fn();
   render(
-    <UpdatePrompt restarting={false} onRestart={onRestart} onLater={onLater} {...overrides} />,
+    <UpdatePrompt
+      restarting={false}
+      failure={null}
+      onRestart={onRestart}
+      onLater={onLater}
+      {...overrides}
+    />,
   );
   return { onRestart, onLater };
 }
@@ -60,5 +66,25 @@ describe('UpdatePrompt', () => {
     expect(close.disabled).toBe(true);
     expect(close.getAttribute('title')).toBe('The app is restarting.');
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
+  });
+
+  it('reports a failed restart with what happened and what to do', () => {
+    renderPrompt({ failure: 'spawn failed' });
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain(
+      'The restart failed. Try again, or install the update when you quit.',
+    );
+    expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('keeps the backend message under Technical details, never as the message', () => {
+    renderPrompt({ failure: 'spawn failed' });
+    expect(screen.getByText('Technical details')).toBeTruthy();
+    expect(screen.getByText('spawn failed')).toBeTruthy();
+    expect(
+      screen.getByText('The restart failed. Try again, or install the update when you quit.')
+        .textContent,
+    ).not.toContain('spawn failed');
   });
 });

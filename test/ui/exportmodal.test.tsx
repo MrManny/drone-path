@@ -217,15 +217,15 @@ describe('ExportModal encoder choices', () => {
       undefined,
       { ...SETTINGS, codec: 'h265', quality: 'low', preset: 'veryfast' },
     );
-    expect(screen.getByLabelText<HTMLSelectElement>('Format').value).toBe('h265');
+    expect(screen.getByLabelText<HTMLSelectElement>('Codec').value).toBe('h265');
     expect(screen.getByLabelText<HTMLSelectElement>('Quality').value).toBe('low');
-    expect(screen.getByLabelText<HTMLSelectElement>('Speed').value).toBe('veryfast');
+    expect(screen.getByLabelText<HTMLSelectElement>('Encode speed').value).toBe('veryfast');
   });
 
   it('reports encoder edits for the page to persist', () => {
     const onEncoderChange = vi.fn();
     renderModal({ in: null, out: null }, undefined, onEncoderChange);
-    fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'h265' } });
+    fireEvent.change(screen.getByLabelText('Codec'), { target: { value: 'h265' } });
     expect(onEncoderChange).toHaveBeenCalledWith({ codec: 'h265' });
   });
 
@@ -417,7 +417,7 @@ describe('ExportModal outcomes', () => {
   it('says a canceled export removed its working file', async () => {
     const { emitDone } = installBridge();
     await reachPhase('canceled', emitDone);
-    expect(screen.getByText('Export canceled; its working file was removed.')).toBeTruthy();
+    expect(screen.getByText('Export canceled; its unfinished file was removed.')).toBeTruthy();
   });
 });
 
@@ -649,7 +649,7 @@ describe('ExportModal phase lead', () => {
     const { emitDone } = installBridge();
     await reachPhase('canceled', emitDone);
     const status = document.querySelector('.phase-status') as HTMLElement;
-    expect(status.textContent).toBe('Export canceled; its working file was removed.');
+    expect(status.textContent).toBe('Export canceled; its unfinished file was removed.');
   });
 });
 

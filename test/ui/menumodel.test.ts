@@ -22,15 +22,15 @@ describe('MENU_BAR', () => {
     ]);
   });
 
-  it('offers Swap with its shortcut hint in View', () => {
+  it('offers Toggle PiP with its shortcut hint in View', () => {
     expect(menuOf('view').items).toEqual([
-      { id: 'swap', label: 'Swap', icon: 'swap', hint: 'S' },
+      { id: 'swap', label: 'Toggle PiP', icon: 'swap', hint: 'P' },
     ]);
   });
 
-  it('offers Documentation and About in Help, About under a separator', () => {
+  it('offers Help and About in the Help menu, About under a separator', () => {
     expect(menuOf('help').items).toEqual([
-      { id: 'documentation', label: 'Documentation', icon: 'help' },
+      { id: 'documentation', label: 'Help', icon: 'help' },
       { id: 'about', label: 'About', icon: 'info', separatorBefore: true },
     ]);
   });
@@ -108,7 +108,7 @@ describe('itemEnabled', () => {
       want: true,
     },
     {
-      name: 'Documentation never disables',
+      name: 'Help never disables',
       id: 'documentation',
       flags: { hasRecording: false, opening: true },
       want: true,

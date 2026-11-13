@@ -52,7 +52,7 @@ export function ExportPreview({ session, config, size, frame, note = false }: Ex
         <div className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />
       </div>
       {note ? (
-        <p className="export-preview-note">Export renders the map, not the source video.</p>
+        <p className="export-preview-note">Export captures the map, not the source recording.</p>
       ) : null}
     </div>
   );

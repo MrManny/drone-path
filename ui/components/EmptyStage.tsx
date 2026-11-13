@@ -27,8 +27,8 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
           </button>
           {notice}
           <p>
-            Pick a drone recording to watch its flight path on the map in sync with
-            the footage.
+            Pick a drone recording to watch its flight path on the map in sync as
+            you play.
           </p>
         </div>
       </div>

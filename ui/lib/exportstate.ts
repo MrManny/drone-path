@@ -15,7 +15,7 @@ export function captureFraction(capture: CaptureProgress | null): number | null 
 
 export function runningPhaseText(fraction: number | null, canceling: boolean): string {
   if (canceling) return 'Canceling…';
-  return fraction === null ? 'Preparing…' : `Rendering ${Math.round(fraction * 100)}%`;
+  return fraction === null ? 'Preparing…' : `Exporting ${Math.round(fraction * 100)}%`;
 }
 
 // The persistent phase line carries the running progress and the result
@@ -30,7 +30,7 @@ export function exportPhaseText(state: ExportState): string {
     case 'done':
       return 'Export finished.';
     case 'canceled':
-      return 'Export canceled; its working file was removed.';
+      return 'Export canceled; its unfinished file was removed.';
     case 'error':
       return '';
   }

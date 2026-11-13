@@ -74,7 +74,7 @@ export function TransportBar({
               type="button"
               className="segment"
               aria-pressed={speed === rate}
-              title={`Playback speed ${rate}× (${rate})`}
+              title={`Playback speed ${rate}× (key ${rate})`}
               disabled={disabled}
               onClick={() => dispatch({ type: 'speed', rate })}
             >

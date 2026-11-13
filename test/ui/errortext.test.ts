@@ -95,15 +95,18 @@ describe.for([
     raw: 'the output must not overwrite the source recording',
     text: 'The export would replace the source recording. Choose another file name.',
   },
-  { raw: 'app bridge unavailable', text: 'The app backend is not available. Restart the app.' },
+  {
+    raw: 'app bridge unavailable',
+    text: 'The app cannot reach its own services. Restart the app.',
+  },
   { raw: 'unknown error', text: 'Something went wrong. Try again.' },
   {
     raw: 'output verification failed: got 120 frames @ 30, expected 121 @ 60000/1001',
-    text: 'The finished file does not match the recording frame count or frame rate.',
+    text: 'The finished file has 120 frames at 30 fps, but 121 at 60000/1001 fps were expected. Try exporting again.',
   },
   {
     raw: 'could not determine the frame rate of the video',
-    text: "This video's frame rate could not be read.",
+    text: "The recording's frame rate could not be read. Choose a different recording.",
   },
   {
     raw: 'no telemetry found: no CAM meta (DVTM) stream and no .SRT sidecar',
@@ -123,30 +126,59 @@ describe('app messages that carry a path', () => {
   it('names only the file for an unreadable recording', () => {
     const raw = 'not a readable .mp4 file: C:\\Windows\\win.ini';
     expect(describeError(raw)).toEqual({
-      text: '"win.ini" is not a readable .mp4 recording.',
+      text: '"win.ini" is not a readable .mp4 recording. Choose a different .mp4 file.',
       technical: raw,
     });
   });
 
-  it('points to the kept render when the finished file cannot replace the destination', () => {
+  it('points to the kept file when the finished file cannot replace the destination', () => {
     const raw =
       'could not replace E:\\exports\\a.mp4: EBUSY: resource busy or locked, rename ' +
       "'E:\\exports\\a.partial.mp4' -> 'E:\\exports\\a.mp4' " +
       '(the finished render is at E:\\exports\\a.partial.mp4)';
     const { text, technical } = describeError(raw);
-    expect(text).toContain('The render is kept at E:\\exports\\a.partial.mp4.');
+    expect(text).toContain('The exported file is kept at E:\\exports\\a.partial.mp4.');
+    expect(text).toContain('Move it to the destination yourself.');
     expect(technical).toBe(raw);
   });
 });
 
-describe.for([{ message: 'boom' }, { message: 'Disk on fire: 42' }, { message: '' }])(
+describe('the UI fallback messages', () => {
+  // The fallbacks for a refused bridge call (ui/lib/exportflow.ts,
+  // ui/lib/telemetrysave.ts, ui/hooks/useTelemetrySave.ts) read as sentences
+  // with a next step, never as the fragments they replace.
+  it.for([
+    { raw: 'action failed', text: 'The action could not be completed. Try again.' },
+    {
+      raw: 'telemetry JSON could not be saved',
+      text: 'The telemetry file could not be saved. Try again.',
+    },
+    {
+      raw: 'the file could not be revealed',
+      text: 'The file could not be revealed. Try again.',
+    },
+  ])('maps "$raw" to a sentence with a next step', ({ raw, text }) => {
+    expect(describeError(raw)).toEqual({ text, technical: raw });
+  });
+});
+
+describe.for([{ message: 'boom' }, { message: 'Disk on fire: 42' }])(
   'unknown message "$message"',
   ({ message }) => {
-    it('passes through unchanged with no technical details', () => {
-      expect(describeError(message)).toEqual({ text: message, technical: null });
+    it('never surfaces as the message: generic lead plus technical details', () => {
+      expect(describeError(message)).toEqual({
+        text: 'Something went wrong. Try again.',
+        technical: message,
+      });
     });
   },
 );
+
+describe('the empty message', () => {
+  it('gets the generic sentence and no technical details', () => {
+    expect(describeError('')).toEqual({ text: 'Something went wrong. Try again.', technical: null });
+  });
+});
 
 // N-1 contract: the APP_SENTENCES patterns are built from these throw-site
 // constants (src/errors.ts), so pinning both the frozen wording and the
@@ -192,14 +224,14 @@ describe.for([
     constant: ERR_OUTPUT_PATH_ABSOLUTE,
     message: 'output path must be absolute: ',
     raw: `${ERR_OUTPUT_PATH_ABSOLUTE}E:\\exports\\out.mp4`,
-    text: 'The export needs a full path to its destination.',
+    text: 'The export needs a full path to its destination. Choose the destination again.',
   },
   {
     name: 'ERR_APP_BRIDGE_UNAVAILABLE',
     constant: ERR_APP_BRIDGE_UNAVAILABLE,
     message: 'app bridge unavailable',
     raw: ERR_APP_BRIDGE_UNAVAILABLE,
-    text: 'The app backend is not available. Restart the app.',
+    text: 'The app cannot reach its own services. Restart the app.',
   },
   {
     name: 'ERR_RENDER_CANCELED',
@@ -213,7 +245,7 @@ describe.for([
     constant: ERR_NOT_READABLE_MP4,
     message: 'not a readable .mp4 file: ',
     raw: `${ERR_NOT_READABLE_MP4}C:\\Windows\\win.ini`,
-    text: '"win.ini" is not a readable .mp4 recording.',
+    text: '"win.ini" is not a readable .mp4 recording. Choose a different .mp4 file.',
   },
   {
     name: 'ERR_NO_TELEMETRY',
@@ -227,7 +259,7 @@ describe.for([
     constant: ERR_OUTPUT_VERIFICATION,
     message: 'output verification failed: ',
     raw: `${ERR_OUTPUT_VERIFICATION}got 120 frames @ 30, expected 121 @ 60000/1001`,
-    text: 'The finished file does not match the recording frame count or frame rate.',
+    text: 'The finished file has 120 frames at 30 fps, but 121 at 60000/1001 fps were expected. Try exporting again.',
   },
   {
     name: 'ERR_COULD_NOT_REPLACE',
@@ -236,14 +268,14 @@ describe.for([
     raw:
       `${ERR_COULD_NOT_REPLACE}E:\\exports\\a.mp4: EBUSY: resource busy or locked ` +
       `(${ERR_RENDER_KEPT_AT}E:\\exports\\a.partial.mp4)`,
-    text: 'The export finished, but its file could not replace the destination. The render is kept at E:\\exports\\a.partial.mp4.',
+    text: 'The export finished, but its file could not replace the destination. The exported file is kept at E:\\exports\\a.partial.mp4. Move it to the destination yourself.',
   },
   {
     name: 'ERR_NO_FRAME_RATE',
     constant: ERR_NO_FRAME_RATE,
     message: 'could not determine the frame rate of the video',
     raw: ERR_NO_FRAME_RATE,
-    text: "This video's frame rate could not be read.",
+    text: "The recording's frame rate could not be read. Choose a different recording.",
   },
   {
     name: 'ERR_UNKNOWN',

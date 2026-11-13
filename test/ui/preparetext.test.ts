@@ -9,9 +9,9 @@ function progress(overrides: Partial<PrepareProgress> = {}): PrepareProgress {
 
 describe('prepareNoticeText', () => {
   it.each<{ overrides: Partial<PrepareProgress>; text: string }>([
-    { overrides: { stage: 'probe' }, text: 'Probing the recording…' },
+    { overrides: { stage: 'probe' }, text: 'Reading the recording…' },
     { overrides: { stage: 'telemetry' }, text: 'Loading telemetry…' },
-    { overrides: { stage: 'plan' }, text: 'Planning the view…' },
+    { overrides: { stage: 'plan' }, text: 'Setting up the map…' },
   ])('names the running stage as "$text"', ({ overrides, text }) => {
     expect(prepareNoticeText(progress(overrides))).toBe(text);
   });

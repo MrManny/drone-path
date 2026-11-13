@@ -2,7 +2,7 @@
 
 This handy little tool renders flight-path map videos from DJI drone
 recordings (DJI Neo 2 and similar): the actual flight path on a 2D map,
-ready to overlay in your drone flight footage.
+ready to overlay over the drone recording.
 
 It reads geo-coordinates from DJI's telemetry in two ways:
 
@@ -12,7 +12,7 @@ It reads geo-coordinates from DJI's telemetry in two ways:
 
 It is a CLI tool first, so agents can drive it too — that's all cool with me.
 For us humans, there is a [desktop app](docs/user/desktop-app.md): pick a
-recording and watch its flight path on the map in sync with the footage.
+recording and watch its flight path on the map in sync as you play.
 
 ## Quick start
 
@@ -37,7 +37,7 @@ overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback. All
 requirements and install options are in
 [Getting started](docs/user/getting-started.md).
 
-## Documentation
+## User manual
 
 The user manual lives in [docs/user/](docs/user/README.md); the desktop app
 ships the same pages as offline help. Highlights:
@@ -57,16 +57,17 @@ For reviewing flights without the terminal, grab the packaged desktop app
 [GitHub Releases](https://github.com/MrManny/drone-path/releases), or run
 `npm run build && npm run app` from a checkout.
 
-The app shows the footage and the synchronized flight map side by side —
-swappable to a map overlay — on one shared timeline;
+The app shows the recording and the synchronized flight map side by side —
+togglable to a corner map overlay — on one shared timeline;
 [the manual](docs/user/desktop-app.md) walks through loading a recording,
-reviewing a flight, looping a passage, exporting, and saving the per-frame
+reviewing a flight, marking a passage, exporting, and saving the per-frame
 telemetry JSON. The look settings carry over between launches.
 
-![Desktop app: drone footage beside the synchronized flight map](docs/images/app-main-window.jpg)
+![Desktop app: a drone recording beside the synchronized flight map](docs/images/app-main-window.jpg)
 
-*The desktop app playing a recording: footage beside the synchronized flight map,
-with the flight trail, drone position and HUD chips on one shared timeline.*
+*The desktop app playing a recording: the recording beside the synchronized
+flight map, with the flight trail, drone position and HUD chips on one shared
+timeline.*
 
 ## Feature requests
 

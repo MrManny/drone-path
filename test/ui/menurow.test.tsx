@@ -48,9 +48,9 @@ describe('MenuRow', () => {
   });
 
   it('keeps the shortcut out of the accessible name but announces it', () => {
-    renderRow({ label: 'Swap', hint: 'S' });
-    const row = screen.getByRole('menuitem', { name: 'Swap' });
-    expect(row.getAttribute('aria-keyshortcuts')).toBe('S');
+    renderRow({ label: 'Toggle PiP', hint: 'P' });
+    const row = screen.getByRole('menuitem', { name: 'Toggle PiP' });
+    expect(row.getAttribute('aria-keyshortcuts')).toBe('P');
   });
 
   it('maps Ctrl hints to ARIA key shortcuts', () => {
@@ -92,9 +92,9 @@ describe('MenuRow', () => {
   });
 
   it('states the tooltip it was given', () => {
-    renderRow({ title: 'Exports telemetry for the full recording (0:03)' });
+    renderRow({ title: 'Export telemetry for the full recording (0:03)' });
     expect(screen.getByRole('menuitem', { name: 'Open…' }).title).toBe(
-      'Exports telemetry for the full recording (0:03)',
+      'Export telemetry for the full recording (0:03)',
     );
   });
 });

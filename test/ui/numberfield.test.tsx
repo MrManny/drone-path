@@ -14,7 +14,7 @@ function renderZoom(overrides: Partial<NumberFieldProps> = {}) {
       label="Zoom"
       value={0}
       min={0}
-      rule="0 or more"
+      rule="at least 0"
       hint="0 = auto-fit"
       {...overrides}
       onValue={onValue}
@@ -29,7 +29,7 @@ describe.each(['1', '2.5', '1000'])('a valid value %s', (value) => {
     fireEvent.change(input, { target: { value } });
     expect(onValue).toHaveBeenCalledWith(Number(value));
     expect(input.getAttribute('aria-invalid')).toBeNull();
-    expect(screen.queryByText('Must be 0 or more.')).toBeNull();
+    expect(screen.queryByText('Must be at least 0.')).toBeNull();
     expect(screen.getByText('0 = auto-fit')).toBeTruthy();
   });
 });
@@ -41,7 +41,7 @@ describe.each([
   it('names the rule, marks the field invalid and commits nothing', () => {
     const { input, onValue } = renderZoom();
     fireEvent.change(input, { target: { value } });
-    const message = screen.getByText('Must be 0 or more.');
+    const message = screen.getByText('Must be at least 0.');
     expect(onValue).not.toHaveBeenCalled();
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toBe(message.id);
@@ -54,9 +54,9 @@ describe('NumberField message lifecycle', () => {
   it('keeps the message until the value becomes valid', () => {
     const { input, onValue } = renderZoom();
     fireEvent.change(input, { target: { value: '-1' } });
-    expect(screen.getByText('Must be 0 or more.')).toBeTruthy();
+    expect(screen.getByText('Must be at least 0.')).toBeTruthy();
     fireEvent.change(input, { target: { value: '3' } });
-    expect(screen.queryByText('Must be 0 or more.')).toBeNull();
+    expect(screen.queryByText('Must be at least 0.')).toBeNull();
     expect(input.getAttribute('aria-invalid')).toBeNull();
     expect(onValue).toHaveBeenLastCalledWith(3);
   });
@@ -72,7 +72,7 @@ describe('NumberField message lifecycle', () => {
     const { input } = renderZoom({ value: 2 });
     fireEvent.change(input, { target: { value: '-1' } });
     fireEvent.blur(input);
-    expect(screen.queryByText('Must be 0 or more.')).toBeNull();
+    expect(screen.queryByText('Must be at least 0.')).toBeNull();
     expect(input.getAttribute('aria-invalid')).toBeNull();
     expect(input.value).toBe('2');
   });
@@ -99,6 +99,6 @@ describe('NumberField when the settings reject a value the minimum allows', () =
     fireEvent.change(input, { target: { value: '5' } });
     expect(onValue).toHaveBeenCalledWith(5);
     expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(screen.getByText('Must be 0 or more.')).toBeTruthy();
+    expect(screen.getByText('Must be at least 0.')).toBeTruthy();
   });
 });

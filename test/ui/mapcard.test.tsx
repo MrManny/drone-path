@@ -82,7 +82,7 @@ describe('MapCard empty variant', () => {
     'reads the quiet placeholder with no island in the %s layout',
     (layout) => {
       render(<MapCard data={null} layout={layout} />);
-      expect(screen.getByText('No telemetry yet')).toBeTruthy();
+      expect(screen.getByText('No flight path yet.')).toBeTruthy();
       expect(screen.queryByTestId('map-island')).toBeNull();
       const card = document.querySelector('.map-card') as HTMLElement;
       expect(card.className).toBe(`map-card map-card-${layout}`);
@@ -94,7 +94,7 @@ describe('MapCard empty variant', () => {
     expect(screen.queryByTestId('map-island')).toBeNull();
     rerender(<MapCard data={DATA} onScene={() => {}} layout="split" />);
     expect(screen.getByTestId('map-island')).toBeTruthy();
-    expect(screen.queryByText('No telemetry yet')).toBeNull();
+    expect(screen.queryByText('No flight path yet.')).toBeNull();
   });
 });
 

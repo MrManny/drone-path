@@ -1,27 +1,61 @@
 import { describe, expect, it } from 'vitest';
 
 import { shouldPrompt, updateReducer } from '../../ui/lib/updatestate.js';
-import type { UpdateEvent, UpdatePhase } from '../../ui/lib/updatestate.js';
+import type { UpdateEvent, UpdatePhase, UpdateState } from '../../ui/lib/updatestate.js';
 
-const TABLE: Array<{ when: string; from: UpdatePhase; event: UpdateEvent; to: UpdatePhase }> = [
-  { when: 'ready', from: 'idle', event: { type: 'ready' }, to: 'ready' },
-  { when: 'ready', from: 'ready', event: { type: 'ready' }, to: 'ready' },
-  { when: 'ready', from: 'prompted', event: { type: 'ready' }, to: 'prompted' },
-  { when: 'ready', from: 'restarting', event: { type: 'ready' }, to: 'restarting' },
-  { when: 'prompt', from: 'ready', event: { type: 'prompt' }, to: 'prompted' },
-  { when: 'prompt', from: 'idle', event: { type: 'prompt' }, to: 'idle' },
-  { when: 'prompt', from: 'prompted', event: { type: 'prompt' }, to: 'prompted' },
-  { when: 'prompt', from: 'restarting', event: { type: 'prompt' }, to: 'restarting' },
-  { when: 'restart', from: 'prompted', event: { type: 'restart' }, to: 'restarting' },
-  { when: 'restart', from: 'ready', event: { type: 'restart' }, to: 'ready' },
-  { when: 'restartFailed', from: 'restarting', event: { type: 'restartFailed' }, to: 'prompted' },
-  { when: 'restartFailed', from: 'idle', event: { type: 'restartFailed' }, to: 'idle' },
+const at = (phase: UpdatePhase, failure: string | null = null): UpdateState => ({ phase, failure });
+
+const TABLE: Array<{ when: string; from: UpdateState; event: UpdateEvent; to: UpdateState }> = [
+  { when: 'ready', from: at('idle'), event: { type: 'ready' }, to: at('ready') },
+  { when: 'ready', from: at('ready'), event: { type: 'ready' }, to: at('ready') },
+  { when: 'ready', from: at('prompted'), event: { type: 'ready' }, to: at('prompted') },
+  { when: 'ready', from: at('restarting'), event: { type: 'ready' }, to: at('restarting') },
+  { when: 'prompt', from: at('ready'), event: { type: 'prompt' }, to: at('prompted') },
+  { when: 'prompt', from: at('idle'), event: { type: 'prompt' }, to: at('idle') },
+  { when: 'prompt', from: at('prompted'), event: { type: 'prompt' }, to: at('prompted') },
+  { when: 'prompt', from: at('restarting'), event: { type: 'prompt' }, to: at('restarting') },
+  {
+    when: 'restart',
+    from: at('prompted'),
+    event: { type: 'restart' },
+    to: at('restarting'),
+  },
+  {
+    when: 'restart clears a stale failure',
+    from: at('prompted', 'spawn failed'),
+    event: { type: 'restart' },
+    to: at('restarting'),
+  },
+  { when: 'restart', from: at('ready'), event: { type: 'restart' }, to: at('ready') },
+  {
+    when: 'restartFailed',
+    from: at('restarting'),
+    event: { type: 'restartFailed', message: 'spawn failed' },
+    to: at('prompted', 'spawn failed'),
+  },
+  {
+    when: 'restartFailed',
+    from: at('idle'),
+    event: { type: 'restartFailed', message: 'spawn failed' },
+    to: at('idle'),
+  },
 ];
 
-describe.each(TABLE)('updateReducer: $when from $from', ({ from, event, to }) => {
-  it(`lands on ${to}`, () => {
-    expect(updateReducer(from, event)).toBe(to);
+describe.each(TABLE)('updateReducer: $when', ({ from, event, to }) => {
+  it(`lands on ${to.phase} carrying ${JSON.stringify(to.failure)}`, () => {
+    expect(updateReducer(from, event)).toEqual(to);
   });
+});
+
+// The failed restart reverts to the prompt WITH the backend message, so the
+// dialog reports what happened instead of silently reverting.
+it('carries the failure message back to the prompt', () => {
+  const failed = updateReducer(at('restarting'), {
+    type: 'restartFailed',
+    message: 'spawn failed',
+  });
+  expect(failed).toEqual(at('prompted', 'spawn failed'));
+  expect(updateReducer(failed, { type: 'restart' })).toEqual(at('restarting'));
 });
 
 const PROMPT_TABLE: Array<{ phase: UpdatePhase; modalOpen: boolean; prompts: boolean }> = [

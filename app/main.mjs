@@ -297,7 +297,7 @@ function installCloseGuard(state) {
       defaultId: 1,
       cancelId: 1,
       message: 'An export is in progress',
-      detail: 'Closing the window stops the export and removes its working file.',
+      detail: 'Closing the window stops the export and removes its unfinished file.',
     };
     void (state.win ? dialog.showMessageBox(state.win, box) : dialog.showMessageBox(box)).then(
       ({ response }) => {

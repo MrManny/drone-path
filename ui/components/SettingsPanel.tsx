@@ -83,7 +83,7 @@ export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: S
           label="Zoom"
           value={config.zoom}
           min={0}
-          rule="0 or more"
+          rule="at least 0"
           hint="0 = auto-fit"
           onValue={(zoom) => apply({ zoom })}
         />
@@ -91,7 +91,7 @@ export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: S
           label="Zoom-out"
           value={config.zoomOut}
           min={0}
-          rule="0 or more"
+          rule="at least 0"
           hint="auto-fit only"
           onValue={(zoomOut) => apply({ zoomOut })}
         />
@@ -99,7 +99,7 @@ export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: S
           label="Intro (s)"
           value={config.introSec}
           min={0}
-          rule="0 or more"
+          rule="at least 0"
           step={0.5}
           onValue={(introSec) => apply({ introSec })}
         />
@@ -107,7 +107,7 @@ export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: S
           label="Outro (s)"
           value={config.outroSec}
           min={0}
-          rule="0 or more"
+          rule="at least 0"
           step={0.5}
           onValue={(outroSec) => apply({ outroSec })}
         />

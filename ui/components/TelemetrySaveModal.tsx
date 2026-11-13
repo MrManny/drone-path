@@ -51,7 +51,7 @@ export function TelemetrySaveModal({
             <p className="export-path" title={phase.path}>
               {phase.path}
             </p>
-            <p className="export-path">{`Scope: ${phase.scope}`}</p>
+            <p className="export-path">{`Covers the ${phase.scope}`}</p>
             <div className="dialog-actions">
               <button type="button" className="dialog-primary" data-phase-focus onClick={onReveal}>
                 Reveal in folder

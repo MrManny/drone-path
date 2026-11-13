@@ -88,22 +88,22 @@ describe('TimelinePanel header', () => {
 
   it('dispatches the loop actions from labeled buttons', () => {
     const { dispatch } = renderPanel();
-    fireEvent.click(screen.getByRole('button', { name: 'Set loop in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set in point' }));
     expect(dispatch).toHaveBeenLastCalledWith({ type: 'setLoopIn' });
-    fireEvent.click(screen.getByRole('button', { name: 'Set loop out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set out point' }));
     expect(dispatch).toHaveBeenLastCalledWith({ type: 'setLoopOut' });
-    expect(screen.getByRole('button', { name: 'Set loop in' }).getAttribute('title')).toBe(
-      'Set loop in (I)',
+    expect(screen.getByRole('button', { name: 'Set in point' }).getAttribute('title')).toBe(
+      'Set in point (I)',
     );
-    expect(screen.getByRole('button', { name: 'Set loop out' }).getAttribute('title')).toBe(
-      'Set loop out (O)',
+    expect(screen.getByRole('button', { name: 'Set out point' }).getAttribute('title')).toBe(
+      'Set out point (O)',
     );
   });
 
   it.for([
-    { name: 'Set loop in', title: 'Set loop in (I)' },
-    { name: 'Set loop out', title: 'Set loop out (O)' },
-    { name: 'Clear loop', title: 'Clear loop (Esc)' },
+    { name: 'Set in point', title: 'Set in point (I)' },
+    { name: 'Set out point', title: 'Set out point (O)' },
+    { name: 'Clear in and out points', title: 'Clear in and out points (Esc)' },
   ])('renders $name icon-only with its tooltip', ({ name, title }) => {
     renderPanel({ loop: { in: 30, out: 60 } });
     const button = screen.getByRole('button', { name });
@@ -113,28 +113,28 @@ describe('TimelinePanel header', () => {
 
   it('states why Clear is disabled without any loop point', () => {
     renderPanel();
-    const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' });
+    const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' });
     expect(clear.disabled).toBe(true);
-    expect(clear.getAttribute('title')).toBe('No loop to clear.');
+    expect(clear.getAttribute('title')).toBe('No in or out point to clear');
   });
 
   it('clears a set loop and says so in its title', () => {
     const { dispatch } = renderPanel({ loop: { in: 30, out: 60 } });
-    const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear loop' });
+    const clear = screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' });
     expect(clear.disabled).toBe(false);
-    expect(clear.getAttribute('title')).toBe('Clear loop (Esc)');
+    expect(clear.getAttribute('title')).toBe('Clear in and out points (Esc)');
     fireEvent.click(clear);
     expect(dispatch).toHaveBeenLastCalledWith({ type: 'clearLoop' });
   });
 
   it('collects the three loop buttons in one segmented Loop group (#233)', () => {
     const { dispatch } = renderPanel();
-    const group = screen.getByRole('group', { name: 'Loop' });
+    const group = screen.getByRole('group', { name: 'In and out points' });
     const buttons = within(group).getAllByRole('button');
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Set loop in',
-      'Set loop out',
-      'Clear loop',
+      'Set in point',
+      'Set out point',
+      'Clear in and out points',
     ]);
     for (const button of buttons) {
       expect(button.className).toContain('segment');
@@ -149,10 +149,10 @@ describe('TimelinePanel header', () => {
   });
 
   it.for([
-    { name: 'engaged loop', loop: { in: 30, out: 60 }, want: 'loop 0:01–0:02' },
-    { name: 'loop missing its out point', loop: { in: 30, out: null }, want: 'loop 0:01–…' },
-    { name: 'loop missing its in point', loop: { in: null, out: 60 }, want: 'loop …–0:02' },
-    { name: 'out-of-order loop', loop: { in: 60, out: 30 }, want: 'loop 0:02–0:01' },
+    { name: 'engaged loop', loop: { in: 30, out: 60 }, want: 'in 0:01 · out 0:02' },
+    { name: 'loop missing its out point', loop: { in: 30, out: null }, want: 'in 0:01 · out …' },
+    { name: 'loop missing its in point', loop: { in: null, out: 60 }, want: 'in … · out 0:02' },
+    { name: 'out-of-order loop', loop: { in: 60, out: 30 }, want: 'in 0:02 · out 0:01' },
   ])('shows the readout for a $name', ({ loop, want }) => {
     renderPanel({ loop });
     expect(document.querySelector('.loop-readout')?.textContent).toBe(want);
@@ -302,7 +302,7 @@ describe('TimelinePanel disabled mode', () => {
 
   it('disables every loop control', () => {
     renderPanel({ disabled: true, loop: { in: 30, out: 60 } });
-    for (const name of ['Set loop in', 'Set loop out', 'Clear loop']) {
+    for (const name of ['Set in point', 'Set out point', 'Clear in and out points']) {
       expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
     }
   });

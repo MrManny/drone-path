@@ -58,7 +58,7 @@ export const MENU_BAR: readonly MenuDef[] = [
     label: 'View',
     mnemonic: 'v',
     align: 'start',
-    items: [{ id: 'swap', label: 'Swap', icon: 'swap', hint: 'S' }],
+    items: [{ id: 'swap', label: 'Toggle PiP', icon: 'swap', hint: 'P' }],
   },
   {
     id: 'help',
@@ -66,7 +66,7 @@ export const MENU_BAR: readonly MenuDef[] = [
     mnemonic: 'h',
     align: 'end',
     items: [
-      { id: 'documentation', label: 'Documentation', icon: 'help' },
+      { id: 'documentation', label: 'Help', icon: 'help' },
       { id: 'about', label: 'About', icon: 'info', separatorBefore: true },
     ],
   },

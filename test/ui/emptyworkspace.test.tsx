@@ -75,7 +75,7 @@ describe('EmptyWorkspace skeleton', () => {
 
   it('carries the map placeholder with no status footer', () => {
     renderWorkspace();
-    expect(screen.getByText('No telemetry yet')).toBeTruthy();
+    expect(screen.getByText('No flight path yet.')).toBeTruthy();
     expect(screen.queryByText('No recording loaded')).toBeNull();
     expect(screen.queryByText(/Recording ·/)).toBeNull();
     expect(document.querySelector('.status-bar')).toBeNull();
@@ -118,12 +118,12 @@ describe('EmptyWorkspace skeleton', () => {
     expect(screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled).toBe(
       true,
     );
-    for (const name of ['Set loop in', 'Set loop out', 'Clear loop']) {
+    for (const name of ['Set in point', 'Set out point', 'Clear in and out points']) {
       expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
     }
   });
 
-  it('keeps Map appearance and Documentation live while Swap stays disabled', () => {
+  it('keeps Map appearance and Help live while Toggle PiP stays disabled', () => {
     const { onHelp, onExit } = renderWorkspace();
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     expect(
@@ -131,10 +131,12 @@ describe('EmptyWorkspace skeleton', () => {
     ).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
-      within(menu()).getByRole('menuitem', { name: 'Swap' }).getAttribute('aria-disabled'),
+      within(menu()).getByRole('menuitem', { name: 'Toggle PiP' }).getAttribute('aria-disabled'),
     ).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+    fireEvent.click(
+      within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Help' }),
+    );
     expect(onHelp).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Exit' }));
@@ -167,7 +169,7 @@ describe('EmptyWorkspace keyboard', () => {
     { name: 'End', key: 'End' },
     { name: 'I', key: 'i' },
     { name: 'O', key: 'o' },
-    { name: 'S', key: 's' },
+    { name: 'P', key: 'p' },
     { name: '2', key: '2' },
   ])('lets the $name playback shortcut no-op until a recording loads', ({ key }) => {
     const { onPick, onHelp } = renderWorkspace();
@@ -208,7 +210,10 @@ describe('EmptyWorkspace open states', () => {
 
   it('shows the stage notice for a failed open', () => {
     renderWorkspace({ kind: 'error', message: 'boom' });
-    expect(screen.getByRole('alert').textContent).toContain('Could not open the recording: boom');
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Could not open the recording: Something went wrong. Try again.',
+    );
+    expect(screen.getByText('boom')).toBeTruthy();
     expect(document.querySelector('.workspace')).not.toBeNull();
   });
 });

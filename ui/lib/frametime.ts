@@ -26,16 +26,18 @@ export function formatTimeReadout(frame: number, fps: number, durationSec: numbe
   return `${formatTime(timeAt(frame, fps))} / ${formatTime(durationSec)}`;
 }
 
+// A missing endpoint reads as "…" so a partial point says what is not set
+// yet instead of asking a bare question.
+export function formatPoint(f: number | null, fps: number): string {
+  return f === null ? '…' : formatTime(timeAt(f, fps));
+}
+
 export function formatFrameSpan(
   start: number | null,
   end: number | null,
   fps: number,
 ): string {
-  // A missing endpoint reads as "…" so a partial span says what is not set
-  // yet instead of asking a bare question.
-  const at = (f: number | null): string =>
-    f === null ? '…' : formatTime(timeAt(f, fps));
-  return `${at(start)}–${at(end)}`;
+  return `${formatPoint(start, fps)}–${formatPoint(end, fps)}`;
 }
 
 export function formatFrameRange(points: LoopPoints, fps: number): string {
@@ -43,7 +45,7 @@ export function formatFrameRange(points: LoopPoints, fps: number): string {
 }
 
 export function formatLoopReadout(loop: LoopState, fps: number): string {
-  return hasLoop(loop) ? `loop ${formatFrameSpan(loop.in, loop.out, fps)}` : '';
+  return hasLoop(loop) ? `in ${formatPoint(loop.in, fps)} · out ${formatPoint(loop.out, fps)}` : '';
 }
 
 const TICK_STEPS_SEC = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600];

@@ -3,11 +3,11 @@ import type { PrepareProgress } from '../../src/pipeline.js';
 export function prepareNoticeText(progress: PrepareProgress): string {
   switch (progress.stage) {
     case 'probe':
-      return 'Probing the recording…';
+      return 'Reading the recording…';
     case 'telemetry':
       return 'Loading telemetry…';
     case 'plan':
-      return 'Planning the view…';
+      return 'Setting up the map…';
   }
 }
 
