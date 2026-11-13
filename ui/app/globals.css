@@ -483,13 +483,10 @@ button.primary {
   gap: 8px;
   min-width: 0;
 }
+/* The cluster's buttons share one icon-only recipe: swapping play for pause
+   changes only the glyph, so the centered cluster never shifts. */
 .transport-step {
   padding: 0 8px;
-}
-/* 72px = widest plausible label plus icon and gap, so toggling playback
-   never shifts the centered cluster. */
-.transport-play {
-  min-width: 72px;
 }
 .transport-label {
   font-size: 13px;
@@ -515,6 +512,11 @@ button.primary {
 }
 .segmented button.segment:hover:not(:disabled) {
   background: var(--surface-3);
+}
+/* Icon-only segments: a 16px glyph plus 7px padding keeps each segment at
+   one ~30px slot, matching the text segments' density. */
+.segmented button.segment-icon {
+  padding: 0 7px;
 }
 .segmented button.segment[aria-pressed='true'] {
   color: var(--accent-ink);
@@ -571,8 +573,13 @@ button.primary {
   align-items: center;
   gap: 8px;
 }
+/* The readout keeps a fixed slot — sized past the widest loop span — so the
+   loop button group never moves as a readout appears or changes. */
 .timeline-actions .loop-readout {
+  display: inline-block;
+  min-width: 16ch;
   margin-left: 8px;
+  text-align: right;
 }
 .ruler {
   position: relative;

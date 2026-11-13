@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { createRef } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TimelinePanel } from '../../ui/components/TimelinePanel.js';
 import type { LoopState } from '../../ui/lib/loop.js';
@@ -9,6 +13,21 @@ import type { LoopState } from '../../ui/lib/loop.js';
 vi.mock('../../ui/components/Filmstrip.js', () => ({
   Filmstrip: () => <div data-testid="filmstrip" />,
 }));
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+// The layout contract tests read the real stylesheet, like transportbar.test.tsx.
+let stylesheet: HTMLStyleElement;
+
+beforeAll(() => {
+  stylesheet = document.createElement('style');
+  stylesheet.textContent = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
+  document.head.append(stylesheet);
+});
+
+afterAll(() => {
+  stylesheet.remove();
+});
 
 afterEach(() => {
   cleanup();
@@ -108,18 +127,58 @@ describe('TimelinePanel header', () => {
     expect(dispatch).toHaveBeenLastCalledWith({ type: 'clearLoop' });
   });
 
+  it('collects the three loop buttons in one segmented Loop group (#233)', () => {
+    const { dispatch } = renderPanel();
+    const group = screen.getByRole('group', { name: 'Loop' });
+    const buttons = within(group).getAllByRole('button');
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Set loop in',
+      'Set loop out',
+      'Clear loop',
+    ]);
+    for (const button of buttons) {
+      expect(button.className).toContain('segment');
+      expect(button.className).toContain('segment-icon');
+      const style = getComputedStyle(button);
+      expect(parseFloat(style.minHeight)).toBe(30);
+      expect(parseFloat(style.paddingLeft)).toBe(7);
+      expect(parseFloat(style.paddingRight)).toBe(7);
+    }
+    fireEvent.click(buttons[0]);
+    expect(dispatch).toHaveBeenLastCalledWith({ type: 'setLoopIn' });
+  });
+
   it.for([
     { name: 'engaged loop', loop: { in: 30, out: 60 }, want: 'loop 0:01–0:02' },
-    { name: 'half-marked loop', loop: { in: 30, out: null }, want: 'loop 0:01–?' },
+    { name: 'loop missing its out point', loop: { in: 30, out: null }, want: 'loop 0:01–…' },
+    { name: 'loop missing its in point', loop: { in: null, out: 60 }, want: 'loop …–0:02' },
     { name: 'out-of-order loop', loop: { in: 60, out: 30 }, want: 'loop 0:02–0:01' },
   ])('shows the readout for a $name', ({ loop, want }) => {
     renderPanel({ loop });
     expect(document.querySelector('.loop-readout')?.textContent).toBe(want);
   });
 
-  it('shows no loop readout without points', () => {
+  it('reserves an empty readout slot without points (#233)', () => {
     renderPanel();
-    expect(document.querySelector('.loop-readout')).toBeNull();
+    const slot = document.querySelector('.loop-readout') as HTMLElement;
+    expect(slot.textContent).toBe('');
+    expect(parseFloat(getComputedStyle(slot).minWidth)).toBeGreaterThan(0);
+  });
+
+  it('keeps the loop group at one position with and without a readout (#233)', () => {
+    const shape = (): string[] => {
+      const actions = document.querySelector('.timeline-actions') as HTMLElement;
+      return [...actions.children].map((child) => child.className);
+    };
+    const slotWidth = (): string =>
+      getComputedStyle(document.querySelector('.loop-readout') as HTMLElement).minWidth;
+    renderPanel();
+    const withoutReadout = shape();
+    const widthWithout = slotWidth();
+    cleanup();
+    renderPanel({ loop: { in: 30, out: 60 } });
+    expect(shape()).toEqual(withoutReadout);
+    expect(slotWidth()).toBe(widthWithout);
   });
 });
 

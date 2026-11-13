@@ -46,12 +46,13 @@ export function TransportBar({
         </button>
         <button
           type="button"
-          className="transport-play"
+          className="transport-step"
+          aria-label={ready && playing ? 'Pause' : 'Play'}
+          title={ready && playing ? 'Pause (Space / K)' : 'Play (Space / K)'}
           onClick={() => dispatch({ type: 'togglePlay' })}
           disabled={disabled || !ready}
         >
           {ready && playing ? <Pause size={16} /> : <Play size={16} />}
-          {ready && playing ? 'Pause' : 'Play'}
         </button>
         <button
           type="button"

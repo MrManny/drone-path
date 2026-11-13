@@ -46,6 +46,9 @@ export function TimelinePanel({
   const loopReadout = formatLoopReadout(loop, fps);
   const clearable = hasLoop(loop);
 
+  // The band's end handles are pointer-only by design: they are a drag
+  // enhancement of the I/O keys and the loop buttons, which stay the
+  // keyboard path (documented in docs/user/keyboard-shortcuts.md).
   const startDrag = (which: 'in' | 'out'): void => {
     const track = trackRef.current;
     if (!track) return;
@@ -70,34 +73,39 @@ export function TimelinePanel({
           <span className="preview-title">Timeline</span>
         </div>
         <div className="timeline-actions">
-          <button
-            type="button"
-            aria-label="Set loop in"
-            title="Set loop in (I)"
-            disabled={disabled}
-            onClick={() => dispatch({ type: 'setLoopIn' })}
-          >
-            <ArrowRightFromLine size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="Set loop out"
-            title="Set loop out (O)"
-            disabled={disabled}
-            onClick={() => dispatch({ type: 'setLoopOut' })}
-          >
-            <ArrowLeftFromLine size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="Clear loop"
-            title={clearable ? 'Clear loop (Esc)' : 'No loop to clear.'}
-            disabled={disabled || !clearable}
-            onClick={() => dispatch({ type: 'clearLoop' })}
-          >
-            <X size={16} />
-          </button>
-          {loopReadout ? <span className="readout loop-readout">{loopReadout}</span> : null}
+          <div className="segmented" role="group" aria-label="Loop">
+            <button
+              type="button"
+              className="segment segment-icon"
+              aria-label="Set loop in"
+              title="Set loop in (I)"
+              disabled={disabled}
+              onClick={() => dispatch({ type: 'setLoopIn' })}
+            >
+              <ArrowRightFromLine size={16} />
+            </button>
+            <button
+              type="button"
+              className="segment segment-icon"
+              aria-label="Set loop out"
+              title="Set loop out (O)"
+              disabled={disabled}
+              onClick={() => dispatch({ type: 'setLoopOut' })}
+            >
+              <ArrowLeftFromLine size={16} />
+            </button>
+            <button
+              type="button"
+              className="segment segment-icon"
+              aria-label="Clear loop"
+              title={clearable ? 'Clear loop (Esc)' : 'No loop to clear.'}
+              disabled={disabled || !clearable}
+              onClick={() => dispatch({ type: 'clearLoop' })}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <span className="readout loop-readout">{loopReadout}</span>
         </div>
       </div>
       <div className="ruler">

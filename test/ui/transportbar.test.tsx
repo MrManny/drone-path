@@ -141,26 +141,44 @@ describe('TransportBar arrangement', () => {
 });
 
 const PLAY_STATES = [
-  { ready: true, playing: false, label: 'Play' },
-  { ready: true, playing: true, label: 'Pause' },
-  { ready: false, playing: false, label: 'Play' },
+  { ready: true, playing: false, label: 'Play', title: 'Play (Space / K)' },
+  { ready: true, playing: true, label: 'Pause', title: 'Pause (Space / K)' },
+  { ready: false, playing: false, label: 'Play', title: 'Play (Space / K)' },
 ];
 
-describe('TransportBar play button width', () => {
-  it.for(PLAY_STATES)('reserves a width floor while showing $label', ({ ready, playing, label }) => {
-    renderBar({ ready, playing });
-    const button = screen.getByRole('button', { name: label });
-    expect(parseFloat(getComputedStyle(button).minWidth)).toBeGreaterThan(0);
+describe('TransportBar play button is icon-only', () => {
+  it.for(PLAY_STATES)(
+    'shows the $label glyph with its accessible name and tooltip',
+    ({ ready, playing, label, title }) => {
+      renderBar({ ready, playing });
+      const button = screen.getByRole('button', { name: label });
+      expect(button.textContent).toBe('');
+      expect(button.querySelector('svg')).toBeTruthy();
+      expect(button.getAttribute('title')).toBe(title);
+    },
+  );
+
+  it('holds one width-bearing footprint across the Play, Pause and not-ready states', () => {
+    const footprints = PLAY_STATES.map(({ label, ...props }) => {
+      renderBar(props);
+      const button = screen.getByRole('button', { name: label });
+      const style = getComputedStyle(button);
+      const footprint = [button.className, button.textContent ?? '', style.padding];
+      cleanup();
+      return JSON.stringify(footprint);
+    });
+    expect(new Set(footprints).size).toBe(1);
   });
 
-  it('holds one width floor across the Play, Pause and not-ready states', () => {
-    const floors = PLAY_STATES.map(({ label, ...props }) => {
-      renderBar(props);
-      const floor = getComputedStyle(screen.getByRole('button', { name: label })).minWidth;
-      cleanup();
-      return floor;
+  it('shares one icon-button recipe with the jump buttons', () => {
+    renderBar();
+    const buttons = [...document.querySelectorAll('.transport-cluster button')];
+    expect(buttons).toHaveLength(3);
+    const footprints = buttons.map((button) => {
+      const style = getComputedStyle(button);
+      return JSON.stringify([button.className, style.padding, button.textContent ?? '']);
     });
-    expect(new Set(floors).size).toBe(1);
+    expect(new Set(footprints).size).toBe(1);
   });
 });
 
@@ -247,10 +265,10 @@ describe('TransportBar disabled mode', () => {
       'transport-group transport-cluster',
       'transport-group transport-speed',
     ]);
-    expect(screen.getByRole('button', { name: 'Play' }).textContent).toContain('Play');
+    expect(screen.getByRole('button', { name: 'Play' }).textContent).toBe('');
   });
 
-  it('still shows the Play label state rules from ready and playing', () => {
+  it('keeps the Play state name while not ready', () => {
     renderBar({ disabled: true, ready: false, playing: true });
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
     expect(button.disabled).toBe(true);

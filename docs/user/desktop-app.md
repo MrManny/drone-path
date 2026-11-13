@@ -42,9 +42,9 @@ At the compact 1024×600 minimum window size the same workspace fits into less s
 
 ## Looping a passage
 
-The timeline header holds the loop controls — icon-only buttons for **Set loop in (I)**, **Set loop out (O)** and **Clear loop (Esc)** — and a readout of the marked passage. Below it the timeline shows the video as a filmstrip with the loop band over it.
+The timeline header holds the loop controls — one button group with **Set loop in (I)**, **Set loop out (O)** and **Clear loop (Esc)** — and a readout of the marked passage. Below it the timeline shows the video as a filmstrip with the loop band over it.
 
-Press `I` to mark the loop in point and `O` the out point, or drag the band's ends with the mouse. The marked passage plays on repeat until you clear the loop with `Esc`.
+Press `I` to mark the loop in point and `O` the out point. Dragging the band's end handles is a pointer-only way to fine-tune the points; the keyboard path is `I` / `O` and the loop buttons. The marked passage plays on repeat until you clear the loop with `Esc`.
 
 ![Timeline with loop in and out points marked](../images/app-loop-points.jpg)
 
