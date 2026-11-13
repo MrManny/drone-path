@@ -195,11 +195,15 @@ describe('MapCard style contract (#236)', () => {
     );
   });
 
-  it('renders the compact attribution on one line clear of the scale bar', () => {
+  it('renders the compact attribution flush on the map bottom row', () => {
     const rule = /\.map-card\.map-card-overlay #attr \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
     expect(rule).toContain('white-space: nowrap');
     expect(rule).toContain('text-overflow: ellipsis');
-    expect(rule).toContain('bottom: 32px');
+    // Flush against the map's bottom edge; the scale bar keeps the bottom-left
+    // corner and the credit clears it by width, never by lifting off the edge.
+    expect(rule).toContain('bottom: 0');
+    expect(rule).not.toContain('bottom: 32px');
+    expect(rule).toContain('max-width: calc(100% - 96px)');
     expect(rule).toContain('pointer-events: auto');
     expect(cssText).toMatch(/\.map-card\.map-card-overlay #attr a \{[^}]*pointer-events: none/);
   });
