@@ -23,14 +23,15 @@ The menu bar at the top of the workspace follows the Windows menu conventions:
 | `Alt` | Open the menu bar (File first), or close it again |
 | `Alt+F` / `Alt+V` / `Alt+H` | Open the File / View / Help menu |
 | `Up` / `Down` | Move through the open menu's items |
-| `Left` / `Right` | Move between the open menus |
+| `Left` / `Right` | Move between the menus |
 | `Enter` / `Space` | Activate the highlighted item |
+| `Tab` | Close the menu and move on |
 | `Esc` | Close the menu without running anything |
 
 ## How shortcuts behave
 
 - Before a recording is loaded, the playback shortcuts do nothing; `Ctrl+O` still opens one.
-- Shortcuts are inert while a text field, select or other editable control has focus, but stay live over non-text controls like the timeline scrubber. `Ctrl+O` is the exception: it also works while typing.
+- Shortcuts are inert while a text field, select or other editable control has focus, but stay live over non-text controls like the timeline scrubber. `Ctrl+O` and `Esc` are the exceptions: they also work while typing.
 - `Space` leaves activation to a focused button, link or disclosure instead of toggling playback.
 - While a menu is open it owns the keyboard: the player shortcuts wait until it closes.
 - While a dialog is open, only `Esc` works: it closes the dialog. The Map appearance popover is not a dialog — shortcuts stay live, and `Esc` closes it.

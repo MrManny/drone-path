@@ -693,9 +693,9 @@ describe('PlayerChrome open notice', () => {
     expect(screen.getByText('Probing the recording…')).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Preparation progress' })).toBeTruthy();
     openMenu('File');
-    expect(within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(
-      true,
-    );
+    expect(
+      within(menuBar()).getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled'),
+    ).toBe('true');
   });
 });
 
@@ -716,8 +716,8 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
       expect(screen.queryByRole('status')).toBeNull();
       openMenu('File');
       expect(
-        within(menuBar()).getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled,
-      ).toBe(false);
+        within(menuBar()).getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled'),
+      ).toBeNull();
     });
   },
 );

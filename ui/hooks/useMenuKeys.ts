@@ -13,6 +13,8 @@ export interface MenuKeysOptions {
   onActivate: (item: MenuItemId) => void;
   /** Reports open/closed transitions so player hotkeys can yield the keyboard. */
   onOpenChange: (open: boolean) => void;
+  /** True while the event target sits inside the menu bar (label navigation). */
+  inBar?: (target: unknown) => boolean;
 }
 
 export interface MenuKeys {
@@ -60,13 +62,25 @@ export function useMenuKeys(flags: MenuFlags, options: MenuKeysOptions): MenuKey
     const onKeyDown = (e: KeyboardEvent): void => {
       if (optionsRef.current.modalOpen) return;
       const open = stateRef.current.open !== null;
-      const claimed =
-        e.key === 'Alt' || (e.altKey && /^[a-z]$/i.test(e.key)) || (open && NAV_KEYS.has(e.key));
+      // AltGr types characters through Ctrl+Alt (Cmd+Alt) chords on European
+      // layouts; those must reach the text field instead of the menu.
+      const plain = !e.ctrlKey && !e.metaKey;
+      const accel = plain && (e.key === 'Alt' || (e.altKey && /^[a-z]$/i.test(e.key)));
+      const labelNav =
+        plain &&
+        !e.altKey &&
+        !open &&
+        (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
+        (optionsRef.current.inBar?.(e.target) ?? false);
+      const claimed = accel || (open && NAV_KEYS.has(e.key)) || labelNav;
       if (!claimed) return;
       // While a menu is open it owns the keyboard; otherwise only the Alt
-      // accelerators are claimed.
+      // accelerators and the closed bar's label arrows are claimed. Claimed
+      // keys are exclusive: the player hotkey listener sits on the same
+      // window target (registered later — child effects run first), and
+      // stopPropagation alone would still let it run.
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       dispatch({
         type: 'keyDown',
         key: e.key,
@@ -75,7 +89,7 @@ export function useMenuKeys(flags: MenuFlags, options: MenuKeysOptions): MenuKey
       });
     };
     const onKeyUp = (e: KeyboardEvent): void => {
-      if (e.key !== 'Alt' || optionsRef.current.modalOpen) return;
+      if (e.key !== 'Alt' || e.ctrlKey || e.metaKey || optionsRef.current.modalOpen) return;
       dispatch({ type: 'keyUp', key: 'Alt' });
     };
     window.addEventListener('keydown', onKeyDown, true);

@@ -11,7 +11,7 @@ import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { PrepareProgress } from '../../src/pipeline.js';
 import Page from '../../ui/app/page.js';
-import { SESSION, installRafStub } from './harness.js';
+import { SESSION, flushRaf, installRafStub } from './harness.js';
 
 vi.mock('../../ui/components/MapIsland.js', async () => {
   const { createFakeScene, delayedMapIslandMock } = await import('./harness.js');
@@ -193,8 +193,8 @@ describe('the empty workspace at launch', () => {
     expect(stageCta().textContent).toContain('Open…');
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
-    expect(menuItem('Open…').disabled).toBe(false);
-    expect(menuItem('Export video…').disabled).toBe(true);
+    expect(menuItem('Open…').getAttribute('aria-disabled')).toBeNull();
+    expect(menuItem('Export video…').getAttribute('aria-disabled')).toBe('true');
     for (const name of ['Jump to start', 'Play', 'Jump to end', '1×', '2×', '3×', '4×']) {
       expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
     }
@@ -202,9 +202,9 @@ describe('the empty workspace at launch', () => {
       screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
     ).toBe(true);
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    expect(menuItem('Swap').disabled).toBe(true);
+    expect(menuItem('Swap').getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    expect(menuItem('Documentation').disabled).toBe(false);
+    expect(menuItem('Documentation').getAttribute('aria-disabled')).toBeNull();
     expect(screen.getByText('No telemetry yet')).toBeTruthy();
     expect(screen.getByText('No recording loaded')).toBeTruthy();
     expect(screen.getByText(/SRT sidecar/)).toBeTruthy();
@@ -297,6 +297,24 @@ describe('keyboard before a recording loads', () => {
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(document.querySelector('.workspace')).not.toBeNull();
+  });
+});
+
+describe('menu bar label navigation (#238)', () => {
+  it('keeps the label arrows on the menu bar and away from the player shortcuts', async () => {
+    const harness = installBridge();
+    openWorkspace();
+    await commitLoaded(harness);
+    const [file, view] = [...document.querySelectorAll<HTMLButtonElement>('.menu-bar-label')];
+    const scrubber = document.querySelector<HTMLInputElement>('.timeline input[type="range"]');
+    const before = scrubber?.value ?? '0';
+    file.focus();
+    fireEvent.keyDown(file, { key: 'ArrowRight' });
+    act(() => flushRaf());
+    // The label focus move proves the menu bar won the window-capture race
+    // against the player hotkeys; a frame step would rewrite the scrubber.
+    expect(document.activeElement).toBe(view);
+    expect(scrubber?.value ?? '0').toBe(before);
   });
 });
 

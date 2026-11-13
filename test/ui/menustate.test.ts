@@ -25,7 +25,7 @@ function run(
 describe('reduceMenu pointer behavior', () => {
   it('opens a menu on its label without highlighting a row', () => {
     const { state } = run([{ type: 'toggle', menu: 'file' }]);
-    expect(state).toEqual({ open: 'file', active: null, altPending: false });
+    expect(state).toEqual({ open: 'file', active: null, altPending: false, label: 0 });
   });
 
   it('toggles the open menu closed', () => {
@@ -81,7 +81,7 @@ describe('reduceMenu pointer behavior', () => {
 });
 
 describe('reduceMenu keyboard navigation', () => {
-  const opened: MenuState = { open: 'file', active: null, altPending: false };
+  const opened: MenuState = { open: 'file', active: null, altPending: false, label: 0 };
 
   it('walks the rows with ArrowDown and wraps', () => {
     const downs = (count: number): MenuEvent[] =>
@@ -148,7 +148,7 @@ describe('reduceMenu keyboard navigation', () => {
 });
 
 describe('reduceMenu activation rules', () => {
-  const onDisabled: MenuState = { open: 'file', active: 1, altPending: false };
+  const onDisabled: MenuState = { open: 'file', active: 1, altPending: false, label: 0 };
 
   it('keeps the menu open and yields nothing for a disabled row', () => {
     const { state, commands } = run([{ type: 'keyDown', key: 'Enter' }], EMPTY, onDisabled);
@@ -157,14 +157,14 @@ describe('reduceMenu activation rules', () => {
   });
 
   it('ignores Enter and Space until a row is highlighted', () => {
-    const opened: MenuState = { open: 'file', active: null, altPending: false };
+    const opened: MenuState = { open: 'file', active: null, altPending: false, label: 0 };
     const { state, commands } = run([{ type: 'keyDown', key: 'Enter' }], LOADED, opened);
     expect(state).toEqual(opened);
     expect(commands).toEqual([]);
   });
 
   it('activates About in the Help menu without a recording', () => {
-    const onAbout: MenuState = { open: 'help', active: 1, altPending: false };
+    const onAbout: MenuState = { open: 'help', active: 1, altPending: false, label: 2 };
     const { state, commands } = run([{ type: 'keyDown', key: 'Enter' }], EMPTY, onAbout);
     expect(state.open).toBeNull();
     expect(commands).toEqual([{ type: 'activate', item: 'about' }]);
@@ -228,5 +228,47 @@ describe('reduceMenu Alt behavior', () => {
       { type: 'keyUp', key: 'Alt' },
     ]);
     expect(state.open).toBe('file');
+  });
+});
+
+describe('reduceMenu label navigation (single Tab stop)', () => {
+  it('walks the top-level labels with the arrows and wraps', () => {
+    expect(run([{ type: 'keyDown', key: 'ArrowRight' }]).state.label).toBe(1);
+    expect(run([{ type: 'keyDown', key: 'ArrowLeft' }]).state.label).toBe(2);
+    const around = run([
+      { type: 'keyDown', key: 'ArrowRight' },
+      { type: 'keyDown', key: 'ArrowRight' },
+      { type: 'keyDown', key: 'ArrowRight' },
+    ]);
+    expect(around.state.label).toBe(0);
+  });
+
+  it('keeps the bar closed while the arrows walk the labels', () => {
+    const { state, commands } = run([{ type: 'keyDown', key: 'ArrowRight' }]);
+    expect(state.open).toBeNull();
+    expect(commands).toEqual([]);
+  });
+
+  it('keeps the roving stop on the closed menu when a menu closes', () => {
+    const { state } = run([
+      { type: 'toggle', menu: 'help' },
+      { type: 'keyDown', key: 'Escape' },
+    ]);
+    expect(state).toMatchObject({ open: null, label: 2 });
+  });
+
+  it('points the roving stop at the menu that opens', () => {
+    expect(run([{ type: 'toggle', menu: 'view' }]).state.label).toBe(1);
+    expect(run([{ type: 'keyDown', key: 'h', altKey: true }]).state.label).toBe(2);
+    const switched = run([
+      { type: 'toggle', menu: 'file' },
+      { type: 'keyDown', key: 'ArrowRight' },
+    ]);
+    expect(switched.state).toMatchObject({ open: 'view', label: 1 });
+  });
+
+  it('treats an idempotent close as no transition at all', () => {
+    const result = reduceMenu(INITIAL_MENU_STATE, { type: 'close' }, LOADED);
+    expect(result.state).toBe(INITIAL_MENU_STATE);
   });
 });

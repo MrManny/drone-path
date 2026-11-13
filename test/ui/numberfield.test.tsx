@@ -61,6 +61,13 @@ describe('NumberField message lifecycle', () => {
     expect(onValue).toHaveBeenLastCalledWith(3);
   });
 
+  it('puts the hint in aria-describedby (#238)', () => {
+    const { input } = renderZoom();
+    const hint = screen.getByText('0 = auto-fit');
+    expect(hint.id).not.toBe('');
+    expect(input.getAttribute('aria-describedby')).toBe(hint.id);
+  });
+
   it('clears the message and reverts the draft on blur', () => {
     const { input } = renderZoom({ value: 2 });
     fireEvent.change(input, { target: { value: '-1' } });

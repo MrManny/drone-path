@@ -123,25 +123,27 @@ describe('MenuBar', () => {
     ]);
   });
 
-  it('disables the recording-bound items without a recording', () => {
+  it('marks the recording-bound rows disabled without a recording', () => {
     renderBar({ hasRecording: false });
     openFile();
     for (const name of ['Export video…', 'Export telemetry…', 'Settings']) {
-      expect(screen.getByRole<HTMLButtonElement>('menuitem', { name }).disabled).toBe(true);
+      expect(screen.getByRole('menuitem', { name }).getAttribute('aria-disabled')).toBe('true');
     }
-    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(false);
-    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(false);
+    expect(screen.getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Swap' }).disabled).toBe(true);
+    expect(screen.getByRole('menuitem', { name: 'Swap' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'About' }).disabled).toBe(false);
+    expect(screen.getByRole('menuitem', { name: 'About' }).getAttribute('aria-disabled')).toBeNull();
   });
 
   it('holds Open while a recording is opening', () => {
     renderBar({ opening: true });
     openFile();
-    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Open…' }).disabled).toBe(true);
-    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Exit' }).disabled).toBe(false);
+    expect(screen.getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
   });
 
   it('passes item tooltips through to the rows', () => {
@@ -233,5 +235,63 @@ describe('MenuBar', () => {
     pressKey({ key: 'Escape' });
     expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
     expect(handlers.onActivate).not.toHaveBeenCalled();
+  });
+});
+
+describe('MenuBar APG keyboard model (#238)', () => {
+  function labels(): HTMLButtonElement[] {
+    return [...document.querySelectorAll<HTMLButtonElement>('.menu-bar-label')];
+  }
+
+  it('has an accessible name and a single Tab stop', () => {
+    renderBar();
+    expect(screen.getByRole('menubar', { name: 'Main menu' })).toBeTruthy();
+    expect(labels().map((label) => label.tabIndex)).toEqual([0, -1, -1]);
+  });
+
+  it('moves the label focus and the Tab stop with the arrows', () => {
+    renderBar();
+    const [file, view, help] = labels();
+    file.focus();
+    fireEvent.keyDown(file, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(view);
+    expect(labels().map((label) => label.tabIndex)).toEqual([-1, 0, -1]);
+    fireEvent.keyDown(view, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(file);
+    expect(labels().map((label) => label.tabIndex)).toEqual([0, -1, -1]);
+    fireEvent.keyDown(file, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(help);
+  });
+
+  it('keeps focus on a disabled row so it gets announced', () => {
+    renderBar({ hasRecording: false });
+    pressKey({ key: 'f', altKey: true });
+    const rows = fileRows();
+    pressKey({ key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rows[1]);
+    expect(rows[1].getAttribute('aria-disabled')).toBe('true');
+    pressKey({ key: 'Enter' });
+    expect(screen.queryByRole('menu', { name: 'File' })).toBeTruthy();
+  });
+
+  it('closes the open menu on Tab and hands back normal navigation', () => {
+    renderBar();
+    pressKey({ key: 'f', altKey: true });
+    const rows = fileRows();
+    expect(document.activeElement).toBe(rows[0]);
+    // Unclaimed by the menu: the browser keeps its own tab order for the key.
+    expect(fireEvent.keyDown(rows[0], { key: 'Tab' })).toBe(true);
+    expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'File' }));
+  });
+
+  it('closes the open menu when focus leaves the bar', () => {
+    renderBar();
+    pressKey({ key: 'f', altKey: true });
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    fireEvent.blur(fileRows()[0], { relatedTarget: outside });
+    expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
+    outside.remove();
   });
 });
