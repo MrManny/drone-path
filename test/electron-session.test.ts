@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { openElectronSession } from '../app/electron-session.mjs';
 import type { CaptureSessionSpec } from '../app/electron-session.mjs';
@@ -23,7 +23,11 @@ function makeImage(
 }
 
 const harness = vi.hoisted(() => {
-  const state: { loadError: unknown } = { loadError: null };
+  const state: { loadError: unknown; loadHangs: boolean; captureHangs: boolean } = {
+    loadError: null,
+    loadHangs: false,
+    captureHangs: false,
+  };
 
   class FakeWebContents {
     emulation: unknown = null;
@@ -41,6 +45,7 @@ const harness = vi.hoisted(() => {
     }
 
     async capturePage(): Promise<unknown> {
+      if (state.captureHangs) return new Promise<never>(() => {});
       return this.image;
     }
   }
@@ -60,6 +65,7 @@ const harness = vi.hoisted(() => {
 
     async loadURL(url: string): Promise<string> {
       this.loadedUrl = url;
+      if (state.loadHangs) return new Promise<never>(() => {});
       if (state.loadError) throw state.loadError;
       return 'ok';
     }
@@ -98,6 +104,12 @@ function windowAt(index = 0): InstanceType<typeof harness.FakeBrowserWindow> {
 beforeEach(() => {
   harness.windows.length = 0;
   harness.state.loadError = null;
+  harness.state.loadHangs = false;
+  harness.state.captureHangs = false;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('openElectronSession window setup', () => {
@@ -190,5 +202,56 @@ describe('openElectronSession lifecycle', () => {
     await session.close();
 
     expect(windowAt().destroyed).toBe(true);
+  });
+});
+
+describe('openElectronSession timeouts', () => {
+  const TIMEOUT_MS = 60000;
+
+  it('fails the session when the page never becomes ready, and destroys the window', async () => {
+    vi.useFakeTimers();
+    const settled = openElectronSession(spec()).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    // The ready poll's executeJavaScript resolves with a promise that never
+    // settles: a page whose boot failed before bootScene's own ready timer.
+    windowAt().contents.jsResults.push(new Promise<never>(() => {}));
+    for (let i = 0; i < 10 && windowAt().contents.codes.length === 0; i++) {
+      await Promise.resolve();
+    }
+    await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+
+    const err = await settled;
+    expect(err?.message).toBe('render page did not become ready in 60s');
+    expect(windowAt().destroyed).toBe(true);
+  });
+
+  it('fails the session when the page load hangs, and destroys the window', async () => {
+    harness.state.loadHangs = true;
+    vi.useFakeTimers();
+    const settled = openElectronSession(spec()).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+
+    const err = await settled;
+    expect(err?.message).toBe('page load timed out after 60s');
+    expect(windowAt().destroyed).toBe(true);
+  });
+
+  it('fails a frame capture that never completes', async () => {
+    const session = await openElectronSession(spec());
+    harness.state.captureHangs = true;
+    vi.useFakeTimers();
+    const settled = session.capture().then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+
+    const err = await settled;
+    expect(err?.message).toBe('frame capture timed out after 60s');
   });
 });

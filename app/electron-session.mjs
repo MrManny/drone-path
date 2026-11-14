@@ -9,9 +9,13 @@ import { BrowserWindow } from 'electron';
 
 import { JPEG_QUALITY } from '../dist/encode.js';
 
-// Mirrors the CLI's waitForFunction('window.__READY === true'): the scene
-// flips __READY once its first frame is drawable (with its own timeout
-// fallback), so a page-side poll is enough.
+// Mirrors src/render.ts's page and screenshot timeouts. A page that never
+// loads or boots must fail the export, not hang it: the scene's own ready
+// timeout only exists once bootScene has constructed the Scene, so a boot
+// failure would leave an unbounded poll here otherwise.
+const PAGE_LOAD_TIMEOUT_MS = 60000;
+const SCREENSHOT_TIMEOUT_MS = 60000;
+
 const READY_POLL =
   'new Promise((resolve) => {' +
   ' const poll = () => {' +
@@ -19,6 +23,17 @@ const READY_POLL =
   ' };' +
   ' poll();' +
   '})';
+
+function withTimeout(work, ms, message) {
+  // The race's loser must never surface as an unhandled rejection.
+  work.catch(() => {});
+  let timer;
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  timeout.catch(() => {});
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
 
 export async function openElectronSession({ url, width, height, capture }) {
   const win = new BrowserWindow({
@@ -45,8 +60,16 @@ export async function openElectronSession({ url, width, height, capture }) {
       viewSize: { width, height },
       deviceScaleFactor: 1,
     });
-    await win.loadURL(url);
-    await win.webContents.executeJavaScript(READY_POLL);
+    await withTimeout(
+      win.loadURL(url),
+      PAGE_LOAD_TIMEOUT_MS,
+      `page load timed out after ${PAGE_LOAD_TIMEOUT_MS / 1000}s`,
+    );
+    await withTimeout(
+      win.webContents.executeJavaScript(READY_POLL),
+      PAGE_LOAD_TIMEOUT_MS,
+      `render page did not become ready in ${PAGE_LOAD_TIMEOUT_MS / 1000}s`,
+    );
   } catch (e) {
     win.destroy();
     throw e;
@@ -57,7 +80,11 @@ export async function openElectronSession({ url, width, height, capture }) {
       await win.webContents.executeJavaScript(`window.__setFrame(${frame})`);
     },
     async capture() {
-      const image = await win.webContents.capturePage();
+      const image = await withTimeout(
+        win.webContents.capturePage(),
+        SCREENSHOT_TIMEOUT_MS,
+        `frame capture timed out after ${SCREENSHOT_TIMEOUT_MS / 1000}s`,
+      );
       const size = image.getSize();
       const fitted =
         size.width === width && size.height === height ? image : image.resize({ width, height });

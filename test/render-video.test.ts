@@ -226,22 +226,24 @@ describe('the app export runs with playwright-core unresolvable', () => {
 describe('the Electron render driver honors the renderVideo contract', () => {
   it('rejects with the ffmpeg error when the encoder exits non-zero', async () => {
     mocks.exitCode = 3;
-    const { openSession } = fakeSessions();
+    const { openSession, state } = fakeSessions();
     const renderVideo = createElectronRenderVideo({ openSession });
 
     await expect(renderVideo(renderOpts())).rejects.toThrow('ffmpeg exited with code 3');
+    expect(state.closed).toBe(state.specs.length);
   });
 
   it('rejects when a frame capture fails', async () => {
-    const { openSession } = fakeSessions({ captureError: 'capture failed' });
+    const { openSession, state } = fakeSessions({ captureError: 'capture failed' });
     const renderVideo = createElectronRenderVideo({ openSession });
 
     await expect(renderVideo(renderOpts())).rejects.toThrow('capture failed');
+    expect(state.closed).toBe(state.specs.length);
   });
 
   it('cancels a running render with the shared cancel error', async () => {
     const controller = new AbortController();
-    const { openSession } = fakeSessions({
+    const { openSession, state } = fakeSessions({
       onSetFrame: (frame) => {
         if (frame >= 2) controller.abort();
       },
@@ -251,6 +253,7 @@ describe('the Electron render driver honors the renderVideo contract', () => {
     await expect(renderVideo(renderOpts({ signal: controller.signal }))).rejects.toThrow(
       ERR_RENDER_CANCELED,
     );
+    expect(state.closed).toBe(state.specs.length);
   });
 
   it('stepped frames cover exactly frameStart..frameStart+frames-1', async () => {
@@ -260,6 +263,7 @@ describe('the Electron render driver honors the renderVideo contract', () => {
     await renderVideo(renderOpts({ frames: 5, frameStart: 10 }));
 
     expect([...state.frames].sort((a, b) => a - b)).toEqual([10, 11, 12, 13, 14]);
+    expect(state.closed).toBe(state.specs.length);
   });
 });
 
