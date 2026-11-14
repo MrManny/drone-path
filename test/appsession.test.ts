@@ -45,7 +45,7 @@ const TELEMETRY = {
 const PREPARED: PreparedUiSession = {
   session: SESSION,
   telemetry: TELEMETRY,
-  track: { records: [], fpsValue: 30 },
+  track: { records: [], fpsValue: 30, frameCount: 3 },
 };
 
 const REQUEST: PickRequest = {
@@ -620,11 +620,19 @@ describe('AppSession.saveTelemetryJson', () => {
     { what: 'a reversed range', range: { start: 3, end: 1 }, message: '0 <= start <= end' },
     { what: 'fractional frames', range: { start: 0.5, end: 2 }, message: 'integer frame indices' },
     { what: 'an end past the recording', range: { start: 3, end: 5 }, message: 'beyond the recording' },
+    {
+      what: 'a far out-of-bounds range',
+      range: { start: 0, end: 5000 },
+      message: 'beyond the recording (5 frames)',
+    },
   ])('rejects $what and writes nothing', async ({ range, message }) => {
     const session = await loadedSession(mp4());
-    const out = path.join(tmpDir(), 'range.telemetry.json');
-    expect(() => session.saveTelemetryJson(out, range)).toThrow(message);
-    expect(fs.existsSync(out)).toBe(false);
+    // every format validates the range - document and track formats alike
+    for (const name of ['range.telemetry.json', 'range.gpx', 'range.kmz']) {
+      const out = path.join(tmpDir(), name);
+      expect(() => session.saveTelemetryJson(out, range)).toThrow(message);
+      expect(fs.existsSync(out)).toBe(false);
+    }
   });
 
   it('refuses to save when no recording is loaded', () => {

@@ -533,7 +533,11 @@ export function telemetryExportInput(prep: PreparedRecording): TelemetryDocument
 // source times for every telemetry source); the .json document keeps its own
 // record stream.
 export function trackExportStream(prep: PreparedRecording): TrackStream {
-  return { records: prep.trackValues, fpsValue: prep.probe.fps.value };
+  return {
+    records: prep.trackValues,
+    fpsValue: prep.probe.fps.value,
+    frameCount: prep.probe.frames,
+  };
 }
 
 function writeTrackExport(

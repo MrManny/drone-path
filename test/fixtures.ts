@@ -205,7 +205,11 @@ export function trackExportFixture(
 ): TrackExportInput {
   return {
     document: trackDocumentFixture(rows),
-    track: { records: trackRecordsFixture(rows, fpsValue), fpsValue },
+    track: {
+      records: trackRecordsFixture(rows, fpsValue),
+      fpsValue,
+      frameCount: rows.length,
+    },
   };
 }
 

@@ -69,6 +69,7 @@ describe('track export record selection', () => {
         { ...scanRows[2], tSec: 6 },
       ],
       fpsValue: 30,
+      frameCount: 300,
     },
   };
 
@@ -84,10 +85,23 @@ describe('track export record selection', () => {
     }));
     const input: TrackExportInput = {
       document: { ...trackDocumentFixture(rows), frameCount: 5 },
-      track: { records: rows.map((row, i) => ({ ...row, tSec: i / 30 })), fpsValue: 30 },
+      track: {
+        records: rows.map((row, i) => ({ ...row, tSec: i / 30 })),
+        fpsValue: 30,
+        frameCount: 5,
+      },
     };
     const gpx = trackFileBytes('flight.gpx', input, null) as string;
     expect(gpx.match(/<trkpt /g)).toHaveLength(7);
+  });
+
+  it('rejects an out-of-bounds range like the document writer', () => {
+    expect(() => trackFileBytes('flight.gpx', scanInput, { start: 0, end: 5000 })).toThrow(
+      'frame range 0-5000 is beyond the recording (300 frames)',
+    );
+    expect(() => trackFileBytes('flight.kmz', scanInput, { start: 300, end: 300 })).toThrow(
+      'beyond the recording (300 frames)',
+    );
   });
 
   it('selects records by source time against the frame span, not by position', () => {

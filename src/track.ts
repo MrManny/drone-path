@@ -4,6 +4,7 @@
 // per-source-frame records as the telemetry JSON document, so the CLI and the
 // desktop app export byte-identical tracks for the same records.
 
+import { resolveFrameRange } from './config.js';
 import type { FrameRange } from './config.js';
 import type { TelemetryFrameInput } from './telemetry-json.js';
 
@@ -82,23 +83,29 @@ export interface TrackStream {
   records: readonly TrackRecord[];
   /** Frame rate that maps record times onto frame indices. */
   fpsValue: number;
+  /** Frame count of the recording: bounds-checks ranges and clamps the clip end. */
+  frameCount: number;
 }
 
-function frameOf(record: TrackRecord, fpsValue: number): number {
-  return Math.round(record.tSec * fpsValue);
+function frameOf(record: TrackRecord, stream: TrackStream): number {
+  // The final sample of a spread sample stream sits at exactly the clip
+  // duration - it belongs to the last frame, never past it.
+  return Math.min(Math.round(record.tSec * stream.fpsValue), stream.frameCount - 1);
 }
 
 /**
  * Selects the records for a frame range (inclusive bounds) by their source
  * time; a null range keeps every record, however many there are per frame.
+ * Invalid and out-of-bounds ranges are rejected like on the document path.
  */
 export function selectTrackRecords(
   stream: TrackStream,
   range: FrameRange | null,
 ): readonly TrackRecord[] {
-  if (!range) return stream.records;
+  const span = resolveFrameRange(range, stream.frameCount);
+  if (!span) return stream.records;
   return stream.records.filter((record) => {
-    const frame = frameOf(record, stream.fpsValue);
-    return frame >= range.start && frame <= range.end;
+    const frame = frameOf(record, stream);
+    return frame >= span.start && frame <= span.end;
   });
 }

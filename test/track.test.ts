@@ -91,7 +91,7 @@ describe('selectTrackRecords', () => {
     { lat: 3, lng: 4, tSec: 5 }, // frame 150
     { lat: 5, lng: 6, tSec: 6 }, // frame 180
   ];
-  const stream = { records: scan, fpsValue: 30 };
+  const stream = { records: scan, fpsValue: 30, frameCount: 300 };
 
   it('keeps every record without a range, whatever the frame count', () => {
     expect(selectTrackRecords(stream, null)).toEqual(scan);
@@ -113,9 +113,9 @@ describe('selectTrackRecords', () => {
       lng: 14.2,
       tSec: frame / 30,
     }));
-    expect(selectTrackRecords({ records: aligned, fpsValue: 30 }, { start: 1, end: 3 })).toEqual(
-      aligned.slice(1, 4),
-    );
+    expect(
+      selectTrackRecords({ records: aligned, fpsValue: 30, frameCount: 5 }, { start: 1, end: 3 }),
+    ).toEqual(aligned.slice(1, 4));
   });
 
   it('keeps several records that fall on one frame together', () => {
@@ -123,8 +123,31 @@ describe('selectTrackRecords', () => {
       { lat: 1, lng: 2, tSec: 5 },
       { lat: 3, lng: 4, tSec: 5.01 },
     ];
-    expect(selectTrackRecords({ records: burst, fpsValue: 30 }, { start: 150, end: 150 })).toEqual(
-      burst,
+    expect(
+      selectTrackRecords({ records: burst, fpsValue: 30, frameCount: 300 }, { start: 150, end: 150 }),
+    ).toEqual(burst);
+  });
+
+  it('rejects invalid and out-of-bounds ranges like the document path', () => {
+    expect(() => selectTrackRecords(stream, { start: 0, end: 5000 })).toThrow(
+      'frame range 0-5000 is beyond the recording (300 frames)',
     );
+    expect(() => selectTrackRecords(stream, { start: 3, end: 1 })).toThrow('0 <= start <= end');
+  });
+
+  it('keeps the final sample of a spread sample stream at the clip end', () => {
+    // spreadSampleTimes puts the last scan sample at exactly the clip
+    // duration: 10 s of 300 frames at 30 fps maps to frame 300, one past
+    // the last frame - it belongs to the last frame and must export
+    const spread: TrackRecord[] = [
+      { lat: 1, lng: 2, tSec: 5 },
+      { lat: 3, lng: 4, tSec: 10 },
+    ];
+    const clip = { records: spread, fpsValue: 30, frameCount: 300 };
+    expect(selectTrackRecords(clip, { start: 0, end: 299 })).toEqual(spread);
+    expect(selectTrackRecords(clip, { start: 0, end: 299 }).at(-1)).toEqual(
+      selectTrackRecords(clip, null).at(-1),
+    );
+    expect(selectTrackRecords(clip, { start: 299, end: 299 })).toEqual([spread[1]]);
   });
 });
