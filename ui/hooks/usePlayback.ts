@@ -8,7 +8,7 @@ import type { Scene } from '../../src/renderer/scene.js';
 import { createFrameDriver } from '../lib/framedriver.js';
 import { clampFrame, formatTimeReadout } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
-import { engagedLoop } from '../lib/loop.js';
+import { markLoopPoint, resolveLoop } from '../lib/loop.js';
 
 const NO_LOOP: LoopState = { in: null, out: null };
 
@@ -105,13 +105,13 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
     const videoEl = videoRef.current;
     if (!videoEl || !ready) return;
     if (videoEl.paused) {
-      const active = engagedLoop(loop);
+      const active = resolveLoop(loop, video.frames - 1);
       if (videoEl.ended && active) scrubTo(active.in);
       videoEl.play().catch(() => {});
     } else {
       videoEl.pause();
     }
-  }, [ready, loop, scrubTo]);
+  }, [ready, loop, scrubTo, video.frames]);
 
   const stepBy = useCallback(
     (deltaFrames: number) => {
@@ -123,7 +123,7 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
   );
 
   const setLoopPoint = useCallback((which: 'in' | 'out') => {
-    setLoop((prev) => ({ ...prev, [which]: latestIndexRef.current }));
+    setLoop((prev) => markLoopPoint(prev, which, latestIndexRef.current));
   }, []);
 
   const setLoopFrame = useCallback(

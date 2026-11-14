@@ -517,7 +517,7 @@ describe('PlayerChrome keyboard shortcuts', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
     key(window, { key: 'o' });
     expect(onOpen).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('in … · out 0:00')).toBeTruthy();
+    expect(screen.getByText('in 0:00 · out 0:00')).toBeTruthy();
     const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
     key(scrub, { key: 'o', ctrlKey: true });
     expect(onOpen).toHaveBeenCalledTimes(2);
@@ -584,12 +584,82 @@ describe('PlayerChrome loop region', () => {
     expect(clear.getAttribute('title')).toBe('Clear in and out points (Esc)');
   });
 
-  it('shows no region for an out-of-order loop', async () => {
+  it('supersedes a stale out point when the in point lands past it (#245)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '30' } });
+    key(window, { key: 'o' });
+    fireEvent.change(scrub, { target: { value: '60' } });
+    key(window, { key: 'i' });
+    act(() => flushRaf());
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:02 · out 0:03');
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo((60 / 89) * 100);
+    expect(parseFloat(band.style.width)).toBeCloseTo((29 / 89) * 100);
+    const handles = document.querySelectorAll('.loop-handle');
+    expect(handles).toHaveLength(1);
+    expect(handles[0].className).toContain('loop-handle-in');
+  });
+
+  it('supersedes a stale in point when the out point lands before it (#245)', async () => {
     await renderPlayer();
     setLoopRegion(60, 30);
-    expect(document.querySelector('.loop-band')).toBeNull();
-    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:02 · out 0:01');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' }).disabled).toBe(false);
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:00 · out 0:01');
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo(0);
+    expect(parseFloat(band.style.width)).toBeCloseTo((30 / 89) * 100);
+    const handles = document.querySelectorAll('.loop-handle');
+    expect(handles).toHaveLength(1);
+    expect(handles[0].className).toContain('loop-handle-out');
+  });
+
+  it('shows a lone in point as a half-open band to the track end (#245)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '30' } });
+    key(window, { key: 'i' });
+    act(() => flushRaf());
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:01 · out 0:03');
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo((30 / 89) * 100);
+    expect(parseFloat(band.style.width)).toBeCloseTo((59 / 89) * 100);
+    expect(document.querySelectorAll('.loop-handle')).toHaveLength(1);
+  });
+
+  it('wraps playback past a lone out point back to the track start (#245)', async () => {
+    const fake = await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '60' } });
+    key(window, { key: 'o' });
+    act(() => flushRaf());
+    fake.state.paused = false;
+    fake.state.currentTime = 70 / 30;
+    act(() => flushRaf());
+    expect(fake.state.currentTime).toBeCloseTo(0.5 / 30);
+  });
+
+  it('resumes an end-of-file lone in point at the in point (#245)', async () => {
+    const fake = await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '30' } });
+    key(window, { key: 'i' });
+    act(() => flushRaf());
+    fake.state.ended = true;
+    fake.state.paused = true;
+    key(window, { key: ' ' });
+    expect(fake.play).toHaveBeenCalledTimes(1);
+    act(() => flushRaf());
+    expect(fake.state.currentTime).toBeCloseTo(30.5 / 30);
+    await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
+  });
+
+  it('preselects the In–Out segment in the export dialog for a lone point (#245)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '30' } });
+    key(window, { key: 'i' });
+    clickMenuItem('Export video…');
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
   });
 
   it('resumes an end-of-file loop at the loop start, not the file start', async () => {
@@ -814,5 +884,19 @@ describe('PlayerChrome export telemetry', () => {
     if (finish) finish({ ok: true });
     await settle();
     expect(screen.getByText('Covers the In–Out segment (0:00–0:02 · 51 frames)')).toBeTruthy();
+  });
+
+  it('resolves a lone in point into the saved telemetry range (#245)', async () => {
+    const bridge = installTelemetryBridge();
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '10' } });
+    key(window, { key: 'i' });
+    clickMenuItem('Export telemetry…');
+    await settle();
+    expect(bridge.saveTelemetryJson).toHaveBeenCalledWith(
+      expect.objectContaining({ range: { start: 10, end: 89 } }),
+    );
+    expect(screen.getByText('Covers the In–Out segment (0:00–0:03 · 80 frames)')).toBeTruthy();
   });
 });

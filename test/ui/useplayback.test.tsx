@@ -181,6 +181,26 @@ describe('usePlayback', () => {
     expect(api.loop).toEqual({ in: null, out: null });
   });
 
+  it('supersedes a stale out point when the in point lands past it', () => {
+    render(<Harness />);
+    stubPlayback();
+    scrubAndMark(60, 'out');
+    scrubAndMark(70, 'in');
+    expect(api.loop).toEqual({ in: 70, out: null });
+    scrubAndMark(20, 'in');
+    expect(api.loop).toEqual({ in: 20, out: null });
+  });
+
+  it('supersedes a stale in point when the out point lands before it', () => {
+    render(<Harness />);
+    stubPlayback();
+    scrubAndMark(30, 'in');
+    scrubAndMark(10, 'out');
+    expect(api.loop).toEqual({ in: null, out: 10 });
+    scrubAndMark(50, 'out');
+    expect(api.loop).toEqual({ in: null, out: 50 });
+  });
+
   it('resumes an ended loop at the loop start, not the file start', async () => {
     render(<Harness />);
     const media = stubPlayback();
@@ -188,6 +208,22 @@ describe('usePlayback', () => {
     await waitFor(() => expect(api.ready).toBe(true));
     scrubAndMark(30, 'in');
     scrubAndMark(60, 'out');
+    media.state.ended = true;
+    media.state.paused = true;
+    act(() => {
+      api.togglePlay();
+    });
+    act(() => flushRaf());
+    expect(media.play).toHaveBeenCalledTimes(1);
+    expect(media.state.currentTime).toBeCloseTo(30.5 / 30);
+  });
+
+  it('resumes an ended lone in point at that point, not the file start', async () => {
+    render(<Harness />);
+    const media = stubPlayback();
+    api.handleScene(fakeScene);
+    await waitFor(() => expect(api.ready).toBe(true));
+    scrubAndMark(30, 'in');
     media.state.ended = true;
     media.state.paused = true;
     act(() => {

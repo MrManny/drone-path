@@ -8,10 +8,29 @@ export interface LoopState {
   out: number | null;
 }
 
-export function engagedLoop(state: LoopState): LoopPoints | null {
-  return state.in !== null && state.out !== null && state.in < state.out
-    ? { in: state.in, out: state.out }
-    : null;
+// The loop band is half-open: a lone in point runs to the end of the track
+// and a lone out point from its start (#245); a crossed pair is a dead state
+// that stays inert because markLoopPoint keeps it unreachable from the UI.
+export function resolveLoop(state: LoopState, maxFrame: number): LoopPoints | null {
+  const lo = state.in;
+  const hi = state.out;
+  if (lo !== null && hi !== null) return lo < hi ? { in: lo, out: hi } : null;
+  if (lo !== null) return { in: lo, out: maxFrame };
+  if (hi !== null) return { in: 0, out: hi };
+  return null;
+}
+
+// Setting a point past the other supersedes the stale one (the same frame
+// counts as past) so in < out holds in every state the UI can reach (#245).
+export function markLoopPoint(state: LoopState, which: 'in' | 'out', frame: number): LoopState {
+  if (which === 'in') {
+    return state.out !== null && frame >= state.out
+      ? { in: frame, out: null }
+      : { in: frame, out: state.out };
+  }
+  return state.in !== null && frame <= state.in
+    ? { in: null, out: frame }
+    : { in: state.in, out: frame };
 }
 
 export function hasLoop(state: LoopState): boolean {

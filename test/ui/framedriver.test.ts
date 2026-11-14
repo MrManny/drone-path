@@ -280,6 +280,56 @@ describe('createFrameDriver loop wrap', () => {
     expect(video.ended).toBe(false);
   });
 
+  it('wraps a lone in point from the end of the file back to the in point', () => {
+    const video = fakeVideo();
+    const { driver } = build(video);
+    driver.setLoop({ in: 5, out: null });
+    driver.start();
+    video.currentTime = 299 / 30;
+    video.ended = true;
+    flushRaf();
+    expect(video.currentTime).toBeCloseTo(5.5 / 30);
+    expect(video.play).toHaveBeenCalled();
+    expect(video.ended).toBe(false);
+  });
+
+  it('wraps past a lone out point back to the track start', () => {
+    const video = fakeVideo();
+    const { applyFrame, driver } = build(video);
+    driver.setLoop({ in: null, out: 20 });
+    driver.start();
+    video.paused = false;
+    video.currentTime = 21 / 30;
+    flushRaf();
+    expect(video.currentTime).toBeCloseTo(0.5 / 30);
+    expect(applyFrame).toHaveBeenCalledWith(0);
+    expect(applyFrame).not.toHaveBeenCalledWith(21);
+  });
+
+  it('plays a lone out point through its out point before wrapping', () => {
+    const video = fakeVideo();
+    const { applyFrame, driver } = build(video);
+    driver.setLoop({ in: null, out: 20 });
+    driver.start();
+    video.paused = false;
+    video.currentTime = 20 / 30;
+    flushRaf();
+    expect(applyFrame).toHaveBeenCalledWith(20);
+    expect(video.currentTime).toBeCloseTo(20 / 30);
+  });
+
+  it('leaves frames before a lone in point playing outside the range', () => {
+    const video = fakeVideo();
+    const { applyFrame, driver } = build(video);
+    driver.setLoop({ in: 50, out: null });
+    driver.start();
+    video.paused = false;
+    video.currentTime = 10 / 30;
+    flushRaf();
+    expect(video.currentTime).toBeCloseTo(10 / 30);
+    expect(applyFrame).toHaveBeenCalledWith(10);
+  });
+
   it('does not wrap when paused at the end without a loop', () => {
     const video = fakeVideo();
     const { driver } = build(video);
