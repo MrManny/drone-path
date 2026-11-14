@@ -63,6 +63,8 @@ Without an In–Out segment, the form just sets size and encoding.
 
 Press **Start export**, pick the destination file, and follow the progress beside the preview until the done state names the exported file. The app remembers the encoding choices between launches like the look settings, and the output size while the recording is open.
 
+Exporting renders the map in a system browser, so Google Chrome or Microsoft Edge must be installed (see [Requirements](getting-started.md#requirements)).
+
 ![The export dialog with the output preview beside the export form](../images/app-export-form.jpg)
 
 *The Export video dialog: the output preview shows the exact map output beside the export form.*
@@ -121,6 +123,6 @@ The **Help** menu's first item opens the Help overlay — this manual — inside
 
 ## Notes
 
-- The app embeds Chromium and needs no system browser; ffmpeg and ffprobe are bundled too — a config file's `ffmpeg`/`ffprobe` keys work like the CLI's flags, and `PATH` remains a fallback.
+- Video export needs Google Chrome or Microsoft Edge on the system; with neither installed, `npx playwright install chromium` works too (see [Requirements](getting-started.md#requirements)). ffmpeg and ffprobe are bundled — a config file's `ffmpeg`/`ffprobe` keys work like the CLI's flags, and `PATH` remains a fallback.
 - Map tiles need internet on the first run and are cached like CLI tiles (see [Tiles and attribution](tiles-and-attribution.md)).
 - One recording at a time — batch rendering stays a CLI concern.
