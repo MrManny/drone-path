@@ -13,7 +13,7 @@ import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import { useTelemetrySave } from '../hooks/useTelemetrySave.js';
 import type { StageLayout } from '../lib/layout.js';
-import { resolveLoop } from '../lib/loop.js';
+import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import type { MenuItemId } from '../lib/menumodel.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
@@ -125,9 +125,7 @@ export function PlayerChrome({
     ) : null;
 
   const loopPoints = resolveLoop(loop, maxFrame);
-  const telemetryRange = loopPoints
-    ? { start: loopPoints.in, end: loopPoints.out }
-    : null;
+  const telemetryRange = loopPoints ? frameRangeOf(loopPoints) : null;
   const scope = telemetryScope(telemetryRange, video.fps, durationSec);
   const {
     phase: telemetrySave,

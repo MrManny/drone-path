@@ -17,7 +17,7 @@ import {
 } from '../lib/exportstate.js';
 import { formatFrameRange, formatTime } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
-import { resolveLoop } from '../lib/loop.js';
+import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import { DialogShell } from './DialogShell.js';
 import { ExportDone } from './ExportDone.js';
 import { ExportError } from './ExportError.js';
@@ -25,7 +25,7 @@ import { ExportForm } from './ExportForm.js';
 import { ExportPreview } from './ExportPreview.js';
 import { ExportRunning } from './ExportRunning.js';
 
-export interface ExportModalProps {
+interface ExportModalProps {
   session: UiSession;
   settings: RenderConfig;
   loop: LoopState;
@@ -54,7 +54,7 @@ export function ExportModal({
     initialExportState(
       initialSizes?.width ?? settings.width,
       initialSizes?.height ?? settings.height,
-      loopPoints ? { start: loopPoints.in, end: loopPoints.out } : null,
+      loopPoints ? frameRangeOf(loopPoints) : null,
     ),
   );
   const busy = state.phase === 'running';
@@ -114,7 +114,7 @@ export function ExportModal({
   const totalText = formatTime(durationSec);
   const segment: { range: FrameRange; label: string } | null = loopPoints
     ? {
-        range: { start: loopPoints.in, end: loopPoints.out },
+        range: frameRangeOf(loopPoints),
         label: formatFrameRange(loopPoints, video.fps),
       }
     : null;

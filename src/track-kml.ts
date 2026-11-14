@@ -6,22 +6,17 @@
 // absolute (mean sea level) altitude. No wall-clock or version strings, so
 // identical input yields identical bytes.
 
+import { isoUtc } from './track.js';
 import type { TrackSegment, TrackVertex } from './track.js';
-
-function isoUtc(timeMs: number): string {
-  return new Date(timeMs).toISOString();
-}
 
 function altitudeMode(segment: TrackSegment): 'absolute' | 'clampToGround' {
   return segment.every((vertex) => vertex.altM !== null) ? 'absolute' : 'clampToGround';
 }
 
-function coordTuple(vertex: TrackVertex): string {
-  return `${vertex.lon} ${vertex.lat} ${vertex.altM ?? 0}`;
-}
-
-function coordinatesTuple(vertex: TrackVertex): string {
-  return `${vertex.lon},${vertex.lat},${vertex.altM ?? 0}`;
+// One coordinate rendering for both KML spellings: space-separated inside
+// <gx:coord>, comma-separated inside <coordinates>.
+function coordOf(vertex: TrackVertex, separator: string): string {
+  return `${vertex.lon}${separator}${vertex.lat}${separator}${vertex.altM ?? 0}`;
 }
 
 function placemarkLines(segment: TrackSegment): string[] {
@@ -32,13 +27,13 @@ function placemarkLines(segment: TrackSegment): string[] {
     lines.push('      <gx:Track>', `        <altitudeMode>${mode}</altitudeMode>`);
     for (const vertex of segment) {
       lines.push(`        <when>${isoUtc(vertex.timeMs as number)}</when>`);
-      lines.push(`        <gx:coord>${coordTuple(vertex)}</gx:coord>`);
+      lines.push(`        <gx:coord>${coordOf(vertex, ' ')}</gx:coord>`);
     }
     lines.push('      </gx:Track>');
   } else {
     lines.push('      <LineString>', `        <altitudeMode>${mode}</altitudeMode>`);
     lines.push(
-      `        <coordinates>${segment.map(coordinatesTuple).join(' ')}</coordinates>`,
+      `        <coordinates>${segment.map((vertex) => coordOf(vertex, ',')).join(' ')}</coordinates>`,
     );
     lines.push('      </LineString>');
   }

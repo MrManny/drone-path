@@ -4,11 +4,8 @@
 // trustworthy UTC. Assembled with fixed formatting and key order, so identical
 // input yields identical bytes.
 
+import { isoUtc } from './track.js';
 import type { TrackSegment, TrackVertex } from './track.js';
-
-function isoUtc(timeMs: number): string {
-  return new Date(timeMs).toISOString();
-}
 
 function position(vertex: TrackVertex): string {
   return vertex.altM !== null

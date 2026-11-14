@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clampHandleFrame,
   frameAtPointer,
+  frameRangeOf,
   hasLoop,
   markLoopPoint,
   resolveLoop,
@@ -206,5 +207,12 @@ describe('clampHandleFrame', () => {
     },
   ])('$name', ({ which, frame, state, maxFrame, want }) => {
     expect(clampHandleFrame(which, frame, state, maxFrame)).toBe(want);
+  });
+});
+
+describe('frameRangeOf', () => {
+  it('maps resolved loop points onto the export request range', () => {
+    expect(frameRangeOf({ in: 10, out: 20 })).toEqual({ start: 10, end: 20 });
+    expect(frameRangeOf({ in: 0, out: 0 })).toEqual({ start: 0, end: 0 });
   });
 });
