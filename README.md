@@ -26,8 +26,9 @@ npx drone-path "my-flight.mp4"
 # topographic map, altitude + speed HUD
 npx drone-path "my-flight.mp4" --style topo --hud heading,alt,speed
 
-# per-frame telemetry JSON alongside the render (one recording per run)
-npx drone-path "my-flight.mp4" --telemetry-json "my-flight.telemetry.json"
+# flight track file alongside the render (GPX, GeoJSON, KML/KMZ or the
+# telemetry JSON document, chosen by the extension; one recording per run)
+npx drone-path "my-flight.mp4" --track-out "my-flight.gpx"
 ```
 
 Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder

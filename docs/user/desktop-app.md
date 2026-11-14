@@ -89,6 +89,10 @@ The scope follows the in and out points automatically: with the In–Out segment
 
 Choosing it opens the native save dialog, which suggests `<recording>.telemetry.json` in the export folder; cancelling it starts nothing and leaves the workspace untouched. On confirm a compact dialog reports the export and then names the kept file and the scope it covers, with **Reveal in folder** opening its folder. For the same recording and range the file is byte-identical to the CLI output (see [CLI usage](cli.md)).
 
+The save dialog offers the same five formats as the CLI's `--track-out`: a GPX track (`.gpx`), a GeoJSON track (`.geojson`), a KML or KMZ track (`.kml`, `.kmz`), and the telemetry document (`.json`). The file name picks the format — the typed extension decides what is written, and the suggested `.telemetry.json` name keeps the document the default for a bare name. The track formats carry the flight path itself: vertices at decoded GPS fixes, gaps breaking the line into segments, absolute/GPS altitude in meters above mean sea level, and times only where a recording carries trustworthy UTC (today none does, so a KML track is a plain line per segment). The full field policy lives in [CLI usage](cli.md#flight-track-export).
+
+Every format honors the In–Out range exactly like the telemetry document: with the segment marked the file covers just those frames, and without it the full recording. For the same recording and range the app and the CLI write byte-identical files.
+
 ## Map appearance
 
 The **File → Map appearance…** menu item opens the *Map appearance* popover with the map look settings (it is available with or without a recording, since the look applies to future exports):
