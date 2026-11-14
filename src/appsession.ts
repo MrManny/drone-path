@@ -22,11 +22,14 @@ import {
   prepareSession,
   recordingPageOpts,
   telemetryExportInput,
+  trackExportInput,
 } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { PipelineDeps, PrepareProgressFn } from './pipeline.js';
-import { segmentTelemetryInput, writeTelemetryDocument } from './telemetry-json.js';
+import { segmentTelemetryInput } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
+import { trackFormatOf } from './track-format.js';
+import { writeTrackFile } from './track-write.js';
 
 export interface PageVideo {
   src: string;
@@ -89,8 +92,13 @@ export function parseTelemetrySaveRequest(raw: unknown): TelemetrySaveRequest {
       .min(1, { error: () => 'invalid telemetry save request: outPath' }),
     request.outPath,
   );
-  if (!outPath.toLowerCase().endsWith('.json')) {
-    throw new Error(`invalid telemetry save request: outPath must be a .json file: ${outPath}`);
+  try {
+    trackFormatOf(outPath);
+  } catch (e) {
+    throw new Error(
+      `invalid telemetry save request: outPath must be a .gpx, .geojson, .kml, .kmz or .json file: ${outPath}`,
+      { cause: e },
+    );
   }
   const range =
     request.range === undefined || request.range === null
@@ -110,6 +118,9 @@ export type PrepareUiSessionFn = (
 export interface PreparedUiSession {
   session: UiSession;
   telemetry: TelemetryDocumentInput;
+  // Fix-faithful records for the track formats; main-side only, never sent
+  // over IPC. The .json document keeps reading `telemetry`.
+  track: TelemetryDocumentInput;
 }
 
 export const prepareUiSession: PrepareUiSessionFn = async (
@@ -138,6 +149,7 @@ export const prepareUiSession: PrepareUiSessionFn = async (
       durationSec: frameExactDuration(prep.probe),
     },
     telemetry: telemetryExportInput(prep),
+    track: trackExportInput(prep),
   };
 };
 
@@ -204,7 +216,9 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     videoPath: () => videoPath,
     saveTelemetryJson(file: string, range: FrameRange | null): void {
       if (!prepared) throw new Error(ERR_NO_RECORDING);
-      writeTelemetryDocument(file, segmentTelemetryInput(prepared.telemetry, range));
+      const input =
+        trackFormatOf(file) === 'json' ? prepared.telemetry : prepared.track;
+      writeTrackFile(file, segmentTelemetryInput(input, range));
     },
   };
 }

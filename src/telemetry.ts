@@ -12,6 +12,9 @@ import type { TelemetryFrameInput } from './telemetry-json.js';
 export interface RecordingTelemetry {
   telemetry: Telemetry;
   frameValues: TelemetryFrameInput[];
+  // Fix-faithful records for the track exports, including the cammeta-scan
+  // method whose samples never reach the telemetry JSON document.
+  trackValues: TelemetryFrameInput[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
@@ -50,6 +53,7 @@ function camSampleToFrameValues(sample: CamSample): TelemetryFrameInput {
 
 interface SourceSamples extends TelemetrySamples {
   frameValues: TelemetryFrameInput[];
+  trackValues: TelemetryFrameInput[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
@@ -75,6 +79,7 @@ async function loadSamples(
       noLock: cam.noLock,
       frameValues:
         cam.method === 'dvtm-packets' ? cam.samples.map(camSampleToFrameValues) : [],
+      trackValues: cam.samples.map(camSampleToFrameValues),
       protoFile: cam.protoFile,
       gimbalDevice: cam.gimbalDevice,
     };
@@ -96,6 +101,7 @@ async function loadSamples(
       method: 'srt-cues',
       noLock: parsed.noLock,
       frameValues: parsed.cues.map(srtCueToFrameValues),
+      trackValues: parsed.cues.map(srtCueToFrameValues),
       protoFile: null,
       gimbalDevice: null,
     };
@@ -116,10 +122,11 @@ export async function loadTelemetry(
   }: { frames: number; fpsValue: number; durationSec: number; tools: FfmpegToolPaths },
 ): Promise<RecordingTelemetry> {
   const loaded = await loadSamples(tools, videoPath, durationSec);
-  const { frameValues, protoFile, gimbalDevice, ...samples } = loaded;
+  const { frameValues, trackValues, protoFile, gimbalDevice, ...samples } = loaded;
   return {
     telemetry: computeTelemetry(samples, { frames, fpsValue }),
     frameValues,
+    trackValues,
     protoFile,
     gimbalDevice,
   };

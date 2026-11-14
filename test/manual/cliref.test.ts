@@ -20,6 +20,11 @@ describe('generateCliReference', () => {
     expect(text).toContain('`--config <path>`');
   });
 
+  it('covers the deprecated --telemetry-json alias and its status', () => {
+    expect(text).toContain('| `telemetryJson` | `--telemetry-json <file>` | — |');
+    expect(text).toContain('deprecated alias of --track-out &lt;file&gt;.json');
+  });
+
   it('escapes angle brackets so GitHub renders the help text', () => {
     expect(text).toContain('&lt;basename&gt;');
   });

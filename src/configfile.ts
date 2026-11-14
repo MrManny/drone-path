@@ -29,7 +29,10 @@ export function discoverConfigFile(startDir: string): string | null {
   }
 }
 
-export function loadConfigFile(file: string): ConfigOverrides {
+export function loadConfigFile(
+  file: string,
+  onDeprecated?: (message: string) => void,
+): ConfigOverrides {
   let text: string;
   try {
     text = fs.readFileSync(file, 'utf8');
@@ -50,7 +53,7 @@ export function loadConfigFile(file: string): ConfigOverrides {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error(`config file must contain a JSON object: ${file}`);
   }
-  return normalizeOverrides(raw as Record<string, unknown>, file);
+  return normalizeOverrides(raw as Record<string, unknown>, file, onDeprecated);
 }
 
 export interface ResolvedConfig {
@@ -82,13 +85,14 @@ export function resolveConfig(opts: {
   cli?: ConfigOverrides;
   configPath?: string | null;
   cwd?: string;
+  onDeprecated?: (message: string) => void;
 }): ResolvedConfig {
   const cwd = opts.cwd ?? process.cwd();
   const configPath =
     opts.configPath !== undefined && opts.configPath !== null
       ? path.resolve(cwd, opts.configPath)
       : discoverConfigFile(cwd);
-  const fileCfg = configPath ? loadConfigFile(configPath) : {};
+  const fileCfg = configPath ? loadConfigFile(configPath, opts.onDeprecated) : {};
   const merged = mergeConfigLayers(fileCfg, opts.cli ?? {});
 
   validateRenderConfig(merged);

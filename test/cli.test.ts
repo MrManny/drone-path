@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildProgram, longFlagOf, parseCliArgs } from '../src/cli.js';
-import { CONFIG_OPTIONS, DEFAULT_CONFIG } from '../src/config.js';
+import { CONFIG_OPTIONS, DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
 import { defaultTileCache, resolveConfig } from '../src/configfile.js';
 import type * as ffmpegModule from '../src/ffmpeg.js';
 import type * as recordingsModule from '../src/recordings.js';
@@ -173,6 +173,33 @@ describe('parseCliArgs', () => {
     expect(() => parseCliArgs(['x.mp4', '--style', 'nope'])).toThrow(
       /Allowed choices are satellite, topo/,
     );
+  });
+});
+
+describe('--track-out and the deprecated --telemetry-json alias', () => {
+  it('parses --track-out into the one override key', () => {
+    const { cli, deprecationWarnings } = parseCliArgs(['x.mp4', '--track-out', 'flight.gpx']);
+    expect(cli).toEqual({ trackOut: 'flight.gpx' });
+    expect(deprecationWarnings).toEqual([]);
+  });
+
+  it('normalizes the deprecated --telemetry-json alias onto trackOut and warns', () => {
+    const parsed = parseCliArgs(['x.mp4', '--telemetry-json', 'flight.telemetry.json']);
+    expect(parsed.cli).toEqual({ trackOut: 'flight.telemetry.json' });
+    expect(parsed.deprecationWarnings).toEqual([TELEMETRY_JSON_ALIAS.cliWarning]);
+  });
+
+  it('rejects both spellings at once', () => {
+    expect(() =>
+      parseCliArgs(['x.mp4', '--track-out', 'a.gpx', '--telemetry-json', 'b.json']),
+    ).toThrow('--telemetry-json and --track-out cannot be combined (use --track-out)');
+  });
+
+  it('lists both spellings in the help output', () => {
+    const help = buildProgram().helpInformation();
+    expect(help).toMatch(/--track-out <file>/);
+    expect(help).toMatch(/--telemetry-json <file>/);
+    expect(help).toMatch(/deprecated alias/);
   });
 });
 

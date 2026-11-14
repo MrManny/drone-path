@@ -5,6 +5,7 @@ import {
   DEFAULT_CONFIG,
   OVERRIDE_NORMALIZERS,
   SETTINGS_KEYS,
+  TELEMETRY_JSON_ALIAS,
   asTrailColor,
   cliDefaultOf,
   formatHud,
@@ -93,16 +94,32 @@ describe('normalizeOverrides', () => {
     expect(normalizeOverrides({ zoom: null }, 'test')).toEqual({});
   });
 
-  it('normalizes the telemetry JSON path as a nullable string', () => {
-    expect(normalizeOverrides({ telemetryJson: 'telemetry.json' }, 'test')).toEqual({
-      telemetryJson: 'telemetry.json',
+  it('normalizes the track-out path as a nullable string', () => {
+    expect(normalizeOverrides({ trackOut: 'flight.gpx' }, 'test')).toEqual({
+      trackOut: 'flight.gpx',
     });
-    expect(normalizeOverrides({ telemetryJson: '' }, 'test')).toEqual({
-      telemetryJson: null,
+    expect(normalizeOverrides({ trackOut: '' }, 'test')).toEqual({
+      trackOut: null,
     });
-    expect(() => normalizeOverrides({ telemetryJson: 5 }, 'test')).toThrow(
-      /invalid value for test: telemetryJson/,
+    expect(() => normalizeOverrides({ trackOut: 5 }, 'test')).toThrow(
+      /invalid value for test: trackOut/,
     );
+  });
+
+  it('normalizes the deprecated telemetryJson spelling onto trackOut and warns', () => {
+    const warnings: string[] = [];
+    expect(
+      normalizeOverrides({ telemetryJson: 'telemetry.json' }, 'test', (message) =>
+        warnings.push(message),
+      ),
+    ).toEqual({ trackOut: 'telemetry.json' });
+    expect(warnings).toEqual([TELEMETRY_JSON_ALIAS.fileWarning]);
+  });
+
+  it('rejects both spellings at once', () => {
+    expect(() =>
+      normalizeOverrides({ telemetryJson: 'a.json', trackOut: 'b.json' }, 'test'),
+    ).toThrow('telemetryJson and trackOut cannot be combined in test (use trackOut)');
   });
 
   it.each([
@@ -309,8 +326,11 @@ describe('parseFrameRange', () => {
     expect(parseFrameRange({ start: 10, end: 29 })).toEqual({ start: 10, end: 29 });
   });
 
+  it('accepts a single-frame span (start equal to end)', () => {
+    expect(parseFrameRange({ start: 5, end: 5 })).toEqual({ start: 5, end: 5 });
+  });
+
   it.each([
-    ['start equal to end', { start: 5, end: 5 }],
     ['start after end', { start: 9, end: 2 }],
     ['negative start', { start: -1, end: 4 }],
     ['fractional index', { start: 1.5, end: 4 }],
@@ -420,14 +440,15 @@ describe('export request boundary', () => {
         outPath: '/exports/a.mp4',
         config: {
           tileCache: '/attacker', browser: '/evil.exe', workers: 64, outDir: '/elsewhere',
-          ffmpeg: '/evil/ffmpeg', ffprobe: '/evil/ffprobe', telemetryJson: '/evil/telemetry.json',
+          ffmpeg: '/evil/ffmpeg', ffprobe: '/evil/ffprobe', trackOut: '/evil/track.gpx',
+          telemetryJson: '/evil/telemetry.json',
         },
       },
       base,
     );
     expect(request.config).toMatchObject({
       tileCache: '/main/cache', browser: null, workers: 4, outDir: '/recs',
-      ffmpeg: null, ffprobe: null, telemetryJson: null,
+      ffmpeg: null, ffprobe: null, trackOut: null,
     });
   });
 

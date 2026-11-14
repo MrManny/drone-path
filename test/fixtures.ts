@@ -9,6 +9,7 @@ import { videoBaseName } from '../src/recordings.js';
 import type { PipelineDeps } from '../src/pipeline.js';
 import type { Telemetry } from '../src/telemetry-math.js';
 import type { RecordingTelemetry } from '../src/telemetry.js';
+import type { TelemetryDocumentInput, TelemetryFrameInput } from '../src/telemetry-json.js';
 
 const tmpDirs: string[] = [];
 
@@ -119,6 +120,7 @@ export function loadedTelemetry(
   return {
     telemetry: telemetryFixture(),
     frameValues: [],
+    trackValues: [],
     protoFile: null,
     gimbalDevice: null,
     ...overrides,
@@ -163,6 +165,110 @@ export function writeSrt(videoPath: string, text: string): string {
   fs.writeFileSync(srtPath, text);
   return srtPath;
 }
+
+// Track serializer fixtures: two segments (the no-fix row 2 breaks the line),
+// one vertex fed by gpsAltMm and one without any altitude.
+export const TRACK_ROWS: TelemetryFrameInput[] = [
+  { lat: 46.61307, lng: 14.262388, altAbs: 313.227 },
+  { lat: 46.613071, lng: 14.262389, altAbs: 313.427 },
+  { lat: null, lng: null },
+  { lat: 46.613072, lng: 14.26239, gpsAltMm: 313527 },
+  { lat: 46.613073, lng: 14.262391 },
+];
+
+export function trackDocumentFixture(
+  rows: readonly TelemetryFrameInput[] = TRACK_ROWS,
+): TelemetryDocumentInput {
+  return {
+    source: 'srt',
+    headingMode: 'cog',
+    frameCount: rows.length,
+    frames: rows,
+    headingDeg: rows.map((_, index) => 90 + index),
+  };
+}
+
+export const TRACK_GPX_GOLDEN = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="drone-path" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk>
+    <trkseg>
+      <trkpt lat="46.61307" lon="14.262388">
+        <ele>313.227</ele>
+      </trkpt>
+      <trkpt lat="46.613071" lon="14.262389">
+        <ele>313.427</ele>
+      </trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="46.613072" lon="14.26239">
+        <ele>313.527</ele>
+      </trkpt>
+      <trkpt lat="46.613073" lon="14.262391"/>
+    </trkseg>
+  </trk>
+</gpx>
+`;
+
+export const TRACK_GEOJSON_GOLDEN = `{
+  "type": "Feature",
+  "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+      [[14.262388, 46.61307, 313.227], [14.262389, 46.613071, 313.427]],
+      [[14.26239, 46.613072, 313.527], [14.262391, 46.613073]]
+    ]
+  },
+  "properties": {}
+}
+`;
+
+export const TRACK_KML_GOLDEN = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Document>
+    <Placemark>
+      <LineString>
+        <altitudeMode>absolute</altitudeMode>
+        <coordinates>14.262388,46.61307,313.227 14.262389,46.613071,313.427</coordinates>
+      </LineString>
+    </Placemark>
+    <Placemark>
+      <LineString>
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>14.26239,46.613072,313.527 14.262391,46.613073,0</coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>
+`;
+
+// Filled from kmzBytes(serializeKml(buildTrack(TRACK_ROWS))) once, then
+// locked: these bytes may never change again for this input (a change is byte
+// drift).
+export const TRACK_KMZ_GOLDEN_HEX =
+  '504b030414000000000000002100beb90bd9420200004202000007000000646f632e6b6d6c' +
+  '3c3f786d6c2076657273696f6e3d22312e302220656e636f64696e673d225554462d38223f3e0a' +
+  '3c6b6d6c20786d6c6e733d22687474703a2f2f7777772e6f70656e6769732e6e65742f6b6d6c2f322e3222' +
+  '20786d6c6e733a67783d22687474703a2f2f7777772e676f6f676c652e636f6d2f6b6d6c2f6578742f322e32223e0a' +
+  '20203c446f63756d656e743e0a' +
+  '202020203c506c6163656d61726b3e0a' +
+  '2020202020203c4c696e65537472696e673e0a' +
+  '20202020202020203c616c7469747564654d6f64653e6162736f6c7574653c2f616c7469747564654d6f64653e0a' +
+  '20202020202020203c636f6f7264696e617465733e31342e3236323338382c34362e36313330372c3331332e323237' +
+  '2031342e3236323338392c34362e3631333037312c3331332e3432373c2f636f6f7264696e617465733e0a' +
+  '2020202020203c2f4c696e65537472696e673e0a' +
+  '202020203c2f506c6163656d61726b3e0a' +
+  '202020203c506c6163656d61726b3e0a' +
+  '2020202020203c4c696e65537472696e673e0a' +
+  '20202020202020203c616c7469747564654d6f64653e636c616d70546f47726f756e643c2f616c7469747564654d6f64653e0a' +
+  '20202020202020203c636f6f7264696e617465733e31342e32363233392c34362e3631333037322c3331332e353237' +
+  '2031342e3236323339312c34362e3631333037332c303c2f636f6f7264696e617465733e0a' +
+  '2020202020203c2f4c696e65537472696e673e0a' +
+  '202020203c2f506c6163656d61726b3e0a' +
+  '20203c2f446f63756d656e743e0a' +
+  '3c2f6b6d6c3e0a' +
+  '504b0102140014000000000000002100beb90bd94202000042020000070000000000000000000000000000000000' +
+  '646f632e6b6d6c' +
+  '504b0506000000000100010035000000670200000000';
 
 function varint(value: number): Buffer {
   const bytes: number[] = [];

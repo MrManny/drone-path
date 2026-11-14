@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { planView } from '../src/plan.js';
+import { serializeGpx } from '../src/track-gpx.js';
+import { buildTrack } from '../src/track.js';
 import {
   frameChannelsOf,
   outputPathFor,
@@ -476,9 +478,21 @@ describe('processRecording frame ranges', () => {
     expect(calls.render).toEqual({ frames: 10, frameStart: 30 });
   });
 
+  it('renders a single-frame span for a lone In-Out point', async () => {
+    const { deps, calls } = rangeDeps();
+    const out = path.join(tmpDir(), 'single.mp4');
+    const summary = await processRecording(VIDEO, testConfig(), () => {}, out, {
+      deps,
+      range: { start: 5, end: 5 },
+    });
+    expect(calls.render).toEqual({ frames: 1, frameStart: 5 });
+    expect(calls.verify).toBe(1);
+    expect(summary.frames).toBe(1);
+    expect(summary.frameRange).toEqual({ start: 5, end: 5 });
+  });
+
   it.each([
-    ['start equal to end', { start: 5, end: 5 }, /0 <= start < end/],
-    ['start after end', { start: 9, end: 2 }, /0 <= start < end/],
+    ['start after end', { start: 9, end: 2 }, /0 <= start <= end/],
     ['end beyond the recording', { start: 0, end: 40 }, /beyond the recording \(40 frames\)/],
   ])('rejects %s before rendering anything', async (_label, range, pattern) => {
     const { deps, calls } = rangeDeps();
@@ -555,12 +569,17 @@ describe('recording summary mapping', () => {
   });
 });
 
-describe('telemetry JSON export', () => {
+describe('--track-out export', () => {
   function exportDeps() {
     return stubDeps({
       loaded: loadedTelemetry({
         telemetry: telemetryFixture(),
         frameValues: [
+          { lat: 46.6, lng: 14.2, altRel: 3.3 },
+          { altRel: 3.4 },
+          { lat: 46.62, lng: 14.22, altRel: 3.5 },
+        ],
+        trackValues: [
           { lat: 46.6, lng: 14.2, altRel: 3.3 },
           { altRel: 3.4 },
           { lat: 46.62, lng: 14.22, altRel: 3.5 },
@@ -576,7 +595,7 @@ describe('telemetry JSON export', () => {
     const file = path.join(dir, 'telemetry.json');
     await processRecording(
       VIDEO,
-      testConfig({ telemetryJson: file }),
+      testConfig({ trackOut: file }),
       () => {},
       path.join(dir, 'out.mp4'),
       { deps: exportDeps() },
@@ -615,7 +634,7 @@ describe('telemetry JSON export', () => {
   it('writes byte-identical documents on rerun', async () => {
     const dir = tmpDir();
     const file = path.join(dir, 'telemetry.json');
-    const config = testConfig({ telemetryJson: file });
+    const config = testConfig({ trackOut: file });
     await processRecording(VIDEO, config, () => {}, path.join(dir, 'out.mp4'), {
       deps: exportDeps(),
     });
@@ -631,7 +650,7 @@ describe('telemetry JSON export', () => {
     const file = path.join(dir, 'telemetry.json');
     await processRecording(
       VIDEO,
-      testConfig({ telemetryJson: file }),
+      testConfig({ trackOut: file }),
       () => {},
       path.join(dir, 'out.mp4'),
       { deps: exportDeps(), range: { start: 0, end: 1 } },
@@ -645,13 +664,35 @@ describe('telemetry JSON export', () => {
     expect(doc.frames).toHaveLength(3);
   });
 
+  it('writes a GPX track whose segments break at telemetry gaps', async () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'track.gpx');
+    await processRecording(
+      VIDEO,
+      testConfig({ trackOut: file }),
+      () => {},
+      path.join(dir, 'out.mp4'),
+      { deps: exportDeps() },
+    );
+
+    const gpx = fs.readFileSync(file, 'utf8');
+    expect(gpx).toBe(
+      serializeGpx(buildTrack([
+        { lat: 46.6, lng: 14.2, altRel: 3.3 },
+        { altRel: 3.4 },
+        { lat: 46.62, lng: 14.22, altRel: 3.5 },
+      ])),
+    );
+    expect(gpx.match(/<trkseg>/g)).toHaveLength(2);
+  });
+
   it('writes no document for a recording the run skips', async () => {
     const dir = tmpDir();
     const file = path.join(dir, 'telemetry.json');
     const deps = stubDeps({ outputMatchesSource: async () => true });
     const result = await runBatch(
       [VIDEO],
-      testConfig({ telemetryJson: file, skipExisting: true }),
+      testConfig({ trackOut: file, skipExisting: true }),
       () => {},
       () => {},
       { deps },
@@ -666,12 +707,25 @@ describe('telemetry JSON export', () => {
     await expect(
       runBatch(
         [VIDEO, path.join('clips', 'other.mp4')],
-        testConfig({ telemetryJson: file }),
+        testConfig({ trackOut: file }),
         () => {},
         () => {},
         { deps: stubDeps() },
       ),
-    ).rejects.toThrow('--telemetry-json writes one document per run');
+    ).rejects.toThrow('--track-out writes one file per run');
     expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it('rejects a multi-recording run for every track format', async () => {
+    const dir = tmpDir();
+    await expect(
+      runBatch(
+        [VIDEO, path.join('clips', 'other.mp4')],
+        testConfig({ trackOut: path.join(dir, 'track.kmz') }),
+        () => {},
+        () => {},
+        { deps: stubDeps() },
+      ),
+    ).rejects.toThrow('--track-out writes one file per run');
   });
 });

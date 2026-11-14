@@ -43,7 +43,7 @@ export interface RenderConfig {
   ffprobe: string | null;
   skipExisting: boolean;
   recurse: boolean;
-  telemetryJson: string | null;
+  trackOut: string | null;
   json: boolean;
   quiet: boolean;
 }
@@ -268,7 +268,7 @@ export const OVERRIDE_NORMALIZERS = {
   ffprobe: (v, name) => ({ ffprobe: parseValue(nullableStringValue(name), v) }),
   skipExisting: (v, name) => ({ skipExisting: parseValue(boolValue(name), v) }),
   recurse: (v, name) => ({ recurse: parseValue(boolValue(name), v) }),
-  telemetryJson: (v, name) => ({ telemetryJson: parseValue(nullableStringValue(name), v) }),
+  trackOut: (v, name) => ({ trackOut: parseValue(nullableStringValue(name), v) }),
   json: (v, name) => ({ json: parseValue(boolValue(name), v) }),
   quiet: (v, name) => ({ quiet: parseValue(boolValue(name), v) }),
 } satisfies { [K in keyof RenderConfig]: OverrideNormalizer<K> };
@@ -428,13 +428,15 @@ export const CONFIG_OPTIONS: readonly AnyConfigOption[] = [
     normalize: OVERRIDE_NORMALIZERS.recurse,
   },
   {
-    key: 'telemetryJson',
+    key: 'trackOut',
     cli: {
-      flags: '--telemetry-json <file>',
-      help: 'write one JSON document with per-frame telemetry to <file> (one recording per run)',
+      flags: '--track-out <file>',
+      help:
+        'write one flight track file to <file>, format from the extension: ' +
+        '.gpx, .geojson, .kml, .kmz or .json (the telemetry document; one recording per run)',
     },
     default: null,
-    normalize: OVERRIDE_NORMALIZERS.telemetryJson,
+    normalize: OVERRIDE_NORMALIZERS.trackOut,
   },
   {
     key: 'json',
@@ -451,6 +453,20 @@ export const CONFIG_OPTIONS: readonly AnyConfigOption[] = [
 ];
 
 const CLI_NUMBER_RX = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+// The deprecated spelling keeps working through the deprecation window: both
+// spellings normalize into the one `trackOut` override key, use warns, and the
+// spelling stays rejected once removed (the `trail`-key precedent).
+export const TELEMETRY_JSON_ALIAS = {
+  inputKey: 'telemetryJson',
+  key: 'trackOut',
+  flags: '--telemetry-json <file>',
+  help: 'deprecated alias of --track-out <file>.json',
+  cliWarning:
+    'warning: --telemetry-json is deprecated; use --track-out <file>.json (the alias will be removed in a future version)',
+  fileWarning:
+    'warning: the telemetryJson key is deprecated; use trackOut (the key will be removed in a future version)',
+} as const;
 
 function cliNumber(raw: unknown): unknown {
   if (typeof raw !== 'string' || !CLI_NUMBER_RX.test(raw.trim())) return raw;
@@ -473,13 +489,19 @@ export const DEFAULT_CONFIG: RenderConfig = Object.freeze(
 );
 Object.freeze(DEFAULT_CONFIG.hud);
 
-const OVERRIDE_SHAPE = Object.fromEntries(
-  CONFIG_OPTIONS.map((row) => [row.key, z.unknown().optional()]),
-) as z.ZodRawShape;
+const OVERRIDE_SHAPE = {
+  ...Object.fromEntries(
+    CONFIG_OPTIONS.map((row) => [row.key, z.unknown().optional()]),
+  ),
+  // The deprecated alias is accepted as an input spelling only; it never
+  // becomes its own config key.
+  [TELEMETRY_JSON_ALIAS.inputKey]: z.unknown().optional(),
+} as z.ZodRawShape;
 
 export function normalizeOverrides(
   raw: Record<string, unknown>,
   origin: string,
+  onDeprecated?: (message: string) => void,
 ): ConfigOverrides {
   parseValue(
     strictShape(OVERRIDE_SHAPE, {
@@ -490,11 +512,31 @@ export function normalizeOverrides(
   );
   const out: ConfigOverrides = {};
   for (const key of Object.keys(raw)) {
+    if (key === TELEMETRY_JSON_ALIAS.inputKey) continue;
     const normalize = OVERRIDE_NORMALIZERS[key as keyof RenderConfig];
     const value = raw[key];
     if (value === undefined) continue;
     if (value === null && DEFAULT_CONFIG[key as keyof RenderConfig] !== null) continue;
     Object.assign(out, normalize(value, `${origin}: ${key}`));
+  }
+  // Both spellings at once is ambiguous and rejected; the alias alone warns
+  // and lands on the canonical key.
+  const aliasValue = raw[TELEMETRY_JSON_ALIAS.inputKey];
+  const canonicalValue = raw[TELEMETRY_JSON_ALIAS.key];
+  if (aliasValue !== undefined && canonicalValue !== undefined) {
+    throw new Error(
+      `${TELEMETRY_JSON_ALIAS.inputKey} and ${TELEMETRY_JSON_ALIAS.key} cannot be combined in ${origin} (use ${TELEMETRY_JSON_ALIAS.key})`,
+    );
+  }
+  if (aliasValue !== undefined) {
+    onDeprecated?.(TELEMETRY_JSON_ALIAS.fileWarning);
+    Object.assign(
+      out,
+      OVERRIDE_NORMALIZERS.trackOut(
+        aliasValue,
+        `${origin}: ${TELEMETRY_JSON_ALIAS.inputKey}`,
+      ),
+    );
   }
   return out;
 }
@@ -680,8 +722,9 @@ function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
   if (!Number.isInteger(range.start) || !Number.isInteger(range.end)) {
     throw new Error(`invalid ${name}: start and end must be integer frame indices`);
   }
-  if (range.start < 0 || range.start >= range.end) {
-    throw new Error(`invalid ${name}: expected 0 <= start < end, got ${range.start}-${range.end}`);
+  // A single-frame span (start === end) is a valid export range.
+  if (range.start < 0 || range.start > range.end) {
+    throw new Error(`invalid ${name}: expected 0 <= start <= end, got ${range.start}-${range.end}`);
   }
 }
 
@@ -718,8 +761,10 @@ export function resolveFrameRange(
 }
 
 const MAIN_OWNED_KEYS = [
+  // TELEMETRY_JSON_ALIAS.inputKey stays stripped as a legacy spelling of
+  // trackOut, so neither spelling can leak into an export request's config.
   'outDir', 'outSuffix', 'tileCache', 'browser', 'ffmpeg', 'ffprobe', 'workers', 'capture',
-  'skipExisting', 'recurse', 'telemetryJson', 'json', 'quiet',
+  'skipExisting', 'recurse', 'trackOut', TELEMETRY_JSON_ALIAS.inputKey, 'json', 'quiet',
 ] as const;
 
 function parseRequestConfig(raw: unknown, base: RenderConfig): RenderConfig {

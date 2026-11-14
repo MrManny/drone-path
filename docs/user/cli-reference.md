@@ -32,7 +32,8 @@ table in the terminal.
 | `ffprobe` | `--ffprobe <path>` | — | ffprobe executable (default: embedded binary, then PATH) |
 | `skipExisting` | `--skip-existing` | off | skip recordings whose output already exists and matches the source |
 | `recurse` | `--recurse` | off | scan input folders recursively |
-| `telemetryJson` | `--telemetry-json <file>` | — | write one JSON document with per-frame telemetry to &lt;file&gt; (one recording per run) |
+| `trackOut` | `--track-out <file>` | — | write one flight track file to &lt;file&gt;, format from the extension: .gpx, .geojson, .kml, .kmz or .json (the telemetry document; one recording per run) |
 | `json` | `--json` | off | print one NDJSON summary line per recording on stdout |
 | `quiet` | `-q, --quiet` | off | suppress progress output |
 | — | `--config <path>` | — | config file (default: .dronepath.json discovered upward from the working directory) |
+| `telemetryJson` | `--telemetry-json <file>` | — | deprecated alias of --track-out &lt;file&gt;.json: same output, warns on use, removed in a future version |
