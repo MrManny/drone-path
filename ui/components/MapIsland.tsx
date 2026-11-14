@@ -6,7 +6,7 @@ import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import 'leaflet/dist/leaflet.css';
 
-export interface MapIslandProps {
+interface MapIslandProps {
   data: SceneData;
   onScene: (scene: Scene) => void;
   /** External chip container (a map-card strip) outside the map image. */

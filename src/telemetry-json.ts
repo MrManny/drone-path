@@ -51,7 +51,7 @@ export const TelemetryDocumentSchema = z.strictObject({
 
 type TelemetryRecord = z.infer<typeof TelemetryRecordSchema>;
 type TelemetryGimbalDevice = z.infer<typeof GimbalDeviceSchema>;
-export type TelemetryDocument = z.infer<typeof TelemetryDocumentSchema>;
+type TelemetryDocument = z.infer<typeof TelemetryDocumentSchema>;
 
 type TelemetryValueKey = Exclude<
   keyof TelemetryRecord,

@@ -29,7 +29,7 @@ export function isExternalTarget(raw: string): boolean {
   return SCHEME_RX.test(raw);
 }
 
-export interface PageTarget {
+interface PageTarget {
   slug: string;
   anchor: string | null;
 }
@@ -49,7 +49,7 @@ export function parseImageRef(raw: string): string | null {
   return match ? (match[1] ?? null) : null;
 }
 
-export interface CorpusIssue {
+interface CorpusIssue {
   file: string;
   message: string;
 }

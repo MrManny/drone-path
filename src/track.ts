@@ -19,6 +19,12 @@ export interface TrackVertex {
 
 export type TrackSegment = TrackVertex[];
 
+// The one rendering of a vertex's timeMs shared by the GPX, GeoJSON and KML
+// serializers: UTC ISO-8601, never a relative or zone-less clock.
+export function isoUtc(timeMs: number): string {
+  return new Date(timeMs).toISOString();
+}
+
 // Time policy: a vertex carries a time only where the source provides
 // trustworthy UTC. Neither telemetry source does, measured against real
 // footage: the DVTM gimbal device timestamp is milliseconds since power-up

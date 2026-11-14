@@ -9,7 +9,7 @@ import { useModalFocus } from '../hooks/useModalFocus.js';
 import { dropManualToc } from '../lib/helpindex.js';
 import { DialogClose } from './DialogClose.js';
 
-export interface HelpOverlayProps {
+interface HelpOverlayProps {
   bundle: ManualBundle;
   onClose: () => void;
 }

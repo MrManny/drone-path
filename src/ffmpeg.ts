@@ -13,7 +13,7 @@ export interface VideoProbe {
   height: number;
 }
 
-export interface OutputVerifyResult {
+interface OutputVerifyResult {
   frames: number;
   fps: string | null;
   ok: boolean;

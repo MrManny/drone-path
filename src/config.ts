@@ -238,7 +238,7 @@ export interface ConfigOption<K extends keyof RenderConfig = keyof RenderConfig>
   normalize: OverrideNormalizer<K>;
 }
 
-export type AnyConfigOption = {
+type AnyConfigOption = {
   [K in keyof RenderConfig]: ConfigOption<K>;
 }[keyof RenderConfig];
 

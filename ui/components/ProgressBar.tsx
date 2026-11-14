@@ -1,6 +1,6 @@
 'use client';
 
-export interface ProgressBarProps {
+interface ProgressBarProps {
   label: string;
   /** Known fraction percent, or null while no progress figure exists yet. */
   percent: number | null;

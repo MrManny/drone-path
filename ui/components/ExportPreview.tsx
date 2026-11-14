@@ -10,7 +10,7 @@ import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import { restyleMeta } from '../lib/restylemeta.js';
 import 'leaflet/dist/leaflet.css';
 
-export interface ExportPreviewProps {
+interface ExportPreviewProps {
   session: UiSession;
   config: RenderConfig;
   size: { width: number; height: number };

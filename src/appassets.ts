@@ -11,7 +11,7 @@ export interface AppRoutes {
   videoPath: string | null;
 }
 
-export type AppAsset =
+type AppAsset =
   | { kind: 'export'; filePath: string; mime: string }
   | { kind: 'video'; filePath: string }
   | {

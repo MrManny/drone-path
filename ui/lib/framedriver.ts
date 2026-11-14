@@ -3,14 +3,14 @@ import { clampFrame, frameFromMediaTime } from './frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
 import { resolveLoop } from './loop.js';
 
-export interface FrameDriverOpts {
+interface FrameDriverOpts {
   video: HTMLVideoElement;
   meta: PageVideo;
   applyFrame: (i: number) => void;
   onIndex: (i: number) => void;
 }
 
-export interface FrameDriver {
+interface FrameDriver {
   scrub(i: number): void;
   setLoop(state: LoopState | null): void;
   start(): void;

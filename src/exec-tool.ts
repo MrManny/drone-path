@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-export interface ToolOutput {
+interface ToolOutput {
   stdout: string;
   stderr: string;
 }

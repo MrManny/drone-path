@@ -1,3 +1,5 @@
+import type { FrameRange } from '../../src/config.js';
+
 export interface LoopPoints {
   in: number;
   out: number;
@@ -18,6 +20,11 @@ export function resolveLoop(state: LoopState, maxFrame: number): LoopPoints | nu
   if (lo !== null) return { in: lo, out: maxFrame };
   if (hi !== null) return { in: 0, out: hi };
   return null;
+}
+
+/** The export-request shape of a resolved loop: in/out become start/end. */
+export function frameRangeOf(points: LoopPoints): FrameRange {
+  return { start: points.in, end: points.out };
 }
 
 // Setting a point past the other supersedes the stale one (the same frame

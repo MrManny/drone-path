@@ -19,7 +19,7 @@ import { runBatch } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { RecordingSummary } from './pipeline.js';
 
-export interface ParsedCli {
+interface ParsedCli {
   inputs: string[];
   cli: ConfigOverrides;
   trackOutSpelling: TrackOutSpelling | null;

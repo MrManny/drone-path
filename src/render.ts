@@ -222,7 +222,7 @@ export interface RenderJobOptions
   onCapture?: (progress: CaptureProgress) => void;
 }
 
-export interface RenderProfile {
+interface RenderProfile {
   evalMs: number;
   captureMs: number;
   emitMs: number;

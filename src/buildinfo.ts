@@ -15,12 +15,12 @@ export interface GitProbe {
 }
 
 /** The facts the generated module carries, matching ui/lib/buildversion.ts. */
-export interface BuildGit {
+interface BuildGit {
   tagged: boolean;
   commit: string | null;
 }
 
-export interface BuildinfoPaths {
+interface BuildinfoPaths {
   moduleFile: string;
 }
 

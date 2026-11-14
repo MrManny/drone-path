@@ -1,4 +1,4 @@
-export interface ByteRange {
+interface ByteRange {
   start: number;
   end: number;
 }
@@ -30,7 +30,7 @@ export function parseByteRange(
   return { start, end: Math.min(end, size - 1) };
 }
 
-export type ByteRangePlan =
+type ByteRangePlan =
   | { status: 200; headers: Record<string, string> }
   | { status: 206; headers: Record<string, string>; span: ByteRange }
   | { status: 416; headers: Record<string, string>; body: string };

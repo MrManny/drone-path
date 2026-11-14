@@ -10,7 +10,7 @@ import { Notice } from './Notice.js';
 import { NumberField } from './NumberField.js';
 import { SelectField } from './SelectField.js';
 
-export interface SettingsPanelProps {
+interface SettingsPanelProps {
   config: RenderConfig;
   /** Without a recording the altitude chip stays off for lack of telemetry. */
   hasRecording: boolean;

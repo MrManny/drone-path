@@ -10,7 +10,7 @@ import {
 } from './protobuf-wire.js';
 import type { ProtoFieldMap } from './protobuf-wire.js';
 
-export interface ProductMeta {
+interface ProductMeta {
   fix: LatLon | null;
   noLock: boolean;
   relAlt: number | null;
@@ -41,7 +41,7 @@ export interface GimbalDeviceConstants {
   frequency: number;
 }
 
-export interface ClipProvenance {
+interface ClipProvenance {
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }

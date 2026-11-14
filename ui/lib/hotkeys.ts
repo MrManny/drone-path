@@ -38,7 +38,7 @@ export interface HotkeySession {
 
 export const INITIAL_SESSION: HotkeySession = { target: undefined, selectEscaped: false };
 
-export interface HotkeyResult {
+interface HotkeyResult {
   action: HotkeyAction | null;
   session: HotkeySession;
 }

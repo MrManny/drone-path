@@ -25,7 +25,7 @@ interface UpdateState {
   ready: boolean;
 }
 
-export interface AppBridge {
+interface AppBridge {
   pickRecording(request: PickRequest): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
   getSettings(): Promise<RenderConfig>;

@@ -3,7 +3,7 @@
 import { describeError } from '../lib/errortext.js';
 import { Notice } from './Notice.js';
 
-export interface ErrorNoticeProps {
+interface ErrorNoticeProps {
   message: string;
   lead?: string;
   tail?: string;

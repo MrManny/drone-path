@@ -32,7 +32,7 @@ export type MenuEvent =
   | { type: 'keyDown'; key: string; altKey?: boolean; repeat?: boolean }
   | { type: 'keyUp'; key: string };
 
-export interface MenuResult {
+interface MenuResult {
   state: MenuState;
   command: MenuCommand;
 }

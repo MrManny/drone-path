@@ -12,7 +12,7 @@ export interface FfmpegToolPaths {
   ffprobe: string;
 }
 
-export type FfmpegToolOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
+type FfmpegToolOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
 
 interface FfmpegToolEnv {
   exists: (file: string) => boolean;

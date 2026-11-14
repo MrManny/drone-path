@@ -8,7 +8,7 @@ function cacheKeyFor(style: MapStyle): string {
   return TILE_SOURCES[style].cacheKey;
 }
 
-export interface TileRef {
+interface TileRef {
   style: MapStyle;
   tile: TileCoord;
 }

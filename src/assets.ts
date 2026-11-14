@@ -20,9 +20,9 @@ export function mimeFor(filePath: string): string {
   return MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 }
 
-export type TilePolicy = { style: MapStyle } | { anyStyle: true };
+type TilePolicy = { style: MapStyle } | { anyStyle: true };
 
-export interface TileRoute {
+interface TileRoute {
   style: MapStyle;
   tile: TileCoord;
   filePath: string;
@@ -53,7 +53,7 @@ export interface AssetRoutes {
   rendererDir: string;
 }
 
-export type AssetResolution =
+type AssetResolution =
   | {
       kind: 'file';
       filePath: string;

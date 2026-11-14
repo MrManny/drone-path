@@ -2,11 +2,8 @@
 // and a <time> only where the vertex carries trustworthy UTC. No metadata
 // wall-clock or version strings, so identical input yields identical bytes.
 
+import { isoUtc } from './track.js';
 import type { TrackSegment, TrackVertex } from './track.js';
-
-function isoUtc(timeMs: number): string {
-  return new Date(timeMs).toISOString();
-}
 
 function trkptLines(vertex: TrackVertex): string[] {
   const children: string[] = [];

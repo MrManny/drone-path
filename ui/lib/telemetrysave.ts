@@ -4,12 +4,12 @@ import { ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
 import type { ExportAck, PickOutputResult } from './backend.js';
 import { formatFrameRange, formatTime } from './frametime.js';
 
-export interface TelemetrySaveDeps {
+interface TelemetrySaveDeps {
   pickTelemetryOutput(): Promise<PickOutputResult>;
   saveTelemetryJson(request: TelemetrySaveRequest): Promise<ExportAck>;
 }
 
-export type TelemetrySaveEvent =
+type TelemetrySaveEvent =
   | { type: 'canceled' }
   | { type: 'saved'; path: string }
   | { type: 'failed'; message: string };
@@ -19,7 +19,7 @@ export type TelemetrySavePhase =
   | { kind: 'done'; path: string; scope: string; error?: string }
   | { kind: 'error'; message: string };
 
-export type TelemetrySaveAction =
+type TelemetrySaveAction =
   | { type: 'started' }
   | { type: 'result'; event: TelemetrySaveEvent; scope: string }
   | { type: 'revealFailed'; error: string };

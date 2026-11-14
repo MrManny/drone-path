@@ -5,7 +5,7 @@ import { FolderOpen } from 'lucide-react';
 import { MapCard } from './MapCard.js';
 import { OpenNotice } from './OpenNotice.js';
 
-export interface EmptyStageProps {
+interface EmptyStageProps {
   state: PickState;
   onPick: () => void;
   onDismiss?: () => void;

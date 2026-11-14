@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 
 export type NoticeTone = 'info' | 'warning' | 'danger';
 
-export interface NoticeProps {
+interface NoticeProps {
   tone: NoticeTone;
   children: ReactNode;
   details?: string | null;
