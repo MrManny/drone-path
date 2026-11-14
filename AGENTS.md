@@ -19,6 +19,9 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
   `dist-electron/`: `-- --dir` for the unpacked smoke, `-- --win nsis` (the
   self-updating installer), `-- --win portable` and `-- --linux AppImage` for
   release artifacts.
+- `npm run knip` reports unused files, exports, types and dependencies
+  (`knip.jsonc`); run it after adding or removing modules and keep the
+  report empty.
 - When adding a new dependency, pin it to a patch-level range (i.e. `~1.2.3`);
   new dependencies **must not** have high or critical security issues on
   Snyk. Check `https://security.snyk.io/package/npm/<package_name>`.

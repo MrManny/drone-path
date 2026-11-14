@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  // What actually runs. package.json bin/main cover bin/drone-path.mjs and
+  // app/main.mjs; the launchers for the compiled CLI tools are source-mapped
+  // back through the root tsconfig outDir; the Electron preload and the
+  // electron-builder afterPack hook are loaded by path strings; the .d.mts
+  // shims are the typed contracts of the .mjs app shell (TypeScript finds
+  // them via module resolution, so nothing imports them by path).
+  "entry": [
+    "app/preload.cjs",
+    "app/*.d.mts",
+    "build/after-pack.cjs",
+    "src/cli.ts",
+    "src/buildinfo.ts",
+    "src/manual/build.ts",
+    "src/manual/reference.ts",
+    "src/telemetry-json-schema.ts",
+    "scripts/*.mjs",
+    "scripts/*.d.mts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "ui/**/*.{ts,tsx,mjs}",
+    "app/**/*.{mjs,cjs,mts}",
+    "scripts/**/*.mjs",
+    "bin/**/*.mjs",
+    "build/**/*.cjs",
+    "test/**/*.{ts,tsx}"
+  ],
+  // Only committed ambient shims with no code to analyze. Build output and
+  // scratch space are git-ignored and already outside the analysis.
+  "ignore": ["test/css-modules.d.ts"],
+  // The npm scripts run tsc against all three projects; knip must see the
+  // same compiler settings (paths, jsx) the repo type-checks with.
+  "typescript": {
+    "config": ["tsconfig.json", "ui/tsconfig.json", "test/tsconfig.json"]
+  },
+  // The Next.js app directory lives in ui/ (next dev ui / next build ui), not
+  // at the workspace root where the plugin looks by default.
+  "next": {
+    "config": "ui/next.config.mjs",
+    "entry": ["ui/app/**/*.{ts,tsx}"]
+  },
+  // THUMB_HEIGHT intentionally aliases THUMB_WIDTH (square thumbnails); the
+  // test suite pins both names, so the pair is not a removable duplicate.
+  "ignoreIssues": {
+    "ui/lib/thumbsampler.ts": ["duplicates"]
+  }
+}
