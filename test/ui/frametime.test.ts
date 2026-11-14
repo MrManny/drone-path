@@ -88,9 +88,7 @@ describe('formatTimeReadout', () => {
 describe('formatFrameSpan', () => {
   it.for([
     { name: 'both points set', start: 300, end: 360, fps: 30, want: '0:10–0:12' },
-    { name: 'unset start reads as …', start: null, end: 360, fps: 30, want: '…–0:12' },
-    { name: 'unset end reads as …', start: 300, end: null, fps: 30, want: '0:10–…' },
-    { name: 'both unset read as …', start: null, end: null, fps: 30, want: '…–…' },
+    { name: 'a single-frame span', start: 300, end: 300, fps: 30, want: '0:10–0:10' },
   ])('$name', ({ start, end, fps, want }) => {
     expect(formatFrameSpan(start, end, fps)).toBe(want);
   });
@@ -108,18 +106,48 @@ describe('formatFrameRange', () => {
 
 describe('formatLoopReadout', () => {
   it.for([
-    { name: 'engaged loop', loop: { in: 300, out: 360 }, fps: 30, want: 'in 0:10 · out 0:12' },
-    { name: 'unset in point still reads', loop: { in: null, out: 360 }, fps: 30, want: 'in … · out 0:12' },
-    { name: 'unset out point still reads', loop: { in: 300, out: null }, fps: 30, want: 'in 0:10 · out …' },
-    { name: 'out-of-order points still read', loop: { in: 360, out: 300 }, fps: 30, want: 'in 0:12 · out 0:10' },
-    { name: 'no points reads empty', loop: { in: null, out: null }, fps: 30, want: '' },
-  ])('$name', ({ loop, fps, want }) => {
-    expect(formatLoopReadout(loop, fps)).toBe(want);
+    {
+      name: 'engaged loop',
+      loop: { in: 300, out: 360 },
+      fps: 30,
+      maxFrame: 599,
+      want: 'in 0:10 · out 0:12',
+    },
+    {
+      name: 'a lone in point reads the clip end as its out',
+      loop: { in: 300, out: null },
+      fps: 30,
+      maxFrame: 599,
+      want: 'in 0:10 · out 0:20',
+    },
+    {
+      name: 'a lone out point reads the clip start as its in',
+      loop: { in: null, out: 360 },
+      fps: 30,
+      maxFrame: 599,
+      want: 'in 0:00 · out 0:12',
+    },
+    {
+      name: 'out-of-order points still read verbatim',
+      loop: { in: 360, out: 300 },
+      fps: 30,
+      maxFrame: 599,
+      want: 'in 0:12 · out 0:10',
+    },
+    {
+      name: 'no points reads empty',
+      loop: { in: null, out: null },
+      fps: 30,
+      maxFrame: 599,
+      want: '',
+    },
+  ])('$name', ({ loop, fps, maxFrame, want }) => {
+    expect(formatLoopReadout(loop, fps, maxFrame)).toBe(want);
   });
 
-  it('says what is missing instead of showing a bare ? (#233)', () => {
-    expect(formatLoopReadout({ in: 300, out: null }, 30)).toBe('in 0:10 · out …');
-    expect(formatLoopReadout({ in: null, out: 360 }, 30)).toBe('in … · out 0:12');
+  it('reads a lone point to the clip boundary (#245)', () => {
+    expect(formatLoopReadout({ in: 300, out: null }, 30, 599)).toBe('in 0:10 · out 0:20');
+    expect(formatLoopReadout({ in: null, out: 360 }, 30, 599)).toBe('in 0:00 · out 0:12');
   });
 });
 

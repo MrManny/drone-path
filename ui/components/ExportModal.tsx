@@ -17,7 +17,7 @@ import {
 } from '../lib/exportstate.js';
 import { formatFrameRange, formatTime } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
-import { engagedLoop } from '../lib/loop.js';
+import { resolveLoop } from '../lib/loop.js';
 import { DialogShell } from './DialogShell.js';
 import { ExportDone } from './ExportDone.js';
 import { ExportError } from './ExportError.js';
@@ -49,7 +49,7 @@ export function ExportModal({
   onSizesChange,
 }: ExportModalProps) {
   const { video, durationSec } = session;
-  const loopPoints = engagedLoop(loop);
+  const loopPoints = resolveLoop(loop, video.frames - 1);
   const [state, dispatch] = useReducer(exportReducer, undefined, () =>
     initialExportState(
       initialSizes?.width ?? settings.width,

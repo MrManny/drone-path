@@ -181,6 +181,18 @@ describe('ExportModal form memory', () => {
     expect(screen.getByRole<HTMLInputElement>('radio', { name: /Full recording/ }).checked).toBe(false);
   });
 
+  it('opens on the half-open segment for a lone in point (#245)', () => {
+    render(<Harness loop={{ in: 100, out: null }} />);
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
+    expect(screen.getByText(/In–Out segment \(0:03–0:10 · 200 frames\)/)).toBeTruthy();
+  });
+
+  it('opens on the half-open segment for a lone out point (#245)', () => {
+    render(<Harness loop={{ in: null, out: 150 }} />);
+    expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
+    expect(screen.getByText(/In–Out segment \(0:00–0:05 · 151 frames\)/)).toBeTruthy();
+  });
+
   it('offers no segment choice without a loop', () => {
     render(<Harness loop={{ in: null, out: null }} />);
     expect(screen.queryByRole('group', { name: 'Export range' })).toBeNull();
@@ -304,6 +316,14 @@ describe('ExportModal save-first flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     await waitFor(() => expect(bridge.startExport).toHaveBeenCalledTimes(1));
     expect(bridge.startExport.mock.calls[0][0].range).toBeNull();
+  });
+
+  it('exports the resolved half-open range for a lone point (#245)', async () => {
+    const { bridge } = installBridge();
+    renderModal({ in: 100, out: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await waitFor(() => expect(bridge.startExport).toHaveBeenCalledTimes(1));
+    expect(bridge.startExport.mock.calls[0][0].range).toEqual({ start: 100, end: 299 });
   });
 });
 

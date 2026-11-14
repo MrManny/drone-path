@@ -26,17 +26,11 @@ export function formatTimeReadout(frame: number, fps: number, durationSec: numbe
   return `${formatTime(timeAt(frame, fps))} / ${formatTime(durationSec)}`;
 }
 
-// A missing endpoint reads as "…" so a partial point says what is not set
-// yet instead of asking a bare question.
-export function formatPoint(f: number | null, fps: number): string {
-  return f === null ? '…' : formatTime(timeAt(f, fps));
+export function formatPoint(f: number, fps: number): string {
+  return formatTime(timeAt(f, fps));
 }
 
-export function formatFrameSpan(
-  start: number | null,
-  end: number | null,
-  fps: number,
-): string {
+export function formatFrameSpan(start: number, end: number, fps: number): string {
   return `${formatPoint(start, fps)}–${formatPoint(end, fps)}`;
 }
 
@@ -44,8 +38,12 @@ export function formatFrameRange(points: LoopPoints, fps: number): string {
   return `${formatFrameSpan(points.in, points.out, fps)} · ${points.out - points.in + 1} frames`;
 }
 
-export function formatLoopReadout(loop: LoopState, fps: number): string {
-  return hasLoop(loop) ? `in ${formatPoint(loop.in, fps)} · out ${formatPoint(loop.out, fps)}` : '';
+// The readout names the passage the band shows (#245): a lone point reads to
+// the clip boundary, so the label and the visualization never disagree.
+export function formatLoopReadout(loop: LoopState, fps: number, maxFrame: number): string {
+  return hasLoop(loop)
+    ? `in ${formatPoint(loop.in ?? 0, fps)} · out ${formatPoint(loop.out ?? maxFrame, fps)}`
+    : '';
 }
 
 const TICK_STEPS_SEC = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600];

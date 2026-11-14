@@ -42,9 +42,9 @@ At the compact 1024×600 minimum window size the same workspace fits into less s
 
 ## Marking a passage
 
-The timeline header holds the in/out-point controls — one button group with **Set in point (I)**, **Set out point (O)** and **Clear in and out points (Esc)** — and a readout of the marked points (`in 0:12 · out 0:34`). Below it the timeline shows the recording as a filmstrip with the In–Out segment over it.
+The timeline header holds the in/out-point controls — one button group with **Set in point (I)**, **Set out point (O)** and **Clear in and out points (Esc)** — and a readout of the marked passage (`in 0:12 · out 0:34`). Below it the timeline shows the recording as a filmstrip with the In–Out segment over it.
 
-Press `I` to mark the in point and `O` the out point. Dragging the In–Out segment's end handles is a pointer-only way to fine-tune the points; the keyboard path is `I` / `O` and the in/out-point buttons. The marked passage plays on repeat until you clear the points with `Esc`.
+Press `I` to mark the in point and `O` the out point. One point already marks a passage: the in point plays to the end of the recording, the out point from its start, and the readout and the segment show that passage; setting the second point narrows it. Setting a point past the other replaces it — marking an in point beyond an out point clears that out point, and the other way around — so the in point always stays before the out point. Dragging the In–Out segment's edge handles is a pointer-only way to fine-tune the marked points; the keyboard path is `I` / `O` and the in/out-point buttons. The marked passage plays on repeat until you clear the points with `Esc`.
 
 ![Timeline with in and out points marked](../images/app-loop-points.jpg)
 
@@ -56,7 +56,7 @@ The **Export video…** item in the File menu is the export entry point; it stay
 
 The form groups into *Export range* and *Output and encoding*:
 
-- *Export range* — *Full recording* or the *In–Out segment*. Set the in and out points with `I` / `O` first; once they are set, the segment comes preselected.
+- *Export range* — *Full recording* or the *In–Out segment*. Mark the in or out point with `I` / `O` first; once one is marked, the segment comes preselected — a lone in point exports to the end of the recording, a lone out point from its start.
 - *Output and encoding* — the output size and the encoding: codec (H.264 or H.265), quality (*Near-lossless* down to *Low*) and encode speed (*Balanced* or *Faster*).
 
 Without an In–Out segment, the form just sets size and encoding.
@@ -85,7 +85,7 @@ At the compact 1024×600 minimum window size the preview shrinks and the form st
 
 The **Export telemetry…** item in the File menu writes the same per-frame telemetry document as the CLI's `--telemetry-json`, straight from the loaded recording and without producing a video. One record per source frame covers the time, position, altitude, body and gimbal attitude, heading and camera exposure.
 
-The scope follows the in and out points automatically: with the In–Out segment marked the document covers just those frames — the same frames the segment export covers, keeping the recording's own frame numbers — and without them the full recording. The item's tooltip states the scope before you choose it.
+The scope follows the in and out points automatically: with the In–Out segment marked — one point is enough — the document covers just those frames, resolved the same way as the segment export (a lone in point to the end of the recording, a lone out point from its start), keeping the recording's own frame numbers, and with no points marked the full recording. The item's tooltip states the scope before you choose it.
 
 Choosing it opens the native save dialog, which suggests `<recording>.telemetry.json` in the export folder; cancelling it starts nothing and leaves the workspace untouched. On confirm a compact dialog reports the export and then names the kept file and the scope it covers, with **Reveal in folder** opening its folder. For the same recording and range the file is byte-identical to the CLI output (see [CLI usage](cli.md)).
 

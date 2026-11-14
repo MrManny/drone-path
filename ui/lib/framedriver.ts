@@ -1,7 +1,7 @@
 import type { PageVideo } from '../../src/appsession.js';
 import { clampFrame, frameFromMediaTime } from './frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
-import { engagedLoop } from './loop.js';
+import { resolveLoop } from './loop.js';
 
 export interface FrameDriverOpts {
   video: HTMLVideoElement;
@@ -35,7 +35,7 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
   }
 
   function activeLoop(): LoopPoints | null {
-    return loop === null ? null : engagedLoop(loop);
+    return loop === null ? null : resolveLoop(loop, frames - 1);
   }
 
   // Explicit seeks land half a frame into frame i's span: an exact i / fps can

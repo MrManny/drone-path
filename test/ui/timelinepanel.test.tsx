@@ -150,12 +150,19 @@ describe('TimelinePanel header', () => {
 
   it.for([
     { name: 'engaged loop', loop: { in: 30, out: 60 }, want: 'in 0:01 · out 0:02' },
-    { name: 'loop missing its out point', loop: { in: 30, out: null }, want: 'in 0:01 · out …' },
-    { name: 'loop missing its in point', loop: { in: null, out: 60 }, want: 'in … · out 0:02' },
+    { name: 'loop missing its out point', loop: { in: 30, out: null }, want: 'in 0:01 · out 0:03' },
+    { name: 'loop missing its in point', loop: { in: null, out: 60 }, want: 'in 0:00 · out 0:02' },
     { name: 'out-of-order loop', loop: { in: 60, out: 30 }, want: 'in 0:02 · out 0:01' },
   ])('shows the readout for a $name', ({ loop, want }) => {
     renderPanel({ loop });
     expect(document.querySelector('.loop-readout')?.textContent).toBe(want);
+  });
+
+  it('announces readout changes through a polite live region (#245)', () => {
+    renderPanel({ loop: { in: 30, out: null } });
+    const slot = document.querySelector('.loop-readout') as HTMLElement;
+    expect(slot.getAttribute('aria-live')).toBe('polite');
+    expect(slot.getAttribute('aria-atomic')).toBe('true');
   });
 
   it('reserves an empty readout slot without points (#233)', () => {
@@ -237,6 +244,81 @@ describe('TimelinePanel track', () => {
     expect(parseFloat(band.style.left)).toBeCloseTo((30 / 89) * 100);
     expect(parseFloat(band.style.width)).toBeCloseTo((30 / 89) * 100);
     expect(document.querySelectorAll('.loop-handle')).toHaveLength(2);
+  });
+
+  it('bands a lone in point to the track end with only its in handle (#245)', () => {
+    renderPanel({ loop: { in: 30, out: null } });
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo((30 / 89) * 100);
+    expect(parseFloat(band.style.width)).toBeCloseTo((59 / 89) * 100);
+    const handles = document.querySelectorAll('.loop-handle');
+    expect(handles).toHaveLength(1);
+    expect(handles[0].className).toContain('loop-handle-in');
+  });
+
+  it('bands a lone out point from the track start with only its out handle (#245)', () => {
+    renderPanel({ loop: { in: null, out: 60 } });
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo(0);
+    expect(parseFloat(band.style.width)).toBeCloseTo((60 / 89) * 100);
+    const handles = document.querySelectorAll('.loop-handle');
+    expect(handles).toHaveLength(1);
+    expect(handles[0].className).toContain('loop-handle-out');
+  });
+
+  it('drags the lone handle of a half-open band across the track (#245)', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: 30, out: null } });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    const handle = document.querySelector('.loop-handle-in') as HTMLElement;
+    pointer('pointerdown', handle);
+    pointer('pointermove', window, { clientX: 80 });
+    expect(setLoopFrame).toHaveBeenLastCalledWith('in', 71);
+    pointer('pointerup', window);
+    pointer('pointermove', window, { clientX: 20 });
+    expect(setLoopFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a lone in point at the last frame visible and draggable (#245)', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: 89, out: null } });
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    const left = parseFloat(band.style.left);
+    const width = parseFloat(band.style.width);
+    expect(width).toBeGreaterThan(0);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left + width).toBeLessThanOrEqual(100);
+    const handle = document.querySelector('.loop-handle-in') as HTMLElement;
+    expect(handle).toBeTruthy();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    pointer('pointerdown', handle);
+    pointer('pointermove', window, { clientX: 10 });
+    expect(setLoopFrame).toHaveBeenCalled();
+    pointer('pointerup', window);
+  });
+
+  it('keeps a lone out point at the first frame visible and draggable (#245)', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: null, out: 0 } });
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    const left = parseFloat(band.style.left);
+    const width = parseFloat(band.style.width);
+    expect(width).toBeGreaterThan(0);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left + width).toBeLessThanOrEqual(100);
+    const handle = document.querySelector('.loop-handle-out') as HTMLElement;
+    expect(handle).toBeTruthy();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    pointer('pointerdown', handle);
+    pointer('pointermove', window, { clientX: 90 });
+    expect(setLoopFrame).toHaveBeenCalled();
+    pointer('pointerup', window);
   });
 
   it('shows no band or handles for an out-of-order loop', () => {

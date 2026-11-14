@@ -8,7 +8,7 @@ import { ArrowLeftFromLine, ArrowRightFromLine, X } from 'lucide-react';
 import { formatLoopReadout, formatTime, formatTimeReadout, timelineTicks } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 import type { LoopState } from '../lib/loop.js';
-import { clampHandleFrame, engagedLoop, frameAtPointer, hasLoop } from '../lib/loop.js';
+import { clampHandleFrame, frameAtPointer, hasLoop, resolveLoop } from '../lib/loop.js';
 import { Filmstrip } from './Filmstrip.js';
 
 export interface TimelinePanelProps {
@@ -42,9 +42,17 @@ export function TimelinePanel({
 }: TimelinePanelProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const bandPct = (i: number): number => (maxFrame > 0 ? (i / maxFrame) * 100 : 0);
-  const loopPoints = engagedLoop(loop);
-  const loopReadout = formatLoopReadout(loop, fps);
+  const loopPoints = resolveLoop(loop, maxFrame);
+  const loopReadout = formatLoopReadout(loop, fps, maxFrame);
   const clearable = hasLoop(loop);
+
+  // A boundary on the track's edge must keep a visible, draggable footprint:
+  // a zero-width band at the right edge is clipped away entirely (#245).
+  const MIN_BAND_PCT = 0.5;
+  const bandWidthPct = loopPoints
+    ? Math.max(bandPct(loopPoints.out) - bandPct(loopPoints.in), MIN_BAND_PCT)
+    : 0;
+  const bandLeftPct = loopPoints ? Math.min(bandPct(loopPoints.in), 100 - bandWidthPct) : 0;
 
   // The band's end handles are pointer-only by design: they are a drag
   // enhancement of the I/O keys and the in/out-point buttons, which stay the
@@ -73,7 +81,9 @@ export function TimelinePanel({
           <span className="preview-title">Timeline</span>
         </div>
         <div className="timeline-actions">
-          <span className="readout loop-readout">{loopReadout}</span>
+          <span className="readout loop-readout" aria-live="polite" aria-atomic="true">
+            {loopReadout}
+          </span>
           <div className="segmented" role="group" aria-label="In and out points">
             <button
               type="button"
@@ -132,20 +142,25 @@ export function TimelinePanel({
           <div
             className="loop-band"
             style={{
-              left: `${bandPct(loopPoints.in)}%`,
-              width: `${bandPct(loopPoints.out) - bandPct(loopPoints.in)}%`,
+              left: `${bandLeftPct}%`,
+              width: `${bandWidthPct}%`,
             }}
           >
-            <span
-              className="loop-handle loop-handle-in"
-              title="In point (I)"
-              onPointerDown={() => startDrag('in')}
-            />
-            <span
-              className="loop-handle loop-handle-out"
-              title="Out point (O)"
-              onPointerDown={() => startDrag('out')}
-            />
+            {/* A handle marks only a set boundary; a lone point's open end is the track edge. */}
+            {loop.in !== null ? (
+              <span
+                className="loop-handle loop-handle-in"
+                title="In point (I)"
+                onPointerDown={() => startDrag('in')}
+              />
+            ) : null}
+            {loop.out !== null ? (
+              <span
+                className="loop-handle loop-handle-out"
+                title="Out point (O)"
+                onPointerDown={() => startDrag('out')}
+              />
+            ) : null}
           </div>
         ) : null}
         <div className="playhead" ref={playheadRef} />
