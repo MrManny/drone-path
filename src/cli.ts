@@ -3,9 +3,15 @@ import { Command, Option } from 'commander';
 
 import { ERROR_PREFIX, errorMessage } from './errors.js';
 import { VERSION } from './version.js';
-import { CONFIG_FILE_OPTION, CONFIG_OPTIONS, cliDefaultOf } from './config.js';
+import {
+  CONFIG_FILE_OPTION,
+  CONFIG_OPTIONS,
+  OVERRIDE_NORMALIZERS,
+  TELEMETRY_JSON_ALIAS,
+  cliDefaultOf,
+} from './config.js';
 import { resolveConfig } from './configfile.js';
-import type { ConfigOverrides, RenderConfig } from './config.js';
+import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from './config.js';
 import { collectRecordings } from './recordings.js';
 import { requireFfmpegTools } from './ffmpeg.js';
 import { resolveFfmpegTools } from './ffmpeg-tools.js';
@@ -16,7 +22,9 @@ import type { RecordingSummary } from './pipeline.js';
 export interface ParsedCli {
   inputs: string[];
   cli: ConfigOverrides;
+  trackOutSpelling: TrackOutSpelling | null;
   configPath: string | null;
+  deprecationWarnings: string[];
 }
 
 export function buildProgram(): Command {
@@ -40,6 +48,7 @@ export function buildProgram(): Command {
     if (defaultValue !== '') option.default(defaultValue);
     program.addOption(option);
   }
+  program.addOption(new Option(TELEMETRY_JSON_ALIAS.flags, TELEMETRY_JSON_ALIAS.help));
   program.option(CONFIG_FILE_OPTION.flags, CONFIG_FILE_OPTION.help);
   return program;
 }
@@ -56,7 +65,10 @@ export function longFlagOf(flags: string): string {
   return tokens.find((token) => token.startsWith('--')) ?? tokens[0];
 }
 
-function collectOverrides(program: Command): ConfigOverrides {
+function collectOverrides(
+  program: Command,
+  onDeprecated: (message: string) => void,
+): { cli: ConfigOverrides; trackOutSpelling: TrackOutSpelling | null } {
   const opts = program.opts<Record<string, unknown>>();
   const cli: ConfigOverrides = {};
   for (const row of CONFIG_OPTIONS) {
@@ -65,7 +77,32 @@ function collectOverrides(program: Command): ConfigOverrides {
     const raw = row.cli.parse ? row.cli.parse(opts[row.key]) : opts[row.key];
     Object.assign(cli, row.normalize(raw, flag));
   }
-  return cli;
+  // The deprecated alias lands on the same trackOut override key; both
+  // spellings at once is ambiguous and rejected.
+  if (givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.inputKey)) {
+    if (givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.key)) {
+      throw new Error(
+        `${longFlagOf(TELEMETRY_JSON_ALIAS.flags)} and --track-out cannot be combined (use --track-out)`,
+      );
+    }
+    onDeprecated(TELEMETRY_JSON_ALIAS.cliWarning);
+    Object.assign(
+      cli,
+      OVERRIDE_NORMALIZERS.trackOut(
+        opts[TELEMETRY_JSON_ALIAS.inputKey],
+        longFlagOf(TELEMETRY_JSON_ALIAS.flags),
+      ),
+    );
+  }
+  const trackOutSpelling: TrackOutSpelling | null = givenOnCommandLine(
+    program,
+    TELEMETRY_JSON_ALIAS.inputKey,
+  )
+    ? 'telemetry-json'
+    : givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.key)
+      ? 'track-out'
+      : null;
+  return { cli, trackOutSpelling };
 }
 
 export function parseCliArgs(argv: string[]): ParsedCli {
@@ -73,11 +110,17 @@ export function parseCliArgs(argv: string[]): ParsedCli {
   program.exitOverride();
   program.parse(argv, { from: 'user' });
   const opts = program.opts<Record<string, unknown>>();
+  const deprecationWarnings: string[] = [];
+  const collected = collectOverrides(program, (message) =>
+    deprecationWarnings.push(message),
+  );
 
   return {
     inputs: [...program.args],
-    cli: collectOverrides(program),
+    cli: collected.cli,
+    trackOutSpelling: collected.trackOutSpelling,
     configPath: typeof opts.config === 'string' ? opts.config : null,
+    deprecationWarnings,
   };
 }
 
@@ -101,15 +144,19 @@ interface Invocation {
   inputs: string[];
   config: RenderConfig;
   configPath: string | null;
+  deprecationWarnings: string[];
 }
 
 function resolveInvocation(argv: string[]): Invocation {
   const parsed = parseCliArgs(argv.slice(2));
+  const deprecationWarnings = [...parsed.deprecationWarnings];
   const { config, configPath } = resolveConfig({
     cli: parsed.cli,
     configPath: parsed.configPath,
+    cliTrackOutSpelling: parsed.trackOutSpelling,
+    onDeprecated: (message) => deprecationWarnings.push(message),
   });
-  return { inputs: parsed.inputs, config, configPath };
+  return { inputs: parsed.inputs, config, configPath, deprecationWarnings };
 }
 
 function createLogger(config: RenderConfig): LogFn {
@@ -148,6 +195,10 @@ async function runPipeline(
 export async function main(argv: string[] = process.argv): Promise<void> {
   try {
     const invocation = resolveInvocation(argv);
+    // Deprecation warnings are not progress output: they print even with --quiet.
+    for (const warning of invocation.deprecationWarnings) {
+      process.stderr.write(`[drone-path] ${warning}\n`);
+    }
     const log = createLogger(invocation.config);
     await runPipeline(invocation, log);
   } catch (e) {

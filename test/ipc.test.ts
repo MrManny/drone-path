@@ -242,7 +242,13 @@ describe('dronepath:telemetry:pick-output', () => {
     expect(harness.dialog.showSaveDialog.mock.calls[0][0]).toEqual({
       title: 'Export telemetry',
       defaultPath,
-      filters: [{ name: 'JSON document', extensions: ['json'] }],
+      filters: [
+        { name: 'Telemetry document (JSON)', extensions: ['json'] },
+        { name: 'GPX track', extensions: ['gpx'] },
+        { name: 'GeoJSON track', extensions: ['geojson'] },
+        { name: 'KML track', extensions: ['kml'] },
+        { name: 'KMZ track', extensions: ['kmz'] },
+      ],
     });
     expect(result).toEqual({ ok: true, path: defaultPath });
   });
@@ -324,16 +330,22 @@ describe('dronepath:telemetry:pick-output', () => {
 });
 
 describe('resolveSavePath', () => {
+  const TRACK = ['gpx', 'geojson', 'kml', 'kmz', 'json'];
   it.for([
-    { typed: 'a', extension: 'json', want: 'a.json' },
-    { typed: 'a.json', extension: 'json', want: 'a.json' },
-    { typed: 'A.JSON', extension: 'json', want: 'A.JSON' },
-    { typed: 'telemetry-test.csv', extension: 'json', want: 'telemetry-test.csv.json' },
-    { typed: 'flight.telemetry', extension: 'json', want: 'flight.telemetry.json' },
-    { typed: 'map', extension: 'mp4', want: 'map.mp4' },
-    { typed: 'map.MP4', extension: 'mp4', want: 'map.MP4' },
-    { typed: 'map.mov', extension: 'mp4', want: 'map.mov.mp4' },
-  ])('resolves $typed with .$extension to $want', ({ typed, extension, want }) => {
-    expect(resolveSavePath(typed, extension)).toBe(want);
+    { typed: 'a', extensions: ['json'], defaultExtension: 'json', want: 'a.json' },
+    { typed: 'a.json', extensions: ['json'], defaultExtension: 'json', want: 'a.json' },
+    { typed: 'A.JSON', extensions: ['json'], defaultExtension: 'json', want: 'A.JSON' },
+    { typed: 'telemetry-test.csv', extensions: ['json'], defaultExtension: 'json', want: 'telemetry-test.csv.json' },
+    { typed: 'flight.telemetry', extensions: ['json'], defaultExtension: 'json', want: 'flight.telemetry.json' },
+    { typed: 'map', extensions: ['mp4'], defaultExtension: 'mp4', want: 'map.mp4' },
+    { typed: 'map.MP4', extensions: ['mp4'], defaultExtension: 'mp4', want: 'map.MP4' },
+    { typed: 'map.mov', extensions: ['mp4'], defaultExtension: 'mp4', want: 'map.mov.mp4' },
+    { typed: 'flight', extensions: TRACK, defaultExtension: 'json', want: 'flight.json' },
+    { typed: 'flight.GPX', extensions: TRACK, defaultExtension: 'json', want: 'flight.GPX' },
+    { typed: 'flight.geojson', extensions: TRACK, defaultExtension: 'json', want: 'flight.geojson' },
+    { typed: 'flight.kmz', extensions: TRACK, defaultExtension: 'json', want: 'flight.kmz' },
+    { typed: 'notes.csv', extensions: TRACK, defaultExtension: 'json', want: 'notes.csv.json' },
+  ])('resolves $typed to $want', ({ typed, extensions, defaultExtension, want }) => {
+    expect(resolveSavePath(typed, extensions, defaultExtension)).toBe(want);
   });
 });

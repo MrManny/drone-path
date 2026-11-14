@@ -8,10 +8,15 @@ import { findSrtSidecar } from './recordings.js';
 import { computeTelemetry } from './telemetry-math.js';
 import type { Telemetry, TelemetrySamples } from './telemetry-math.js';
 import type { TelemetryFrameInput } from './telemetry-json.js';
+import type { TrackRecord } from './track.js';
 
 export interface RecordingTelemetry {
   telemetry: Telemetry;
   frameValues: TelemetryFrameInput[];
+  // Fix-faithful records for the track exports, each with its source time,
+  // including the cammeta-scan method whose samples never reach the telemetry
+  // JSON document.
+  trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
@@ -50,6 +55,7 @@ function camSampleToFrameValues(sample: CamSample): TelemetryFrameInput {
 
 interface SourceSamples extends TelemetrySamples {
   frameValues: TelemetryFrameInput[];
+  trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
@@ -75,6 +81,10 @@ async function loadSamples(
       noLock: cam.noLock,
       frameValues:
         cam.method === 'dvtm-packets' ? cam.samples.map(camSampleToFrameValues) : [],
+      trackValues: cam.samples.map((sample) => ({
+        ...camSampleToFrameValues(sample),
+        tSec: sample.tSec,
+      })),
       protoFile: cam.protoFile,
       gimbalDevice: cam.gimbalDevice,
     };
@@ -96,6 +106,10 @@ async function loadSamples(
       method: 'srt-cues',
       noLock: parsed.noLock,
       frameValues: parsed.cues.map(srtCueToFrameValues),
+      trackValues: parsed.cues.map((cue) => ({
+        ...srtCueToFrameValues(cue),
+        tSec: cue.tSec,
+      })),
       protoFile: null,
       gimbalDevice: null,
     };
@@ -116,10 +130,11 @@ export async function loadTelemetry(
   }: { frames: number; fpsValue: number; durationSec: number; tools: FfmpegToolPaths },
 ): Promise<RecordingTelemetry> {
   const loaded = await loadSamples(tools, videoPath, durationSec);
-  const { frameValues, protoFile, gimbalDevice, ...samples } = loaded;
+  const { frameValues, trackValues, protoFile, gimbalDevice, ...samples } = loaded;
   return {
     telemetry: computeTelemetry(samples, { frames, fpsValue }),
     frameValues,
+    trackValues,
     protoFile,
     gimbalDevice,
   };

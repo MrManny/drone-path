@@ -39,6 +39,25 @@ describe('the checked-in manual corpus', () => {
   });
 });
 
+describe('docs/user/cli.md flight track export', () => {
+  const doc = fs.readFileSync(path.join(userDir, 'cli.md'), 'utf8');
+
+  it('documents the five formats, the field policy and the altitude datum', () => {
+    expect(doc).toContain('`--track-out <file>`');
+    for (const extension of ['.gpx', '.geojson', '.kml', '.kmz', '.json']) {
+      expect(doc).toContain(`\`${extension}\``);
+    }
+    expect(doc).toContain('meters above mean sea level');
+    expect(doc).toContain('never interpolated');
+    expect(doc).toContain('trustworthy UTC');
+  });
+
+  it('documents the deprecated alias and the --json distinction', () => {
+    expect(doc).toContain('deprecated alias of `--track-out <file>.json`');
+    expect(doc).toContain('`--json` is not `--track-out data.json`');
+  });
+});
+
 describe('docs/user/keyboard-shortcuts.md', () => {
   const doc = fs.readFileSync(path.join(userDir, 'keyboard-shortcuts.md'), 'utf8');
   const keyCells = doc

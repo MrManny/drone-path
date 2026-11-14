@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildProgram, longFlagOf, parseCliArgs } from '../src/cli.js';
-import { CONFIG_OPTIONS, DEFAULT_CONFIG } from '../src/config.js';
+import { CONFIG_OPTIONS, DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
 import { defaultTileCache, resolveConfig } from '../src/configfile.js';
 import type * as ffmpegModule from '../src/ffmpeg.js';
 import type * as recordingsModule from '../src/recordings.js';
@@ -176,6 +176,41 @@ describe('parseCliArgs', () => {
   });
 });
 
+describe('--track-out and the deprecated --telemetry-json alias', () => {
+  it('parses --track-out into the one override key', () => {
+    const { cli, deprecationWarnings } = parseCliArgs(['x.mp4', '--track-out', 'flight.gpx']);
+    expect(cli).toEqual({ trackOut: 'flight.gpx' });
+    expect(deprecationWarnings).toEqual([]);
+  });
+
+  it('normalizes the deprecated --telemetry-json alias onto trackOut and warns', () => {
+    const parsed = parseCliArgs(['x.mp4', '--telemetry-json', 'flight.telemetry.json']);
+    expect(parsed.cli).toEqual({ trackOut: 'flight.telemetry.json' });
+    expect(parsed.deprecationWarnings).toEqual([TELEMETRY_JSON_ALIAS.cliWarning]);
+  });
+
+  it('rejects both spellings at once', () => {
+    expect(() =>
+      parseCliArgs(['x.mp4', '--track-out', 'a.gpx', '--telemetry-json', 'b.json']),
+    ).toThrow('--telemetry-json and --track-out cannot be combined (use --track-out)');
+  });
+
+  it('records which spelling produced the trackOut override for the merged check', () => {
+    expect(parseCliArgs(['x.mp4', '--track-out', 'a.gpx']).trackOutSpelling).toBe('track-out');
+    expect(parseCliArgs(['x.mp4', '--telemetry-json', 'a.json']).trackOutSpelling).toBe(
+      'telemetry-json',
+    );
+    expect(parseCliArgs(['x.mp4']).trackOutSpelling).toBeNull();
+  });
+
+  it('lists both spellings in the help output', () => {
+    const help = buildProgram().helpInformation();
+    expect(help).toMatch(/--track-out <file>/);
+    expect(help).toMatch(/--telemetry-json <file>/);
+    expect(help).toMatch(/deprecated alias/);
+  });
+});
+
 describe('CONFIG_OPTIONS CLI plumbing', () => {
   it('keeps each option key equal to the camelCase of its long flag', () => {
     for (const row of CONFIG_OPTIONS) {
@@ -192,53 +227,67 @@ describe('CONFIG_OPTIONS CLI plumbing', () => {
   });
 });
 
-describe('main OTEL_* removal regression', () => {
-  const savedExitCode = process.exitCode;
+const savedExitCode = process.exitCode;
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.restoreAllMocks();
-    vi.resetModules();
-    process.exitCode = savedExitCode;
-  });
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  vi.resetModules();
+  process.exitCode = savedExitCode;
+});
 
-  async function mainWithMocks(
-    env: Record<string, string>,
-    runBatch: () => Promise<{ ok: number; skipped: number; failed: number }>,
-  ) {
-    for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+async function mainWithMocks(
+  env: Record<string, string>,
+  runBatch: () => Promise<{ ok: number; skipped: number; failed: number }>,
+  extraArgs: string[] = [],
+) {
+  for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+  vi.resetModules();
+  vi.doMock('../src/ffmpeg.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof ffmpegModule>()),
+    requireFfmpegTools: async () => {},
+  }));
+  vi.doMock('../src/recordings.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof recordingsModule>()),
+    collectRecordings: () => [path.join('clips', 'clip.mp4')],
+  }));
+  vi.doMock('../src/pipeline.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof pipelineModule>()),
+    runBatch,
+  }));
+  const stderr = vi
+    .spyOn(process.stderr, 'write')
+    .mockImplementation(() => true);
+  try {
+    const configPath = path.join(tmpDir(), 'config.json');
+    fs.writeFileSync(configPath, '{}');
+    const { main: mockedMain } = await import('../src/cli.js');
+    await mockedMain([
+      'node', 'drone-path', 'clip.mp4', '--out-dir', tmpDir(),
+      '--config', configPath,
+      ...extraArgs,
+    ]);
+    return stderr.mock.calls.map((c) => String(c[0])).join('');
+  } finally {
+    vi.doUnmock('../src/ffmpeg.js');
+    vi.doUnmock('../src/recordings.js');
+    vi.doUnmock('../src/pipeline.js');
     vi.resetModules();
-    vi.doMock('../src/ffmpeg.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof ffmpegModule>()),
-      requireFfmpegTools: async () => {},
-    }));
-    vi.doMock('../src/recordings.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof recordingsModule>()),
-      collectRecordings: () => [path.join('clips', 'clip.mp4')],
-    }));
-    vi.doMock('../src/pipeline.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof pipelineModule>()),
-      runBatch,
-    }));
-    const stderr = vi
-      .spyOn(process.stderr, 'write')
-      .mockImplementation(() => true);
-    try {
-      const configPath = path.join(tmpDir(), 'config.json');
-      fs.writeFileSync(configPath, '{}');
-      const { main: mockedMain } = await import('../src/cli.js');
-      await mockedMain([
-        'node', 'drone-path', 'clip.mp4', '--out-dir', tmpDir(),
-        '--config', configPath,
-      ]);
-      return stderr.mock.calls.map((c) => String(c[0])).join('');
-    } finally {
-      vi.doUnmock('../src/ffmpeg.js');
-      vi.doUnmock('../src/recordings.js');
-      vi.doUnmock('../src/pipeline.js');
-      vi.resetModules();
-    }
   }
+}
+
+describe('main deprecation warnings', () => {
+  it('prints the --telemetry-json warning to stderr even with --quiet', async () => {
+    const stderr = await mainWithMocks({}, async () => ({ ok: 1, skipped: 0, failed: 0 }), [
+      '--quiet',
+      '--telemetry-json', 'flight.telemetry.json',
+    ]);
+    expect(stderr).toContain('[drone-path] ');
+    expect(stderr).toContain(TELEMETRY_JSON_ALIAS.cliWarning);
+  });
+});
+
+describe('main OTEL_* removal regression', () => {
 
   const OTEL_ENVS: { name: string; env: Record<string, string> }[] = [
     {

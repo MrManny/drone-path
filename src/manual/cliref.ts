@@ -1,4 +1,9 @@
-import { CONFIG_FILE_OPTION, CONFIG_OPTIONS, cliDefaultOf } from '../config.js';
+import {
+  CONFIG_FILE_OPTION,
+  CONFIG_OPTIONS,
+  TELEMETRY_JSON_ALIAS,
+  cliDefaultOf,
+} from '../config.js';
 import type { ConfigOption, RenderConfig } from '../config.js';
 
 function defaultCell(key: keyof RenderConfig): string {
@@ -18,6 +23,11 @@ export function generateCliReference(): string {
       `| \`${row.key}\` | \`${row.cli.flags}\` | ${defaultCell(row.key)} | ${describe(row)} |`,
   );
   rows.push(`| — | \`${CONFIG_FILE_OPTION.flags}\` | — | ${CONFIG_FILE_OPTION.help} |`);
+  rows.push(
+    `| \`${TELEMETRY_JSON_ALIAS.inputKey}\` | \`${TELEMETRY_JSON_ALIAS.flags}\` | — | ` +
+      `deprecated alias of --track-out &lt;file&gt;.json: same output, warns on use, ` +
+      `removed in a future version |`,
+  );
   return [
     '<!-- Generated from the option vocabulary in src/config.ts by "npm run docs:reference". Do not edit by hand. -->',
     '',

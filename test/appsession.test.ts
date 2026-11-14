@@ -42,7 +42,11 @@ const TELEMETRY = {
   frames: [],
   headingDeg: [90, 91, 92],
 } as unknown as TelemetryDocumentInput;
-const PREPARED: PreparedUiSession = { session: SESSION, telemetry: TELEMETRY };
+const PREPARED: PreparedUiSession = {
+  session: SESSION,
+  telemetry: TELEMETRY,
+  track: { records: [], fpsValue: 30, frameCount: 3 },
+};
 
 const REQUEST: PickRequest = {
   settings: {
@@ -426,6 +430,13 @@ function saveDeps() {
         {},
         { lat: 46.64, lng: 14.24, altRel: 3.7 },
       ],
+      trackValues: [
+        { lat: 46.6, lng: 14.2, altRel: 3.3, iso: 340, tSec: 0 },
+        { altRel: 3.4, tSec: 1 / 30 },
+        { lat: null, lng: null, altRel: 3.5, tSec: 2 / 30 },
+        { tSec: 3 / 30 },
+        { lat: 46.64, lng: 14.24, altRel: 3.7, tSec: 4 / 30 },
+      ],
       protoFile: 'dvtm_NEO2.proto v02.00.07',
       gimbalDevice: { id: 0, type: 1, subType: 3, name: 'gimbal', frequency: 200 },
     }),
@@ -474,16 +485,33 @@ describe('parseTelemetrySaveRequest', () => {
     ).toThrow('unknown telemetry save request key surprise');
   });
 
-  it('rejects a non-.json destination, like the export request rejects non-.mp4', () => {
+  it('rejects an unsupported destination extension, like the export request rejects non-.mp4', () => {
     expect(() => parseTelemetrySaveRequest({ outPath: '/exports/flight.txt' })).toThrow(
-      'outPath must be a .json file',
+      'outPath must be a .gpx, .geojson, .kml, .kmz or .json file',
+    );
+    expect(() => parseTelemetrySaveRequest({ outPath: '/exports/flight' })).toThrow(
+      'outPath must be a .gpx, .geojson, .kml, .kmz or .json file',
+    );
+  });
+
+  it.for([
+    'flight.gpx',
+    'flight.geojson',
+    'flight.kml',
+    'flight.kmz',
+    'flight.json',
+    'flight.GPX',
+    'flight.telemetry.json',
+  ])('accepts the %s destination', (name) => {
+    expect(parseTelemetrySaveRequest({ outPath: `/exports/${name}` }).outPath).toBe(
+      `/exports/${name}`,
     );
   });
 
   it('rejects an invalid range through the shared frame-range rule', () => {
     expect(() =>
-      parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 2, end: 2 } }),
-    ).toThrow('0 <= start < end');
+      parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 3, end: 2 } }),
+    ).toThrow('0 <= start <= end');
     expect(() =>
       parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 0, end: 1, extra: 2 } }),
     ).toThrow('unknown frame range key extra');
@@ -532,17 +560,79 @@ describe('AppSession.saveTelemetryJson', () => {
     expect(doc.frames[1]).not.toHaveProperty('iso');
   });
 
+  it('writes a single-frame segment for a lone In-Out point', async () => {
+    const session = await loadedSession(mp4());
+    const out = path.join(tmpDir(), 'single.telemetry.json');
+    session.saveTelemetryJson(out, { start: 2, end: 2 });
+
+    const doc = JSON.parse(fs.readFileSync(out, 'utf8'));
+    expect(doc.frameCount).toBe(1);
+    expect(doc.frames.map((f: { frame: number }) => f.frame)).toEqual([2]);
+    expect(TelemetryDocumentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it('honors the In-Out range for the track formats', async () => {
+    const session = await loadedSession(mp4());
+    const out = path.join(tmpDir(), 'segment.gpx');
+    session.saveTelemetryJson(out, { start: 3, end: 4 });
+
+    // rows 3-4 hold one fix (row 4), so the export is a single-vertex track
+    const gpx = fs.readFileSync(out, 'utf8');
+    expect(gpx.match(/<trkpt /g)).toHaveLength(1);
+    expect(gpx).toContain('<trkpt lat="46.64" lon="14.24"/>');
+    expect(gpx).not.toContain('46.6"');
+  });
+
+  it('selects sample-indexed track records (cammeta-scan) by time, not by position', async () => {
+    // 3 scan records over a 5-frame clip: record count unrelated to frames
+    const telemetry = telemetryFixture();
+    const deps = stubDeps({
+      probe: probeFixture({ frames: 5 }),
+      telemetry,
+      loaded: loadedTelemetry({
+        telemetry,
+        frameValues: [],
+        trackValues: [
+          { lat: 46.6, lng: 14.2, tSec: 0 }, // frame 0
+          { lat: 46.62, lng: 14.22, tSec: 0.1 }, // frame 3
+          { lat: 46.64, lng: 14.24, tSec: 0.133333 }, // frame 4
+        ],
+      }),
+    });
+    const session = await loadedSession(mp4(), deps);
+
+    const out = path.join(tmpDir(), 'scan.gpx');
+    session.saveTelemetryJson(out, { start: 0, end: 2 });
+    const gpx = fs.readFileSync(out, 'utf8');
+    // frames 0-2 hold only the frame-0 fix; a positional slice would have
+    // written the first three records
+    expect(gpx.match(/<trkpt /g)).toHaveLength(1);
+    expect(gpx).toContain('46.6"');
+    expect(gpx).not.toContain('46.62');
+
+    const full = path.join(tmpDir(), 'scan-full.gpx');
+    session.saveTelemetryJson(full, null);
+    expect((fs.readFileSync(full, 'utf8').match(/<trkpt /g) ?? []).length).toBe(3);
+  });
+
   it.for([
-    { what: 'a negative start', range: { start: -1, end: 2 }, message: '0 <= start < end' },
-    { what: 'an empty range', range: { start: 2, end: 2 }, message: '0 <= start < end' },
-    { what: 'a reversed range', range: { start: 3, end: 1 }, message: '0 <= start < end' },
+    { what: 'a negative start', range: { start: -1, end: 2 }, message: '0 <= start <= end' },
+    { what: 'a reversed range', range: { start: 3, end: 1 }, message: '0 <= start <= end' },
     { what: 'fractional frames', range: { start: 0.5, end: 2 }, message: 'integer frame indices' },
     { what: 'an end past the recording', range: { start: 3, end: 5 }, message: 'beyond the recording' },
+    {
+      what: 'a far out-of-bounds range',
+      range: { start: 0, end: 5000 },
+      message: 'beyond the recording (5 frames)',
+    },
   ])('rejects $what and writes nothing', async ({ range, message }) => {
     const session = await loadedSession(mp4());
-    const out = path.join(tmpDir(), 'range.telemetry.json');
-    expect(() => session.saveTelemetryJson(out, range)).toThrow(message);
-    expect(fs.existsSync(out)).toBe(false);
+    // every format validates the range - document and track formats alike
+    for (const name of ['range.telemetry.json', 'range.gpx', 'range.kmz']) {
+      const out = path.join(tmpDir(), name);
+      expect(() => session.saveTelemetryJson(out, range)).toThrow(message);
+      expect(fs.existsSync(out)).toBe(false);
+    }
   });
 
   it('refuses to save when no recording is loaded', () => {
@@ -558,23 +648,26 @@ describe('AppSession.saveTelemetryJson', () => {
 });
 
 describe('saveTelemetryJson byte parity', () => {
-  it('writes the same bytes as processRecording with telemetryJson', async () => {
-    const file = mp4('flight.mp4');
-    const dir = tmpDir();
-    const cliFile = path.join(dir, 'cli.telemetry.json');
-    const desktopFile = path.join(dir, 'desktop.telemetry.json');
-    const deps = saveDeps();
+  it.for(['json', 'gpx', 'geojson', 'kml', 'kmz'])(
+    'writes the same .%s bytes as processRecording with trackOut',
+    async (extension) => {
+      const file = mp4('flight.mp4');
+      const dir = tmpDir();
+      const cliFile = path.join(dir, `cli.telemetry.${extension}`);
+      const desktopFile = path.join(dir, `desktop.telemetry.${extension}`);
+      const deps = saveDeps();
 
-    await processRecording(
-      file,
-      testConfig({ telemetryJson: cliFile }),
-      () => {},
-      path.join(dir, 'out.mp4'),
-      { deps },
-    );
-    const session = await loadedSession(file, deps);
-    session.saveTelemetryJson(desktopFile, null);
+      await processRecording(
+        file,
+        testConfig({ trackOut: cliFile }),
+        () => {},
+        path.join(dir, 'out.mp4'),
+        { deps },
+      );
+      const session = await loadedSession(file, deps);
+      session.saveTelemetryJson(desktopFile, null);
 
-    expect(fs.readFileSync(desktopFile)).toEqual(fs.readFileSync(cliFile));
-  });
+      expect(fs.readFileSync(desktopFile)).toEqual(fs.readFileSync(cliFile));
+    },
+  );
 });

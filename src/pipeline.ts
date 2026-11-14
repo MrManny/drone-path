@@ -12,8 +12,9 @@ import { videoBaseName } from './recordings.js';
 import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
 import type { FrameChannels, Telemetry } from './telemetry-math.js';
-import { writeTelemetryDocument } from './telemetry-json.js';
 import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-json.js';
+import { writeTrackFile } from './track-write.js';
+import type { TrackRecord, TrackStream } from './track.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats } from './tiles.js';
 import { planIntroOutroFrames, planView } from './plan.js';
@@ -245,6 +246,7 @@ export interface PreparedRecording {
   probe: VideoProbe;
   tel: Telemetry;
   frameValues: TelemetryFrameInput[];
+  trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
   hud: HudLayout;
@@ -302,6 +304,7 @@ async function telemetryStage(
 ): Promise<{
   tel: Telemetry;
   frameValues: TelemetryFrameInput[];
+  trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
   hud: HudLayout;
@@ -325,6 +328,7 @@ async function telemetryStage(
   return {
     tel,
     frameValues: loaded.frameValues,
+    trackValues: loaded.trackValues,
     protoFile: loaded.protoFile,
     gimbalDevice: loaded.gimbalDevice,
     hud,
@@ -374,7 +378,7 @@ export async function prepareSession(
   const { width, height } = config;
 
   const { probe, introOutro } = await probeStage(env);
-  const { tel, frameValues, protoFile, gimbalDevice, hud } = await telemetryStage(
+  const { tel, frameValues, trackValues, protoFile, gimbalDevice, hud } = await telemetryStage(
     env,
     probe,
   );
@@ -387,6 +391,7 @@ export async function prepareSession(
     probe,
     tel,
     frameValues,
+    trackValues,
     protoFile,
     gimbalDevice,
     hud,
@@ -524,15 +529,30 @@ export function telemetryExportInput(prep: PreparedRecording): TelemetryDocument
   };
 }
 
-function writeTelemetryExport(
+// The track formats read the fix-faithful records (which carry positions and
+// source times for every telemetry source); the .json document keeps its own
+// record stream.
+export function trackExportStream(prep: PreparedRecording): TrackStream {
+  return {
+    records: prep.trackValues,
+    fpsValue: prep.probe.fps.value,
+    frameCount: prep.probe.frames,
+  };
+}
+
+function writeTrackExport(
   file: string,
   prep: PreparedRecording,
   log: LogFn,
 ): void {
-  // The document intentionally covers the whole recording: a frame range
+  // The export intentionally covers the whole recording: a frame range
   // limits the render, never this export.
-  writeTelemetryDocument(file, telemetryExportInput(prep));
-  log(`telemetry JSON: wrote ${file}`);
+  writeTrackFile(
+    file,
+    { document: telemetryExportInput(prep), track: trackExportStream(prep) },
+    null,
+  );
+  log(`track: wrote ${file}`);
 }
 
 export async function processRecording(
@@ -553,8 +573,8 @@ export async function processRecording(
     tools,
   });
 
-  if (config.telemetryJson) {
-    writeTelemetryExport(config.telemetryJson, prep, log);
+  if (config.trackOut) {
+    writeTrackExport(config.trackOut, prep, log);
   }
 
   const tileStats = await tileWarmStage(deps, config, prep.overview, log);
@@ -585,8 +605,8 @@ export async function runBatch(
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfmpegTools(config);
 
-  if (config.telemetryJson && videos.length > 1) {
-    throw new Error('--telemetry-json writes one document per run: give a single recording');
+  if (config.trackOut && videos.length > 1) {
+    throw new Error('--track-out writes one file per run: give a single recording');
   }
 
   const plans = planOutputs(videos, config);

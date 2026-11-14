@@ -33,7 +33,11 @@ export function registerIpcHandlers(state: IpcState, options: IpcHandlersOptions
 
 /**
  * Resolves the final save path: the typed name stands as typed when it already
- * ends in the expected extension (any case); otherwise the extension is
- * appended to it.
+ * ends in one of the accepted extensions (any case); otherwise the default
+ * extension is appended to it.
  */
-export function resolveSavePath(typedPath: string, extension: string): string;
+export function resolveSavePath(
+  typedPath: string,
+  extensions: readonly string[],
+  defaultExtension: string,
+): string;

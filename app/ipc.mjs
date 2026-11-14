@@ -13,6 +13,7 @@ import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
 import { ERR_NO_RECORDING, errorMessage } from '../dist/errors.js';
 import { videoBaseName } from '../dist/recordings.js';
 import { outputPathFor } from '../dist/pipeline.js';
+import { TRACK_FORMAT_VALUES } from '../dist/track-format.js';
 
 // Only this app's window may drive the session state machine.
 function assertTrusted(event, devUrl) {
@@ -82,23 +83,24 @@ function exportDefaultFor(state, video) {
 }
 
 // Pure name rule for save dialogs: the typed name stands as typed when it
-// already ends in the expected extension (any case); otherwise the extension
-// is appended to it as typed, so "notes.csv" becomes "notes.csv.json". The
-// dialogs that report the result show this final name, so the append is
-// never silent.
-export function resolveSavePath(typedPath, extension) {
-  return typedPath.toLowerCase().endsWith(`.${extension}`)
+// already ends in one of the accepted extensions (any case); otherwise the
+// default extension is appended to it as typed, so "notes.csv" becomes
+// "notes.csv.json". The dialogs that report the result show this final name,
+// so the append is never silent.
+export function resolveSavePath(typedPath, extensions, defaultExtension) {
+  const lower = typedPath.toLowerCase();
+  return extensions.some((extension) => lower.endsWith(`.${extension}`))
     ? typedPath
-    : `${typedPath}.${extension}`;
+    : `${typedPath}.${defaultExtension}`;
 }
 
-async function pickSavePath(state, { title, defaultPath, filters, extension }) {
+async function pickSavePath(state, { title, defaultPath, filters, extensions, defaultExtension }) {
   const options = { title, defaultPath, filters };
   const result = state.win
     ? await dialog.showSaveDialog(state.win, options)
     : await dialog.showSaveDialog(options);
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
-  const chosen = resolveSavePath(result.filePath, extension);
+  const chosen = resolveSavePath(result.filePath, extensions, defaultExtension);
   if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
   return { ok: true, path: chosen };
 }
@@ -131,7 +133,8 @@ function registerExportHandlers(state, devUrl) {
       title: 'Export video',
       defaultPath: exportDefaultFor(state, video),
       filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
-      extension: 'mp4',
+      extensions: ['mp4'],
+      defaultExtension: 'mp4',
     });
   });
   handle(devUrl, 'dronepath:export:start', (raw) => {
@@ -157,13 +160,21 @@ function registerTelemetryHandlers(state, devUrl, log) {
   handle(devUrl, 'dronepath:telemetry:pick-output', async () => {
     const video = requireVideo(state);
     // The export dialog's default folder, named after the recording
-    // (<basename>.telemetry.json).
+    // (<basename>.telemetry.json); the typed name selects the format by its
+    // extension, with the telemetry document as the bare-name default.
     const exportDefault = exportDefaultFor(state, video);
     return pickSavePath(state, {
       title: 'Export telemetry',
       defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
-      filters: [{ name: 'JSON document', extensions: ['json'] }],
-      extension: 'json',
+      filters: [
+        { name: 'Telemetry document (JSON)', extensions: ['json'] },
+        { name: 'GPX track', extensions: ['gpx'] },
+        { name: 'GeoJSON track', extensions: ['geojson'] },
+        { name: 'KML track', extensions: ['kml'] },
+        { name: 'KMZ track', extensions: ['kmz'] },
+      ],
+      extensions: [...TRACK_FORMAT_VALUES],
+      defaultExtension: 'json',
     });
   });
   handle(devUrl, 'dronepath:telemetry:save', (raw) => {
@@ -171,7 +182,7 @@ function registerTelemetryHandlers(state, devUrl, log) {
     const request = parseTelemetrySaveRequest(raw);
     state.session.saveTelemetryJson(request.outPath, request.range);
     state.lastTelemetryOut = request.outPath;
-    log(`telemetry JSON: wrote ${request.outPath}`);
+    log(`track: wrote ${request.outPath}`);
     return { ok: true };
   });
 }
