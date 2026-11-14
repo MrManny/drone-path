@@ -46,6 +46,14 @@ export function TimelinePanel({
   const loopReadout = formatLoopReadout(loop, fps, maxFrame);
   const clearable = hasLoop(loop);
 
+  // A boundary on the track's edge must keep a visible, draggable footprint:
+  // a zero-width band at the right edge is clipped away entirely (#245).
+  const MIN_BAND_PCT = 0.5;
+  const bandWidthPct = loopPoints
+    ? Math.max(bandPct(loopPoints.out) - bandPct(loopPoints.in), MIN_BAND_PCT)
+    : 0;
+  const bandLeftPct = loopPoints ? Math.min(bandPct(loopPoints.in), 100 - bandWidthPct) : 0;
+
   // The band's end handles are pointer-only by design: they are a drag
   // enhancement of the I/O keys and the in/out-point buttons, which stay the
   // keyboard path (documented in docs/user/keyboard-shortcuts.md).
@@ -134,8 +142,8 @@ export function TimelinePanel({
           <div
             className="loop-band"
             style={{
-              left: `${bandPct(loopPoints.in)}%`,
-              width: `${bandPct(loopPoints.out) - bandPct(loopPoints.in)}%`,
+              left: `${bandLeftPct}%`,
+              width: `${bandWidthPct}%`,
             }}
           >
             {/* A handle marks only a set boundary; a lone point's open end is the track edge. */}

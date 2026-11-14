@@ -337,6 +337,12 @@ function key(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
   return event;
 }
 
+function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): void {
+  act(() => {
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, ...init }));
+  });
+}
+
 function menuBar(): HTMLElement {
   return document.querySelector('.menu-bar') as HTMLElement;
 }
@@ -660,6 +666,49 @@ describe('PlayerChrome loop region', () => {
     key(window, { key: 'i' });
     clickMenuItem('Export video…');
     expect(screen.getByRole<HTMLInputElement>('radio', { name: /In–Out segment/ }).checked).toBe(true);
+  });
+
+  it('keeps a mid-drag point move from crossing the points (#245)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '30' } });
+    key(window, { key: 'i' });
+    fireEvent.change(scrub, { target: { value: '60' } });
+    key(window, { key: 'o' });
+    act(() => flushRaf());
+    const track = document.querySelector('.track') as HTMLElement;
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 100 } as DOMRect);
+    pointer('pointerdown', document.querySelector('.loop-handle-in') as HTMLElement);
+    // The out point supersedes the held in point mid-gesture (#245): further
+    // pointer moves must not write the stale in point back over it.
+    fireEvent.change(scrub, { target: { value: '20' } });
+    key(window, { key: 'o' });
+    act(() => flushRaf());
+    pointer('pointermove', window, { clientX: 50 });
+    pointer('pointerup', window);
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:00 · out 0:01');
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo(0);
+    expect(parseFloat(band.style.width)).toBeCloseTo((20 / 89) * 100);
+  });
+
+  it('keeps a drag from resurrecting a point cleared with Esc (#245)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '50' } });
+    key(window, { key: 'i' });
+    act(() => flushRaf());
+    const track = document.querySelector('.track') as HTMLElement;
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 100 } as DOMRect);
+    pointer('pointerdown', document.querySelector('.loop-handle-in') as HTMLElement);
+    key(window, { key: 'Escape' });
+    pointer('pointermove', window, { clientX: 70 });
+    pointer('pointerup', window);
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('');
+    expect(document.querySelector('.loop-band')).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Clear in and out points' }).disabled,
+    ).toBe(true);
   });
 
   it('resumes an end-of-file loop at the loop start, not the file start', async () => {

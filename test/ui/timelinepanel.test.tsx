@@ -281,6 +281,46 @@ describe('TimelinePanel track', () => {
     expect(setLoopFrame).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a lone in point at the last frame visible and draggable (#245)', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: 89, out: null } });
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    const left = parseFloat(band.style.left);
+    const width = parseFloat(band.style.width);
+    expect(width).toBeGreaterThan(0);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left + width).toBeLessThanOrEqual(100);
+    const handle = document.querySelector('.loop-handle-in') as HTMLElement;
+    expect(handle).toBeTruthy();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    pointer('pointerdown', handle);
+    pointer('pointermove', window, { clientX: 10 });
+    expect(setLoopFrame).toHaveBeenCalled();
+    pointer('pointerup', window);
+  });
+
+  it('keeps a lone out point at the first frame visible and draggable (#245)', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: null, out: 0 } });
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    const left = parseFloat(band.style.left);
+    const width = parseFloat(band.style.width);
+    expect(width).toBeGreaterThan(0);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left + width).toBeLessThanOrEqual(100);
+    const handle = document.querySelector('.loop-handle-out') as HTMLElement;
+    expect(handle).toBeTruthy();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    pointer('pointerdown', handle);
+    pointer('pointermove', window, { clientX: 90 });
+    expect(setLoopFrame).toHaveBeenCalled();
+    pointer('pointerup', window);
+  });
+
   it('shows no band or handles for an out-of-order loop', () => {
     renderPanel({ loop: { in: 60, out: 30 } });
     expect(document.querySelector('.loop-band')).toBeNull();

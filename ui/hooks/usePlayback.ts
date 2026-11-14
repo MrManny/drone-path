@@ -8,7 +8,7 @@ import type { Scene } from '../../src/renderer/scene.js';
 import { createFrameDriver } from '../lib/framedriver.js';
 import { clampFrame, formatTimeReadout } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
-import { markLoopPoint, resolveLoop } from '../lib/loop.js';
+import { clampHandleFrame, markLoopPoint, resolveLoop } from '../lib/loop.js';
 
 const NO_LOOP: LoopState = { in: null, out: null };
 
@@ -128,7 +128,13 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
 
   const setLoopFrame = useCallback(
     (which: 'in' | 'out', frame: number) => {
-      setLoop((prev) => ({ ...prev, [which]: clampFrame(frame, video.frames) }));
+      setLoop((prev) => {
+        // A drag writes against the live state: a clamp captured when the
+        // gesture started can cross a point moved mid-drag, and a point
+        // cleared mid-drag stays cleared (#245).
+        if (prev[which] === null) return prev;
+        return { ...prev, [which]: clampHandleFrame(which, frame, prev, video.frames - 1) };
+      });
     },
     [video.frames],
   );

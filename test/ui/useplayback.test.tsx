@@ -201,6 +201,45 @@ describe('usePlayback', () => {
     expect(api.loop).toEqual({ in: null, out: 50 });
   });
 
+  it('clamps a dragged handle against the live loop state (#245)', () => {
+    render(<Harness />);
+    stubPlayback();
+    scrubAndMark(30, 'in');
+    scrubAndMark(60, 'out');
+    act(() => {
+      api.setLoopFrame('out', 50);
+    });
+    act(() => {
+      api.setLoopFrame('in', 71);
+    });
+    expect(api.loop).toEqual({ in: 49, out: 50 });
+  });
+
+  it('does not resurrect a point cleared while its handle is held (#245)', () => {
+    render(<Harness />);
+    stubPlayback();
+    scrubAndMark(50, 'in');
+    act(() => {
+      api.clearLoop();
+    });
+    act(() => {
+      api.setLoopFrame('in', 70);
+    });
+    expect(api.loop).toEqual({ in: null, out: null });
+  });
+
+  it('leaves a superseded point cleared while its handle is held (#245)', () => {
+    render(<Harness />);
+    stubPlayback();
+    scrubAndMark(30, 'in');
+    scrubAndMark(60, 'out');
+    scrubAndMark(20, 'out');
+    act(() => {
+      api.setLoopFrame('in', 44);
+    });
+    expect(api.loop).toEqual({ in: null, out: 20 });
+  });
+
   it('resumes an ended loop at the loop start, not the file start', async () => {
     render(<Harness />);
     const media = stubPlayback();
