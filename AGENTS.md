@@ -85,8 +85,8 @@ UI tokens and design principles.
   over Node 24 + 26, then adds `npm pack --dry-run` and a desktop packaging
   smoke on Node 24).
 - Docs updated (README: user-visible, here: commands and standards).
-- Release bookkeeping (changesets, `CHANGELOG.md`) is defined in
-  [`.changeset/README.md`](.changeset/README.md); CI enforces it.
+- Release bookkeeping for `feat`/`fix` commits is defined in
+  [`.changeset/README.md`](.changeset/README.md).
 
 ## Agent helper
 
