@@ -18,7 +18,7 @@ export interface PlayerActionHandlers {
   closeOverlay: () => void;
 }
 
-export interface PlayerActionContext {
+interface PlayerActionContext {
   modalOpen: boolean;
   popoverOpen: boolean;
   menuOpen: boolean;

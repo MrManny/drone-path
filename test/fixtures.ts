@@ -129,7 +129,7 @@ export function loadedTelemetry(
   };
 }
 
-export type StubDepsOptions = Partial<PipelineDeps> & {
+type StubDepsOptions = Partial<PipelineDeps> & {
   probe?: VideoProbe;
   telemetry?: Telemetry;
   loaded?: RecordingTelemetry;
@@ -190,9 +190,9 @@ export function trackDocumentFixture(
   };
 }
 
-export const TRACK_FPS = 30;
+const TRACK_FPS = 30;
 
-export function trackRecordsFixture(
+function trackRecordsFixture(
   rows: readonly TelemetryFrameInput[] = TRACK_ROWS,
   fpsValue = TRACK_FPS,
 ): TrackRecord[] {

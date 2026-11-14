@@ -8,7 +8,7 @@ import type { DialogEvent } from '../lib/dialogstate.js';
 import type { LoopState } from '../lib/loop.js';
 import { ExportModal } from './ExportModal.js';
 
-export interface ExportHostProps {
+interface ExportHostProps {
   session: UiSession;
   settings: RenderConfig;
   loop: LoopState;

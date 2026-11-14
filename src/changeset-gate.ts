@@ -6,7 +6,7 @@ const CHANGESET_FRAGMENT_PATH = /^\.changeset\/([^/]+)\.md$/;
 
 const CHANGELOG_PATH = /^CHANGELOG\.md$/;
 
-export type GateOutcome = { ok: true; note: string } | { ok: false; error: string };
+type GateOutcome = { ok: true; note: string } | { ok: false; error: string };
 
 export function prNeedsChangeset(prTitle: string): boolean {
   return PR_TITLE_NEEDS_CHANGESET.test(prTitle.trim());

@@ -4,7 +4,7 @@ import type { AboutContent } from '../lib/abouttext.js';
 import { GitHubIcon } from '../icons/GitHubIcon.js';
 import { DialogShell } from './DialogShell.js';
 
-export interface AboutDialogProps {
+interface AboutDialogProps {
   content: AboutContent;
   onClose: () => void;
 }

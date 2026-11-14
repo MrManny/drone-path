@@ -3,7 +3,7 @@
 import { DialogShell } from './DialogShell.js';
 import { Notice } from './Notice.js';
 
-export interface UpdatePromptProps {
+interface UpdatePromptProps {
   restarting: boolean;
   /** Backend message of a failed restart; null while none failed. */
   failure: string | null;

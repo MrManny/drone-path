@@ -7,7 +7,7 @@ import { FilmstripCache, sameFrames, thumbPlan } from '../lib/filmstrip.js';
 import type { ThumbSampler } from '../lib/thumbsampler.js';
 import { createThumbSampler } from '../lib/thumbsampler.js';
 
-export interface UseFilmstripOptions {
+interface UseFilmstripOptions {
   src: string;
   frames: number;
   fps: number;
@@ -15,7 +15,7 @@ export interface UseFilmstripOptions {
   createSampler?: (src: string, fps: number) => ThumbSampler;
 }
 
-export interface FilmstripStrip {
+interface FilmstripStrip {
   hostRef: RefObject<HTMLDivElement | null>;
   cells: readonly number[];
   thumbs: ReadonlyMap<number, string>;

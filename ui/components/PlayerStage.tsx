@@ -7,7 +7,7 @@ import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
 import { MapCard } from './MapCard.js';
 
-export interface PlayerStageProps {
+interface PlayerStageProps {
   video: PageVideo;
   sceneData: SceneData;
   layout: StageLayout;

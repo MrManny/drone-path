@@ -14,7 +14,7 @@ export interface SrtCue {
   fNumber: number | null;
 }
 
-export interface SrtParseResult {
+interface SrtParseResult {
   cues: SrtCue[];
   noLock: number;
   count: number;

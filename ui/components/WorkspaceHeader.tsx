@@ -2,7 +2,7 @@
 
 import { formatTime } from '../lib/frametime.js';
 
-export interface WorkspaceHeaderProps {
+interface WorkspaceHeaderProps {
   /** Recording length in seconds; null while no recording is loaded. */
   durationSec: number | null;
 }

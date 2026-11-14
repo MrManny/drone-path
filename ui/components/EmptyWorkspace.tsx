@@ -18,7 +18,7 @@ import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
 
-export interface EmptyWorkspaceProps {
+interface EmptyWorkspaceProps {
   state: PickState;
   /** Map appearance applies to future exports, so it is live from startup. */
   settings: RenderConfig;

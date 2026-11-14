@@ -153,7 +153,7 @@ export const prepareUiSession: PrepareUiSessionFn = async (
   };
 };
 
-export interface AppSessionOptions {
+interface AppSessionOptions {
   config: RenderConfig;
   pickFile: () => Promise<string | null>;
   prepare?: PrepareUiSessionFn;

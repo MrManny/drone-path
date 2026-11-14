@@ -7,7 +7,7 @@ import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { formatTimeReadout } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 
-export interface TransportBarProps {
+interface TransportBarProps {
   dispatch: (action: HotkeyAction) => void;
   disabled?: boolean;
   ready: boolean;

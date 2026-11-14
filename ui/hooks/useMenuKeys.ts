@@ -17,7 +17,7 @@ export interface MenuKeysOptions {
   inBar?: (target: unknown) => boolean;
 }
 
-export interface MenuKeys {
+interface MenuKeys {
   state: MenuState;
   dispatch: (event: MenuEvent) => void;
 }

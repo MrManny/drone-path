@@ -31,7 +31,7 @@ export function discoverConfigFile(startDir: string): string | null {
   }
 }
 
-export interface ConfigFileLayer {
+interface ConfigFileLayer {
   overrides: ConfigOverrides;
   trackOutSpelling: TrackOutSpelling | null;
 }
@@ -67,7 +67,7 @@ export function loadConfigFile(
   };
 }
 
-export interface ResolvedConfig {
+interface ResolvedConfig {
   config: RenderConfig;
   configPath: string | null;
 }

@@ -40,7 +40,7 @@ const runViaPipeline =
       deps,
     });
 
-export interface ExportRunnerOptions {
+interface ExportRunnerOptions {
   log?: LogFn;
   onDone: (outcome: ExportOutcome) => void;
   onCapture?: (progress: CaptureProgress) => void;
@@ -48,7 +48,7 @@ export interface ExportRunnerOptions {
   deps?: Partial<PipelineDeps>;
 }
 
-export interface ExportRunner {
+interface ExportRunner {
   start(videoPath: string, request: ExportRequest): void;
   cancel(): void;
   running(): boolean;

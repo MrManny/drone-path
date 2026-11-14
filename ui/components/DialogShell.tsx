@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useModalFocus } from '../hooks/useModalFocus.js';
 import { DialogClose } from './DialogClose.js';
 
-export interface DialogShellProps {
+interface DialogShellProps {
   title: string;
   onClose: () => void;
   blockedReason?: string;

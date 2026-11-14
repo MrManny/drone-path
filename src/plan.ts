@@ -9,7 +9,7 @@ export interface TileCoord {
   y: number;
 }
 
-export interface OverviewPlanOptions {
+interface OverviewPlanOptions {
   bbox: Bbox;
   width: number;
   height: number;

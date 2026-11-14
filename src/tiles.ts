@@ -187,11 +187,11 @@ export interface WarmOptions {
   signal?: AbortSignal;
 }
 
-export interface PrefetchOptions extends WarmOptions {
+interface PrefetchOptions extends WarmOptions {
   cacheDir: string;
 }
 
-export interface TileTraffic {
+interface TileTraffic {
   ensure(style: MapStyle, tile: TileCoord): Promise<string>;
   stream(options: WarmOptions): Promise<PrefetchStats>;
 }

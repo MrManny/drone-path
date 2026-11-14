@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-export interface MapAppearance {
+interface MapAppearance {
   open: boolean;
   /** The menu bar the Settings item lives on doubles as the popover trigger. */
   triggerRef: RefObject<HTMLElement | null>;

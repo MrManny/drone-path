@@ -1,4 +1,4 @@
-export interface ThumbPlan {
+interface ThumbPlan {
   count: number;
   frames: number[];
 }
@@ -22,10 +22,10 @@ export function sameFrames(a: readonly number[], b: readonly number[]): boolean 
   return a.length === b.length && a.every((frame, index) => frame === b[index]);
 }
 
-export type GrabFrame = (frameIndex: number) => Promise<string | null>;
-export type ReleaseThumb = (url: string) => void;
+type GrabFrame = (frameIndex: number) => Promise<string | null>;
+type ReleaseThumb = (url: string) => void;
 
-export interface FilmstripCacheOptions {
+interface FilmstripCacheOptions {
   grab: GrabFrame;
   release?: ReleaseThumb;
 }

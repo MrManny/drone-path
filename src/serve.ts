@@ -12,7 +12,7 @@ const LEAFLET_DIR = path.dirname(require_.resolve('leaflet/dist/leaflet.js'));
 
 export const RENDERER_DIR = fileURLToPath(new URL('./renderer/', import.meta.url));
 
-export type ServeRoutes = Omit<AssetRoutes, 'leafletDir'>;
+type ServeRoutes = Omit<AssetRoutes, 'leafletDir'>;
 
 export function serveAsset(
   url: string,

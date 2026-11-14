@@ -3,7 +3,7 @@
 import { useFilmstrip } from '../hooks/useFilmstrip.js';
 import type { ThumbSampler } from '../lib/thumbsampler.js';
 
-export interface FilmstripProps {
+interface FilmstripProps {
   src: string;
   frames: number;
   fps: number;

@@ -2,7 +2,7 @@
 
 import { ErrorNotice } from './ErrorNotice.js';
 
-export interface ExportErrorProps {
+interface ExportErrorProps {
   error: string;
 }
 

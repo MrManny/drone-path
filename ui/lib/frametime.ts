@@ -26,7 +26,7 @@ export function formatTimeReadout(frame: number, fps: number, durationSec: numbe
   return `${formatTime(timeAt(frame, fps))} / ${formatTime(durationSec)}`;
 }
 
-export function formatPoint(f: number, fps: number): string {
+function formatPoint(f: number, fps: number): string {
   return formatTime(timeAt(f, fps));
 }
 

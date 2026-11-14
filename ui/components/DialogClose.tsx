@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 
-export interface DialogCloseProps {
+interface DialogCloseProps {
   onClose: () => void;
   blockedReason?: string;
 }

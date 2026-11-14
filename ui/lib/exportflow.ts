@@ -22,7 +22,7 @@ export interface ExportFlowInput {
   segment: { range: FrameRange } | null;
 }
 
-export type EmitExportEvent = (event: ExportEvent) => void;
+type EmitExportEvent = (event: ExportEvent) => void;
 
 function buildRequest(input: ExportFlowInput, outPath: string): ExportRequest {
   return {

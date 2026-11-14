@@ -16,7 +16,7 @@ import {
   ERR_UNKNOWN,
 } from '../../src/errors.js';
 
-export interface ErrorText {
+interface ErrorText {
   text: string;
   technical: string | null;
 }

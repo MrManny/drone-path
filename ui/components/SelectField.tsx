@@ -2,7 +2,7 @@
 
 import { useId } from 'react';
 
-export interface SelectFieldProps {
+interface SelectFieldProps {
   label: string;
   value: string;
   options: ReadonlyArray<{ value: string; label: string }>;

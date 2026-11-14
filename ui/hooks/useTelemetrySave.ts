@@ -9,7 +9,7 @@ import type { DialogEvent } from '../lib/dialogstate.js';
 import type { TelemetrySavePhase } from '../lib/telemetrysave.js';
 import { telemetrySaveFlow, telemetrySaveReducer } from '../lib/telemetrysave.js';
 
-export interface TelemetrySave {
+interface TelemetrySave {
   phase: TelemetrySavePhase | null;
   save: () => void;
   reveal: () => void;

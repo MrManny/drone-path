@@ -17,7 +17,7 @@ export interface ManualBuildPaths {
   assetDir: string;
 }
 
-export interface ManualBuildResult {
+interface ManualBuildResult {
   pages: number;
   images: string[];
 }

@@ -2,7 +2,7 @@ import type { PickResult, UiSession } from '../../src/appsession.js';
 import { ERR_NO_RECORDING, ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
 import type { PickEvent } from './pickstate.js';
 
-export interface PickFlowDeps {
+interface PickFlowDeps {
   pickRecording(): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
 }

@@ -6,7 +6,7 @@ import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
 import { MapIsland } from './MapIsland.js';
 
-export type MapCardProps =
+type MapCardProps =
   | { data: SceneData; onScene: (scene: Scene) => void; layout: StageLayout }
   | { data: null; layout: StageLayout };
 

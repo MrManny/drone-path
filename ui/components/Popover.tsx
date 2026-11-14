@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from 'react';
 
 import { DialogClose } from './DialogClose.js';
 
-export interface PopoverProps {
+interface PopoverProps {
   label: string;
   triggerRef?: RefObject<HTMLElement | null>;
   onClose: () => void;

@@ -7,7 +7,7 @@ export interface DecimatedTrack {
   frame: number[];
 }
 
-export interface DecimateOptions {
+interface DecimateOptions {
   epsilonPx?: number;
   maxPoints?: number;
 }

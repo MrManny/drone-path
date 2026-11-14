@@ -81,7 +81,7 @@ export interface RecordingSummary
   error?: string;
 }
 
-export interface BatchResult {
+interface BatchResult {
   ok: number;
   skipped: number;
   failed: number;
@@ -95,7 +95,7 @@ export function outputPathFor(videoPath: string, config: RenderConfig): string {
     : path.join(path.dirname(videoPath), name);
 }
 
-export interface PlannedOutput {
+interface PlannedOutput {
   out: string;
   plain: string;
 }
@@ -231,7 +231,7 @@ function resolveDeps(
   };
 }
 
-export interface PipelineOptions {
+interface PipelineOptions {
   deps?: Partial<PipelineDeps>;
   tools?: FfmpegToolPaths;
   range?: FrameRange;
@@ -240,7 +240,7 @@ export interface PipelineOptions {
   onCapture?: (progress: CaptureProgress) => void;
 }
 
-export interface PreparedRecording {
+interface PreparedRecording {
   width: number;
   height: number;
   probe: VideoProbe;

@@ -6,7 +6,7 @@ import { ErrorNotice } from './ErrorNotice.js';
 import { Notice } from './Notice.js';
 import { ProgressBar } from './ProgressBar.js';
 
-export interface OpenNoticeProps {
+interface OpenNoticeProps {
   state: PickState;
   onDismiss?: () => void;
 }
