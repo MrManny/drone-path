@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Development instructions; the user manual lives in [docs/user/](docs/user/README.md),
-[README.md](README.md) is the quick-start front door.
+[README.md](README.md) is the quick-start.
 
 ## Setup & commands
 
@@ -12,21 +12,10 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
   `npm run app` starts the Electron desktop app against it (packaging uses
   `electron-builder`). `npm run docs:reference` regenerates the checked-in
   `docs/user/cli-reference.md` from the option vocabulary in `src/config.ts`.
-- `npm run app:dev` runs the UI with hot reload (`next dev`) inside Electron.
-  The UI builds with webpack (`--webpack`): Turbopack cannot resolve the
-  shared renderer's NodeNext `.js` specifiers.
-- `npm run app:pack` packages the desktop app with `electron-builder` into
-  `dist-electron/`: `-- --dir` for the unpacked smoke, `-- --win nsis` (the
-  self-updating installer), `-- --win portable` and `-- --linux AppImage` for
-  release artifacts.
-- `npm run knip` reports unused files, exports, types and dependencies
-  (`knip.jsonc`); run it after adding or removing modules and keep the
-  report empty.
+- `npm run app:pack` packages the desktop app with `electron-builder`.
 - When adding a new dependency, pin it to a patch-level range (i.e. `~1.2.3`);
   new dependencies **must not** have high or critical security issues on
   Snyk. Check `https://security.snyk.io/package/npm/<package_name>`.
-- Real render runs need Chrome/Edge plus ffmpeg/ffprobe: the embedded
-  binaries, a `--ffmpeg`/`--ffprobe` override, or on PATH.
 
 ## Testing
 
@@ -37,9 +26,6 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 - Behavior changes ship with tests: sunny and common rainy cases; a bug fix
   gets a regression test. Use parameterized tests (`describe.for`/
   `describe.each`) for bulk cases. Never commit `.only`, `.skip` or `.todo`.
-- `npm test` regenerates the manual bundle (`npm run build:manual`), then
-  type-checks the test tree (`npm run typecheck:test`, `tsc --noEmit` over
-  `test/tsconfig.json`); keep it clean.
 
 ## User manual
 
@@ -57,8 +43,9 @@ vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 - Use American English, not British English.
 - TypeScript strict, ESM, NodeNext: relative imports carry `.js`, built-ins use
   `node:`, types via `import type`.
-- camelCase / PascalCase / UPPER_SNAKE_CASE; one concern per file;
-  comments say *why*, not *what* — and only where they add something.
+- camelCase / PascalCase / UPPER_SNAKE_CASE; one concern per file.
+- comments comments say *why*, not *what* — and only where they add something
+  that is not self-evident; drop comments that provide no real value.
 - Progress/errors → stderr; `--json` output → stdout.
 - Errors: throw plain `Error` with a lowercase message; when catching and
   rethrowing, wrap the original with `{ cause }` instead of dropping it.
@@ -92,8 +79,7 @@ UI tokens and design principles.
 
 ### Scripts
 
-Deterministic helpers in `scripts/` for repetitive GitHub tasks; tooling only —
-never part of the application or its bundle, and not linted or unit-tested.
+Deterministic dev helpers in `scripts/` for repetitive GitHub tasks.
 Every script opens with a tl;dr comment of at most 10 lines on how/when to use
 it, so an agent can read just the first 10 lines.
 
@@ -104,14 +90,13 @@ it, so an agent can read just the first 10 lines.
 - `node scripts/open-pr.mjs <title> <body_path> [base]` — safe-push, then open
   the PR (base defaults to `main`) with label and status bookkeeping.
 
-Project status and assignment steps are best-effort (details in each script's
-tl;dr and `scripts/lib/project.mjs`). Every helper spawns external commands
-through `scripts/lib/exec.mjs` (one child-process policy: hidden windows on
-Windows) — do not call `node:child_process` directly.
+Project status and assignment steps are best-effort. Every helper spawns
+external commands through `scripts/lib/exec.mjs` (one child-process policy:
+hidden windows on Windows).
 
 ### Paths
 
-Temporary files go in `.scratch` (git-ignored).
+Temporary files and worktrees go in `.scratch` (git-ignored).
 
 ## GitHub interactions
 
