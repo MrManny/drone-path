@@ -1,5 +1,58 @@
 # drone-path
 
+## 0.11.0
+
+- **New:** Flight track files: `--track-out <file>` writes the decoded
+  flight track in the format the file extension picks — GPX (`.gpx`),
+  GeoJSON (`.geojson`), KML/KMZ (`.kml`/`.kmz`) — or the existing
+  telemetry JSON document (`.json`, unchanged bytes). Vertices sit at
+  decoded GPS fixes with telemetry gaps breaking the line, altitude is
+  the absolute/GPS altitude in meters above mean sea level, and times
+  appear only where a recording carries trustworthy UTC — none does
+  today (the CAM-meta device timestamp counts since power-up), so KML
+  exports plain line segments instead of a timed flythrough. The
+  desktop **Export telemetry…** dialog offers the same five formats and
+  honors the In–Out range; for the same recording and range the app and
+  the CLI write byte-identical files. `--telemetry-json <file>` is a
+  deprecated alias of `--track-out <file>.json` — same output, warns on
+  use, removed in a future version — and mixing the two spellings in
+  one run is an error. A frame range of a single frame is now valid
+  everywhere ranges are accepted.
+- **New:** The timeline shows a lone in or out point as a half-open
+  In–Out segment — the in point runs to the end of the recording, the
+  out point from its start — and the readout names the same passage.
+  Playback wrap and both exports honor a lone point, setting a point
+  past the other replaces it, and the readout announces point changes
+  to screen readers.
+- **New:** The app's copy is unified and the dialogs are polished: the
+  marked range is the In–Out segment with "Set in point" / "Set out
+  point" controls and an `in 0:12 · out 0:34` readout, the export flow
+  says "export" throughout with codec and encode-speed labels, every
+  failure reads as a sentence with a next step (raw text under
+  "Technical details"), and a failed update restart is reported. Each
+  dialog dismisses through its header ✕ alone, the export-done dialog
+  leads with "Export finished." and one accent primary (**Reveal in
+  folder**), output paths wrap with a full-path tooltip, and export and
+  telemetry phase text is announced in a live region and keeps keyboard
+  focus through phase changes.
+- **New:** Accessibility hardening for the menu bar and dialogs: AltGr
+  characters type normally in every field, Left/Right move between the
+  menu labels with disabled rows announcing themselves, Tab stays
+  inside dialogs and the Help overlay, and the timeline scrubber
+  announces times instead of raw frame numbers.
+- **New:** The transport and loop controls are compact and stable: the
+  Play/Pause button is icon-only with a tooltip and accessible name,
+  the in/out-point buttons form one group beside a fixed readout slot,
+  and toggling playback or marking points no longer shifts neighboring
+  controls. The ALT/SPD readouts sit in a strip along the map card's
+  bottom edge, the Map appearance popover docks left of the map card
+  and opens from **File → Map appearance…**, the empty workspace drops
+  its tooling hint and status footer, the header hides the duration
+  until a recording loads, and the map card shows "Preparing map…"
+  while its tiles load.
+- **Internal:** Code consolidation and dead-export cleanup from a
+  refactoring pass; no behavior changes.
+
 ## 0.10.0
 
 - **New:** Telemetry now comes from the embedded CAM meta (DVTM) stream
