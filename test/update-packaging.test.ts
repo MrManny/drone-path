@@ -90,6 +90,17 @@ describe('the packaged desktop app embeds ffmpeg/ffprobe', () => {
   });
 });
 
+describe('the packaged desktop app ships playwright-core', () => {
+  it('keeps playwright-core a normal runtime dependency', () => {
+    expect(pkg.dependencies['playwright-core']).toMatch(/^~\d+\.\d+\.\d+$/);
+    expect(pkg.devDependencies['playwright-core']).toBeUndefined();
+  });
+
+  it('keeps playwright-core in the packaged file set', () => {
+    expect(builderConfig).not.toContain('playwright-core');
+  });
+});
+
 describe('the afterPack guard', () => {
   const guard = createRequire(import.meta.url)(path.join(root, 'build', 'after-pack.cjs')) as {
     assertFfResources: (resourcesDir: string, platform: string) => void;
