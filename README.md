@@ -1,3 +1,6 @@
+> [!NOTE]
+> Head's up! This repo will be restructured as a monorepo in the near future.
+
 # Drone Path
 
 This handy little tool renders flight-path map videos from DJI drone
