@@ -29,6 +29,7 @@ import { resolveFfmpegTools } from '../dist/ffmpeg-tools.js';
 import { planByteRange } from '../dist/range.js';
 import { createTileTraffic } from '../dist/tiles.js';
 import { registerIpcHandlers } from './ipc.mjs';
+import { createElectronRenderVideo } from './render-video.mjs';
 import { initUpdates } from './update.mjs';
 
 const SCHEME = 'app';
@@ -220,8 +221,13 @@ function initExportRunner(state) {
     onCapture: (progress) =>
       sendToWindow(state, 'dronepath:export:capture', progress),
     onDone: (outcome) => handleExportDone(state, outcome),
-    // An export warms tiles next to the live app: same queue, same budget.
-    deps: { prefetchTiles: state.tilePrefetch },
+    deps: {
+      // An export warms tiles next to the live app: same queue, same budget.
+      prefetchTiles: state.tilePrefetch,
+      // The app captures with its embedded Chromium; playwright-core is not
+      // shipped in packaged builds (see electron-builder.yml).
+      renderVideo: createElectronRenderVideo(),
+    },
   });
 }
 

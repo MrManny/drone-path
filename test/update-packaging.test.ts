@@ -41,6 +41,32 @@ describe('the npm package stays Electron-free', () => {
   });
 });
 
+describe('the packaged desktop app stays playwright-free', () => {
+  it('keeps playwright-core a normal CLI dependency', () => {
+    expect(pkg.dependencies['playwright-core']).toMatch(/^~\d+\.\d+\.\d+$/);
+    expect(pkg.devDependencies['playwright-core']).toBeUndefined();
+  });
+
+  it('keeps the playwright-core exclusion in the packaged file set', () => {
+    expect(builderConfig).toContain('"!node_modules/playwright-core/**"');
+  });
+
+  it('never imports playwright in the app sources', () => {
+    // Import positions only: why-comments may name playwright-core.
+    const importPattern = /(?:from|import|require)\s*\(?\s*['"][^'"]*playwright[^'"]*['"]/i;
+    const files = sourceFiles(path.join(root, 'app'));
+    const offenders = files.filter((file) => importPattern.test(fs.readFileSync(file, 'utf8')));
+    expect(offenders).toEqual([]);
+  });
+
+  it('touches playwright-core only in the CLI renderer', () => {
+    const offenders = sourceFiles(path.join(root, 'src'))
+      .filter((file) => /playwright/.test(fs.readFileSync(file, 'utf8')))
+      .map((file) => path.basename(file));
+    expect(offenders).toEqual(['render.ts']);
+  });
+});
+
 describe('the packaged desktop app can self-update', () => {
   it('pins electron-updater as a production dependency', () => {
     expect(pkg.dependencies['electron-updater']).toMatch(/^~\d+\.\d+\.\d+$/);

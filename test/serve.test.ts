@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { serveAsset } from '../src/serve.js';
+import { serveAsset, startRenderServer } from '../src/serve.js';
 import type { MapStyle } from '../src/config.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
@@ -142,6 +142,61 @@ describe('serveAsset', () => {
       expect(res.status).toBe(404);
     } finally {
       await host.close();
+    }
+  });
+});
+
+describe('startRenderServer', () => {
+  async function close(server: http.Server): Promise<void> {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+
+  it('serves the render page on a loopback URL', async () => {
+    const { server, url } = await startRenderServer({
+      html: '<html>overlay</html>',
+      style: 'satellite',
+      tileCache: tmpDir(),
+    });
+    try {
+      expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
+      const res = await fetch(url);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/html');
+      expect(await res.text()).toBe('<html>overlay</html>');
+      const named = await fetch(new URL('index.html', url));
+      expect(await named.text()).toBe('<html>overlay</html>');
+    } finally {
+      await close(server);
+    }
+  });
+
+  it('routes asset URLs through the shared asset table', async () => {
+    const { server, url } = await startRenderServer({
+      html: '<html></html>',
+      style: 'satellite',
+      tileCache: tmpDir(),
+    });
+    try {
+      const res = await fetch(new URL('leaflet/leaflet.css', url));
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/css');
+    } finally {
+      await close(server);
+    }
+  });
+
+  it('404s unknown URLs', async () => {
+    const { server, url } = await startRenderServer({
+      html: '<html></html>',
+      style: 'satellite',
+      tileCache: tmpDir(),
+    });
+    try {
+      const res = await fetch(new URL('other', url));
+      expect(res.status).toBe(404);
+    } finally {
+      await close(server);
     }
   });
 });

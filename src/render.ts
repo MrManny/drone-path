@@ -1,60 +1,21 @@
-import http from 'node:http';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import type { Writable } from 'node:stream';
-
 import type { Browser, Page } from 'playwright-core';
 
-import { MIME } from './assets.js';
+import {
+  finishEncode,
+  formatProfile,
+  JPEG_QUALITY,
+  OrderedFrameStream,
+  spawnEncoder,
+} from './encode.js';
+import type { RenderProfile } from './encode.js';
 import { ERR_RENDER_CANCELED, errorMessage } from './errors.js';
-import { RENDERER_DIR, serveAsset } from './serve.js';
-import type { CaptureFormat, Codec, EncodeSettings, Quality, MapStyle, RenderConfig } from './config.js';
+import { startRenderServer } from './serve.js';
+import type { CaptureFormat, RenderConfig } from './config.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import type { LogFn } from './logging.js';
 
 const PAGE_LOAD_TIMEOUT_MS = 60000;
 const SCREENSHOT_TIMEOUT_MS = 60000;
-
-interface ServerHandle {
-  server: http.Server;
-  url: string;
-}
-
-function startServer({
-  html,
-  style,
-  tileCache,
-}: {
-  html: string;
-  style: MapStyle;
-  tileCache: string;
-}): Promise<ServerHandle> {
-  const server = http.createServer((req, res) => {
-    let url: string;
-    try {
-      url = decodeURIComponent((req.url ?? '/').split('?')[0]);
-    } catch {
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end('bad request');
-      return;
-    }
-    if (url === '/' || url === '/index.html') {
-      res.writeHead(200, { 'Content-Type': MIME['.html'] });
-      res.end(html);
-      return;
-    }
-    if (serveAsset(url, res, { style, tileCache, rendererDir: RENDERER_DIR })) return;
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('not found');
-  });
-  return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
-      const addr = server.address();
-      const port = addr && typeof addr === 'object' ? addr.port : 0;
-      resolve({ server, url: `http://127.0.0.1:${port}/` });
-    });
-  });
-}
 
 interface LaunchAttempt {
   executablePath?: string;
@@ -87,101 +48,11 @@ async function launchBrowser(
   );
 }
 
-interface Encoder {
-  stdin: Writable;
-  stopped: Promise<string>;
-  closed: Promise<number | null>;
-  stderrText(): string;
-  kill(): void;
-}
-
-// x265's CRF scale sits ~5 points above x264's for the same perceived quality.
-const CRF: Record<Codec, Record<Quality, number>> = {
-  h264: { 'near-lossless': 16, high: 18, medium: 21, low: 26 },
-  h265: { 'near-lossless': 20, high: 22, medium: 25, low: 30 },
-};
-
-function spawnEncoder(
-  ffmpeg: string,
-  fpsStr: string,
-  encode: EncodeSettings,
-  outPath: string,
-): Encoder {
-  // h265 gets hvc1: the ffmpeg-default hev1 tag is refused by QuickTime and some NLEs.
-  const codecArgs =
-    encode.codec === 'h265' ? ['-c:v', 'libx265', '-tag:v', 'hvc1'] : ['-c:v', 'libx264'];
-  const ffmpegProcess = spawn(ffmpeg, [
-    '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'image2pipe', '-framerate', fpsStr, '-i', '-',
-    ...codecArgs,
-    '-preset', encode.preset,
-    '-crf', String(CRF[encode.codec][encode.quality]),
-    '-pix_fmt', 'yuv420p', '-r', fpsStr,
-    '-movflags', '+faststart', outPath,
-  ], { stdio: ['pipe', 'ignore', 'pipe'] });
-
-  let stderr = '';
-  ffmpegProcess.stderr?.on('data', (d: Buffer) => {
-    stderr += d.toString();
-  });
-
-  // ffmpeg's stdin must never surface an unhandled 'error' (EPIPE on early exit); a drain-waiter must wake when the encoder dies.
-  const closed = new Promise<number | null>((resolve) => {
-    ffmpegProcess.once('close', (code) => resolve(code));
-  });
-  const stopped = new Promise<string>((resolve) => {
-    ffmpegProcess.stdin.on('error', (e: Error) => resolve(`ffmpeg stdin error: ${e.message}`));
-    void closed.then((code) => resolve(`ffmpeg exited with code ${code}`));
-  });
-
-  return {
-    stdin: ffmpegProcess.stdin,
-    stopped,
-    closed,
-    stderrText: () => stderr,
-    kill: () => ffmpegProcess.kill(),
-  };
-}
-
-class OrderedFrameStream {
-  private readonly pending = new Map<number, Buffer>();
-  private nextIndex = 0;
-
-  constructor(private readonly encoder: Encoder) {}
-
-  async submit(index: number, frame: Buffer): Promise<void> {
-    this.pending.set(index, frame);
-    await this.flushReady();
-  }
-
-  async flushReady(): Promise<void> {
-    while (this.pending.has(this.nextIndex)) {
-      const frame = this.pending.get(this.nextIndex) as Buffer;
-      this.pending.delete(this.nextIndex);
-      if (!this.encoder.stdin.write(frame)) {
-        const woke = await Promise.race([
-          once(this.encoder.stdin, 'drain').then(() => 'drain' as const),
-          this.encoder.stopped,
-        ]);
-        if (woke !== 'drain') {
-          const stderr = this.encoder.stderrText().trim();
-          throw new Error(`${woke}${stderr ? `: ${stderr}` : ''}`);
-        }
-      }
-      this.nextIndex++;
-    }
-  }
-
-  end(): void {
-    this.encoder.stdin.end();
-  }
-}
-
 function screenshotOptions(capture: CaptureFormat) {
   return capture === 'jpeg'
     ? {
         type: 'jpeg' as const,
-        quality: 95,
+        quality: JPEG_QUALITY,
         animations: 'disabled' as const,
         timeout: SCREENSHOT_TIMEOUT_MS,
       }
@@ -220,12 +91,6 @@ export interface RenderJobOptions
   tools: FfmpegToolPaths;
   signal?: AbortSignal;
   onCapture?: (progress: CaptureProgress) => void;
-}
-
-interface RenderProfile {
-  evalMs: number;
-  captureMs: number;
-  emitMs: number;
 }
 
 interface StageTiming {
@@ -348,28 +213,6 @@ async function runWorkers(run: WorkerRun, workerCount: number): Promise<void> {
   if (rejected) throw rejected.reason;
 }
 
-async function finishEncode(
-  encoder: Encoder,
-  stream: OrderedFrameStream,
-  log: (msg: string) => void,
-  outPath: string,
-): Promise<void> {
-  await stream.flushReady();
-  stream.end();
-  const code = await encoder.closed;
-  if (code !== 0) {
-    throw new Error(`ffmpeg exited with code ${code}: ${encoder.stderrText().trim()}`);
-  }
-  log(`encoded: ${outPath}`);
-}
-
-function formatProfile(profile: RenderProfile, workerCount: number): string {
-  return (
-    `profile: eval=${(profile.evalMs / 1000).toFixed(1)}s capture=${(profile.captureMs / 1000).toFixed(1)}s ` +
-    `encode-backpressure=${(profile.emitMs / 1000).toFixed(1)}s (summed over ${workerCount} workers)`
-  );
-}
-
 async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<void> {
   const { ctx, url, timing, workerCount } = env;
   const { fpsStr, codec, quality, preset, outPath, signal, log, tools } = ctx;
@@ -430,7 +273,7 @@ export async function renderVideo(
   };
   if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
   const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
-  const { server, url } = await startServer({ html, style, tileCache });
+  const { server, url } = await startRenderServer({ html, style, tileCache });
   const env: RenderStageEnv = { ctx, url, timing, workerCount };
 
   let browser: Browser | null = null;

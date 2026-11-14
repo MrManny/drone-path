@@ -61,7 +61,7 @@ The form groups into *Export range* and *Output and encoding*:
 
 Without an In–Out segment, the form just sets size and encoding.
 
-Press **Start export**, pick the destination file, and follow the progress beside the preview until the done state names the exported file. The app remembers the encoding choices between launches like the look settings, and the output size while the recording is open.
+Press **Start export**, pick the destination file, and follow the progress beside the preview until the done state names the exported file. The app remembers the encoding choices between launches like the look settings, and the output size while the recording is open. The export renders with the app's embedded Chromium and needs no system browser.
 
 ![The export dialog with the output preview beside the export form](../images/app-export-form.jpg)
 
