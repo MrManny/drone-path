@@ -1,5 +1,12 @@
 # drone-path
 
+## 0.11.1
+
+- **Fixed:** Video export in the packaged desktop app ("Export video…")
+  works again: the app now bundles the renderer's `playwright-core` and
+  renders with the system browser (Google Chrome or Microsoft Edge), the
+  same as the CLI.
+
 ## 0.11.0
 
 - **New:** Flight track files: `--track-out <file>` writes the decoded
