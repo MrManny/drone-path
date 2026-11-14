@@ -10,6 +10,8 @@ import type { PipelineDeps } from '../src/pipeline.js';
 import type { Telemetry } from '../src/telemetry-math.js';
 import type { RecordingTelemetry } from '../src/telemetry.js';
 import type { TelemetryDocumentInput, TelemetryFrameInput } from '../src/telemetry-json.js';
+import type { TrackRecord } from '../src/track.js';
+import type { TrackExportInput } from '../src/track-write.js';
 
 const tmpDirs: string[] = [];
 
@@ -185,6 +187,25 @@ export function trackDocumentFixture(
     frameCount: rows.length,
     frames: rows,
     headingDeg: rows.map((_, index) => 90 + index),
+  };
+}
+
+export const TRACK_FPS = 30;
+
+export function trackRecordsFixture(
+  rows: readonly TelemetryFrameInput[] = TRACK_ROWS,
+  fpsValue = TRACK_FPS,
+): TrackRecord[] {
+  return rows.map((row, index) => ({ ...row, tSec: index / fpsValue }));
+}
+
+export function trackExportFixture(
+  rows: readonly TelemetryFrameInput[] = TRACK_ROWS,
+  fpsValue = TRACK_FPS,
+): TrackExportInput {
+  return {
+    document: trackDocumentFixture(rows),
+    track: { records: trackRecordsFixture(rows, fpsValue), fpsValue },
   };
 }
 

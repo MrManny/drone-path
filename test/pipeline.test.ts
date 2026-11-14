@@ -580,9 +580,9 @@ describe('--track-out export', () => {
           { lat: 46.62, lng: 14.22, altRel: 3.5 },
         ],
         trackValues: [
-          { lat: 46.6, lng: 14.2, altRel: 3.3 },
-          { altRel: 3.4 },
-          { lat: 46.62, lng: 14.22, altRel: 3.5 },
+          { lat: 46.6, lng: 14.2, altRel: 3.3, tSec: 0 },
+          { altRel: 3.4, tSec: 1 / 30 },
+          { lat: 46.62, lng: 14.22, altRel: 3.5, tSec: 2 / 30 },
         ],
         protoFile: 'dvtm_NEO2.proto v02.00.07',
         gimbalDevice: { id: 0, type: 1, subType: 3, name: 'gimbal', frequency: 200 },

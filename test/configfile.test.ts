@@ -10,7 +10,7 @@ import {
   loadConfigFile,
   resolveConfig,
 } from '../src/configfile.js';
-import { DEFAULT_CONFIG } from '../src/config.js';
+import { DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);
@@ -49,7 +49,7 @@ describe('loadConfigFile', () => {
   it('accepts the trail color key', () => {
     const file = path.join(tmpDir(), 'c.json');
     fs.writeFileSync(file, '{"trailColor": "41f0ff"}');
-    expect(loadConfigFile(file)).toEqual({ trailColor: '#41f0ff' });
+    expect(loadConfigFile(file)).toEqual({ overrides: { trailColor: '#41f0ff' }, trackOutSpelling: null });
   });
 
   it('rejects an unreadable trail color, naming the key', () => {
@@ -73,13 +73,32 @@ describe('loadConfigFile', () => {
   it('accepts the encoder keys', () => {
     const file = path.join(tmpDir(), 'c.json');
     fs.writeFileSync(file, '{"codec": "h265", "quality": "low", "preset": "veryfast"}');
-    expect(loadConfigFile(file)).toEqual({ codec: 'h265', quality: 'low', preset: 'veryfast' });
+    expect(loadConfigFile(file).overrides).toEqual({
+      codec: 'h265',
+      quality: 'low',
+      preset: 'veryfast',
+    });
   });
 
   it('rejects an unknown quality, naming the key', () => {
     const file = path.join(tmpDir(), 'c.json');
     fs.writeFileSync(file, '{"quality": "ultra"}');
     expect(() => loadConfigFile(file)).toThrow(/invalid value for .*quality/);
+  });
+
+  it('reports which trackOut spelling the file uses', () => {
+    const dir = tmpDir();
+    const alias = path.join(dir, 'alias.json');
+    fs.writeFileSync(alias, '{"telemetryJson": "a.json"}');
+    expect(loadConfigFile(alias).trackOutSpelling).toBe('telemetry-json');
+
+    const canonical = path.join(dir, 'canonical.json');
+    fs.writeFileSync(canonical, '{"trackOut": "a.gpx"}');
+    expect(loadConfigFile(canonical).trackOutSpelling).toBe('track-out');
+
+    const neither = path.join(dir, 'neither.json');
+    fs.writeFileSync(neither, '{"style": "topo"}');
+    expect(loadConfigFile(neither).trackOutSpelling).toBeNull();
   });
 });
 
@@ -118,6 +137,52 @@ describe('resolveConfig', () => {
         .trailColor,
     ).toBe('#e63946');
     expect(resolveConfig({ configPath: null, cwd: tmpDir() }).config.trailColor).toBeNull();
+  });
+
+  it('rejects the two trackOut spellings combined across the config file and the command line', () => {
+    const dir = tmpDir();
+    const aliasFile = path.join(dir, 'alias.json');
+    fs.writeFileSync(aliasFile, '{"telemetryJson": "a.json"}');
+    expect(() =>
+      resolveConfig({
+        cli: { trackOut: 'b.gpx' },
+        cliTrackOutSpelling: 'track-out',
+        configPath: aliasFile,
+        cwd: dir,
+      }),
+    ).toThrow(
+      '--telemetry-json and --track-out cannot be combined across the command line and the config file',
+    );
+
+    // and the deprecated alias may not silently beat the canonical key either
+    const canonicalFile = path.join(dir, 'canonical.json');
+    fs.writeFileSync(canonicalFile, '{"trackOut": "a.gpx"}');
+    expect(() =>
+      resolveConfig({
+        cli: { trackOut: 'b.json' },
+        cliTrackOutSpelling: 'telemetry-json',
+        configPath: canonicalFile,
+        cwd: dir,
+      }),
+    ).toThrow(
+      '--telemetry-json and --track-out cannot be combined across the command line and the config file',
+    );
+  });
+
+  it('accepts one spelling used across origins', () => {
+    const dir = tmpDir();
+    const aliasFile = path.join(dir, 'alias.json');
+    fs.writeFileSync(aliasFile, '{"telemetryJson": "a.json"}');
+    const warnings: string[] = [];
+    const { config } = resolveConfig({
+      cli: { trackOut: 'b.json' },
+      cliTrackOutSpelling: 'telemetry-json',
+      configPath: aliasFile,
+      cwd: dir,
+      onDeprecated: (message) => warnings.push(message),
+    });
+    expect(config.trackOut).toBe('b.json');
+    expect(warnings).toEqual([TELEMETRY_JSON_ALIAS.fileWarning]);
   });
 
   it('validates ranges', () => {

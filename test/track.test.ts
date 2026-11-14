@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildTrack } from '../src/track.js';
+import { buildTrack, selectTrackRecords } from '../src/track.js';
+import type { TrackRecord } from '../src/track.js';
 import type { TelemetryFrameInput } from '../src/telemetry-json.js';
 import { TRACK_ROWS } from './fixtures.js';
 
@@ -81,5 +82,49 @@ describe('buildTrack time policy', () => {
   it('exports no time from the device timestamp (ms since power-up, not UTC)', () => {
     const track = buildTrack([{ lat: 1, lng: 2, gimbalDeviceTimestampMs: 34229 }]);
     expect(track[0][0].timeMs).toBeNull();
+  });
+});
+
+describe('selectTrackRecords', () => {
+  const scan: TrackRecord[] = [
+    { lat: 1, lng: 2, tSec: 0.5 }, // frame 15 at 30 fps
+    { lat: 3, lng: 4, tSec: 5 }, // frame 150
+    { lat: 5, lng: 6, tSec: 6 }, // frame 180
+  ];
+  const stream = { records: scan, fpsValue: 30 };
+
+  it('keeps every record without a range, whatever the frame count', () => {
+    expect(selectTrackRecords(stream, null)).toEqual(scan);
+  });
+
+  it('selects by source time against the frame span, never by record position', () => {
+    expect(selectTrackRecords(stream, { start: 150, end: 200 })).toEqual([scan[1], scan[2]]);
+    expect(selectTrackRecords(stream, { start: 0, end: 50 })).toEqual([scan[0]]);
+    expect(selectTrackRecords(stream, { start: 170, end: 190 })).toEqual([scan[2]]);
+  });
+
+  it('keeps a single-frame span to the records of that frame', () => {
+    expect(selectTrackRecords(stream, { start: 180, end: 180 })).toEqual([scan[2]]);
+  });
+
+  it('selects frame-aligned streams exactly like the positional slice', () => {
+    const aligned: TrackRecord[] = [0, 1, 2, 3, 4].map((frame) => ({
+      lat: 46.6 + frame / 1e5,
+      lng: 14.2,
+      tSec: frame / 30,
+    }));
+    expect(selectTrackRecords({ records: aligned, fpsValue: 30 }, { start: 1, end: 3 })).toEqual(
+      aligned.slice(1, 4),
+    );
+  });
+
+  it('keeps several records that fall on one frame together', () => {
+    const burst: TrackRecord[] = [
+      { lat: 1, lng: 2, tSec: 5 },
+      { lat: 3, lng: 4, tSec: 5.01 },
+    ];
+    expect(selectTrackRecords({ records: burst, fpsValue: 30 }, { start: 150, end: 150 })).toEqual(
+      burst,
+    );
   });
 });

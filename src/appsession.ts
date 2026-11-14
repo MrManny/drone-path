@@ -22,14 +22,14 @@ import {
   prepareSession,
   recordingPageOpts,
   telemetryExportInput,
-  trackExportInput,
+  trackExportStream,
 } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { PipelineDeps, PrepareProgressFn } from './pipeline.js';
-import { segmentTelemetryInput } from './telemetry-json.js';
 import type { TelemetryDocumentInput } from './telemetry-json.js';
 import { trackFormatOf } from './track-format.js';
 import { writeTrackFile } from './track-write.js';
+import type { TrackStream } from './track.js';
 
 export interface PageVideo {
   src: string;
@@ -120,7 +120,7 @@ export interface PreparedUiSession {
   telemetry: TelemetryDocumentInput;
   // Fix-faithful records for the track formats; main-side only, never sent
   // over IPC. The .json document keeps reading `telemetry`.
-  track: TelemetryDocumentInput;
+  track: TrackStream;
 }
 
 export const prepareUiSession: PrepareUiSessionFn = async (
@@ -149,7 +149,7 @@ export const prepareUiSession: PrepareUiSessionFn = async (
       durationSec: frameExactDuration(prep.probe),
     },
     telemetry: telemetryExportInput(prep),
-    track: trackExportInput(prep),
+    track: trackExportStream(prep),
   };
 };
 
@@ -216,9 +216,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     videoPath: () => videoPath,
     saveTelemetryJson(file: string, range: FrameRange | null): void {
       if (!prepared) throw new Error(ERR_NO_RECORDING);
-      const input =
-        trackFormatOf(file) === 'json' ? prepared.telemetry : prepared.track;
-      writeTrackFile(file, segmentTelemetryInput(input, range));
+      writeTrackFile(file, { document: prepared.telemetry, track: prepared.track }, range);
     },
   };
 }

@@ -13,8 +13,8 @@ import { pathKey, uniquePath } from './paths.js';
 import { loadTelemetry } from './telemetry.js';
 import type { FrameChannels, Telemetry } from './telemetry-math.js';
 import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-json.js';
-import { trackFormatOf } from './track-format.js';
 import { writeTrackFile } from './track-write.js';
+import type { TrackRecord, TrackStream } from './track.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats } from './tiles.js';
 import { planIntroOutroFrames, planView } from './plan.js';
@@ -246,7 +246,7 @@ export interface PreparedRecording {
   probe: VideoProbe;
   tel: Telemetry;
   frameValues: TelemetryFrameInput[];
-  trackValues: TelemetryFrameInput[];
+  trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
   hud: HudLayout;
@@ -304,7 +304,7 @@ async function telemetryStage(
 ): Promise<{
   tel: Telemetry;
   frameValues: TelemetryFrameInput[];
-  trackValues: TelemetryFrameInput[];
+  trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
   hud: HudLayout;
@@ -529,10 +529,11 @@ export function telemetryExportInput(prep: PreparedRecording): TelemetryDocument
   };
 }
 
-// The track formats read the fix-faithful records (which carry positions for
-// every telemetry source); the .json document keeps its own record stream.
-export function trackExportInput(prep: PreparedRecording): TelemetryDocumentInput {
-  return { ...telemetryExportInput(prep), frames: prep.trackValues };
+// The track formats read the fix-faithful records (which carry positions and
+// source times for every telemetry source); the .json document keeps its own
+// record stream.
+export function trackExportStream(prep: PreparedRecording): TrackStream {
+  return { records: prep.trackValues, fpsValue: prep.probe.fps.value };
 }
 
 function writeTrackExport(
@@ -542,9 +543,11 @@ function writeTrackExport(
 ): void {
   // The export intentionally covers the whole recording: a frame range
   // limits the render, never this export.
-  const input =
-    trackFormatOf(file) === 'json' ? telemetryExportInput(prep) : trackExportInput(prep);
-  writeTrackFile(file, input);
+  writeTrackFile(
+    file,
+    { document: telemetryExportInput(prep), track: trackExportStream(prep) },
+    null,
+  );
   log(`track: wrote ${file}`);
 }
 

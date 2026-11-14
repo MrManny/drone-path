@@ -468,6 +468,43 @@ export const TELEMETRY_JSON_ALIAS = {
     'warning: the telemetryJson key is deprecated; use trackOut (the key will be removed in a future version)',
 } as const;
 
+export type TrackOutSpelling = 'track-out' | 'telemetry-json';
+
+/**
+ * Which spelling of the one trackOut key a raw override object uses. Both
+ * spellings within one origin are ambiguous and rejected.
+ */
+export function trackOutSpellingOf(
+  raw: Record<string, unknown>,
+  origin: string,
+): TrackOutSpelling | null {
+  const alias = raw[TELEMETRY_JSON_ALIAS.inputKey] !== undefined;
+  const canonical = raw[TELEMETRY_JSON_ALIAS.key] !== undefined;
+  if (alias && canonical) {
+    throw new Error(
+      `${TELEMETRY_JSON_ALIAS.inputKey} and ${TELEMETRY_JSON_ALIAS.key} cannot be combined in ${origin} (use ${TELEMETRY_JSON_ALIAS.key})`,
+    );
+  }
+  return alias ? 'telemetry-json' : canonical ? 'track-out' : null;
+}
+
+/**
+ * The merged effective config may use only one spelling of the one trackOut
+ * key - across the command line and the config file, not just within one of
+ * them.
+ */
+export function assertOneTrackOutSpelling(
+  entries: readonly { origin: string; spelling: TrackOutSpelling | null }[],
+): void {
+  const used = new Set(entries.map((entry) => entry.spelling).filter(Boolean));
+  if (used.size > 1) {
+    throw new Error(
+      `${TELEMETRY_JSON_ALIAS.flags.split(' ')[0]} and --track-out cannot be combined ` +
+        'across the command line and the config file (use --track-out)',
+    );
+  }
+}
+
 function cliNumber(raw: unknown): unknown {
   if (typeof raw !== 'string' || !CLI_NUMBER_RX.test(raw.trim())) return raw;
   return Number(raw);
@@ -521,19 +558,13 @@ export function normalizeOverrides(
   }
   // Both spellings at once is ambiguous and rejected; the alias alone warns
   // and lands on the canonical key.
-  const aliasValue = raw[TELEMETRY_JSON_ALIAS.inputKey];
-  const canonicalValue = raw[TELEMETRY_JSON_ALIAS.key];
-  if (aliasValue !== undefined && canonicalValue !== undefined) {
-    throw new Error(
-      `${TELEMETRY_JSON_ALIAS.inputKey} and ${TELEMETRY_JSON_ALIAS.key} cannot be combined in ${origin} (use ${TELEMETRY_JSON_ALIAS.key})`,
-    );
-  }
-  if (aliasValue !== undefined) {
+  const spelling = trackOutSpellingOf(raw, origin);
+  if (spelling === 'telemetry-json') {
     onDeprecated?.(TELEMETRY_JSON_ALIAS.fileWarning);
     Object.assign(
       out,
       OVERRIDE_NORMALIZERS.trackOut(
-        aliasValue,
+        raw[TELEMETRY_JSON_ALIAS.inputKey],
         `${origin}: ${TELEMETRY_JSON_ALIAS.inputKey}`,
       ),
     );

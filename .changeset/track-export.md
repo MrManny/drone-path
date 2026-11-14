@@ -11,8 +11,8 @@ and times appear only where a recording carries trustworthy UTC — none does
 today (the CAM-meta device timestamp counts since power-up), so KML exports
 plain line segments instead of a timed flythrough. `--telemetry-json <file>`
 is a deprecated alias of `--track-out <file>.json`: same output, warns on use,
-removed in a future version; passing both spellings at once is an error. The
-desktop **Export telemetry…** dialog offers the same five formats and honors
+removed in a future version; mixing the two spellings in one run — in the
+config file, on the command line, or across both — is an error. The desktop **Export telemetry…** dialog offers the same five formats and honors
 the In–Out range; for the same recording and range the app and the CLI write
 byte-identical files. A frame range of a single frame (start = end) is now
 valid everywhere ranges are accepted.

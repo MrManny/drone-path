@@ -11,7 +11,7 @@ import {
   cliDefaultOf,
 } from './config.js';
 import { resolveConfig } from './configfile.js';
-import type { ConfigOverrides, RenderConfig } from './config.js';
+import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from './config.js';
 import { collectRecordings } from './recordings.js';
 import { requireFfmpegTools } from './ffmpeg.js';
 import { resolveFfmpegTools } from './ffmpeg-tools.js';
@@ -22,6 +22,7 @@ import type { RecordingSummary } from './pipeline.js';
 export interface ParsedCli {
   inputs: string[];
   cli: ConfigOverrides;
+  trackOutSpelling: TrackOutSpelling | null;
   configPath: string | null;
   deprecationWarnings: string[];
 }
@@ -67,7 +68,7 @@ export function longFlagOf(flags: string): string {
 function collectOverrides(
   program: Command,
   onDeprecated: (message: string) => void,
-): ConfigOverrides {
+): { cli: ConfigOverrides; trackOutSpelling: TrackOutSpelling | null } {
   const opts = program.opts<Record<string, unknown>>();
   const cli: ConfigOverrides = {};
   for (const row of CONFIG_OPTIONS) {
@@ -93,7 +94,15 @@ function collectOverrides(
       ),
     );
   }
-  return cli;
+  const trackOutSpelling: TrackOutSpelling | null = givenOnCommandLine(
+    program,
+    TELEMETRY_JSON_ALIAS.inputKey,
+  )
+    ? 'telemetry-json'
+    : givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.key)
+      ? 'track-out'
+      : null;
+  return { cli, trackOutSpelling };
 }
 
 export function parseCliArgs(argv: string[]): ParsedCli {
@@ -102,10 +111,14 @@ export function parseCliArgs(argv: string[]): ParsedCli {
   program.parse(argv, { from: 'user' });
   const opts = program.opts<Record<string, unknown>>();
   const deprecationWarnings: string[] = [];
+  const collected = collectOverrides(program, (message) =>
+    deprecationWarnings.push(message),
+  );
 
   return {
     inputs: [...program.args],
-    cli: collectOverrides(program, (message) => deprecationWarnings.push(message)),
+    cli: collected.cli,
+    trackOutSpelling: collected.trackOutSpelling,
     configPath: typeof opts.config === 'string' ? opts.config : null,
     deprecationWarnings,
   };
@@ -140,6 +153,7 @@ function resolveInvocation(argv: string[]): Invocation {
   const { config, configPath } = resolveConfig({
     cli: parsed.cli,
     configPath: parsed.configPath,
+    cliTrackOutSpelling: parsed.trackOutSpelling,
     onDeprecated: (message) => deprecationWarnings.push(message),
   });
   return { inputs: parsed.inputs, config, configPath, deprecationWarnings };

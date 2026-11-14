@@ -4,6 +4,7 @@
 // per-source-frame records as the telemetry JSON document, so the CLI and the
 // desktop app export byte-identical tracks for the same records.
 
+import type { FrameRange } from './config.js';
 import type { TelemetryFrameInput } from './telemetry-json.js';
 
 export interface TrackVertex {
@@ -66,4 +67,38 @@ export function buildTrack(rows: readonly TelemetryFrameInput[]): TrackSegment[]
   }
   if (current.length > 0) segments.push(current);
   return segments;
+}
+
+// The track stream carries the source time of every record. Frame-aligned
+// sources (CAM-meta packets, SRT cues) hold one record per frame, but the
+// cammeta-scan fallback holds one record per byte-scan hit at its own sample
+// time - so ranges select records by time, never by record position.
+export interface TrackRecord extends TelemetryFrameInput {
+  /** Source time in seconds from the start of the recording. */
+  tSec: number;
+}
+
+export interface TrackStream {
+  records: readonly TrackRecord[];
+  /** Frame rate that maps record times onto frame indices. */
+  fpsValue: number;
+}
+
+function frameOf(record: TrackRecord, fpsValue: number): number {
+  return Math.round(record.tSec * fpsValue);
+}
+
+/**
+ * Selects the records for a frame range (inclusive bounds) by their source
+ * time; a null range keeps every record, however many there are per frame.
+ */
+export function selectTrackRecords(
+  stream: TrackStream,
+  range: FrameRange | null,
+): readonly TrackRecord[] {
+  if (!range) return stream.records;
+  return stream.records.filter((record) => {
+    const frame = frameOf(record, stream.fpsValue);
+    return frame >= range.start && frame <= range.end;
+  });
 }

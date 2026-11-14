@@ -42,7 +42,11 @@ const TELEMETRY = {
   frames: [],
   headingDeg: [90, 91, 92],
 } as unknown as TelemetryDocumentInput;
-const PREPARED: PreparedUiSession = { session: SESSION, telemetry: TELEMETRY, track: TELEMETRY };
+const PREPARED: PreparedUiSession = {
+  session: SESSION,
+  telemetry: TELEMETRY,
+  track: { records: [], fpsValue: 30 },
+};
 
 const REQUEST: PickRequest = {
   settings: {
@@ -427,11 +431,11 @@ function saveDeps() {
         { lat: 46.64, lng: 14.24, altRel: 3.7 },
       ],
       trackValues: [
-        { lat: 46.6, lng: 14.2, altRel: 3.3, iso: 340 },
-        { altRel: 3.4 },
-        { lat: null, lng: null, altRel: 3.5 },
-        {},
-        { lat: 46.64, lng: 14.24, altRel: 3.7 },
+        { lat: 46.6, lng: 14.2, altRel: 3.3, iso: 340, tSec: 0 },
+        { altRel: 3.4, tSec: 1 / 30 },
+        { lat: null, lng: null, altRel: 3.5, tSec: 2 / 30 },
+        { tSec: 3 / 30 },
+        { lat: 46.64, lng: 14.24, altRel: 3.7, tSec: 4 / 30 },
       ],
       protoFile: 'dvtm_NEO2.proto v02.00.07',
       gimbalDevice: { id: 0, type: 1, subType: 3, name: 'gimbal', frequency: 200 },
@@ -577,6 +581,38 @@ describe('AppSession.saveTelemetryJson', () => {
     expect(gpx.match(/<trkpt /g)).toHaveLength(1);
     expect(gpx).toContain('<trkpt lat="46.64" lon="14.24"/>');
     expect(gpx).not.toContain('46.6"');
+  });
+
+  it('selects sample-indexed track records (cammeta-scan) by time, not by position', async () => {
+    // 3 scan records over a 5-frame clip: record count unrelated to frames
+    const telemetry = telemetryFixture();
+    const deps = stubDeps({
+      probe: probeFixture({ frames: 5 }),
+      telemetry,
+      loaded: loadedTelemetry({
+        telemetry,
+        frameValues: [],
+        trackValues: [
+          { lat: 46.6, lng: 14.2, tSec: 0 }, // frame 0
+          { lat: 46.62, lng: 14.22, tSec: 0.1 }, // frame 3
+          { lat: 46.64, lng: 14.24, tSec: 0.133333 }, // frame 4
+        ],
+      }),
+    });
+    const session = await loadedSession(mp4(), deps);
+
+    const out = path.join(tmpDir(), 'scan.gpx');
+    session.saveTelemetryJson(out, { start: 0, end: 2 });
+    const gpx = fs.readFileSync(out, 'utf8');
+    // frames 0-2 hold only the frame-0 fix; a positional slice would have
+    // written the first three records
+    expect(gpx.match(/<trkpt /g)).toHaveLength(1);
+    expect(gpx).toContain('46.6"');
+    expect(gpx).not.toContain('46.62');
+
+    const full = path.join(tmpDir(), 'scan-full.gpx');
+    session.saveTelemetryJson(full, null);
+    expect((fs.readFileSync(full, 'utf8').match(/<trkpt /g) ?? []).length).toBe(3);
   });
 
   it.for([
