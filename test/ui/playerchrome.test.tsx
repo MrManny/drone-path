@@ -135,7 +135,7 @@ describe('PlayerChrome workspace structure', () => {
           helpOpen: false,
           aboutOpen: false,
           exportOpen: false,
-          telemetrySaveOpen: false,
+          trackSaveOpen: false,
           updateOpen: false,
           dismissible: true,
           dispatchDialog,
@@ -1032,8 +1032,8 @@ describe('PlayerChrome export telemetry', () => {
 
   function installTelemetryBridge(overrides: Record<string, unknown> = {}) {
     const bridge = {
-      pickTelemetryOutput: vi.fn(async () => ({ ok: true, path: '/exports/flight.telemetry.json' })),
-      saveTelemetryJson: vi.fn(async () => ({ ok: true })),
+      pickTrackOutput: vi.fn(async () => ({ ok: true, path: '/exports/flight.telemetry.json' })),
+      saveTrack: vi.fn(async () => ({ ok: true })),
       revealExportOutput: vi.fn(async () => ({ ok: true })),
       ...overrides,
     };
@@ -1049,25 +1049,25 @@ describe('PlayerChrome export telemetry', () => {
 
   it('starts nothing when the save dialog is canceled', async () => {
     const bridge = installTelemetryBridge({
-      pickTelemetryOutput: vi.fn(async () => ({ ok: false, canceled: true })),
+      pickTrackOutput: vi.fn(async () => ({ ok: false, canceled: true })),
     });
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     clickMenuItem('Export telemetry…');
     await settle();
 
-    expect(bridge.saveTelemetryJson).not.toHaveBeenCalled();
+    expect(bridge.saveTrack).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('opens the error dialog when the pick fails, so the failure is never silent', async () => {
     const bridge = installTelemetryBridge({
-      pickTelemetryOutput: vi.fn(async () => ({ ok: false, error: 'the dialog went away' })),
+      pickTrackOutput: vi.fn(async () => ({ ok: false, error: 'the dialog went away' })),
     });
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     clickMenuItem('Export telemetry…');
     await settle();
 
-    expect(bridge.saveTelemetryJson).not.toHaveBeenCalled();
+    expect(bridge.saveTrack).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
     expect(screen.getByText('the dialog went away')).toBeTruthy();
   });
@@ -1075,7 +1075,7 @@ describe('PlayerChrome export telemetry', () => {
   it('keeps the dialog up during the write and surfaces a late failure', async () => {
     let finish = null as ((ack: { ok: boolean; error?: string }) => void) | null;
     installTelemetryBridge({
-      saveTelemetryJson: vi.fn(
+      saveTrack: vi.fn(
         () =>
           new Promise<{ ok: boolean; error?: string }>((resolve) => {
             finish = resolve;
@@ -1100,7 +1100,7 @@ describe('PlayerChrome export telemetry', () => {
   it('reports the scope captured at save time, not a later loop edit', async () => {
     let finish = null as ((ack: { ok: boolean; error?: string }) => void) | null;
     installTelemetryBridge({
-      saveTelemetryJson: vi.fn(
+      saveTrack: vi.fn(
         () =>
           new Promise<{ ok: boolean; error?: string }>((resolve) => {
             finish = resolve;
@@ -1126,7 +1126,7 @@ describe('PlayerChrome export telemetry', () => {
     key(window, { key: 'i' });
     clickMenuItem('Export telemetry…');
     await settle();
-    expect(bridge.saveTelemetryJson).toHaveBeenCalledWith(
+    expect(bridge.saveTrack).toHaveBeenCalledWith(
       expect.objectContaining({ range: { start: 10, end: 89 } }),
     );
     expect(screen.getByText('Covers the In–Out segment (0:00–0:03 · 80 frames)')).toBeTruthy();

@@ -4,7 +4,7 @@ import {
   createAppSession,
   frameExactDuration,
   parsePickRequest,
-  parseTelemetrySaveRequest,
+  parseTrackSaveRequest,
   prepareUiSession,
 } from '../src/appsession.js';
 import type {
@@ -454,10 +454,10 @@ async function loadedSession(file: string, deps = saveDeps()) {
   return session;
 }
 
-describe('parseTelemetrySaveRequest', () => {
+describe('parseTrackSaveRequest', () => {
   it('takes the destination and the range off the renderer request', () => {
     expect(
-      parseTelemetrySaveRequest({
+      parseTrackSaveRequest({
         outPath: '/exports/flight.telemetry.json',
         range: { start: 1, end: 3 },
       }),
@@ -466,30 +466,30 @@ describe('parseTelemetrySaveRequest', () => {
 
   it('treats a missing or null range as the full recording', () => {
     const expected = { outPath: '/exports/flight.telemetry.json', range: null };
-    expect(parseTelemetrySaveRequest({ outPath: '/exports/flight.telemetry.json' })).toEqual(
+    expect(parseTrackSaveRequest({ outPath: '/exports/flight.telemetry.json' })).toEqual(
       expected,
     );
     expect(
-      parseTelemetrySaveRequest({ outPath: '/exports/flight.telemetry.json', range: null }),
+      parseTrackSaveRequest({ outPath: '/exports/flight.telemetry.json', range: null }),
     ).toEqual(expected);
   });
 
   it('rejects junk payloads, unknown keys and empty paths', () => {
-    expect(() => parseTelemetrySaveRequest(null)).toThrow('invalid telemetry save request');
-    expect(() => parseTelemetrySaveRequest([])).toThrow('invalid telemetry save request');
-    expect(() => parseTelemetrySaveRequest({})).toThrow('outPath');
-    expect(() => parseTelemetrySaveRequest({ outPath: '' })).toThrow('outPath');
-    expect(() => parseTelemetrySaveRequest({ outPath: 7 })).toThrow('outPath');
+    expect(() => parseTrackSaveRequest(null)).toThrow('invalid track save request');
+    expect(() => parseTrackSaveRequest([])).toThrow('invalid track save request');
+    expect(() => parseTrackSaveRequest({})).toThrow('outPath');
+    expect(() => parseTrackSaveRequest({ outPath: '' })).toThrow('outPath');
+    expect(() => parseTrackSaveRequest({ outPath: 7 })).toThrow('outPath');
     expect(() =>
-      parseTelemetrySaveRequest({ outPath: '/a.json', surprise: 1 }),
-    ).toThrow('unknown telemetry save request key surprise');
+      parseTrackSaveRequest({ outPath: '/a.json', surprise: 1 }),
+    ).toThrow('unknown track save request key surprise');
   });
 
   it('rejects an unsupported destination extension, like the export request rejects non-.mp4', () => {
-    expect(() => parseTelemetrySaveRequest({ outPath: '/exports/flight.txt' })).toThrow(
+    expect(() => parseTrackSaveRequest({ outPath: '/exports/flight.txt' })).toThrow(
       'outPath must be a .gpx, .geojson, .kml, .kmz or .json file',
     );
-    expect(() => parseTelemetrySaveRequest({ outPath: '/exports/flight' })).toThrow(
+    expect(() => parseTrackSaveRequest({ outPath: '/exports/flight' })).toThrow(
       'outPath must be a .gpx, .geojson, .kml, .kmz or .json file',
     );
   });
@@ -503,26 +503,26 @@ describe('parseTelemetrySaveRequest', () => {
     'flight.GPX',
     'flight.telemetry.json',
   ])('accepts the %s destination', (name) => {
-    expect(parseTelemetrySaveRequest({ outPath: `/exports/${name}` }).outPath).toBe(
+    expect(parseTrackSaveRequest({ outPath: `/exports/${name}` }).outPath).toBe(
       `/exports/${name}`,
     );
   });
 
   it('rejects an invalid range through the shared frame-range rule', () => {
     expect(() =>
-      parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 3, end: 2 } }),
+      parseTrackSaveRequest({ outPath: '/a.json', range: { start: 3, end: 2 } }),
     ).toThrow('0 <= start <= end');
     expect(() =>
-      parseTelemetrySaveRequest({ outPath: '/a.json', range: { start: 0, end: 1, extra: 2 } }),
+      parseTrackSaveRequest({ outPath: '/a.json', range: { start: 0, end: 1, extra: 2 } }),
     ).toThrow('unknown frame range key extra');
   });
 });
 
-describe('AppSession.saveTelemetryJson', () => {
+describe('AppSession.saveTrack', () => {
   it('writes the versioned document for the full recording', async () => {
     const session = await loadedSession(mp4());
     const out = path.join(tmpDir(), 'flight.telemetry.json');
-    session.saveTelemetryJson(out, null);
+    session.saveTrack(out, null);
 
     const doc = JSON.parse(fs.readFileSync(out, 'utf8')) as Record<string, unknown>;
     expect(doc.schemaVersion).toBe(1);
@@ -534,7 +534,7 @@ describe('AppSession.saveTelemetryJson', () => {
   it('writes only the In-Out segment, keeping the source frame numbers', async () => {
     const session = await loadedSession(mp4());
     const out = path.join(tmpDir(), 'segment.telemetry.json');
-    session.saveTelemetryJson(out, { start: 1, end: 3 });
+    session.saveTrack(out, { start: 1, end: 3 });
 
     const doc = JSON.parse(fs.readFileSync(out, 'utf8'));
     expect(doc.frameCount).toBe(3);
@@ -548,7 +548,7 @@ describe('AppSession.saveTelemetryJson', () => {
   it('omits missing values as absent keys and never writes nulls', async () => {
     const session = await loadedSession(mp4());
     const out = path.join(tmpDir(), 'fields.telemetry.json');
-    session.saveTelemetryJson(out, null);
+    session.saveTrack(out, null);
 
     const raw = fs.readFileSync(out, 'utf8');
     expect(raw).not.toContain('null');
@@ -563,7 +563,7 @@ describe('AppSession.saveTelemetryJson', () => {
   it('writes a single-frame segment for a lone In-Out point', async () => {
     const session = await loadedSession(mp4());
     const out = path.join(tmpDir(), 'single.telemetry.json');
-    session.saveTelemetryJson(out, { start: 2, end: 2 });
+    session.saveTrack(out, { start: 2, end: 2 });
 
     const doc = JSON.parse(fs.readFileSync(out, 'utf8'));
     expect(doc.frameCount).toBe(1);
@@ -574,7 +574,7 @@ describe('AppSession.saveTelemetryJson', () => {
   it('honors the In-Out range for the track formats', async () => {
     const session = await loadedSession(mp4());
     const out = path.join(tmpDir(), 'segment.gpx');
-    session.saveTelemetryJson(out, { start: 3, end: 4 });
+    session.saveTrack(out, { start: 3, end: 4 });
 
     // rows 3-4 hold one fix (row 4), so the export is a single-vertex track
     const gpx = fs.readFileSync(out, 'utf8');
@@ -602,7 +602,7 @@ describe('AppSession.saveTelemetryJson', () => {
     const session = await loadedSession(mp4(), deps);
 
     const out = path.join(tmpDir(), 'scan.gpx');
-    session.saveTelemetryJson(out, { start: 0, end: 2 });
+    session.saveTrack(out, { start: 0, end: 2 });
     const gpx = fs.readFileSync(out, 'utf8');
     // frames 0-2 hold only the frame-0 fix; a positional slice would have
     // written the first three records
@@ -611,7 +611,7 @@ describe('AppSession.saveTelemetryJson', () => {
     expect(gpx).not.toContain('46.62');
 
     const full = path.join(tmpDir(), 'scan-full.gpx');
-    session.saveTelemetryJson(full, null);
+    session.saveTrack(full, null);
     expect((fs.readFileSync(full, 'utf8').match(/<trkpt /g) ?? []).length).toBe(3);
   });
 
@@ -630,7 +630,7 @@ describe('AppSession.saveTelemetryJson', () => {
     // every format validates the range - document and track formats alike
     for (const name of ['range.telemetry.json', 'range.gpx', 'range.kmz']) {
       const out = path.join(tmpDir(), name);
-      expect(() => session.saveTelemetryJson(out, range)).toThrow(message);
+      expect(() => session.saveTrack(out, range)).toThrow(message);
       expect(fs.existsSync(out)).toBe(false);
     }
   });
@@ -641,13 +641,13 @@ describe('AppSession.saveTelemetryJson', () => {
       pickFile: async () => null,
       prepare: vi.fn(),
     });
-    expect(() => session.saveTelemetryJson(path.join(tmpDir(), 'x.json'), null)).toThrow(
+    expect(() => session.saveTrack(path.join(tmpDir(), 'x.json'), null)).toThrow(
       'no recording loaded',
     );
   });
 });
 
-describe('saveTelemetryJson byte parity', () => {
+describe('saveTrack byte parity', () => {
   it.for(['json', 'gpx', 'geojson', 'kml', 'kmz'])(
     'writes the same .%s bytes as processRecording with trackOut',
     async (extension) => {
@@ -665,7 +665,7 @@ describe('saveTelemetryJson byte parity', () => {
         { deps },
       );
       const session = await loadedSession(file, deps);
-      session.saveTelemetryJson(desktopFile, null);
+      session.saveTrack(desktopFile, null);
 
       expect(fs.readFileSync(desktopFile)).toEqual(fs.readFileSync(cliFile));
     },

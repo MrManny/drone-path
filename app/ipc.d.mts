@@ -20,7 +20,7 @@ export interface IpcState {
   updates: UpdateController | null;
   updateReady: boolean;
   lastExportOut: string | null;
-  lastTelemetryOut: string | null;
+  lastTrackOut: string | null;
 }
 
 export interface IpcHandlersOptions {

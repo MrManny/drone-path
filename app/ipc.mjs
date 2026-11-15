@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { dialog, ipcMain, shell } from 'electron';
 
-import { parsePickRequest, parseTelemetrySaveRequest } from '../dist/appsession.js';
+import { parsePickRequest, parseTrackSaveRequest } from '../dist/appsession.js';
 import { applyAppState, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
@@ -44,11 +44,11 @@ function requireVideo(state) {
 }
 
 // The reveal/open guard: the renderer may only name a file this shell wrote
-// (the last export or the last telemetry document, both set only by trusted
+// (the last export or the last track file, both set only by trusted
 // handlers), never an arbitrary path.
 function knownOutputOf(state, payload) {
   const out = payload && typeof payload === 'object' ? payload.out : null;
-  if (typeof out !== 'string' || (out !== state.lastExportOut && out !== state.lastTelemetryOut)) {
+  if (typeof out !== 'string' || (out !== state.lastExportOut && out !== state.lastTrackOut)) {
     throw new Error('unknown output');
   }
   return out;
@@ -156,8 +156,8 @@ function registerExportHandlers(state, devUrl) {
   });
 }
 
-function registerTelemetryHandlers(state, devUrl, log) {
-  handle(devUrl, 'dronepath:telemetry:pick-output', async () => {
+function registerTrackHandlers(state, devUrl, log) {
+  handle(devUrl, 'dronepath:track:pick-output', async () => {
     const video = requireVideo(state);
     // The export dialog's default folder, named after the recording
     // (<basename>.telemetry.json); the typed name selects the format by its
@@ -177,11 +177,11 @@ function registerTelemetryHandlers(state, devUrl, log) {
       defaultExtension: 'json',
     });
   });
-  handle(devUrl, 'dronepath:telemetry:save', (raw) => {
+  handle(devUrl, 'dronepath:track:save', (raw) => {
     requireVideo(state);
-    const request = parseTelemetrySaveRequest(raw);
-    state.session.saveTelemetryJson(request.outPath, request.range);
-    state.lastTelemetryOut = request.outPath;
+    const request = parseTrackSaveRequest(raw);
+    state.session.saveTrack(request.outPath, request.range);
+    state.lastTrackOut = request.outPath;
     log(`track: wrote ${request.outPath}`);
     return { ok: true };
   });
@@ -210,7 +210,7 @@ export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
   registerSessionHandlers(state, devUrl);
   registerSettingsHandlers(state, devUrl, log);
   registerExportHandlers(state, devUrl);
-  registerTelemetryHandlers(state, devUrl, log);
+  registerTrackHandlers(state, devUrl, log);
   registerUpdateHandlers(state, devUrl, sendToWindow);
   registerWindowHandlers(state, devUrl);
 }

@@ -1,32 +1,32 @@
-import type { TelemetrySaveRequest } from '../../src/appsession.js';
+import type { TrackSaveRequest } from '../../src/appsession.js';
 import type { FrameRange } from '../../src/config.js';
 import { ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
 import type { ExportAck, PickOutputResult } from './backend.js';
 import { formatFrameRange, formatTime } from './frametime.js';
 
-interface TelemetrySaveDeps {
-  pickTelemetryOutput(): Promise<PickOutputResult>;
-  saveTelemetryJson(request: TelemetrySaveRequest): Promise<ExportAck>;
+interface TrackSaveDeps {
+  pickTrackOutput(): Promise<PickOutputResult>;
+  saveTrack(request: TrackSaveRequest): Promise<ExportAck>;
 }
 
-type TelemetrySaveEvent =
+type TrackSaveEvent =
   | { type: 'canceled' }
   | { type: 'saved'; path: string }
   | { type: 'failed'; message: string };
 
-export type TelemetrySavePhase =
+export type TrackSavePhase =
   | { kind: 'saving' }
   | { kind: 'done'; path: string; scope: string; error?: string }
   | { kind: 'error'; message: string };
 
-type TelemetrySaveAction =
+type TrackSaveAction =
   | { type: 'started' }
-  | { type: 'result'; event: TelemetrySaveEvent; scope: string }
+  | { type: 'result'; event: TrackSaveEvent; scope: string }
   | { type: 'revealFailed'; error: string };
 
 // The persistent phase line; the failure phase announces through its alert
 // notice, so it leaves the line empty.
-export function telemetryPhaseText(phase: TelemetrySavePhase): string {
+export function trackPhaseText(phase: TrackSavePhase): string {
   switch (phase.kind) {
     case 'saving':
       return 'Exporting telemetry…';
@@ -37,10 +37,10 @@ export function telemetryPhaseText(phase: TelemetrySavePhase): string {
   }
 }
 
-export function telemetrySaveReducer(
-  state: TelemetrySavePhase | null,
-  action: TelemetrySaveAction,
-): TelemetrySavePhase | null {
+export function trackSaveReducer(
+  state: TrackSavePhase | null,
+  action: TrackSaveAction,
+): TrackSavePhase | null {
   switch (action.type) {
     case 'started':
       return { kind: 'saving' };
@@ -54,7 +54,7 @@ export function telemetrySaveReducer(
   }
 }
 
-export function telemetryScope(
+export function trackScope(
   range: FrameRange | null,
   fps: number,
   durationSec: number,
@@ -64,21 +64,21 @@ export function telemetryScope(
     : `full recording (${formatTime(durationSec)})`;
 }
 
-export async function telemetrySaveFlow(
-  deps: TelemetrySaveDeps,
+export async function trackSaveFlow(
+  deps: TrackSaveDeps,
   range: FrameRange | null,
   onSaving: () => void,
-): Promise<TelemetrySaveEvent> {
+): Promise<TrackSaveEvent> {
   try {
-    const picked = await deps.pickTelemetryOutput();
+    const picked = await deps.pickTrackOutput();
     if (picked.canceled) return { type: 'canceled' };
     if (!picked.ok || picked.path === undefined) {
       return { type: 'failed', message: picked.error ?? ERR_UNKNOWN };
     }
     onSaving();
-    const ack = await deps.saveTelemetryJson({ outPath: picked.path, range });
+    const ack = await deps.saveTrack({ outPath: picked.path, range });
     if (!ack.ok) {
-      return { type: 'failed', message: ack.error ?? 'telemetry JSON could not be saved' };
+      return { type: 'failed', message: ack.error ?? 'track file could not be saved' };
     }
     return { type: 'saved', path: picked.path };
   } catch (e) {

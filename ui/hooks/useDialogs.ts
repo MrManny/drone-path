@@ -10,7 +10,7 @@ export interface Dialogs {
   helpOpen: boolean;
   aboutOpen: boolean;
   exportOpen: boolean;
-  telemetrySaveOpen: boolean;
+  trackSaveOpen: boolean;
   updateOpen: boolean;
   dismissible: boolean;
   dispatchDialog: (event: DialogEvent) => void;
@@ -23,7 +23,7 @@ export function useDialogs(): Dialogs {
     helpOpen: dialog === 'help',
     aboutOpen: dialog === 'about',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
-    telemetrySaveOpen: dialog === 'telemetry-save' || dialog === 'telemetry-saving',
+    trackSaveOpen: dialog === 'track-save' || dialog === 'track-saving',
     updateOpen: dialog === 'update-prompt',
     dismissible: canDismiss(dialog),
     dispatchDialog,

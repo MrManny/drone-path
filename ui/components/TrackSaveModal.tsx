@@ -2,24 +2,24 @@
 
 import { useEffect, useRef } from 'react';
 
-import type { TelemetrySavePhase } from '../lib/telemetrysave.js';
-import { telemetryPhaseText } from '../lib/telemetrysave.js';
+import type { TrackSavePhase } from '../lib/tracksave.js';
+import { trackPhaseText } from '../lib/tracksave.js';
 import { DialogShell } from './DialogShell.js';
 import { ErrorNotice } from './ErrorNotice.js';
 
-export interface TelemetrySaveModalProps {
-  phase: TelemetrySavePhase;
+export interface TrackSaveModalProps {
+  phase: TrackSavePhase;
   dismissible: boolean;
   onReveal: () => void;
   onClose: () => void;
 }
 
-export function TelemetrySaveModal({
+export function TrackSaveModal({
   phase,
   dismissible,
   onReveal,
   onClose,
-}: TelemetrySaveModalProps) {
+}: TrackSaveModalProps) {
   // A phase change unmounts the old phase's action; focus follows the flow to
   // the new primary action (or the dialog) so it never lands on <body>.
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -42,7 +42,7 @@ export function TelemetrySaveModal({
     >
       <div ref={bodyRef}>
         <p className="phase-status" role="status">
-          {telemetryPhaseText(phase)}
+          {trackPhaseText(phase)}
         </p>
 
         {phase.kind === 'done' ? (

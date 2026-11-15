@@ -68,35 +68,35 @@ export function parsePickRequest(raw: unknown): PickRequest {
   return { settings: parseAppearanceSettings(input.settings) };
 }
 
-export interface TelemetrySaveRequest {
+export interface TrackSaveRequest {
   outPath: string;
   range: FrameRange | null;
 }
 
-const TELEMETRY_SAVE_SHAPE = {
+const TRACK_SAVE_SHAPE = {
   outPath: z.unknown().optional(),
   range: z.unknown().optional(),
 } as z.ZodRawShape;
 
-export function parseTelemetrySaveRequest(raw: unknown): TelemetrySaveRequest {
+export function parseTrackSaveRequest(raw: unknown): TrackSaveRequest {
   const request = parseValue(
-    strictShape(TELEMETRY_SAVE_SHAPE, {
-      invalid: 'invalid telemetry save request',
-      unknownKey: (key) => `unknown telemetry save request key ${key}`,
+    strictShape(TRACK_SAVE_SHAPE, {
+      invalid: 'invalid track save request',
+      unknownKey: (key) => `unknown track save request key ${key}`,
     }),
     raw,
   );
   const outPath = parseValue(
     z
-      .string({ error: () => 'invalid telemetry save request: outPath' })
-      .min(1, { error: () => 'invalid telemetry save request: outPath' }),
+      .string({ error: () => 'invalid track save request: outPath' })
+      .min(1, { error: () => 'invalid track save request: outPath' }),
     request.outPath,
   );
   try {
     trackFormatOf(outPath);
   } catch (e) {
     throw new Error(
-      `invalid telemetry save request: outPath must be a .gpx, .geojson, .kml, .kmz or .json file: ${outPath}`,
+      `invalid track save request: outPath must be a .gpx, .geojson, .kml, .kmz or .json file: ${outPath}`,
       { cause: e },
     );
   }
@@ -166,7 +166,7 @@ export interface AppSession {
   pick(request: PickRequest): Promise<PickResult>;
   getSession(): UiSession | null;
   videoPath(): string | null;
-  saveTelemetryJson(file: string, range: FrameRange | null): void;
+  saveTrack(file: string, range: FrameRange | null): void;
 }
 
 function isReadableVideo(filePath: string): boolean {
@@ -214,7 +214,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     },
     getSession: () => prepared?.session ?? null,
     videoPath: () => videoPath,
-    saveTelemetryJson(file: string, range: FrameRange | null): void {
+    saveTrack(file: string, range: FrameRange | null): void {
       if (!prepared) throw new Error(ERR_NO_RECORDING);
       writeTrackFile(file, { document: prepared.telemetry, track: prepared.track }, range);
     },

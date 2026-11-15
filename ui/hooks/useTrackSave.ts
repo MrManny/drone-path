@@ -6,42 +6,42 @@ import type { FrameRange } from '../../src/config.js';
 import { errorMessage } from '../../src/errors.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
-import type { TelemetrySavePhase } from '../lib/telemetrysave.js';
-import { telemetrySaveFlow, telemetrySaveReducer } from '../lib/telemetrysave.js';
+import type { TrackSavePhase } from '../lib/tracksave.js';
+import { trackSaveFlow, trackSaveReducer } from '../lib/tracksave.js';
 
-interface TelemetrySave {
-  phase: TelemetrySavePhase | null;
+interface TrackSave {
+  phase: TrackSavePhase | null;
   save: () => void;
   reveal: () => void;
 }
 
-export function useTelemetrySave(options: {
+export function useTrackSave(options: {
   range: FrameRange | null;
   scope: string;
   dispatchDialog: (event: DialogEvent) => void;
-}): TelemetrySave {
+}): TrackSave {
   const { range, scope, dispatchDialog } = options;
-  const [phase, dispatch] = useReducer(telemetrySaveReducer, null);
+  const [phase, dispatch] = useReducer(trackSaveReducer, null);
 
   const save = useCallback((): void => {
     void (async () => {
       let opened = false;
-      const event = await telemetrySaveFlow(
+      const event = await trackSaveFlow(
         {
-          pickTelemetryOutput: () => appBridge().pickTelemetryOutput(),
-          saveTelemetryJson: (request) => appBridge().saveTelemetryJson(request),
+          pickTrackOutput: () => appBridge().pickTrackOutput(),
+          saveTrack: (request) => appBridge().saveTrack(request),
         },
         range,
         () => {
           opened = true;
           dispatch({ type: 'started' });
-          dispatchDialog({ type: 'openTelemetrySave' });
+          dispatchDialog({ type: 'openTrackSave' });
           dispatchDialog({ type: 'runStarted' });
         },
       );
       if (event.type === 'canceled') return;
       if (opened) dispatchDialog({ type: 'runFinished' });
-      else dispatchDialog({ type: 'openTelemetrySave' });
+      else dispatchDialog({ type: 'openTrackSave' });
       dispatch({ type: 'result', event, scope });
     })();
   }, [range, scope, dispatchDialog]);

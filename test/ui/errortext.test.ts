@@ -145,12 +145,12 @@ describe('app messages that carry a path', () => {
 
 describe('the UI fallback messages', () => {
   // The fallbacks for a refused bridge call (ui/lib/exportflow.ts,
-  // ui/lib/telemetrysave.ts, ui/hooks/useTelemetrySave.ts) read as sentences
+  // ui/lib/tracksave.ts, ui/hooks/useTrackSave.ts) read as sentences
   // with a next step, never as the fragments they replace.
   it.for([
     { raw: 'action failed', text: 'The action could not be completed. Try again.' },
     {
-      raw: 'telemetry JSON could not be saved',
+      raw: 'track file could not be saved',
       text: 'The telemetry file could not be saved. Try again.',
     },
     {

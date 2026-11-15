@@ -2,7 +2,7 @@ import type {
   IpcResult,
   PickRequest,
   PickResult,
-  TelemetrySaveRequest,
+  TrackSaveRequest,
   UiSession,
 } from '../../src/appsession.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
@@ -31,8 +31,8 @@ interface AppBridge {
   getSettings(): Promise<RenderConfig>;
   saveSettings(patch: SettingsPatch): Promise<ExportAck>;
   pickExportOutput(): Promise<PickOutputResult>;
-  pickTelemetryOutput(): Promise<PickOutputResult>;
-  saveTelemetryJson(request: TelemetrySaveRequest): Promise<ExportAck>;
+  pickTrackOutput(): Promise<PickOutputResult>;
+  saveTrack(request: TrackSaveRequest): Promise<ExportAck>;
   startExport(request: ExportRequest): Promise<ExportAck>;
   cancelExport(): Promise<ExportAck>;
   revealExportOutput(payload: ExportOutputPayload): Promise<ExportAck>;

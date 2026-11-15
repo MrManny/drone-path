@@ -2,8 +2,8 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { TelemetrySaveModalProps } from '../../ui/components/TelemetrySaveModal.js';
-import { TelemetrySaveModal } from '../../ui/components/TelemetrySaveModal.js';
+import type { TrackSaveModalProps } from '../../ui/components/TrackSaveModal.js';
+import { TrackSaveModal } from '../../ui/components/TrackSaveModal.js';
 
 afterEach(cleanup);
 
@@ -13,11 +13,11 @@ const DONE = {
   scope: 'In–Out segment (0:04–0:10 · 181 frames)',
 };
 
-function renderModal(overrides: Partial<TelemetrySaveModalProps> = {}) {
+function renderModal(overrides: Partial<TrackSaveModalProps> = {}) {
   const onReveal = vi.fn();
   const onClose = vi.fn();
   render(
-    <TelemetrySaveModal
+    <TrackSaveModal
       phase={DONE}
       dismissible
       {...overrides}
@@ -32,7 +32,7 @@ function actions(): HTMLElement | null {
   return document.querySelector('.dialog-actions');
 }
 
-describe('TelemetrySaveModal saving phase', () => {
+describe('TrackSaveModal saving phase', () => {
   it('says the write is in flight in the status line and offers no action yet', () => {
     renderModal({ phase: { kind: 'saving' } });
     const status = document.querySelector('.phase-status') as HTMLElement;
@@ -56,7 +56,7 @@ describe('TelemetrySaveModal saving phase', () => {
   });
 });
 
-describe('TelemetrySaveModal done phase', () => {
+describe('TrackSaveModal done phase', () => {
   it('reports the kept file and the scope captured at save time', () => {
     renderModal();
     expect(screen.getByText('Telemetry exported.')).toBeTruthy();
@@ -98,15 +98,15 @@ describe('TelemetrySaveModal done phase', () => {
 
   it('moves focus to Reveal in folder when the write finishes', () => {
     const { rerender } = render(
-      <TelemetrySaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
+      <TrackSaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
     );
-    rerender(<TelemetrySaveModal phase={DONE} dismissible onReveal={vi.fn()} onClose={vi.fn()} />);
+    rerender(<TrackSaveModal phase={DONE} dismissible onReveal={vi.fn()} onClose={vi.fn()} />);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reveal in folder' }));
     expect(document.activeElement).not.toBe(document.body);
   });
 });
 
-describe('TelemetrySaveModal error phase', () => {
+describe('TrackSaveModal error phase', () => {
   it('reports the failure and offers no footer', () => {
     renderModal({ phase: { kind: 'error', message: 'disk full' } });
     expect(screen.getByText('disk full')).toBeTruthy();
@@ -121,10 +121,10 @@ describe('TelemetrySaveModal error phase', () => {
 
   it('drops focus to the dialog, never to <body>', () => {
     const { rerender } = render(
-      <TelemetrySaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
+      <TrackSaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
     );
     rerender(
-      <TelemetrySaveModal
+      <TrackSaveModal
         phase={{ kind: 'error', message: 'disk full' }}
         dismissible
         onReveal={vi.fn()}
@@ -138,13 +138,13 @@ describe('TelemetrySaveModal error phase', () => {
   });
 });
 
-describe('TelemetrySaveModal status region', () => {
+describe('TrackSaveModal status region', () => {
   it('keeps one status region across the phase change', () => {
     const { rerender } = render(
-      <TelemetrySaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
+      <TrackSaveModal phase={{ kind: 'saving' }} dismissible={false} onReveal={vi.fn()} onClose={vi.fn()} />,
     );
     const status = document.querySelector('.phase-status') as HTMLElement;
-    rerender(<TelemetrySaveModal phase={DONE} dismissible onReveal={vi.fn()} onClose={vi.fn()} />);
+    rerender(<TrackSaveModal phase={DONE} dismissible onReveal={vi.fn()} onClose={vi.fn()} />);
     expect(document.querySelector('.phase-status')).toBe(status);
     expect(status.textContent).toBe('Telemetry exported.');
   });

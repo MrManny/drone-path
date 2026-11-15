@@ -25,7 +25,7 @@ describe('useDialogs', () => {
       helpOpen: false,
       aboutOpen: false,
       exportOpen: false,
-      telemetrySaveOpen: false,
+      trackSaveOpen: false,
       updateOpen: false,
       dismissible: true,
       dispatchDialog: result.current.dispatchDialog,
@@ -70,20 +70,20 @@ describe('useDialogs', () => {
 
   it('opens the telemetry save dialog as a dismissable modal', () => {
     const { result, send } = mountDialogs();
-    send({ type: 'openTelemetrySave' });
+    send({ type: 'openTrackSave' });
     expect(result.current.modalOpen).toBe(true);
-    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.trackSaveOpen).toBe(true);
     expect(result.current.dismissible).toBe(true);
   });
 
   it('pins the telemetry save dialog while the write runs and releases it on the outcome', () => {
     const { result, send } = mountDialogs();
-    send({ type: 'openTelemetrySave' });
+    send({ type: 'openTrackSave' });
     send({ type: 'runStarted' });
-    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.trackSaveOpen).toBe(true);
     expect(result.current.dismissible).toBe(false);
     send({ type: 'close' });
-    expect(result.current.telemetrySaveOpen).toBe(true);
+    expect(result.current.trackSaveOpen).toBe(true);
     send({ type: 'runFinished' });
     expect(result.current.dismissible).toBe(true);
     send({ type: 'close' });
