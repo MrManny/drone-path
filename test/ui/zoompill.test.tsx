@@ -1,4 +1,8 @@
 // @vitest-environment jsdom
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -124,5 +128,29 @@ describe('ZoomPill (#270)', () => {
     const { container } = renderPill(19, 19, vi.fn(), 'Already zoomed all the way in');
     const readout = container.querySelector('.map-zoom-level') as HTMLElement;
     expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
+  });
+
+  it('renders the bare stepper markup with no pill container (#272)', () => {
+    const { container } = renderPill(14, 14);
+    const stepper = container.querySelector('.map-zoom-stepper') as HTMLElement;
+    expect(stepper.getAttribute('role')).toBe('group');
+    expect(container.querySelector('.map-zoom-pill')).toBeNull();
+  });
+});
+
+describe('ZoomPill style contract (#272)', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const cssText = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
+
+  it('keeps the stepper bare: no pill container and no button borders', () => {
+    const group = /\.map-zoom-stepper \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(group).not.toContain('border');
+    expect(group).not.toContain('background');
+    expect(group).not.toContain('radius-pill');
+    const buttons = /\.map-zoom-stepper button \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(buttons).toContain('border: 0');
+    expect(buttons).toContain('background: transparent');
+    expect(buttons).not.toContain('radius-pill');
+    expect(cssText).not.toContain('.map-zoom-pill');
   });
 });

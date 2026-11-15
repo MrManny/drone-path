@@ -250,6 +250,8 @@ describe('createScene', () => {
     const scene = createScene(host, sceneData(), { L, hudHost: strip });
     expect(strip.querySelector('#chip-alt')).toBeTruthy();
     expect(strip.querySelector('#chip-speed')).toBeTruthy();
+    expect(strip.querySelector('#chip-speed .label')?.textContent).toBe('Speed');
+    expect(strip.querySelector('#chip-alt .label')?.textContent).toBe('Altitude');
     expect(host.querySelector('#hud')).toBeNull();
     expect(host.querySelector('#chip-alt')).toBeNull();
 
@@ -261,9 +263,33 @@ describe('createScene', () => {
     flushRaf();
     flushRaf();
     await updated;
-    expect(strip.querySelector('#chip-alt')).toBeNull();
-    expect(strip.querySelector('#chip-speed')).toBeTruthy();
+    // The strip columns never move: a disabled chip keeps its place with a
+    // dimmed "--" while the enabled one keeps streaming values (#272).
+    expect(strip.querySelector('#chip-alt')).toBeTruthy();
+    expect(strip.querySelector('#chip-alt')?.className).toContain('map-readout-off');
+    expect(strip.querySelector('#chip-alt .num')?.textContent).toBe('--');
+    expect(strip.querySelector('#chip-speed')?.className).not.toContain('map-readout-off');
+    expect(strip.querySelector('#chip-speed .num')?.textContent).toBe('2.5');
     expect(host.querySelector('#chip-speed')).toBeNull();
+  });
+
+  it('holds the dimmed placeholder in every disabled strip column (#272)', async () => {
+    const { host } = mount();
+    const strip = document.createElement('div');
+    document.body.appendChild(strip);
+    const { L } = fakeL(host);
+    const scene = createScene(
+      host,
+      sceneData({ hud: { heading: false, alt: false, speed: false } }),
+      { L, hudHost: strip },
+    );
+
+    // The data carries values (11 m, 2.5 m/s) but both chips are off.
+    await applyFrame(scene, 1);
+    expect(strip.querySelector('#chip-speed .num')?.textContent).toBe('--');
+    expect(strip.querySelector('#chip-alt .num')?.textContent).toBe('--');
+    expect(strip.querySelector('#chip-speed')?.className).toContain('map-readout-off');
+    expect(strip.querySelector('#chip-alt')?.className).toContain('map-readout-off');
   });
 
   it('carries the full credit text in the attribution title', async () => {
@@ -547,12 +573,14 @@ describe('coexisting scenes', () => {
     expect(chip(b.host, '#chip-alt')).toBe('20');
     expect(chip(strip, '#chip-alt')).toBe('11');
 
-    // A HUD toggle rebuilds A's strip only; B keeps writing into its own chips.
+    // A HUD toggle rebuilds A's strip only; the disabled chip holds "--" and
+    // B keeps writing into its own chips.
     const rebuilt = sceneA.update(sceneData({ hud: { heading: true, alt: true, speed: false } }));
     flushRaf();
     flushRaf();
     await rebuilt;
-    expect(strip.querySelector('#chip-speed')).toBeNull();
+    expect(strip.querySelector('#chip-speed')?.className).toContain('map-readout-off');
+    expect(chip(strip, '#chip-speed')).toBe('--');
     const refilled = sceneB.update(sceneData({ alt: [30, 31, null] }));
     flushRaf();
     flushRaf();

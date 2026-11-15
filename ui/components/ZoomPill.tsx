@@ -22,8 +22,9 @@ export function ZoomPill({ zoom, visibleZoom, style, onStep, notice = '' }: Zoom
   const level = zoom === 0 ? 'auto' : String(visibleZoom);
   // At a limit the buttons stay focusable through aria-disabled, so the
   // keyboard highlight and the reason in the title get announced (#271).
+  // The stepper is bare: no pill container and no button borders (#272).
   return (
-    <div className="map-zoom-pill" role="group" aria-label="Map zoom">
+    <div className="map-zoom-stepper" role="group" aria-label="Map zoom">
       <button
         type="button"
         aria-label="Zoom out"

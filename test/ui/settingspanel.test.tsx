@@ -251,7 +251,7 @@ describe.each([
     name: 'recording without altitude',
     hasRecording: true,
     hasAltitude: false,
-    note: 'This recording has no altitude telemetry, so the ALT chip stays off.',
+    note: 'This recording has no altitude telemetry, so the ALT chip stays off and the map strip shows no Altitude value.',
   },
   {
     name: 'no recording',
@@ -263,7 +263,7 @@ describe.each([
   it('states the altitude-unavailable reason exactly once, in the notice', () => {
     renderPanel(DEFAULT_CONFIG, hasAltitude, undefined, hasRecording);
     for (const text of [
-      'This recording has no altitude telemetry, so the ALT chip stays off.',
+      'This recording has no altitude telemetry, so the ALT chip stays off and the map strip shows no Altitude value.',
       'No recording is loaded, so the ALT chip stays off.',
     ]) {
       expect(screen.queryByText(text) !== null).toBe(text === note);

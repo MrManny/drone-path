@@ -144,6 +144,26 @@ export function hudMarkup(hud: HudLayout): string {
   return chips.map((chip) => `  ${chip}`).join('\n');
 }
 
+/**
+ * The app strip's readout columns (#272): both always render so the strip's
+ * shape never depends on settings; a disabled chip keeps its column and shows
+ * the dimmed "--" placeholder instead of a value. The ids and .num/.unit spans
+ * match the export HUD contract, so the scene's value queries work for both.
+ */
+export function stripReadoutMarkup(hud: HudLayout): string {
+  const column = (id: string, label: string, unit: string, live: boolean): string =>
+    `<div class="map-readout${live ? '' : ' map-readout-off'}" id="chip-${id}">` +
+    `<span class="label">${label}</span>` +
+    `<span class="value"><span class="num">--</span><span class="unit">${unit}</span></span>` +
+    `</div>`;
+  return [
+    column('speed', 'Speed', 'm/s', hud.speed),
+    column('alt', 'Altitude', 'm', hud.alt),
+  ]
+    .map((col) => `  ${col}`)
+    .join('\n');
+}
+
 /** A null hud keeps the chips out of the map frame: the caller mounts them in
     a strip outside the map image instead. */
 export function mapMarkup(hud: HudLayout | null, attribution: string): string {

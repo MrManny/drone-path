@@ -22,7 +22,7 @@ Picking a drone recording opens the player as soon as the recording is read, its
 
 ## Reviewing a flight
 
-The review workspace shows the recording and the synchronized flight map at once: the recording fills the preview beside the map pane, which keeps the flight trail, drone position and HUD chips and shares the playhead with the recording.
+The review workspace shows the recording and the synchronized flight map at once: the recording fills the preview beside the map pane, which keeps the flight trail, drone position and the compact readout strip and shares the playhead with the recording.
 
 **View → Toggle PiP** in the menu bar (or `P`) turns the map into a corner overlay on the recording when you want the full frame. Play, pause and scrubbing drive both panes from one timeline, so the map and the recording never drift apart. Every playback control has a [keyboard shortcut](keyboard-shortcuts.md).
 
@@ -101,11 +101,11 @@ The **File → Map appearance…** menu item opens the *Map appearance* popover 
 
 - **Map style** — satellite or topographic.
 - **View** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it.
-- **Zoom** — the map zoom: **0** auto-fits to the flight path; a whole level from 2 to 19 pins that zoom level. Any other number is refused with a message, so the field, the pill and the export always agree. **Zoom-out** pulls the auto-fit camera back that many levels, and the intro and outro seconds animate the zoom at the start and end.
+- **Zoom** — the map zoom: **0** auto-fits to the flight path; a whole level from 2 to 19 pins that zoom level. Any other number is refused with a message, so the field, the stepper and the export always agree. **Zoom-out** pulls the auto-fit camera back that many levels, and the intro and outro seconds animate the zoom at the start and end.
 - **Trail color** — any RGB or RGBA hex color like `#e63946` or `#e63946cc`; leave it empty to keep the map style's own trail color.
-- **HUD chips** — heading arrow, altitude (ALT) and speed (SPD). Altitude and speed are off by default, and altitude is unavailable when the telemetry has none.
+- **HUD chips** — heading arrow, altitude (ALT) and speed (SPD), for the exported map frame and the live readouts in the map strip. Altitude and speed are off by default, and altitude is unavailable when the telemetry has none; a turned-off chip keeps its strip column and shows **--** instead of a value.
 
-Below the flight map in the split view sits a small zoom pill: `−` and `+` step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the **Zoom** setting, so the pill, the field and the export all show exactly that zoom level, and setting **Zoom** back to **0** restores auto-fit. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The pill needs the split view: the PiP overlay keeps no zoom controls.
+Below the flight map in the split view sits one compact strip with three labeled columns: **Speed**, **Altitude** and **Zoom**. The columns are always there — a readout streams live values while its HUD chip is on and shows a dimmed **--** otherwise, including Altitude when the telemetry has none. The bare `−` and `+` buttons around the level step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the **Zoom** setting, so the stepper, the field and the export all show exactly that zoom level, and setting **Zoom** back to **0** restores auto-fit. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The Zoom column needs the split view: the PiP overlay keeps the readouts but no zoom controls.
 
 Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults. Opening a recording resets **Zoom** to auto-fit regardless of what was remembered.
 

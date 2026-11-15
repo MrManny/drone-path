@@ -1,7 +1,7 @@
 import type { HudLayout, MapStyle, ViewMode } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
-import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss } from './dom.js';
+import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss, stripReadoutMarkup } from './dom.js';
 import type * as Leaflet from 'leaflet';
 import { computeScale, introOutroScale, metersPerPixel, scaleBarMeters } from './framemath.js';
 import type { FrameChannels } from '../telemetry-math.js';
@@ -101,6 +101,8 @@ class SceneState implements Scene {
   private speedEl: HTMLElement | null = null;
   /** Chip container: inside the map frame for exports, or an external strip. */
   private readonly hudRoot: HTMLElement;
+  /** External strips get the column markup; the export frame keeps its pills. */
+  private readonly externalHud: boolean;
   private curIdx = 0;
 
   constructor(host: HTMLElement, firstData: SceneData, L: LeafletApi, hudHost?: HTMLElement) {
@@ -113,6 +115,7 @@ class SceneState implements Scene {
     document.head.appendChild(this.styleEl);
     host.innerHTML = mapMarkup(hudHost ? null : firstData.hud, firstData.attribution);
     this.hudRoot = hudHost ?? el<HTMLElement>(host, '#hud');
+    this.externalHud = hudHost !== undefined;
     this.attrEl = el<HTMLElement>(host, '#attr');
     this.applyChrome();
 
@@ -339,7 +342,9 @@ class SceneState implements Scene {
   private rebuildHud(): void {
     // Scoped to the chip container so an external strip and a second scene
     // (the export preview) can never cross-write.
-    this.hudRoot.innerHTML = hudMarkup(this.data.hud);
+    this.hudRoot.innerHTML = this.externalHud
+      ? stripReadoutMarkup(this.data.hud)
+      : hudMarkup(this.data.hud);
     this.altEl = this.hudRoot.querySelector<HTMLElement>('#chip-alt .num');
     this.speedEl = this.hudRoot.querySelector<HTMLElement>('#chip-speed .num');
     if (this.decor.arrowEl) {
@@ -369,8 +374,10 @@ class SceneState implements Scene {
   }
 
   private updateHud(i: number): void {
-    setChipText(this.altEl, this.data.alt[i], (a) => String(Math.round(a)));
-    setChipText(this.speedEl, this.data.speed[i], (s) => s.toFixed(1));
+    // A disabled chip keeps its strip column and holds the "--" placeholder
+    // instead of streaming values (#272).
+    setChipText(this.altEl, this.data.hud.alt ? this.data.alt[i] : null, (a) => String(Math.round(a)));
+    setChipText(this.speedEl, this.data.hud.speed ? this.data.speed[i] : null, (s) => s.toFixed(1));
   }
 
   setFrame(i: number): Promise<void> {

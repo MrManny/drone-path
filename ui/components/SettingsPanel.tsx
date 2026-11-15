@@ -138,7 +138,7 @@ export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: S
         {hasRecording && hasAltitude ? null : (
           <Notice tone="warning">
             {hasRecording
-              ? 'This recording has no altitude telemetry, so the ALT chip stays off.'
+              ? 'This recording has no altitude telemetry, so the ALT chip stays off and the map strip shows no Altitude value.'
               : 'No recording is loaded, so the ALT chip stays off.'}
           </Notice>
         )}

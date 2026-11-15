@@ -385,90 +385,80 @@ button.primary {
   flex: 1 1 auto;
   min-height: 0;
 }
-/* The ALT/SPD strip along the card's bottom edge, outside the map image so
-   the readouts never cover the map. The scene writes the chips in; the strip
-   stays mounted and hides itself while no chip is rendered. */
+/* One compact strip along the card's bottom edge, outside the map image so the
+   readouts never cover the map (#272). The scene writes the Speed/Altitude
+   readout columns into the readout host; the bare Zoom stepper sits beside
+   them, split-view only. The strip never hides: a disabled chip keeps its
+   column and shows a dimmed "--" instead of a value. */
 .map-card-strip {
   flex: none;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 8px 12px 10px;
   background: var(--surface-1);
   border-top: 1px solid var(--hairline);
 }
-.map-card-strip:empty {
-  display: none;
+.map-strip-readouts {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
-.map-card-strip .chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-  color: var(--text);
-  font-size: 14px;
+.map-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.map-readout .label,
+.map-strip-zoom .label {
+  font-size: 11px;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.map-card-strip .chip .label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   color: var(--text-2);
 }
-.map-card-strip .chip .unit {
+.map-readout .value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.map-readout .unit {
   font-size: 10px;
   font-weight: 500;
   color: var(--text-3);
 }
-/* The compact PiP card scales the chips' micro-labels with the furniture. */
-.map-card-overlay .map-card-strip {
-  gap: 6px;
-  padding: 4px 6px;
+/* A disabled chip keeps its column and holds the dimmed "--" placeholder. */
+.map-readout-off .value {
+  font-weight: 500;
+  color: var(--text-3);
 }
-.map-card-overlay .map-card-strip .chip {
-  gap: 4px;
-  padding: 2px 8px;
-  font-size: 12px;
-}
-.map-card-overlay .map-card-strip .chip .label {
-  font-size: 9px;
-  letter-spacing: 0.5px;
-}
-.map-card-overlay .map-card-strip .chip .unit {
-  font-size: 9px;
-}
-/* The zoom pill below the map image (split view): step buttons around the
-   level readout. Like the chip strip it sits outside the map image, so it
-   never covers tiles. */
-.map-card-zoom {
-  flex: none;
+/* The Zoom column: label above a bare - level + stepper, right-aligned. */
+.map-strip-zoom {
   display: flex;
-  justify-content: center;
-  padding: 6px 10px;
-  background: var(--surface-1);
-  border-top: 1px solid var(--hairline);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-left: auto;
 }
-.map-zoom-pill {
+.map-zoom-stepper {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
 }
-.map-zoom-pill button {
+/* Bare step buttons: no pill container, no borders. Hover, pressed, focus and
+   the aria-disabled look come from the global button recipe. */
+.map-zoom-stepper button {
   min-height: 30px;
   min-width: 32px;
   padding: 0 8px;
   font-size: 16px;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-pill);
 }
 .map-zoom-level {
   min-width: 40px;
@@ -477,6 +467,22 @@ button.primary {
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
   white-space: nowrap;
+}
+/* The compact PiP card scales the strip's micro-labels with the furniture. */
+.map-card-overlay .map-card-strip {
+  gap: 6px;
+  padding: 4px 6px;
+}
+.map-card-overlay .map-readout .label,
+.map-card-overlay .map-strip-zoom .label {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+.map-card-overlay .map-readout .value {
+  font-size: 12px;
+}
+.map-card-overlay .map-readout .unit {
+  font-size: 9px;
 }
 /* The map rail before a recording loads: a quiet pane that says so. */
 .map-card-empty {

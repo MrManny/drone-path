@@ -164,40 +164,43 @@ describe('MapCard chip strip (#236)', () => {
     expect(container.querySelector('.map-card-map')).toBeNull();
   });
 
-  it('keeps one strip element alive across layout swaps for the scene', () => {
+  it('keeps one strip and its readout host alive across layout swaps for the scene', () => {
     const { container, rerender } = render(
       <MapCard data={DATA} onScene={() => {}} layout="split" />,
     );
     const strip = container.querySelector('.map-card-strip');
+    const readouts = container.querySelector('.map-strip-readouts');
     rerender(<MapCard data={DATA} onScene={() => {}} layout="overlay" />);
     expect(container.querySelector('.map-card-strip')).toBe(strip);
+    expect(container.querySelector('.map-strip-readouts')).toBe(readouts);
   });
 });
 
-describe('MapCard zoom pill (#270)', () => {
+describe('MapCard zoom column (#270, #272)', () => {
   const ZOOM_DATA = { zoom: 14 } as SceneData;
   const CONTROLS = { zoom: 14, style: 'satellite' as const, onStep: () => {} };
 
-  it('mounts the pill row below the map and above the chip strip in split view', () => {
+  it('mounts the bare stepper inside the strip below the map in split view', () => {
     const { container } = render(
       <MapCard data={ZOOM_DATA} onScene={() => {}} layout="split" zoomControls={CONTROLS} />,
     );
     const card = container.querySelector('.map-card') as HTMLElement;
     const map = card.querySelector('.map-card-map') as HTMLElement;
-    const zoomRow = card.querySelector('.map-card-zoom') as HTMLElement;
     const strip = card.querySelector('.map-card-strip') as HTMLElement;
-    expect(zoomRow).toBeTruthy();
-    expect(zoomRow.querySelector('.map-zoom-pill')).toBeTruthy();
-    expect(map.nextElementSibling).toBe(zoomRow);
-    expect(zoomRow.nextElementSibling).toBe(strip);
+    expect(strip).toBeTruthy();
+    expect(map.nextElementSibling).toBe(strip);
+    expect(container.querySelector('.map-card-zoom')).toBeNull();
+    const zoomColumn = strip.querySelector('.map-strip-zoom') as HTMLElement;
+    expect(zoomColumn.querySelector('.map-zoom-stepper')).toBeTruthy();
+    expect(zoomColumn.querySelector('.label')?.textContent).toBe('Zoom');
     expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
   });
 
-  it('keeps the pill out of the compact PiP card', () => {
+  it('keeps the zoom column out of the compact PiP card', () => {
     const { container } = render(
       <MapCard data={ZOOM_DATA} onScene={() => {}} layout="overlay" zoomControls={CONTROLS} />,
     );
-    expect(container.querySelector('.map-card-zoom')).toBeNull();
+    expect(container.querySelector('.map-strip-zoom')).toBeNull();
     expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
   });
 
@@ -217,9 +220,10 @@ describe('MapCard zoom pill (#270)', () => {
     expect(onStep).toHaveBeenNthCalledWith(2, -1);
   });
 
-  it('renders no pill without zoom controls', () => {
+  it('renders the readout host but no zoom column without zoom controls', () => {
     const { container } = render(<MapCard data={DATA} onScene={() => {}} layout="split" />);
-    expect(container.querySelector('.map-card-zoom')).toBeNull();
+    expect(container.querySelector('.map-strip-zoom')).toBeNull();
+    expect(container.querySelector('.map-strip-readouts')).toBeTruthy();
   });
 });
 
@@ -227,21 +231,35 @@ describe('MapCard style contract (#236)', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const cssText = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
 
-  it('keeps the chips in a bottom strip outside the map image', () => {
+  it('keeps the readouts in one bottom strip outside the map image', () => {
     expect(cssText).toMatch(/\.map-card \{[^}]*flex-direction: column/);
     expect(cssText).toMatch(/\.map-card-map \{[^}]*flex: 1 1 auto/);
     expect(cssText).toMatch(/\.map-card-strip \{[^}]*flex: none/);
-    expect(cssText).toMatch(/\.map-card-strip:empty \{[^}]*display: none/);
+    // The strip never hides (#272): disabled chips keep their column and read "--".
+    expect(cssText).not.toContain('.map-card-strip:empty');
   });
 
-  it('scales the chip micro-labels down in the compact card', () => {
-    expect(cssText).toMatch(/\.map-card-strip \.chip \.label \{[^}]*font-size: 10px/);
-    expect(cssText).toMatch(
-      /\.map-card-overlay \.map-card-strip \.chip \.label \{[^}]*font-size: 9px/,
-    );
-    expect(cssText).toMatch(
-      /\.map-card-overlay \.map-card-strip \.chip \{[^}]*font-size: 12px/,
-    );
+  it('stacks the strip labels above dimmable values', () => {
+    expect(cssText).toMatch(/\.map-readout \.label,[^}]*font-size: 11px/);
+    expect(cssText).toMatch(/\.map-readout \.value \{[^}]*font-size: 16px/);
+    expect(cssText).toMatch(/\.map-readout-off \.value \{[^}]*color: var\(--text-3\)/);
+  });
+
+  it('scales the strip micro-labels down in the compact card', () => {
+    expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.label,[^}]*font-size: 9px/);
+    expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.value \{[^}]*font-size: 12px/);
+    expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.unit \{[^}]*font-size: 9px/);
+  });
+
+  it('keeps the zoom stepper bare with no pill container or borders (#272)', () => {
+    expect(cssText).not.toContain('.map-zoom-pill');
+    expect(cssText).not.toContain('.map-card-zoom');
+    const group = /\.map-zoom-stepper \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(group).not.toContain('border');
+    expect(group).not.toContain('background');
+    const buttons = /\.map-zoom-stepper button \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(buttons).toContain('border: 0');
+    expect(buttons).toContain('background: transparent');
   });
 
   it('renders the compact attribution flush on the map bottom row', () => {
