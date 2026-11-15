@@ -1,4 +1,4 @@
-import type { RenderConfig } from './config.js';
+import type { MapStyle, RenderConfig } from './config.js';
 import { project } from './geo.js';
 import type { Bbox, MercatorPixel } from './geo.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
@@ -30,6 +30,11 @@ const MIN_ZOOM = 2;
 const HOVER_ZOOM_FLOOR = 16;
 const MIN_TRACK_SPAN_PX = 80;
 const TILE_SIZE_PX = 256;
+
+/** The zoom levels the planner renders: the floor and the map style's tile maximum. */
+export function zoomLimits(style: MapStyle): { min: number; max: number } {
+  return { min: MIN_ZOOM, max: TILE_SOURCES[style].maxZoom || 19 };
+}
 
 function fitZoomToTrack(
   bbox: Bbox,
@@ -153,7 +158,7 @@ export function planView(
     bbox,
     width,
     height,
-    maxZoom: src.maxZoom || 19,
+    maxZoom: zoomLimits(config.style).max,
     maxNativeZoom: src.maxNativeZoom ?? null,
     zoomOut: config.zoomOut,
     zoomOverride: config.zoom,

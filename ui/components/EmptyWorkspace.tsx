@@ -74,6 +74,7 @@ export function EmptyWorkspace({
       swap: NOOP,
       openRecording: onPick,
       closeOverlay,
+      zoomStep: NOOP,
     },
     {
       modalOpen: dialogs.modalOpen,

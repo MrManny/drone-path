@@ -5,6 +5,7 @@ import type { ReactNode, RefObject } from 'react';
 import type { PageVideo } from '../../src/appsession.js';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
+import type { ZoomControls } from '../lib/mapzoom.js';
 import { MapCard } from './MapCard.js';
 
 interface PlayerStageProps {
@@ -15,6 +16,7 @@ interface PlayerStageProps {
   onScene: (scene: Scene) => void;
   onPlayState: (playing: boolean) => void;
   notice: ReactNode;
+  zoomControls?: ZoomControls;
 }
 
 export function PlayerStage({
@@ -25,6 +27,7 @@ export function PlayerStage({
   onScene,
   onPlayState,
   notice,
+  zoomControls,
 }: PlayerStageProps) {
   return (
     <div className={`stage stage-${layout}`}>
@@ -39,7 +42,7 @@ export function PlayerStage({
           onEnded={() => onPlayState(false)}
         />
       </div>
-      <MapCard data={sceneData} onScene={onScene} layout={layout} />
+      <MapCard data={sceneData} onScene={onScene} layout={layout} zoomControls={zoomControls} />
       {notice ? <div className="player-notices">{notice}</div> : null}
     </div>
   );

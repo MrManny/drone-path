@@ -101,11 +101,13 @@ The **File → Map appearance…** menu item opens the *Map appearance* popover 
 
 - **Map style** — satellite or topographic.
 - **View** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it.
-- **Zoom** — zoom and zoom-out levels, plus the intro and outro zoom transitions.
+- **Zoom** — the map zoom: **0** auto-fits to the flight path, any other value pins that zoom level. **Zoom-out** pulls the auto-fit camera back that many levels, and the intro and outro seconds animate the zoom at the start and end.
 - **Trail color** — any RGB or RGBA hex color like `#e63946` or `#e63946cc`; leave it empty to keep the map style's own trail color.
 - **HUD chips** — heading arrow, altitude (ALT) and speed (SPD). Altitude and speed are off by default, and altitude is unavailable when the telemetry has none.
 
-Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults.
+Below the flight map in the split view sits a small zoom pill: `−` and `+` step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the **Zoom** setting, so the pill, the field and the export all show exactly that zoom level, and setting **Zoom** back to **0** restores auto-fit. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button disables and says why. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The pill needs the split view: the PiP overlay keeps no zoom controls.
+
+Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults. Opening a recording resets **Zoom** to auto-fit regardless of what was remembered.
 
 ![The map appearance panel with map style, view, zoom and HUD chips](../images/app-review-map-appearance.jpg)
 

@@ -24,6 +24,7 @@ function fakeHandlers(): PlayerActionHandlers {
     swap: vi.fn(),
     openRecording: vi.fn(),
     closeOverlay: vi.fn(),
+    zoomStep: vi.fn(),
   };
 }
 
@@ -113,6 +114,16 @@ describe('usePlayerHotkeys action map', () => {
       action: { type: 'closeOverlay' },
       verify: (h) => expect(h.closeOverlay).toHaveBeenCalledTimes(1),
     },
+    {
+      name: 'zoomStep passes the step delta on (#270)',
+      action: { type: 'zoomStep', delta: 1 },
+      verify: (h) => expect(h.zoomStep).toHaveBeenCalledWith(1),
+    },
+    {
+      name: 'zoomStep passes a zoom-out delta on (#270)',
+      action: { type: 'zoomStep', delta: -1 },
+      verify: (h) => expect(h.zoomStep).toHaveBeenCalledWith(-1),
+    },
   ])('$name', ({ action, verify }) => {
     const handlers = fakeHandlers();
     const { result } = mountHotkeys(handlers);
@@ -180,6 +191,23 @@ describe('usePlayerHotkeys key subscription', () => {
     pressKey({ key: 'o', ctrlKey: true });
     expect(handlers.togglePlay).toHaveBeenCalledTimes(1);
     expect(handlers.openRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it('claims the zoom keys and dispatches one step per press (#270)', () => {
+    const handlers = fakeHandlers();
+    mountHotkeys(handlers);
+    const event = pressKey({ key: '+' });
+    expect(handlers.zoomStep).toHaveBeenCalledWith(1);
+    expect(event.defaultPrevented).toBe(true);
+    pressKey({ key: '-' });
+    expect(handlers.zoomStep).toHaveBeenCalledWith(-1);
+  });
+
+  it('ignores held zoom keys instead of chasing the level (#270)', () => {
+    const handlers = fakeHandlers();
+    mountHotkeys(handlers);
+    pressKey({ key: '+', repeat: true });
+    expect(handlers.zoomStep).not.toHaveBeenCalled();
   });
 
   it('subscribes once and still acts on the latest handlers (#62)', () => {

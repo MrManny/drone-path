@@ -12,7 +12,8 @@ export type HotkeyAction =
   | { type: 'clearLoop' }
   | { type: 'swapView' }
   | { type: 'openRecording' }
-  | { type: 'closeOverlay' };
+  | { type: 'closeOverlay' }
+  | { type: 'zoomStep'; delta: 1 | -1 };
 
 export interface HotkeyEvent {
   key: string;
@@ -156,6 +157,10 @@ function mapAction(
     case 'p':
     case 'P':
       return { type: 'swapView' };
+    case '+':
+      return { type: 'zoomStep', delta: 1 };
+    case '-':
+      return { type: 'zoomStep', delta: -1 };
     case 'ArrowLeft':
       return shift ? { type: 'jump', seconds: -1 } : { type: 'step', frames: -1 };
     case 'ArrowRight':

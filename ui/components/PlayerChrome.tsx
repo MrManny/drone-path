@@ -14,6 +14,7 @@ import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import { useTelemetrySave } from '../hooks/useTelemetrySave.js';
 import type { StageLayout } from '../lib/layout.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
+import { stepPinnedZoom } from '../lib/mapzoom.js';
 import type { MenuItemId } from '../lib/menumodel.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
@@ -102,6 +103,16 @@ export function PlayerChrome({
     [session, style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud],
   );
 
+  // One step pins the level the map shows as the fixed "Zoom" setting (#270).
+  const stepZoom = useCallback(
+    (delta: 1 | -1) => {
+      const pinned = stepPinnedZoom({ zoom, visibleZoom: sceneData.zoom }, delta, style);
+      if (pinned === null || pinned === zoom) return;
+      onSettingsChange({ ...settings, zoom: pinned });
+    },
+    [settings, zoom, style, sceneData.zoom, onSettingsChange],
+  );
+
   const dispatch = usePlayerHotkeys(
     {
       togglePlay,
@@ -113,6 +124,7 @@ export function PlayerChrome({
       swap,
       openRecording: onOpen,
       closeOverlay,
+      zoomStep: stepZoom,
     },
     { modalOpen, popoverOpen: mapAppearanceOpen, menuOpen, fps: video.fps, frames: video.frames },
   );
@@ -164,6 +176,7 @@ export function PlayerChrome({
         onScene={handleScene}
         onPlayState={setPlaying}
         notice={openNotice}
+        zoomControls={{ zoom, style, onStep: stepZoom }}
       />
       <TransportBar
         dispatch={dispatch}

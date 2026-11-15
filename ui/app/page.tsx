@@ -16,6 +16,7 @@ import { appBridge } from '../lib/backend.js';
 import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
+import { resetZoom } from '../lib/mapzoom.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
 import { INITIAL_UPDATE, shouldPrompt, updateReducer } from '../lib/updatestate.js';
@@ -123,16 +124,19 @@ export default function Page() {
     if (picking.current) return;
     picking.current = true;
     dispatch({ type: 'pick' });
+    // A freshly opened recording always prepares and opens at auto-fit zoom (#270).
+    const openSettings = { ...settings, zoom: 0 };
     void (async () => {
       const event = await pickRecordingFlow(
         {
           pickRecording: () =>
-            appBridge().pickRecording({ settings: settingsPatchOf(settings) }),
+            appBridge().pickRecording({ settings: settingsPatchOf(openSettings) }),
           getSession: () => appBridge().getSession(),
         },
         (session) => {
           nextId.current += 1;
           setLoaded({ id: nextId.current, value: session });
+          setSettings((prev) => resetZoom(prev));
         },
       );
       dispatch(event);

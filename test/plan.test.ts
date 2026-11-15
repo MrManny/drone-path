@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeOverview, planIntroOutroFrames } from '../src/plan.js';
+import { computeOverview, planIntroOutroFrames, planView, zoomLimits } from '../src/plan.js';
 import type { Bbox } from '../src/geo.js';
+import { TILE_SOURCES } from '../src/renderer/tilesources.js';
 
 const BBOX: Bbox = {
   minLat: 46.6129,
@@ -63,6 +64,43 @@ describe('computeOverview', () => {
     });
     expect(r.zoom).toBe(18);
     expect(r.tiles.every((t) => t.z === 17)).toBe(true);
+  });
+});
+
+describe('zoomLimits (#270)', () => {
+  it.for(['satellite', 'topo'] as const)(
+    '%s zooms between the floor and the tile maximum',
+    (style) => {
+      const limits = zoomLimits(style);
+      expect(limits.min).toBe(2);
+      expect(limits.max).toBe(TILE_SOURCES[style].maxZoom);
+    },
+  );
+
+  it('is the clamp planView applies to a fixed zoom', () => {
+    const { min, max } = zoomLimits('satellite');
+    const over = planView(BBOX, 768, 768, {
+      style: 'satellite',
+      view: 'overview',
+      zoom: max + 6,
+      zoomOut: 0,
+    });
+    const under = planView(BBOX, 768, 768, {
+      style: 'satellite',
+      view: 'overview',
+      zoom: 1,
+      zoomOut: 0,
+    });
+    expect(over.zoom).toBe(max);
+    expect(under.zoom).toBe(min);
+  });
+
+  it('renders a pinned zoom at the same level at any output size (#270)', () => {
+    const config = { style: 'satellite', view: 'overview', zoom: 14, zoomOut: 0 } as const;
+    const preview = planView(BBOX, 768, 768, config);
+    const output = planView(BBOX, 1920, 1080, config);
+    expect(preview.zoom).toBe(14);
+    expect(output.zoom).toBe(preview.zoom);
   });
 });
 

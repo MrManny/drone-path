@@ -88,6 +88,8 @@ describe('docs/user/keyboard-shortcuts.md', () => {
     P: 'P',
     ArrowLeft: 'Left',
     ArrowRight: 'Right',
+    '+': '+',
+    '-': '-',
   };
 
   const hotkeys = fs.readFileSync(path.join(root, 'ui', 'lib', 'hotkeys.ts'), 'utf8');
