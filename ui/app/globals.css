@@ -386,39 +386,38 @@ button.primary {
   min-height: 0;
 }
 /* One compact strip along the card's bottom edge, outside the map image so the
-   readouts never cover the map (#272). The scene writes the Speed/Altitude
-   readout columns into the readout host; the bare Zoom stepper sits beside
-   them, split-view only. The strip never hides: a disabled chip keeps its
-   column and shows a dimmed "--" instead of a value. */
+   readouts never cover the map (#272). The strip is ONE two-row grid — labels
+   above values — so every column's label shares a line and every value and the
+   bare zoom stepper share one baseline (#272 feedback). display: contents lets
+   the scene-written readout cells join the strip's grid rows directly. The
+   strip never hides: a disabled chip keeps its column and shows a dimmed "--"
+   instead of a value. */
 .map-card-strip {
   flex: none;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: baseline;
   padding: 8px 12px 10px;
   background: var(--surface-1);
   border-top: 1px solid var(--hairline);
 }
-.map-strip-readouts {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-.map-readout {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.map-strip-readouts,
+.map-readout,
+.map-strip-zoom {
+  display: contents;
 }
 .map-readout .label,
 .map-strip-zoom .label {
+  grid-row: 1;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-2);
 }
 .map-readout .value {
+  grid-row: 2;
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
@@ -426,6 +425,21 @@ button.primary {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text);
+}
+#chip-speed .label,
+#chip-speed .value {
+  grid-column: 1;
+}
+#chip-alt .label,
+#chip-alt .value {
+  grid-column: 2;
+}
+.map-strip-zoom .label,
+.map-strip-zoom .map-zoom-stepper {
+  grid-column: 3;
+}
+.map-strip-zoom .map-zoom-stepper {
+  grid-row: 2;
 }
 .map-readout .unit {
   font-size: 10px;
@@ -436,14 +450,6 @@ button.primary {
 .map-readout-off .value {
   font-weight: 500;
   color: var(--text-3);
-}
-/* The Zoom column: label above a bare - level + stepper, right-aligned. */
-.map-strip-zoom {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  margin-left: auto;
 }
 .map-zoom-stepper {
   display: inline-flex;
@@ -468,9 +474,12 @@ button.primary {
   color: var(--text-2);
   white-space: nowrap;
 }
-/* The compact PiP card scales the strip's micro-labels with the furniture. */
+/* The compact PiP card scales the strip's micro-labels with the furniture and
+   keeps only the two readout columns (no zoom controls in PiP). */
 .map-card-overlay .map-card-strip {
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 6px;
+  row-gap: 1px;
   padding: 4px 6px;
 }
 .map-card-overlay .map-readout .label,

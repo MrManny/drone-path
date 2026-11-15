@@ -245,6 +245,19 @@ describe('MapCard style contract (#236)', () => {
     expect(cssText).toMatch(/\.map-readout-off \.value \{[^}]*color: var\(--text-3\)/);
   });
 
+  it('aligns labels and values on two shared grid rows (#272 feedback)', () => {
+    // One two-row grid: labels share a line and values and the stepper share
+    // one baseline; the scene cells join the rows through display: contents.
+    expect(cssText).toMatch(/\.map-card-strip \{[^}]*display: grid/);
+    expect(cssText).toMatch(/\.map-card-strip \{[^}]*align-items: baseline/);
+    expect(cssText).toMatch(/\.map-strip-readouts,[^}]*display: contents/);
+    expect(cssText).toMatch(/\.map-readout \.label,[^}]*grid-row: 1/);
+    expect(cssText).toMatch(/\.map-readout \.value \{[^}]*grid-row: 2/);
+    expect(cssText).toMatch(/#chip-speed \.label,[^}]*grid-column: 1/);
+    expect(cssText).toMatch(/#chip-alt \.label,[^}]*grid-column: 2/);
+    expect(cssText).toMatch(/\.map-strip-zoom \.map-zoom-stepper \{[^}]*grid-row: 2/);
+  });
+
   it('scales the strip micro-labels down in the compact card', () => {
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.label,[^}]*font-size: 9px/);
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.value \{[^}]*font-size: 12px/);
