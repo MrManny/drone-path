@@ -494,6 +494,16 @@ describe('settings persistence', () => {
     expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('0');
   });
 
+  it('normalizes a stale stored zoom to one usable level on load (#271)', async () => {
+    const harness = installBridge();
+    harness.bridge.getSettings.mockResolvedValue({ ...DEFAULT_CONFIG, zoom: 25 });
+    openWorkspace();
+    await act(async () => {});
+    clickMenuItem('Map appearance…');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('19');
+    expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
+  });
+
   it('persists every panel change through the backend', async () => {
     const harness = await openPlayerWith(DEFAULT_CONFIG);
     expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
@@ -542,7 +552,6 @@ describe('map zoom reset on open (#270)', () => {
     fireEvent.click(stageCta());
     await harness.settle({ ok: false, canceled: true });
 
-    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
     clickMenuItem('Map appearance…');
     expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('12');
   });

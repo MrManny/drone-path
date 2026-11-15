@@ -73,6 +73,7 @@ export function MapCard(props: MapCardProps) {
                 visibleZoom={withScene.data.zoom}
                 style={withScene.zoomControls.style}
                 onStep={withScene.zoomControls.onStep}
+                notice={withScene.zoomControls.notice}
               />
             </div>
           ) : null}

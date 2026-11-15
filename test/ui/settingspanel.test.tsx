@@ -201,7 +201,7 @@ describe('SettingsPanel', () => {
   });
 });
 
-describe.each([{ field: 'Zoom' }, { field: 'Zoom-out' }, { field: 'Intro (s)' }, { field: 'Outro (s)' }])(
+describe.each([{ field: 'Zoom-out' }, { field: 'Intro (s)' }, { field: 'Outro (s)' }])(
   '$field rejects a negative value',
   ({ field }) => {
     it('names the rule, marks the field invalid and emits nothing', () => {
@@ -215,6 +215,30 @@ describe.each([{ field: 'Zoom' }, { field: 'Zoom-out' }, { field: 'Intro (s)' },
     });
   },
 );
+
+describe('Zoom accepts only auto-fit or one usable level (#271)', () => {
+  it.for(['-1', '1', '25', '14.5'])('refuses %s with the level rule', (value) => {
+    const onChange = vi.fn();
+    renderPanel(DEFAULT_CONFIG, true, onChange);
+    const input = screen.getByLabelText<HTMLInputElement>('Zoom');
+    fireEvent.change(input, { target: { value } });
+    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('emits a usable level', () => {
+    const onChange = vi.fn();
+    renderPanel(DEFAULT_CONFIG, true, onChange);
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '17' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ zoom: 17 }));
+  });
+
+  it('keeps the level range visible in the hint', () => {
+    renderPanel(DEFAULT_CONFIG, true);
+    expect(screen.getByText('0 = auto-fit, 2-19 = a fixed level')).toBeTruthy();
+  });
+});
 
 describe.each([
   {

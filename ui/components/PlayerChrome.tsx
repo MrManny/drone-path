@@ -104,13 +104,21 @@ export function PlayerChrome({
   );
 
   // One step pins the level the map shows as the fixed "Zoom" setting (#270).
+  const [zoomNotice, setZoomNotice] = useState('');
   const stepZoom = useCallback(
     (delta: 1 | -1) => {
-      const pinned = stepPinnedZoom({ zoom, visibleZoom: sceneData.zoom }, delta, style);
-      if (pinned === null || pinned === zoom) return;
+      const pinned = stepPinnedZoom(sceneData.zoom, delta, style);
+      if (pinned === null) {
+        // A refused step says why instead of doing nothing silently (#271).
+        // An identical repeat cannot re-announce; the button title keeps the
+        // reason available either way.
+        setZoomNotice(delta > 0 ? 'Already zoomed all the way in' : 'Already zoomed all the way out');
+        return;
+      }
+      setZoomNotice('');
       onSettingsChange({ ...settings, zoom: pinned });
     },
-    [settings, zoom, style, sceneData.zoom, onSettingsChange],
+    [settings, style, sceneData.zoom, onSettingsChange],
   );
 
   const dispatch = usePlayerHotkeys(
@@ -176,7 +184,7 @@ export function PlayerChrome({
         onScene={handleScene}
         onPlayState={setPlaying}
         notice={openNotice}
-        zoomControls={{ zoom, style, onStep: stepZoom }}
+        zoomControls={{ zoom, style, onStep: stepZoom, notice: zoomNotice }}
       />
       <TransportBar
         dispatch={dispatch}

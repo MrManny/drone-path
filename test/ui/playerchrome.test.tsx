@@ -637,19 +637,58 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(onSettingsChange).toHaveBeenCalledWith({ ...SETTINGS, zoom: 15 });
   });
 
-  it('disables zooming in at the limit and states why', () => {
+  it('keeps the limit button focusable and states why (#271)', () => {
     renderZoom({ ...SETTINGS, zoom: 19 });
     const zoomIn = screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom in' });
-    expect(zoomIn.disabled).toBe(true);
-    expect(zoomIn.getAttribute('title')).toBe('Already at the closest zoom');
+    expect(zoomIn.getAttribute('aria-disabled')).toBe('true');
+    expect(zoomIn.disabled).toBe(false);
+    expect(zoomIn.getAttribute('title')).toBe('Already zoomed all the way in');
     expect(screen.getByText('19')).toBeTruthy();
   });
 
-  it('disables zooming out at the floor and states why', () => {
+  it('states why zooming out is unavailable at the floor (#271)', () => {
     renderZoom({ ...SETTINGS, zoom: 2 });
     const zoomOut = screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom out' });
-    expect(zoomOut.disabled).toBe(true);
-    expect(zoomOut.getAttribute('title')).toBe('Already at the farthest zoom');
+    expect(zoomOut.getAttribute('aria-disabled')).toBe('true');
+    expect(zoomOut.disabled).toBe(false);
+    expect(zoomOut.getAttribute('title')).toBe('Already zoomed all the way out');
+  });
+
+  it('announces why a refused keyboard step did nothing (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 19 });
+    const readout = document.querySelector('.map-zoom-level') as HTMLElement;
+    key(window, { key: '+' });
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
+    key(window, { key: '-' });
+    expect(onSettingsChange).toHaveBeenCalledWith({ ...SETTINGS, zoom: 18 });
+    expect(readout.textContent).toBe('Zoom level 19');
+  });
+
+  it('announces a refused pill press at the limit (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 19 });
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    const readout = document.querySelector('.map-zoom-level') as HTMLElement;
+    expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
+  });
+
+  it('refuses an out-of-range Zoom entry instead of desyncing the pill (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    clickMenuItem('Map appearance…');
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '25' } });
+    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(screen.getByText('14')).toBeTruthy();
+  });
+
+  it('refuses a fractional Zoom entry with the same rule (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    clickMenuItem('Map appearance…');
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '14.5' } });
+    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(screen.getByText('14')).toBeTruthy();
   });
 });
 

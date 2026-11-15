@@ -1,81 +1,72 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../../src/config.js';
-import { zoomLimits } from '../../src/plan.js';
-import { resetZoom, stepPinnedZoom } from '../../ui/lib/mapzoom.js';
+import { TILE_SOURCES } from '../../src/renderer/tilesources.js';
+import {
+  isZoomPinValue,
+  normalizePinnedZoom,
+  normalizeZoom,
+  resetZoom,
+  stepPinnedZoom,
+} from '../../ui/lib/mapzoom.js';
 
-interface StepCase {
-  name: string;
-  zoom: number;
-  visibleZoom: number;
-  delta: 1 | -1;
-  want: number;
-}
+describe('normalizePinnedZoom (#270)', () => {
+  it.for<{ name: string; value: number; want: number }>([
+    { name: 'keeps auto-fit at 0', value: 0, want: 0 },
+    { name: 'treats a sub-level rounding to zero as auto-fit', value: 0.4, want: 0 },
+    { name: 'keeps a usable level', value: 14, want: 14 },
+    { name: 'rounds a fraction to the next level', value: 14.5, want: 15 },
+    { name: 'clamps above the style maximum', value: 25, want: TILE_SOURCES.satellite.maxZoom },
+    { name: 'clamps below the floor', value: 1, want: 2 },
+    { name: 'clamps a negative to auto-fit', value: -3, want: 0 },
+  ])('$name', ({ value, want }) => {
+    expect(normalizePinnedZoom(value, 'satellite')).toBe(want);
+  });
+});
+
+describe('isZoomPinValue (#271)', () => {
+  it.for<{ name: string; value: number; valid: boolean }>([
+    { name: 'accepts auto-fit', value: 0, valid: true },
+    { name: 'accepts the floor', value: 2, valid: true },
+    { name: 'accepts the maximum', value: TILE_SOURCES.satellite.maxZoom, valid: true },
+    { name: 'accepts a level between', value: 14, valid: true },
+    { name: 'refuses a level below the floor', value: 1, valid: false },
+    { name: 'refuses a level above the maximum', value: 25, valid: false },
+    { name: 'refuses a fraction', value: 14.5, valid: false },
+    { name: 'refuses a negative', value: -1, valid: false },
+  ])('$name', ({ value, valid }) => {
+    expect(isZoomPinValue(value, 'satellite')).toBe(valid);
+  });
+});
 
 describe('stepPinnedZoom (#270)', () => {
-  it.for<StepCase>([
+  it.for<{ name: string; visibleZoom: number; delta: 1 | -1; want: number }>([
+    { name: 'steps one level in', visibleZoom: 15, delta: 1, want: 16 },
+    { name: 'steps one level out', visibleZoom: 15, delta: -1, want: 14 },
     {
-      name: 'the first press out of auto-fit pins one level in',
-      zoom: 0,
+      name: 'resolves auto-fit to the visible level on the first step in',
       visibleZoom: 15,
       delta: 1,
       want: 16,
     },
     {
-      name: 'the first press out of auto-fit pins one level out',
-      zoom: 0,
-      visibleZoom: 15,
-      delta: -1,
-      want: 14,
-    },
-    { name: 'a pinned level steps on', zoom: 16, visibleZoom: 16, delta: 1, want: 17 },
-    { name: 'a pinned level steps back', zoom: 16, visibleZoom: 16, delta: -1, want: 15 },
-    {
-      name: 'auto-fit with zoom-out resolves from the visible level',
-      zoom: 0,
+      name: 'resolves auto-fit with zoom-out from the visible level',
       visibleZoom: 12,
       delta: 1,
       want: 13,
     },
-    {
-      name: 'an out-of-range pin re-pins from the visible level',
-      zoom: 25,
-      visibleZoom: 19,
-      delta: -1,
-      want: 18,
-    },
-    {
-      name: 'the step lands on the style maximum',
-      zoom: 18,
-      visibleZoom: 18,
-      delta: 1,
-      want: 19,
-    },
-    { name: 'the step lands on the floor', zoom: 3, visibleZoom: 3, delta: -1, want: 2 },
-  ])('$name', ({ zoom, visibleZoom, delta, want }) => {
-    expect(stepPinnedZoom({ zoom, visibleZoom }, delta, 'satellite')).toBe(want);
+    { name: 'lands on the style maximum', visibleZoom: 18, delta: 1, want: 19 },
+    { name: 'lands on the floor', visibleZoom: 3, delta: -1, want: 2 },
+  ])('$name', ({ visibleZoom, delta, want }) => {
+    expect(stepPinnedZoom(visibleZoom, delta, 'satellite')).toBe(want);
   });
 
-  it.for<{ name: string; zoom: number; visibleZoom: number; delta: 1 | -1 }>([
-    { name: 'in from the maximum', zoom: 19, visibleZoom: 19, delta: 1 },
-    { name: 'out from the minimum', zoom: 2, visibleZoom: 2, delta: -1 },
-    { name: 'out from auto-fit at the minimum', zoom: 0, visibleZoom: 2, delta: -1 },
-    { name: 'in from auto-fit at the maximum', zoom: 0, visibleZoom: 19, delta: 1 },
-    { name: 'in from an out-of-range pin at the maximum', zoom: 25, visibleZoom: 19, delta: 1 },
-  ])('offers no step $name', ({ zoom, visibleZoom, delta }) => {
-    expect(stepPinnedZoom({ zoom, visibleZoom }, delta, 'satellite')).toBeNull();
+  it.for<{ name: string; visibleZoom: number; delta: 1 | -1 }>([
+    { name: 'in from the maximum', visibleZoom: 19, delta: 1 },
+    { name: 'out from the minimum', visibleZoom: 2, delta: -1 },
+  ])('offers no step $name', ({ visibleZoom, delta }) => {
+    expect(stepPinnedZoom(visibleZoom, delta, 'satellite')).toBeNull();
   });
-});
-
-describe('zoomLimits (#270)', () => {
-  it.for(['satellite', 'topo'] as const)(
-    '%s clamps between the floor and the tile maximum',
-    (style) => {
-      const limits = zoomLimits(style);
-      expect(limits.min).toBe(2);
-      expect(limits.max).toBeGreaterThanOrEqual(limits.min);
-    },
-  );
 });
 
 describe('resetZoom (#270)', () => {
@@ -86,5 +77,20 @@ describe('resetZoom (#270)', () => {
   it('keeps the config identical at auto-fit', () => {
     const config = { ...DEFAULT_CONFIG, zoom: 0 };
     expect(resetZoom(config)).toBe(config);
+  });
+});
+
+describe('normalizeZoom (#271)', () => {
+  it('normalizes a stale stored zoom to one usable level', () => {
+    expect(normalizeZoom({ ...DEFAULT_CONFIG, zoom: 25 }).zoom).toBe(
+      TILE_SOURCES.satellite.maxZoom,
+    );
+  });
+
+  it('keeps the config identical when the pin is already a level', () => {
+    const config = { ...DEFAULT_CONFIG, zoom: 14 };
+    expect(normalizeZoom(config)).toBe(config);
+    const auto = { ...DEFAULT_CONFIG, zoom: 0 };
+    expect(normalizeZoom(auto)).toBe(auto);
   });
 });
