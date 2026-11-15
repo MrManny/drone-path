@@ -1,5 +1,26 @@
 # drone-path
 
+## 0.12.0
+
+- **New:** The flight map zooms in and out with a small `−`/`+` pill
+  below the map (split view) and the `+` / `-` keys: every step pins the
+  level as the fixed "Zoom" setting, so the export renders exactly the
+  zoom the preview shows. Zooming clamps at the map's usable levels with
+  the matching button disabling at either end, and opening a recording
+  resets Zoom to auto-fit.
+- **New:** The map card's Speed, Altitude and Zoom readouts now sit in
+  one compact strip below the map — labeled columns with a bare `−`
+  level `+` stepper instead of separate chip pills and a zoom row — and
+  the map reclaims the freed height. A turned-off HUD chip keeps its
+  column and shows a dimmed `--`.
+- **New:** Map appearance is now a modal dialog with a live preview of
+  the export frame — the loaded recording or a bundled example flight —
+  and grouped settings: map style as thumbnail tiles, a trail color
+  swatch row with an explicit Style default, an Auto-fit zoom toggle
+  with a zoom level slider and Frame padding, clickable HUD chips, and
+  an opening & ending strip. The entry moved from File to View, and the
+  player shortcuts pause while the dialog is open.
+
 ## 0.11.1
 
 - **Fixed:** Video export in the packaged desktop app ("Export video…")
