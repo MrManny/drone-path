@@ -1093,7 +1093,7 @@ button.primary {
 }
 .hud-chip {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-height: 30px;
   padding: 5px 12px;
@@ -1105,20 +1105,34 @@ button.primary {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+/* One shared text line across the chips: every slot centers on the same
+   axis with line-height 1, so mixed font sizes keep one optical midline. */
 .hud-chip .label {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.2px;
+  line-height: 1;
   color: var(--accent-text);
+}
+.hud-chip .num {
+  line-height: 1;
 }
 .hud-chip .unit {
   font-size: 11px;
   font-weight: 500;
+  line-height: 1;
   opacity: 0.72;
 }
+/* The rotated arrow lives in a fixed square slot, so its ink can never
+   crowd the chip's right padding at any heading angle. */
 .hud-chip .chip-arrow {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
   font-size: 11px;
+  line-height: 1;
   color: var(--accent-text);
 }
 .hud-chip[aria-pressed='true'] {
