@@ -1,12 +1,12 @@
 import type { MapStyle, RenderConfig } from '../../src/config.js';
 import { zoomLimits } from '../../src/plan.js';
 
-/** What the zoom pill needs from the settings side; the map card knows the visible level. */
+/** What the zoom stepper needs from the settings side; the map card knows the visible level. */
 export interface ZoomControls {
   zoom: number;
   style: MapStyle;
   onStep: (delta: 1 | -1) => void;
-  /** Announcement for a refused step at a limit; the pill carries it to screen readers. */
+  /** Announcement for a refused step at a limit; the stepper carries it to screen readers. */
   notice?: string;
 }
 

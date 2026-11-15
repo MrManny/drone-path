@@ -6,7 +6,7 @@ import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';
 import { MapIsland } from './MapIsland.js';
-import { ZoomPill } from './ZoomPill.js';
+import { MapStrip } from './MapStrip.js';
 
 type MapCardProps =
   | {
@@ -28,9 +28,9 @@ export function MapCard(props: MapCardProps) {
   const [delivery, setDelivery] = useState<SceneDelivery | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const seq = useRef(0);
-  // The scene writes the chip readouts into this strip. It stays mounted for
-  // the whole scene lifetime (CSS hides it while empty) so the element the
-  // scene holds never goes stale when the HUD toggles.
+  // The scene writes the chip readouts into the strip's readout host. It stays
+  // mounted for the whole scene lifetime so the element the scene holds never
+  // goes stale when the HUD toggles.
   const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,19 +65,12 @@ export function MapCard(props: MapCardProps) {
           <div className="map-card-map">
             <MapIsland data={withScene.data} onScene={handleScene} hudHostRef={stripRef} />
           </div>
-          {/* The pill is split-view only: the compact PiP card keeps no zoom controls. */}
-          {layout === 'split' && withScene.zoomControls ? (
-            <div className="map-card-zoom">
-              <ZoomPill
-                zoom={withScene.zoomControls.zoom}
-                visibleZoom={withScene.data.zoom}
-                style={withScene.zoomControls.style}
-                onStep={withScene.zoomControls.onStep}
-                notice={withScene.zoomControls.notice}
-              />
-            </div>
-          ) : null}
-          <div className="map-card-strip" ref={stripRef} />
+          <MapStrip
+            hudHostRef={stripRef}
+            layout={layout}
+            zoomControls={withScene.zoomControls}
+            visibleZoom={withScene.data.zoom}
+          />
           {mapReady ? null : (
             <div className="map-card-busy" role="status">
               Preparing map…

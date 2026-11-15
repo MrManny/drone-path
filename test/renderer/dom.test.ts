@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 
-import { el, mapMarkup, sceneCss } from '../../src/renderer/dom.js';
+import type { HudLayout } from '../../src/config.js';
+import { el, mapMarkup, sceneCss, stripReadoutMarkup } from '../../src/renderer/dom.js';
 import { themeFor } from '../../src/renderer/theme.js';
 import { TILE_SOURCES } from '../../src/renderer/tilesources.js';
 
@@ -78,6 +79,51 @@ describe('mapMarkup', () => {
     for (const id of want) expect(markup).toContain(`id="${id}"`);
     if (!hud.alt) expect(markup).not.toContain('id="chip-alt"');
     if (!hud.speed) expect(markup).not.toContain('id="chip-speed"');
+  });
+});
+
+describe('stripReadoutMarkup (#272)', () => {
+  it('always renders both columns so the strip shape never depends on settings', () => {
+    const markup = stripReadoutMarkup({ heading: false, alt: false, speed: false });
+    expect(markup).toContain('id="chip-speed"');
+    expect(markup).toContain('id="chip-alt"');
+  });
+
+  it('labels the columns above their values in the sketch order', () => {
+    const markup = stripReadoutMarkup({ heading: true, alt: true, speed: true });
+    expect(markup.indexOf('id="chip-speed"')).toBeLessThan(markup.indexOf('id="chip-alt"'));
+    expect(markup).toContain('<span class="label">Speed</span>');
+    expect(markup).toContain('<span class="label">Altitude</span>');
+  });
+
+  it('keeps the export HUD element contract: ids with .num and .unit spans', () => {
+    const markup = stripReadoutMarkup({ heading: true, alt: true, speed: true });
+    expect(markup).toContain(
+      'id="chip-alt"><span class="label">Altitude</span><span class="value">' +
+        '<span class="num">--</span><span class="unit">m</span></span>',
+    );
+    expect(markup).toContain(
+      'id="chip-speed"><span class="label">Speed</span><span class="value">' +
+        '<span class="num">--</span><span class="unit">m/s</span></span>',
+    );
+  });
+
+  const cases: Array<{ name: string; hud: HudLayout; off: string[] }> = [
+    { name: 'both chips on', hud: { heading: true, alt: true, speed: true }, off: [] },
+    { name: 'speed only', hud: { heading: false, alt: false, speed: true }, off: ['chip-alt'] },
+    { name: 'alt only', hud: { heading: true, alt: true, speed: false }, off: ['chip-speed'] },
+    {
+      name: 'both chips off',
+      hud: { heading: false, alt: false, speed: false },
+      off: ['chip-alt', 'chip-speed'],
+    },
+  ];
+  it.for(cases)('marks the disabled columns dimmed in $name', ({ hud, off }) => {
+    const markup = stripReadoutMarkup(hud);
+    for (const id of ['chip-alt', 'chip-speed']) {
+      const dimmed = new RegExp(`class="map-readout map-readout-off" id="${id}"`).test(markup);
+      expect(dimmed).toBe(off.includes(id));
+    }
   });
 });
 

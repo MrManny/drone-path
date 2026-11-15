@@ -1,7 +1,7 @@
 import type { HudLayout, MapStyle, ViewMode } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
-import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss } from './dom.js';
+import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss, stripReadoutMarkup } from './dom.js';
 import type * as Leaflet from 'leaflet';
 import { computeScale, introOutroScale, metersPerPixel, scaleBarMeters } from './framemath.js';
 import type { FrameChannels } from '../telemetry-math.js';
@@ -74,6 +74,11 @@ function setChipText(
   chip.textContent = value === null || value === undefined ? '--' : format(value);
 }
 
+/** A missing value renders exactly like a disabled chip: the dimmed "--". */
+function isPlaceholder(value: number | null | undefined): boolean {
+  return value === null || value === undefined;
+}
+
 let scopeCount = 0;
 
 class SceneState implements Scene {
@@ -97,10 +102,12 @@ class SceneState implements Scene {
   private bb: Leaflet.LatLngBounds;
   private layout!: Layout;
   private decor!: Decor;
-  private altEl: HTMLElement | null = null;
-  private speedEl: HTMLElement | null = null;
+  private altChip: HTMLElement | null = null;
+  private speedChip: HTMLElement | null = null;
   /** Chip container: inside the map frame for exports, or an external strip. */
   private readonly hudRoot: HTMLElement;
+  /** External strips get the column markup; the export frame keeps its pills. */
+  private readonly externalHud: boolean;
   private curIdx = 0;
 
   constructor(host: HTMLElement, firstData: SceneData, L: LeafletApi, hudHost?: HTMLElement) {
@@ -111,8 +118,12 @@ class SceneState implements Scene {
 
     this.styleEl = document.createElement('style');
     document.head.appendChild(this.styleEl);
-    host.innerHTML = mapMarkup(hudHost ? null : firstData.hud, firstData.attribution);
+    // One definedness rule for both: a caller either supplies the external
+    // strip host or gets the in-frame export HUD, never a mix of the two.
+    const externalHud = hudHost !== undefined;
+    host.innerHTML = mapMarkup(externalHud ? null : firstData.hud, firstData.attribution);
     this.hudRoot = hudHost ?? el<HTMLElement>(host, '#hud');
+    this.externalHud = externalHud;
     this.attrEl = el<HTMLElement>(host, '#attr');
     this.applyChrome();
 
@@ -339,9 +350,11 @@ class SceneState implements Scene {
   private rebuildHud(): void {
     // Scoped to the chip container so an external strip and a second scene
     // (the export preview) can never cross-write.
-    this.hudRoot.innerHTML = hudMarkup(this.data.hud);
-    this.altEl = this.hudRoot.querySelector<HTMLElement>('#chip-alt .num');
-    this.speedEl = this.hudRoot.querySelector<HTMLElement>('#chip-speed .num');
+    this.hudRoot.innerHTML = this.externalHud
+      ? stripReadoutMarkup(this.data.hud)
+      : hudMarkup(this.data.hud);
+    this.altChip = this.hudRoot.querySelector<HTMLElement>('#chip-alt');
+    this.speedChip = this.hudRoot.querySelector<HTMLElement>('#chip-speed');
     if (this.decor.arrowEl) {
       this.decor.arrowEl.style.display = this.data.hud.heading ? '' : 'none';
     }
@@ -369,8 +382,20 @@ class SceneState implements Scene {
   }
 
   private updateHud(i: number): void {
-    setChipText(this.altEl, this.data.alt[i], (a) => String(Math.round(a)));
-    setChipText(this.speedEl, this.data.speed[i], (s) => s.toFixed(1));
+    // A disabled chip and a missing sample share one presentation: the dimmed
+    // "--" placeholder instead of a value (#272 review).
+    this.setReadout(this.altChip, this.data.hud.alt ? this.data.alt[i] : null, (a) => String(Math.round(a)));
+    this.setReadout(this.speedChip, this.data.hud.speed ? this.data.speed[i] : null, (s) => s.toFixed(1));
+  }
+
+  private setReadout(
+    chip: HTMLElement | null,
+    value: number | null | undefined,
+    format: (v: number) => string,
+  ): void {
+    if (!chip) return;
+    setChipText(chip.querySelector<HTMLElement>('.num'), value, format);
+    if (this.externalHud) chip.classList.toggle('map-readout-off', isPlaceholder(value));
   }
 
   setFrame(i: number): Promise<void> {

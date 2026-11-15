@@ -6,7 +6,7 @@ Drone Path renders flight-path map-overlay videos from DJI drone recordings (the
 
 ![Desktop app: a drone recording beside the synchronized flight map](../images/app-main-window.jpg)
 
-*The desktop app playing a recording: the recording beside the synchronized flight map, with the flight trail, drone position and HUD chips on one shared timeline.*
+*The desktop app playing a recording: the recording beside the synchronized flight map, with the flight trail, drone position and the readout strip on one shared timeline.*
 
 ## Getting it
 
