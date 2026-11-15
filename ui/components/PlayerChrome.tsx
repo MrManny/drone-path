@@ -104,7 +104,9 @@ export function PlayerChrome({
   );
 
   // One step pins the level the map shows as the fixed "Zoom" setting (#270).
-  const [zoomNotice, setZoomNotice] = useState('');
+  // A refusal reason is keyed to the level it was announced at, so it can
+  // never speak for a level that arrived through another entry point (#271).
+  const [zoomNotice, setZoomNotice] = useState<{ level: number; text: string } | null>(null);
   const stepZoom = useCallback(
     (delta: 1 | -1) => {
       const pinned = stepPinnedZoom(sceneData.zoom, delta, style);
@@ -112,14 +114,19 @@ export function PlayerChrome({
         // A refused step says why instead of doing nothing silently (#271).
         // An identical repeat cannot re-announce; the button title keeps the
         // reason available either way.
-        setZoomNotice(delta > 0 ? 'Already zoomed all the way in' : 'Already zoomed all the way out');
+        setZoomNotice({
+          level: sceneData.zoom,
+          text: delta > 0 ? 'Already zoomed all the way in' : 'Already zoomed all the way out',
+        });
         return;
       }
-      setZoomNotice('');
+      setZoomNotice(null);
       onSettingsChange({ ...settings, zoom: pinned });
     },
     [settings, style, sceneData.zoom, onSettingsChange],
   );
+  const zoomNoticeText =
+    zoomNotice !== null && zoomNotice.level === sceneData.zoom ? zoomNotice.text : '';
 
   const dispatch = usePlayerHotkeys(
     {
@@ -184,7 +191,7 @@ export function PlayerChrome({
         onScene={handleScene}
         onPlayState={setPlaying}
         notice={openNotice}
-        zoomControls={{ zoom, style, onStep: stepZoom, notice: zoomNotice }}
+        zoomControls={{ zoom, style, onStep: stepZoom, notice: zoomNoticeText }}
       />
       <TransportBar
         dispatch={dispatch}

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -689,6 +690,33 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
     expect(onSettingsChange).not.toHaveBeenCalled();
     expect(screen.getByText('14')).toBeTruthy();
+  });
+
+  it('drops a stale refusal reason when the Zoom field moves the level (#271)', () => {
+    function ZoomChrome({ initial }: { initial: RenderConfig }) {
+      const [settings, setSettings] = useState(initial);
+      return (
+        <Chrome
+          session={SESSION}
+          settings={settings}
+          onSettingsChange={setSettings}
+          onOpen={() => {}}
+        />
+      );
+    }
+    render(<ZoomChrome initial={{ ...SETTINGS, zoom: 19 }} />);
+    key(window, { key: '+' });
+    const readout = () => document.querySelector('.map-zoom-level') as HTMLElement;
+    expect(readout().textContent).toBe('Zoom level 19. Already zoomed all the way in');
+
+    clickMenuItem('Map appearance…');
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '14' } });
+    expect(readout().textContent).toBe('Zoom level 14');
+    expect(readout().textContent).not.toContain('Already zoomed');
+
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '0' } });
+    expect(readout().textContent).toBe('Zoom level auto');
+    expect(readout().textContent).not.toContain('Already zoomed');
   });
 });
 
