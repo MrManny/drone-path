@@ -51,7 +51,7 @@ function fakeState(options: {
       pick: vi.fn(async () => ({ ok: true })),
       getSession: vi.fn(() => null),
       videoPath: () => video,
-      saveTelemetryJson: vi.fn(() => {}),
+      saveTrack: vi.fn(() => {}),
     },
     config: { ...DEFAULT_CONFIG, ...options.config },
     appState: emptyAppState(),
@@ -65,7 +65,7 @@ function fakeState(options: {
     updates: null,
     updateReady: false,
     lastExportOut: null,
-    lastTelemetryOut: null,
+    lastTrackOut: null,
   };
 }
 
@@ -229,7 +229,7 @@ describe('dronepath:export:pick-output', () => {
   });
 });
 
-describe('dronepath:telemetry:pick-output', () => {
+describe('dronepath:track:pick-output', () => {
   it('offers <basename>.telemetry.json in the export folder', async () => {
     const clipsDir = tmpDir();
     const video = path.join(clipsDir, 'flight.mp4');
@@ -237,7 +237,7 @@ describe('dronepath:telemetry:pick-output', () => {
     const defaultPath = path.join(clipsDir, 'out', 'flight.telemetry.json');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     expect(harness.dialog.showSaveDialog.mock.calls[0][0]).toEqual({
       title: 'Export telemetry',
@@ -260,7 +260,7 @@ describe('dronepath:telemetry:pick-output', () => {
     const defaultPath = path.join(clipsDir, 'flight.telemetry.json');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
 
-    await invoke('dronepath:telemetry:pick-output');
+    await invoke('dronepath:track:pick-output');
 
     expect(harness.dialog.showSaveDialog.mock.calls[0][0]).toMatchObject({ defaultPath });
   });
@@ -270,7 +270,7 @@ describe('dronepath:telemetry:pick-output', () => {
     const chosen = path.join(tmpDir(), 'exports', 'a');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     expect(result).toEqual({ ok: true, path: `${chosen}.json` });
   });
@@ -280,7 +280,7 @@ describe('dronepath:telemetry:pick-output', () => {
     const typed = path.join(tmpDir(), 'exports', 'telemetry-test.csv');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: typed });
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     // The approved name rule keeps the append; the dialogs report this final
     // name so it is never silent.
@@ -292,7 +292,7 @@ describe('dronepath:telemetry:pick-output', () => {
     const chosen = path.join(tmpDir(), 'exports', 'A.JSON');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     expect(result).toEqual({ ok: true, path: chosen });
   });
@@ -301,7 +301,7 @@ describe('dronepath:telemetry:pick-output', () => {
     setup(fakeState());
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     expect(result).toEqual({ ok: false, canceled: true });
   });
@@ -312,7 +312,7 @@ describe('dronepath:telemetry:pick-output', () => {
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 1 });
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     expect(harness.dialog.showMessageBox).toHaveBeenCalledWith(
       expect.objectContaining({ detail: chosen }),
@@ -323,7 +323,7 @@ describe('dronepath:telemetry:pick-output', () => {
   it('reports no recording loaded when nothing is open', async () => {
     setup(fakeState({ video: null }));
 
-    const result = await invoke('dronepath:telemetry:pick-output');
+    const result = await invoke('dronepath:track:pick-output');
 
     expect(result).toEqual({ ok: false, error: 'no recording loaded' });
   });

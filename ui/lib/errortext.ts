@@ -123,12 +123,12 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =>
   ],
   [exactMessage(ERR_UNKNOWN), () => 'Something went wrong. Try again.'],
   // The UI fallbacks for a refused bridge call that carries no backend message
-  // (ui/lib/exportflow.ts, ui/lib/telemetrysave.ts, ui/hooks/useTelemetrySave.ts)
+  // (ui/lib/exportflow.ts, ui/lib/tracksave.ts, ui/hooks/useTrackSave.ts)
   // live in the error-message slot, so they map here to sentences instead of
   // surfacing as fragments.
   [exactMessage('action failed'), () => 'The action could not be completed. Try again.'],
   [
-    exactMessage('telemetry JSON could not be saved'),
+    exactMessage('track file could not be saved'),
     () => 'The telemetry file could not be saved. Try again.',
   ],
   [exactMessage('the file could not be revealed'), () => 'The file could not be revealed. Try again.'],

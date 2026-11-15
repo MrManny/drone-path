@@ -1,37 +1,37 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TelemetrySaveRequest } from '../../src/appsession.js';
+import type { TrackSaveRequest } from '../../src/appsession.js';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';
 import {
-  telemetryPhaseText,
-  telemetrySaveFlow,
-  telemetrySaveReducer,
-  telemetryScope,
-} from '../../ui/lib/telemetrysave.js';
+  trackPhaseText,
+  trackSaveFlow,
+  trackSaveReducer,
+  trackScope,
+} from '../../ui/lib/tracksave.js';
 
 const RANGE = { start: 120, end: 300 };
 
 function deps(overrides: {
-  pickTelemetryOutput?: () => Promise<PickOutputResult>;
-  saveTelemetryJson?: (request: TelemetrySaveRequest) => Promise<ExportAck>;
+  pickTrackOutput?: () => Promise<PickOutputResult>;
+  saveTrack?: (request: TrackSaveRequest) => Promise<ExportAck>;
 } = {}) {
   return {
-    pickTelemetryOutput:
-      overrides.pickTelemetryOutput ?? vi.fn(async (): Promise<PickOutputResult> => ({ ok: true, path: '/exports/flight.telemetry.json' })),
-    saveTelemetryJson:
-      overrides.saveTelemetryJson ?? vi.fn(async (): Promise<ExportAck> => ({ ok: true })),
+    pickTrackOutput:
+      overrides.pickTrackOutput ?? vi.fn(async (): Promise<PickOutputResult> => ({ ok: true, path: '/exports/flight.telemetry.json' })),
+    saveTrack:
+      overrides.saveTrack ?? vi.fn(async (): Promise<ExportAck> => ({ ok: true })),
   };
 }
 
-describe('telemetrySaveFlow', () => {
+describe('trackSaveFlow', () => {
   it('picks a destination, saves the range and reports the written path', async () => {
     const d = deps();
     const onSaving = vi.fn();
-    const event = await telemetrySaveFlow(d, RANGE, onSaving);
+    const event = await trackSaveFlow(d, RANGE, onSaving);
 
     expect(event).toEqual({ type: 'saved', path: '/exports/flight.telemetry.json' });
     expect(onSaving).toHaveBeenCalledTimes(1);
-    expect(d.saveTelemetryJson).toHaveBeenCalledWith({
+    expect(d.saveTrack).toHaveBeenCalledWith({
       outPath: '/exports/flight.telemetry.json',
       range: RANGE,
     });
@@ -39,8 +39,8 @@ describe('telemetrySaveFlow', () => {
 
   it('passes the full recording as a null range', async () => {
     const d = deps();
-    await telemetrySaveFlow(d, null, vi.fn());
-    expect(d.saveTelemetryJson).toHaveBeenCalledWith({
+    await trackSaveFlow(d, null, vi.fn());
+    expect(d.saveTrack).toHaveBeenCalledWith({
       outPath: '/exports/flight.telemetry.json',
       range: null,
     });
@@ -48,89 +48,89 @@ describe('telemetrySaveFlow', () => {
 
   it('reports a canceled save dialog without saving anything', async () => {
     const d = deps({
-      pickTelemetryOutput: vi.fn(async (): Promise<PickOutputResult> => ({
+      pickTrackOutput: vi.fn(async (): Promise<PickOutputResult> => ({
         ok: false,
         canceled: true,
       })),
     });
     const onSaving = vi.fn();
-    const event = await telemetrySaveFlow(d, RANGE, onSaving);
+    const event = await trackSaveFlow(d, RANGE, onSaving);
 
     expect(event).toEqual({ type: 'canceled' });
-    expect(d.saveTelemetryJson).not.toHaveBeenCalled();
+    expect(d.saveTrack).not.toHaveBeenCalled();
     expect(onSaving).not.toHaveBeenCalled();
   });
 });
 
 describe.each<{
   what: string;
-  pickTelemetryOutput: () => Promise<PickOutputResult>;
+  pickTrackOutput: () => Promise<PickOutputResult>;
   message: string;
 }>([
   {
     what: 'the picker reports an error',
-    pickTelemetryOutput: async () => ({ ok: false, error: 'no recording loaded' }),
+    pickTrackOutput: async () => ({ ok: false, error: 'no recording loaded' }),
     message: 'no recording loaded',
   },
   {
     what: 'the picker fails without a message',
-    pickTelemetryOutput: async () => ({ ok: false }),
+    pickTrackOutput: async () => ({ ok: false }),
     message: 'unknown error',
   },
   {
     what: 'the picker confirms without a path',
-    pickTelemetryOutput: async () => ({ ok: true }),
+    pickTrackOutput: async () => ({ ok: true }),
     message: 'unknown error',
   },
   {
     what: 'the picker throws',
-    pickTelemetryOutput: async () => {
+    pickTrackOutput: async () => {
       throw new Error('the dialog went away');
     },
     message: 'the dialog went away',
   },
-])('when $what', ({ pickTelemetryOutput, message }) => {
+])('when $what', ({ pickTrackOutput, message }) => {
   it('returns the failure and never reaches the save', async () => {
-    const saveTelemetryJson = vi.fn(async (): Promise<ExportAck> => ({ ok: true }));
+    const saveTrack = vi.fn(async (): Promise<ExportAck> => ({ ok: true }));
     const onSaving = vi.fn();
-    const event = await telemetrySaveFlow(
-      { pickTelemetryOutput, saveTelemetryJson },
+    const event = await trackSaveFlow(
+      { pickTrackOutput, saveTrack },
       null,
       onSaving,
     );
     expect(event).toEqual({ type: 'failed', message });
-    expect(saveTelemetryJson).not.toHaveBeenCalled();
+    expect(saveTrack).not.toHaveBeenCalled();
     expect(onSaving).not.toHaveBeenCalled();
   });
 });
 
 describe.each<{
   what: string;
-  saveTelemetryJson: (request: TelemetrySaveRequest) => Promise<ExportAck>;
+  saveTrack: (request: TrackSaveRequest) => Promise<ExportAck>;
   message: string;
 }>([
   {
     what: 'the save is refused',
-    saveTelemetryJson: async () => ({ ok: false, error: 'disk full' }),
+    saveTrack: async () => ({ ok: false, error: 'disk full' }),
     message: 'disk full',
   },
   {
     what: 'the save is refused without a message',
-    saveTelemetryJson: async () => ({ ok: false }),
-    message: 'telemetry JSON could not be saved',
+    saveTrack: async () => ({ ok: false }),
+    message: 'track file could not be saved',
   },
   {
     what: 'the save throws',
-    saveTelemetryJson: async () => {
+    saveTrack: async () => {
       throw new Error('the write went away');
     },
     message: 'the write went away',
   },
-])('when $what', ({ saveTelemetryJson, message }) => {
+])('when $what', ({ saveTrack, message }) => {
   it('opens the dialog on the pick confirm and reports the failure', async () => {
     const onSaving = vi.fn();
-    const event = await telemetrySaveFlow(
-      { pickTelemetryOutput: async () => ({ ok: true, path: '/exports/a.json' }), saveTelemetryJson },
+    const event = await trackSaveFlow(
+      { pickTrackOutput: async () => ({ ok: true, path: '/exports/a.json' }), saveTrack },
       null,
       onSaving,
     );
@@ -139,16 +139,16 @@ describe.each<{
   });
 });
 
-describe('telemetrySaveReducer', () => {
+describe('trackSaveReducer', () => {
   const SAVING = { kind: 'saving' } as const;
   const DONE = { kind: 'done', path: '/exports/a.json', scope: 'full recording (0:10)' } as const;
 
   it('enters the saving phase when the write starts', () => {
-    expect(telemetrySaveReducer(null, { type: 'started' })).toEqual(SAVING);
+    expect(trackSaveReducer(null, { type: 'started' })).toEqual(SAVING);
   });
 
   it('lands on done with the path and scope when the save succeeds', () => {
-    const state = telemetrySaveReducer(SAVING, {
+    const state = trackSaveReducer(SAVING, {
       type: 'result',
       event: { type: 'saved', path: '/exports/a.json' },
       scope: 'full recording (0:10)',
@@ -157,7 +157,7 @@ describe('telemetrySaveReducer', () => {
   });
 
   it('lands on error with the message when the save fails', () => {
-    const state = telemetrySaveReducer(SAVING, {
+    const state = trackSaveReducer(SAVING, {
       type: 'result',
       event: { type: 'failed', message: 'disk full' },
       scope: 'full recording (0:10)',
@@ -166,7 +166,7 @@ describe('telemetrySaveReducer', () => {
   });
 
   it('keeps the phase when the pick was canceled', () => {
-    const state = telemetrySaveReducer(SAVING, {
+    const state = trackSaveReducer(SAVING, {
       type: 'result',
       event: { type: 'canceled' },
       scope: 'full recording (0:10)',
@@ -175,7 +175,7 @@ describe('telemetrySaveReducer', () => {
   });
 
   it('adds the reveal failure to a done phase', () => {
-    const state = telemetrySaveReducer(DONE, {
+    const state = trackSaveReducer(DONE, {
       type: 'revealFailed',
       error: 'the file could not be revealed',
     });
@@ -187,32 +187,32 @@ describe('telemetrySaveReducer', () => {
     ['the saving phase', SAVING],
     ['the error phase', { kind: 'error', message: 'disk full' } as const],
   ] as const)('ignores a reveal failure in %s', (_what, state) => {
-    expect(telemetrySaveReducer(state, { type: 'revealFailed', error: 'nope' })).toBe(state);
+    expect(trackSaveReducer(state, { type: 'revealFailed', error: 'nope' })).toBe(state);
   });
 });
 
-describe('telemetryScope', () => {
+describe('trackScope', () => {
   it('names the full recording without a loop', () => {
-    expect(telemetryScope(null, 30, 10)).toBe('full recording (0:10)');
+    expect(trackScope(null, 30, 10)).toBe('full recording (0:10)');
   });
 
   it('names the In-Out segment with its frames', () => {
-    expect(telemetryScope(RANGE, 30, 10)).toBe('In–Out segment (0:04–0:10 · 181 frames)');
+    expect(trackScope(RANGE, 30, 10)).toBe('In–Out segment (0:04–0:10 · 181 frames)');
   });
 });
 
-describe('telemetryPhaseText', () => {
+describe('trackPhaseText', () => {
   it('reads the saving phase', () => {
-    expect(telemetryPhaseText({ kind: 'saving' })).toBe('Exporting telemetry…');
+    expect(trackPhaseText({ kind: 'saving' })).toBe('Exporting telemetry…');
   });
 
   it('leads the done phase with the success sentence', () => {
     expect(
-      telemetryPhaseText({ kind: 'done', path: '/exports/a.json', scope: 'full recording (0:10)' }),
+      trackPhaseText({ kind: 'done', path: '/exports/a.json', scope: 'full recording (0:10)' }),
     ).toBe('Telemetry exported.');
   });
 
   it('stays empty in the error phase, which announces through its alert', () => {
-    expect(telemetryPhaseText({ kind: 'error', message: 'disk full' })).toBe('');
+    expect(trackPhaseText({ kind: 'error', message: 'disk full' })).toBe('');
   });
 });

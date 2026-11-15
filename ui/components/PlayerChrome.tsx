@@ -11,22 +11,22 @@ import type { Dialogs } from '../hooks/useDialogs.js';
 import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
-import { useTelemetrySave } from '../hooks/useTelemetrySave.js';
+import { useTrackSave } from '../hooks/useTrackSave.js';
 import type { StageLayout } from '../lib/layout.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import { stepPinnedZoom } from '../lib/mapzoom.js';
 import type { MenuItemId } from '../lib/menumodel.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
-import { telemetryScope } from '../lib/telemetrysave.js';
+import { trackScope } from '../lib/tracksave.js';
 import { ExportHost } from './ExportHost.js';
 import { MenuBar } from './MenuBar.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
 import { Popover } from './Popover.js';
 import { SettingsPanel } from './SettingsPanel.js';
-import { TelemetrySaveModal } from './TelemetrySaveModal.js';
 import { TimelinePanel } from './TimelinePanel.js';
+import { TrackSaveModal } from './TrackSaveModal.js';
 import { TransportBar } from './TransportBar.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
 
@@ -75,7 +75,7 @@ export function PlayerChrome({
     timeRef,
     playheadRef,
   } = usePlayback(video, durationSec);
-  const { modalOpen, exportOpen, telemetrySaveOpen, dismissible, dispatchDialog } = dialogs;
+  const { modalOpen, exportOpen, trackSaveOpen, dismissible, dispatchDialog } = dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
   const [menuOpen, setMenuOpen] = useState(false);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
@@ -152,18 +152,18 @@ export function PlayerChrome({
     ) : null;
 
   const loopPoints = resolveLoop(loop, maxFrame);
-  const telemetryRange = loopPoints ? frameRangeOf(loopPoints) : null;
-  const scope = telemetryScope(telemetryRange, video.fps, durationSec);
+  const trackRange = loopPoints ? frameRangeOf(loopPoints) : null;
+  const scope = trackScope(trackRange, video.fps, durationSec);
   const {
-    phase: telemetrySave,
-    save: saveTelemetryJson,
-    reveal: revealTelemetry,
-  } = useTelemetrySave({ range: telemetryRange, scope, dispatchDialog });
+    phase: trackSave,
+    save: saveTrack,
+    reveal: revealTrack,
+  } = useTrackSave({ range: trackRange, scope, dispatchDialog });
 
   const menuActions: Record<MenuItemId, () => void> = {
     open: onOpen,
     exportVideo: () => dispatchDialog({ type: 'openExport' }),
-    exportTelemetry: saveTelemetryJson,
+    exportTelemetry: saveTrack,
     settings: toggleMapAppearance,
     swap,
     documentation: onHelp,
@@ -235,11 +235,11 @@ export function PlayerChrome({
         dispatchDialog={dispatchDialog}
         onSettingsChange={onSettingsChange}
       />
-      {telemetrySaveOpen && telemetrySave ? (
-        <TelemetrySaveModal
-          phase={telemetrySave}
+      {trackSaveOpen && trackSave ? (
+        <TrackSaveModal
+          phase={trackSave}
           dismissible={dismissible}
-          onReveal={revealTelemetry}
+          onReveal={revealTrack}
           onClose={() => dispatchDialog({ type: 'close' })}
         />
       ) : null}

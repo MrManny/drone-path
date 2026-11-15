@@ -9,8 +9,8 @@ const STATES: DialogState[] = [
   'about',
   'export-form',
   'export-running',
-  'telemetry-save',
-  'telemetry-saving',
+  'track-save',
+  'track-saving',
   'update-prompt',
 ];
 
@@ -18,7 +18,7 @@ const EVENTS: DialogEvent[] = [
   { type: 'openHelp' },
   { type: 'openAbout' },
   { type: 'openExport' },
-  { type: 'openTelemetrySave' },
+  { type: 'openTrackSave' },
   { type: 'runStarted' },
   { type: 'runFinished' },
   { type: 'updateReady' },
@@ -26,7 +26,7 @@ const EVENTS: DialogEvent[] = [
 ];
 
 function busy(state: DialogState): boolean {
-  return state === 'export-running' || state === 'telemetry-saving';
+  return state === 'export-running' || state === 'track-saving';
 }
 
 function pinned(state: DialogState): boolean {
@@ -41,19 +41,19 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
       return pinned(state) ? state : 'about';
     case 'openExport':
       return pinned(state) ? state : 'export-form';
-    case 'openTelemetrySave':
-      return pinned(state) ? state : 'telemetry-save';
+    case 'openTrackSave':
+      return pinned(state) ? state : 'track-save';
     case 'runStarted':
       return state === 'export-form'
         ? 'export-running'
-        : state === 'telemetry-save'
-          ? 'telemetry-saving'
+        : state === 'track-save'
+          ? 'track-saving'
           : state;
     case 'runFinished':
       return state === 'export-running'
         ? 'export-form'
-        : state === 'telemetry-saving'
-          ? 'telemetry-save'
+        : state === 'track-saving'
+          ? 'track-save'
           : state;
     case 'updateReady':
       return state === 'closed' ? 'update-prompt' : state;
@@ -77,7 +77,7 @@ describe.each<DialogState>([
   'help',
   'about',
   'export-form',
-  'telemetry-save',
+  'track-save',
   'update-prompt',
 ])('canDismiss(%s)', (state) => {
   it('is true, so Escape, the backdrop and the close may dismiss', () => {
@@ -85,7 +85,7 @@ describe.each<DialogState>([
   });
 });
 
-describe.each<DialogState>(['export-running', 'telemetry-saving'])('canDismiss(%s)', (state) => {
+describe.each<DialogState>(['export-running', 'track-saving'])('canDismiss(%s)', (state) => {
   it('is false, so the running work keeps its dialog on screen', () => {
     expect(canDismiss(state)).toBe(false);
   });
@@ -108,13 +108,13 @@ describe('the export run round trip', () => {
 describe('the telemetry save round trip', () => {
   it('pins the dialog while the write runs, so a late failure can never close into silence', () => {
     let state: DialogState = 'closed';
-    state = dialogReducer(state, { type: 'openTelemetrySave' });
-    expect(state).toBe('telemetry-save');
+    state = dialogReducer(state, { type: 'openTrackSave' });
+    expect(state).toBe('track-save');
     expect(canDismiss(state)).toBe(true);
     state = dialogReducer(state, { type: 'runStarted' });
     expect(canDismiss(state)).toBe(false);
-    expect(dialogReducer(state, { type: 'close' })).toBe('telemetry-saving');
-    expect(dialogReducer(state, { type: 'openExport' })).toBe('telemetry-saving');
+    expect(dialogReducer(state, { type: 'close' })).toBe('track-saving');
+    expect(dialogReducer(state, { type: 'openExport' })).toBe('track-saving');
     state = dialogReducer(state, { type: 'runFinished' });
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');

@@ -71,10 +71,10 @@ function createShellState() {
     updates: null,
     // A downloaded update waits even if its announcement raced the renderer.
     updateReady: false,
-    // The destinations of the last successful export and the last telemetry
-    // JSON save: the only paths the renderer may reveal or open.
+    // The destinations of the last successful export and the last track
+    // save: the only paths the renderer may reveal or open.
     lastExportOut: null,
-    lastTelemetryOut: null,
+    lastTrackOut: null,
     closePromptOpen: false,
     pendingClose: false,
   };
