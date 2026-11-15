@@ -20,8 +20,6 @@
   with a zoom level slider and Frame padding, clickable HUD chips, and
   an opening & ending strip. The entry moved from File to View, and the
   player shortcuts pause while the dialog is open.
-- **Internal:** The desktop's telemetry-save code was renamed to the
-  track vocabulary behind the scenes; no behavior changes.
 
 ## 0.11.1
 
