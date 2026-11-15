@@ -70,8 +70,8 @@ telemetry JSON. The look settings carry over between launches.
 ![Desktop app: a drone recording beside the synchronized flight map](docs/images/app-main-window.jpg)
 
 *The desktop app playing a recording: the recording beside the synchronized
-flight map, with the flight trail, drone position and HUD chips on one shared
-timeline.*
+flight map, with the flight trail, drone position and the readout strip on one
+shared timeline.*
 
 ## Feature requests
 

@@ -113,7 +113,7 @@ Below the flight map in the split view sits one compact strip with three labeled
 
 Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults. Opening a recording resets **Zoom** to auto-fit regardless of what was remembered.
 
-![The map appearance panel with map style, view, zoom and HUD chips](../images/app-review-map-appearance.jpg)
+![The map appearance panel with map style, trail color, view and zoom settings](../images/app-review-map-appearance.jpg)
 
 *The map appearance panel: the map look settings live beside the workspace they affect.*
 
