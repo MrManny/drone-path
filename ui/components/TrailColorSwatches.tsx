@@ -14,6 +14,13 @@ interface TrailColorSwatchesProps {
 /** Trail color as a swatch row; Custom… reveals the hex field. */
 export function TrailColorSwatches({ value, onChange }: TrailColorSwatchesProps) {
   const [customOpen, setCustomOpen] = useState(() => swatchIdFor(value) === 'custom');
+  const [prevValue, setPrevValue] = useState(value);
+  // A value reset from outside (Restore defaults) ends custom mode too, so the
+  // pressed swatch always names the stored color.
+  if (value !== prevValue) {
+    setPrevValue(value);
+    if (value === null) setCustomOpen(false);
+  }
   return (
     <div className="trail-swatches-group">
       <div className="trail-swatches" role="group" aria-label="Trail color">

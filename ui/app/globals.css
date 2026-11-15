@@ -1207,6 +1207,11 @@ button.primary {
 .trail-swatch-custom {
   flex-direction: row;
   align-items: center;
+  min-height: var(--control-h);
+  padding: 6px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
   font-size: 13px;
   color: var(--text-2);
 }
@@ -1304,6 +1309,7 @@ button.primary {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin: 0;
 }
 .structure-bar {
   display: flex;

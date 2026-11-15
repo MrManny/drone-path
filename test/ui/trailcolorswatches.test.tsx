@@ -85,4 +85,13 @@ describe('TrailColorSwatches', () => {
     expect(swatchButtons()[0].getAttribute('aria-pressed')).toBe('true');
     expect(swatchButtons()[4].getAttribute('aria-pressed')).toBe('false');
   });
+
+  it('leaves custom mode when the value resets to the style default from outside', () => {
+    const { rerender } = render(<TrailColorSwatches value="#41f0ff" onChange={() => true} />);
+    expect(screen.getByLabelText('Hex')).toBeTruthy();
+    rerender(<TrailColorSwatches value={null} onChange={() => true} />);
+    expect(screen.queryByLabelText('Hex')).toBeNull();
+    expect(swatchButtons()[0].getAttribute('aria-pressed')).toBe('true');
+    expect(swatchButtons()[4].getAttribute('aria-pressed')).toBe('false');
+  });
 });

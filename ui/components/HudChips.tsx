@@ -33,11 +33,18 @@ export function HudChips({ hud, readouts, altUnavailable, onToggle }: HudChipsPr
         const disabled = chip === 'alt' && altUnavailable;
         const on = hud[chip] && !disabled;
         const text = on ? formatChipValue(chip, readouts) : '--';
+        // The arrow encodes the heading as rotation only, so the button names
+        // the degrees for screen readers (WCAG 1.1.1).
+        const headingName =
+          chip === 'heading' && on && readouts.headingDeg !== null
+            ? `Heading, ${Math.round(readouts.headingDeg)}°`
+            : undefined;
         return (
           <button
             key={chip}
             type="button"
             className="hud-chip"
+            aria-label={headingName}
             aria-pressed={on}
             disabled={disabled}
             onClick={() => onToggle(chip)}

@@ -35,9 +35,13 @@ export function OpeningEndingStrip({
     { id: 'flight', grow: Math.max(flightSec, 0.01), label: `flight ${formatTime(flightSec)}` },
     { id: 'outro', grow: Math.max(outroSec, 0.01), label: 'outro' },
   ];
+  // The planner shortens both eases together when they exceed half the clip;
+  // the strip says so instead of silently disagreeing with the fields.
+  const willShorten = introSec + outroSec > flightSec / 2;
   return (
-    <div className="opening-ending">
-      <div className="structure-bar" role="group" aria-label="Opening and ending">
+    <fieldset className="settings-group opening-ending">
+      <legend>Opening &amp; ending</legend>
+      <div className="structure-bar" role="group" aria-label="Flight structure">
         {segments.map(({ id, grow, label }) => (
           <button
             key={id}
@@ -74,6 +78,7 @@ export function OpeningEndingStrip({
           onValue={(outroSec) => onChange({ outroSec })}
         />
       </div>
-    </div>
+      {willShorten ? <p className="hint">Intro and outro shorten to fit this clip.</p> : null}
+    </fieldset>
   );
 }

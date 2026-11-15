@@ -90,10 +90,10 @@ describe('MapAppearanceModal structure', () => {
     const dialog = screen.getByRole('dialog', { name: 'Map appearance' });
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByText('Every change shows in the preview at once.')).toBeTruthy();
-    for (const legend of ['Map look', 'Camera', 'On-frame readouts']) {
+    for (const legend of ['Map look', 'Camera', 'On-frame readouts', 'Opening & ending']) {
       expect(screen.getByText(legend)).toBeTruthy();
     }
-    expect(screen.getByRole('group', { name: 'Opening and ending' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Flight structure' })).toBeTruthy();
     expect(document.querySelectorAll('.map-appearance-frame')).toHaveLength(1);
   });
 
@@ -336,7 +336,7 @@ describe('MapAppearanceModal preview', () => {
     renderModal({ session: null });
     await waitFor(() => expect(boot.calls).toHaveLength(1));
     const frames = boot.calls[0].data.lat.length;
-    const bar = screen.getByRole('group', { name: 'Opening and ending' });
+    const bar = screen.getByRole('group', { name: 'Flight structure' });
     fireEvent.click(within(bar).getByRole('button', { name: /intro/ }));
     await waitFor(() => expect(boot.scenes[0].setFrame).toHaveBeenCalledWith(0));
     fireEvent.click(within(bar).getByRole('button', { name: /outro/ }));

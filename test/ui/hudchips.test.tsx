@@ -80,7 +80,7 @@ describe('HudChips', () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
-  it('points the heading arrow at the recorded heading', () => {
+  it('names the heading degrees for screen readers and keeps the arrow decorative', () => {
     render(
       <HudChips
         hud={{ heading: true, alt: false, speed: false }}
@@ -89,7 +89,21 @@ describe('HudChips', () => {
         onToggle={() => {}}
       />,
     );
-    const arrow = chips()[0].querySelector('.chip-arrow') as HTMLElement;
+    const heading = screen.getByRole('button', { name: 'Heading, 90°' });
+    const arrow = heading.querySelector('.chip-arrow') as HTMLElement;
+    expect(arrow.getAttribute('aria-hidden')).toBe('true');
     expect(arrow.style.transform).toBe('rotate(90deg)');
+  });
+
+  it('keeps the placeholder readout in the heading chip name while it is off', () => {
+    render(
+      <HudChips
+        hud={{ heading: false, alt: false, speed: false }}
+        readouts={READOUTS}
+        altUnavailable={false}
+        onToggle={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Heading/ }).textContent).toContain('--');
   });
 });

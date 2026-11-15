@@ -99,12 +99,19 @@ export function CameraControls({
           value={framePadding}
           disabled={!autoFit}
           aria-valuetext={`${framePadding} ${framePadding === 1 ? 'level' : 'levels'}`}
-          aria-describedby={`${paddingId}-readout`}
+          aria-describedby={
+            autoFit ? `${paddingId}-readout` : `${paddingId}-readout ${paddingId}-hint`
+          }
           onChange={(e) => onChange({ zoomOut: Number(e.target.value) })}
         />
         <span className="range-readout" id={`${paddingId}-readout`}>
           {`${framePadding} ${framePadding === 1 ? 'level' : 'levels'}`}
         </span>
+        {autoFit ? null : (
+          <span className="hint" id={`${paddingId}-hint`}>
+            auto-fit only
+          </span>
+        )}
       </div>
     </div>
   );

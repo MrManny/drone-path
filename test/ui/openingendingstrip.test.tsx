@@ -33,13 +33,29 @@ function renderStrip(
 }
 
 function segments(): HTMLButtonElement[] {
-  return [...screen.getByRole('group', { name: 'Opening and ending' }).querySelectorAll('button')];
+  return [...screen.getByRole('group', { name: 'Flight structure' }).querySelectorAll('button')];
 }
 
 describe('OpeningEndingStrip', () => {
+  it('carries the visible Opening & ending heading of the fourth group', () => {
+    renderStrip();
+    const heading = screen.getByText('Opening & ending');
+    expect(heading.tagName).toBe('LEGEND');
+  });
+
   it('names the three phases with the flight length', () => {
     renderStrip();
     expect(segments().map((s) => s.textContent)).toEqual(['intro', 'flight 2:18', 'outro']);
+  });
+
+  it('says when the eases will shorten to fit the clip', () => {
+    renderStrip({ introSec: 40, outroSec: 40 });
+    expect(screen.getByText('Intro and outro shorten to fit this clip.')).toBeTruthy();
+  });
+
+  it('stays quiet while the eases fit the clip', () => {
+    renderStrip({ introSec: 2, outroSec: 2 });
+    expect(screen.queryByText('Intro and outro shorten to fit this clip.')).toBeNull();
   });
 
   it('sizes the segments after their durations', () => {

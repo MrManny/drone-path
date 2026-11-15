@@ -47,6 +47,15 @@ describe('CameraControls', () => {
     expect(onChange).toHaveBeenCalledWith({ zoom: 13 });
   });
 
+  it('returns to auto-fit when the toggle comes back on', () => {
+    const onChange = vi.fn(() => true);
+    renderControls({ zoom: 13 }, onChange);
+    const toggle = screen.getByLabelText<HTMLInputElement>('Auto-fit zoom');
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith({ zoom: 0 });
+  });
+
   it('disables the zoom slider under auto-fit and shows the resolved level', () => {
     renderControls({ zoom: 0 });
     const slider = screen.getByLabelText<HTMLInputElement>('Zoom level');
@@ -74,14 +83,18 @@ describe('CameraControls', () => {
     const slider = screen.getByLabelText<HTMLInputElement>('Frame padding');
     expect(slider.disabled).toBe(false);
     expect(screen.getByText('1 level')).toBeTruthy();
+    expect(screen.queryByText('auto-fit only')).toBeNull();
     fireEvent.change(slider, { target: { value: '3' } });
     expect(onChange).toHaveBeenCalledWith({ zoomOut: 3 });
   });
 
-  it('disables frame padding while the zoom is pinned', () => {
+  it('explains the disabled frame padding while the zoom is pinned', () => {
     renderControls({ zoom: 13, framePadding: 2 });
-    expect(screen.getByLabelText('Frame padding').getAttribute('disabled')).not.toBeNull();
+    const slider = screen.getByLabelText<HTMLInputElement>('Frame padding');
+    expect(slider.disabled).toBe(true);
     expect(screen.getByText('2 levels')).toBeTruthy();
+    const hint = screen.getByText('auto-fit only');
+    expect(slider.getAttribute('aria-describedby')).toContain(hint.id);
   });
 
   it('shows and keeps a stored padding above the slider range until it is edited', () => {
