@@ -258,6 +258,16 @@ describe('MapCard style contract (#236)', () => {
     expect(cssText).toMatch(/\.map-strip-zoom \.map-zoom-stepper \{[^}]*grid-row: 2/);
   });
 
+  it('keeps every value-line box on one 30px baseline (#272 feedback)', () => {
+    // The value and the stepper buttons share identical 30px line boxes in
+    // plain inline flow, so the glyphs sit on one text baseline by
+    // construction — no flex baseline synthesis to drift.
+    expect(cssText).toMatch(/\.map-readout \.value \{[^}]*line-height: 30px/);
+    expect(cssText).toMatch(/\.map-zoom-stepper \{[^}]*line-height: 30px/);
+    expect(cssText).toMatch(/\.map-zoom-stepper button \{[^}]*line-height: 30px/);
+    expect(cssText).toMatch(/\.map-zoom-stepper button \{[^}]*display: inline-block/);
+  });
+
   it('scales the strip micro-labels down in the compact card', () => {
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.label,[^}]*font-size: 9px/);
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.value \{[^}]*font-size: 12px/);

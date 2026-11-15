@@ -418,9 +418,9 @@ button.primary {
 }
 .map-readout .value {
   grid-row: 2;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+  /* One 30px line box shared with the stepper buttons: every value and the
+     stepper glyphs sit on the same text baseline (#272 feedback). */
+  line-height: 30px;
   font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -442,6 +442,7 @@ button.primary {
   grid-row: 2;
 }
 .map-readout .unit {
+  margin-left: 4px;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-3);
@@ -452,22 +453,30 @@ button.primary {
   color: var(--text-3);
 }
 .map-zoom-stepper {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  /* Plain inline flow: the buttons and the readout share one text baseline
+     without any flex baseline synthesis (#272 feedback). */
+  display: block;
+  line-height: 30px;
+  white-space: nowrap;
 }
 /* Bare step buttons: no pill container, no borders. Hover, pressed, focus and
-   the aria-disabled look come from the global button recipe. */
+   the aria-disabled look come from the global button recipe. The 30px line box
+   is both the hit area and the shared value line. */
 .map-zoom-stepper button {
+  display: inline-block;
+  vertical-align: baseline;
   min-height: 30px;
   min-width: 32px;
   padding: 0 8px;
   font-size: 16px;
+  line-height: 30px;
   background: transparent;
   border: 0;
 }
 .map-zoom-level {
+  display: inline-block;
   min-width: 40px;
+  margin: 0 2px;
   text-align: center;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -489,6 +498,7 @@ button.primary {
 }
 .map-card-overlay .map-readout .value {
   font-size: 12px;
+  line-height: 20px;
 }
 .map-card-overlay .map-readout .unit {
   font-size: 9px;
