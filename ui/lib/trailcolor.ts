@@ -1,6 +1,6 @@
-export type TrailSwatchId = 'style-default' | 'coral' | 'white' | 'black' | 'custom';
+type TrailSwatchId = 'style-default' | 'coral' | 'white' | 'black' | 'custom';
 
-export interface TrailSwatch {
+interface TrailSwatch {
   id: TrailSwatchId;
   label: string;
   /** The trail color it stores; the style default stores null. */

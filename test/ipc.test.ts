@@ -111,18 +111,6 @@ describe('dronepath:export:pick-output', () => {
     expect(result).toEqual({ ok: true, path: defaultPath });
   });
 
-  it('offers the recording folder when no out dir is set', async () => {
-    const clipsDir = tmpDir();
-    const video = path.join(clipsDir, 'flight.mp4');
-    setup(fakeState({ video, config: { outDir: null } }));
-    const defaultPath = path.join(clipsDir, 'flight_map.mp4');
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
-
-    await invoke('dronepath:export:pick-output');
-
-    expect(harness.dialog.showSaveDialog.mock.calls[0][0]).toMatchObject({ defaultPath });
-  });
-
   it('uses the app window as the dialog parent when it exists', async () => {
     const win: IpcWindow = { isDestroyed: () => false, close: vi.fn() };
     setup(fakeState({ win }));
@@ -145,25 +133,6 @@ describe('dronepath:export:pick-output', () => {
     const result = await invoke('dronepath:export:pick-output');
 
     expect(result).toEqual({ ok: true, path: `${chosen}.mp4` });
-  });
-
-  it('keeps a typed .mp4 name untouched', async () => {
-    setup(fakeState());
-    const chosen = path.join(tmpDir(), 'exports', 'A.MP4');
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-
-    const result = await invoke('dronepath:export:pick-output');
-
-    expect(result).toEqual({ ok: true, path: chosen });
-  });
-
-  it('answers a cancelled dialog with the canceled result shape', async () => {
-    setup(fakeState());
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
-
-    const result = await invoke('dronepath:export:pick-output');
-
-    expect(result).toEqual({ ok: false, canceled: true });
   });
 
   it('answers a dialog without a path with the canceled result shape', async () => {
@@ -219,14 +188,6 @@ describe('dronepath:export:pick-output', () => {
     );
     expect(result).toEqual({ ok: false, canceled: true });
   });
-
-  it('reports no recording loaded when nothing is open', async () => {
-    setup(fakeState({ video: null }));
-
-    const result = await invoke('dronepath:export:pick-output');
-
-    expect(result).toEqual({ ok: false, error: 'no recording loaded' });
-  });
 });
 
 describe('dronepath:track:pick-output', () => {
@@ -253,28 +214,6 @@ describe('dronepath:track:pick-output', () => {
     expect(result).toEqual({ ok: true, path: defaultPath });
   });
 
-  it('offers the recording folder when no out dir is set', async () => {
-    const clipsDir = tmpDir();
-    const video = path.join(clipsDir, 'flight.mp4');
-    setup(fakeState({ video, config: { outDir: null } }));
-    const defaultPath = path.join(clipsDir, 'flight.telemetry.json');
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
-
-    await invoke('dronepath:track:pick-output');
-
-    expect(harness.dialog.showSaveDialog.mock.calls[0][0]).toMatchObject({ defaultPath });
-  });
-
-  it('appends the .json extension when the dialog name omits it', async () => {
-    setup(fakeState());
-    const chosen = path.join(tmpDir(), 'exports', 'a');
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-
-    const result = await invoke('dronepath:track:pick-output');
-
-    expect(result).toEqual({ ok: true, path: `${chosen}.json` });
-  });
-
   it('appends .json behind a typed name with another extension', async () => {
     setup(fakeState());
     const typed = path.join(tmpDir(), 'exports', 'telemetry-test.csv');
@@ -285,25 +224,6 @@ describe('dronepath:track:pick-output', () => {
     // The approved name rule keeps the append; the dialogs report this final
     // name so it is never silent.
     expect(result).toEqual({ ok: true, path: `${typed}.json` });
-  });
-
-  it('keeps a typed .json name untouched', async () => {
-    setup(fakeState());
-    const chosen = path.join(tmpDir(), 'exports', 'A.JSON');
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-
-    const result = await invoke('dronepath:track:pick-output');
-
-    expect(result).toEqual({ ok: true, path: chosen });
-  });
-
-  it('answers a cancelled dialog with the canceled result shape', async () => {
-    setup(fakeState());
-    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
-
-    const result = await invoke('dronepath:track:pick-output');
-
-    expect(result).toEqual({ ok: false, canceled: true });
   });
 
   it('asks before replacing an existing file and cancels when declined', async () => {
@@ -320,10 +240,37 @@ describe('dronepath:track:pick-output', () => {
     expect(result).toEqual({ ok: false, canceled: true });
   });
 
+});
+
+describe.for([
+  { channel: 'dronepath:export:pick-output', defaultName: 'flight_map.mp4' },
+  { channel: 'dronepath:track:pick-output', defaultName: 'flight.telemetry.json' },
+])('$channel shared dialog flow', ({ channel, defaultName }) => {
+  it('offers the recording folder when no out dir is set', async () => {
+    const clipsDir = tmpDir();
+    const video = path.join(clipsDir, 'flight.mp4');
+    setup(fakeState({ video, config: { outDir: null } }));
+    const defaultPath = path.join(clipsDir, defaultName);
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
+
+    await invoke(channel);
+
+    expect(harness.dialog.showSaveDialog.mock.calls[0][0]).toMatchObject({ defaultPath });
+  });
+
+  it('answers a cancelled dialog with the canceled result shape', async () => {
+    setup(fakeState());
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
+
+    const result = await invoke(channel);
+
+    expect(result).toEqual({ ok: false, canceled: true });
+  });
+
   it('reports no recording loaded when nothing is open', async () => {
     setup(fakeState({ video: null }));
 
-    const result = await invoke('dronepath:track:pick-output');
+    const result = await invoke(channel);
 
     expect(result).toEqual({ ok: false, error: 'no recording loaded' });
   });

@@ -593,6 +593,21 @@ export type AppearanceSettings = Pick<RenderConfig, (typeof LOOK_SETTINGS_KEYS)[
 export type EncodeSettings = Pick<RenderConfig, (typeof ENCODE_SETTINGS_KEYS)[number]>;
 export type SettingsPatch = Pick<RenderConfig, (typeof SETTINGS_KEYS)[number]>;
 
+/** The look projection every consumer shares; hud is cloned so no caller can
+    leak chip state into another owner. */
+export function appearanceOf(config: AppearanceSettings): AppearanceSettings {
+  return {
+    style: config.style,
+    view: config.view,
+    zoom: config.zoom,
+    zoomOut: config.zoomOut,
+    hud: { ...config.hud },
+    introSec: config.introSec,
+    outroSec: config.outroSec,
+    trailColor: config.trailColor,
+  };
+}
+
 export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   return {
     style: config.style,

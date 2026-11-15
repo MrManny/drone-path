@@ -1,7 +1,7 @@
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { AppearanceSettings } from '../../src/config.js';
+import { DEFAULT_CONFIG, appearanceOf } from '../../src/config.js';
 import type { Bbox } from '../../src/geo.js';
 import { buildSceneData, planPageOpts } from '../../src/render-page.js';
+import { smoothstep } from '../../src/renderer/framemath.js';
 import type { SceneData } from '../../src/renderer/scene.js';
 import type { RestyleMeta } from '../../src/restyle.js';
 import type { FrameChannels } from '../../src/telemetry-math.js';
@@ -19,7 +19,7 @@ import type { FrameChannels } from '../../src/telemetry-math.js';
 
 export const EXAMPLE_FPS = 25;
 export const EXAMPLE_FRAMES = 3450;
-export const EXAMPLE_DURATION_SEC = EXAMPLE_FRAMES / EXAMPLE_FPS;
+const EXAMPLE_DURATION_SEC = EXAMPLE_FRAMES / EXAMPLE_FPS;
 export const EXAMPLE_STATE_LABEL = 'Example flight — open a recording to preview yours';
 /** Mirrors TILE_BASE in src/apppaths.ts, which cannot load in the browser. */
 const EXAMPLE_TILE_BASE = 'app://bundle/tiles';
@@ -122,11 +122,6 @@ function samplePath(): Point[] {
   return points;
 }
 
-function smoothstep(t: number): number {
-  const clamped = Math.max(0, Math.min(1, t));
-  return clamped * clamped * (3 - 2 * clamped);
-}
-
 function altitudeAt(frame: number): number {
   const keys = ALTITUDE_KEYS;
   for (let k = 0; k + 1 < keys.length; k++) {
@@ -198,11 +193,6 @@ function pathBbox(lat: readonly number[], lon: readonly number[]): Bbox {
     minLon: minLon - padLon,
     maxLon: maxLon + padLon,
   };
-}
-
-function appearanceOf(config: typeof DEFAULT_CONFIG): AppearanceSettings {
-  const { style, view, zoom, zoomOut, introSec, outroSec, trailColor, hud } = config;
-  return { style, view, zoom, zoomOut, introSec, outroSec, trailColor, hud };
 }
 
 export interface ExampleFlight {

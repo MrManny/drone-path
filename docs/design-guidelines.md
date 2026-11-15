@@ -23,13 +23,15 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--page` | `#232323` | Page background |
 | `--surface-1` … `--surface-4` | `#2e2e2e`, `#363636`, `#454545`, `#525252` | Surface ladder: cards → controls → hover fill → pressed fill |
 | `--bar` | `rgba(35, 35, 35, 0.94)` | Control bar over the footage |
-| `--glass` | `rgba(35, 35, 35, 0.6)` | Glassy chip fill over the footage |
 | `--scrim` | `rgba(10, 10, 10, 0.6)` | Dialog backdrop |
+| `--frame-bg` | `#000` | Letterbox fill behind footage and preview media |
 | `--hairline` / `--hairline-strong` / `--hairline-hover` | `#e8e8e8` at 12% / 24% / 42% | Decorative separators / control, dialog and map card borders / hover borders |
 | `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 68% | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
 | `--accent` (hover `--accent-hover`, pressed `--accent-press`) | `#e87f54` (`#f0a967`, `#c96640`) | Primary fill, selected speed, checked toggle, played timeline range, progress fill, flight trail |
 | `--accent-ink` | `#2b1207` | Text and check mark on accent |
 | `--accent-text` | `#f0a967` | Accent-colored text and icons on surfaces (links, current page) |
+| `--menu-open-tint` / `--menu-active-tint` | `rgba(232, 127, 84, 0.16)` / `rgba(232, 127, 84, 0.14)` | Menu state fills (see [Menu bar](#menu-bar)) |
+| `--swatch-ring` | `rgba(0, 0, 0, 0.25)` | Outline ring on trail and color swatch dots |
 | `--focus` | `#e8e8e8` | Focus outline |
 | `--danger` / `--danger-text` | `#df5441` / `#f37d75` | Invalid fields and danger notices / field messages |
 | `--warning` / `--info` | `#f0a967` / `#7fa3c4` | Warning and info notices only |
@@ -56,8 +58,8 @@ Dropdowns reuse the map-popover floating-panel anatomy: `--surface-1` fill, 1px 
 
 | Role | Value |
 |---|---|
-| Open label pill | `rgba(232, 127, 84, 0.16)` over `--page`, label in `--accent-text` |
-| Hovered/keyboard-focused row fill | `rgba(232, 127, 84, 0.14)` over `--surface-1` |
+| Open label pill | `--menu-open-tint` (`rgba(232, 127, 84, 0.16)`) over `--page`, label in `--accent-text` |
+| Hovered/keyboard-focused row fill | `--menu-active-tint` (`rgba(232, 127, 84, 0.14)`) over `--surface-1` |
 | Row selection bar | `--accent`, 3×16px pill at the row's left inset |
 | Icon and shortcut hint on the live row | `--accent-text` |
 | Row labels (all rows) | `--text`; resting icons and hints `--text-3` |

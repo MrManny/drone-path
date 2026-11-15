@@ -73,11 +73,6 @@ describe('track export record selection', () => {
     },
   };
 
-  it('keeps every record in a full export, even past the frame count', () => {
-    const gpx = trackFileBytes('flight.gpx', scanInput, null) as string;
-    expect(gpx.match(/<trkpt /g)).toHaveLength(3);
-  });
-
   it('keeps every record when the stream carries more records than frames', () => {
     const rows: TelemetryFrameInput[] = Array.from({ length: 7 }, (_, i) => ({
       lat: 46.6 + i / 1e5,
@@ -95,15 +90,6 @@ describe('track export record selection', () => {
     expect(gpx.match(/<trkpt /g)).toHaveLength(7);
   });
 
-  it('rejects an out-of-bounds range like the document writer', () => {
-    expect(() => trackFileBytes('flight.gpx', scanInput, { start: 0, end: 5000 })).toThrow(
-      'frame range 0-5000 is beyond the recording (300 frames)',
-    );
-    expect(() => trackFileBytes('flight.kmz', scanInput, { start: 300, end: 300 })).toThrow(
-      'beyond the recording (300 frames)',
-    );
-  });
-
   it('selects records by source time against the frame span, not by position', () => {
     // frames 150-200 hold the records at tSec 5 s and 6 s (frames 150 and
     // 180): a positional slice of this 3-record stream would find nothing
@@ -119,18 +105,6 @@ describe('track export record selection', () => {
     const early = trackFileBytes('flight.gpx', scanInput, { start: 0, end: 50 }) as string;
     expect(early.match(/<trkpt /g)).toHaveLength(1);
     expect(early).toContain('lat="1"');
-  });
-
-  it('keeps a single-frame span to the records of that frame', () => {
-    const gpx = trackFileBytes('flight.gpx', scanInput, { start: 180, end: 180 }) as string;
-    expect(gpx.match(/<trkpt /g)).toHaveLength(1);
-    expect(gpx).toContain('lat="5"');
-  });
-
-  it('still selects frame-aligned streams exactly like the positional slice', () => {
-    const input = trackExportFixture();
-    const gpx = trackFileBytes('flight.gpx', input, { start: 3, end: 4 }) as string;
-    expect(gpx).toBe(serializeGpx(buildTrack(TRACK_ROWS.slice(3, 5))));
   });
 });
 

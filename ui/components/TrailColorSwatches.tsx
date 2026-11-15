@@ -22,7 +22,7 @@ export function TrailColorSwatches({ value, onChange }: TrailColorSwatchesProps)
     if (value === null) setCustomOpen(false);
   }
   return (
-    <div className="trail-swatches-group">
+    <div>
       <div className="trail-swatches" role="group" aria-label="Trail color">
         {TRAIL_SWATCHES.map((swatch) => (
           <button

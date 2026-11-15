@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
+import { appearanceOf } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import { restyleMeta } from '../lib/restylemeta.js';
@@ -82,15 +83,10 @@ export function PlayerChrome({
 
   const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
-  const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
+  const { style, zoom } = settings;
   const sceneData = useMemo(
-    () =>
-      restyleSceneData(
-        session.scene,
-        { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud },
-        restyleMeta(session),
-      ),
-    [session, style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud],
+    () => restyleSceneData(session.scene, appearanceOf(settings), restyleMeta(session)),
+    [session, settings],
   );
 
   // One step pins the level the map shows as the fixed "Zoom" setting (#270).

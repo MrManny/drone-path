@@ -436,3 +436,43 @@ export function productMetaPacket(
   parts.push(fldBytes(3, Buffer.concat(frameParts)));
   return Buffer.concat(parts);
 }
+
+export interface GpsFixCase {
+  name: string;
+  coords: [number, number];
+  fix: boolean;
+}
+
+/**
+ * Boundary cases of the single GPS-fix classification rule shared by every
+ * decoding layer (geo, SRT cues, CAM-meta scan, telemetry counts). Each layer's
+ * tests run these same boundaries so any rule disagreement between layers — the
+ * near-null-island regression — fails in every suite.
+ */
+export const GPS_FIX_CASES: GpsFixCase[] = [
+  { name: 'regular fix', coords: [46.61307, 14.262388], fix: true },
+  { name: 'prime meridian crossing', coords: [10.2, 0.2], fix: true },
+  { name: 'equator crossing', coords: [0.2, 10.2], fix: true },
+  { name: 'near-null-island fix (the disagreement regression)', coords: [0.1, 0.1], fix: true },
+  { name: 'the 0.5 boundary', coords: [0.5, 0.5], fix: true },
+  { name: 'the 0/0 placeholder', coords: [0, 0], fix: false },
+  { name: 'negative-zero placeholder', coords: [-0, 0], fix: false },
+  { name: 'out-of-range latitude', coords: [91, 0], fix: false },
+  { name: 'out-of-range longitude', coords: [0, 181], fix: false },
+  { name: 'north pole edge', coords: [90, 0], fix: false },
+  { name: 'NaN', coords: [NaN, 1], fix: false },
+  { name: 'Infinity', coords: [1, Infinity], fix: false },
+];
+
+/** The coordinates of a named GPS-fix case, for composing multi-fix sequences. */
+export function gpsFixCoords(name: string): [number, number] {
+  const found = GPS_FIX_CASES.find((c) => c.name === name);
+  if (!found) throw new Error(`unknown GPS fix case: ${name}`);
+  return found.coords;
+}
+
+/** Odd dimensions and the even canvas every config entry point normalizes to. */
+export const ODD_DIMENSIONS = {
+  input: { width: 641, height: 767 },
+  even: { width: 640, height: 766 },
+} as const;

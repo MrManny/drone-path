@@ -5,6 +5,7 @@ import {
   cliDefaultOf,
 } from '../config.js';
 import type { ConfigOption, RenderConfig } from '../config.js';
+import { escapeAngleBrackets } from './markdown.js';
 
 function defaultCell(key: keyof RenderConfig): string {
   const value = cliDefaultOf(key);
@@ -13,7 +14,7 @@ function defaultCell(key: keyof RenderConfig): string {
 }
 
 function describe(row: ConfigOption): string {
-  const help = row.cli.help.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const help = escapeAngleBrackets(row.cli.help);
   return row.cli.choices ? `${help} (choices: ${row.cli.choices.join(', ')})` : help;
 }
 

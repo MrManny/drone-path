@@ -7,6 +7,7 @@ import {
   scanGpsPair,
 } from '../src/cammeta-decode.js';
 import type { CamMetaPacket } from '../src/cammeta-decode.js';
+import { GPS_FIX_CASES } from './fixtures.js';
 
 function dbl(value: number): Buffer {
   const b = Buffer.alloc(8);
@@ -388,42 +389,25 @@ describe('scanGpsPair', () => {
     expect(hit?.at).toBe(2);
   });
 
-  it('rejects the 0/0 placeholder and out-of-range pairs', () => {
-    for (const [lat, lon] of [
-      [0, 0],
-      [91, 0],
-    ]) {
-      const pair = Buffer.concat([
-        Buffer.from([0x11]),
-        dbl(lat),
-        Buffer.from([0x19]),
-        dbl(lon),
-      ]);
-      expect(scanGpsPair(pair)).toBeNull();
-    }
-  });
-
-  it('applies the same GPS-fix rule as the protobuf path', () => {
-    for (const [lat, lon] of [
-      [10.2, 0.2],
-      [0.2, 10.2],
-      [0.1, 0.1],
-    ]) {
-      const pair = Buffer.concat([
-        Buffer.from([0x11]),
-        dbl(lat),
-        Buffer.from([0x19]),
-        dbl(lon),
-      ]);
+  it.for(
+    GPS_FIX_CASES.filter(({ coords: [lat, lon] }) => Number.isFinite(lat) && Number.isFinite(lon)),
+  )(
+    'applies the shared GPS-fix rule to $name in the scan and protobuf paths',
+    ({ coords: [lat, lon], fix }) => {
+      const pair = Buffer.concat([Buffer.from([0x11]), dbl(lat), Buffer.from([0x19]), dbl(lon)]);
       const hit = scanGpsPair(pair);
-      expect(hit?.fix.lat).toBeCloseTo(lat, 9);
-      expect(hit?.fix.lon).toBeCloseTo(lon, 9);
-
       const m = decodeProductMeta(buildProductMeta({ lat, lon, relAltMm: 0 }));
-      expect(m.fix?.lat).toBeCloseTo(lat, 9);
-      expect(m.fix?.lon).toBeCloseTo(lon, 9);
-    }
-  });
+      if (fix) {
+        expect(hit?.fix.lat).toBeCloseTo(lat, 9);
+        expect(hit?.fix.lon).toBeCloseTo(lon, 9);
+        expect(m.fix?.lat).toBeCloseTo(lat, 9);
+        expect(m.fix?.lon).toBeCloseTo(lon, 9);
+      } else {
+        expect(hit).toBeNull();
+        expect(m.fix).toBeNull();
+      }
+    },
+  );
 });
 
 describe('decodePacketSamples', () => {

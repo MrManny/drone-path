@@ -38,3 +38,19 @@ export const TILE_SOURCES: Record<MapStyle, TileSource> = {
     maxNativeZoom: 17,
   },
 };
+
+/** Leaflet wants HTML and the map style thumbnails plain text; the thumbnail
+    credits derive from these attributions so the wording can never drift. */
+function plainCredit(html: string): string[] {
+  return html
+    .replaceAll('&copy;', '©')
+    .replace(/<a [^>]+>/g, '')
+    .replaceAll('</a>', '')
+    .split(' | ')
+    .map((part) => part.replace('Style: ', 'Style ')); // the thumbnail wording drops the colon
+}
+
+export const TILE_CREDITS: string = [
+  ...plainCredit(TILE_SOURCES.satellite.attribution),
+  ...plainCredit(TILE_SOURCES.topo.attribution),
+].join(' · ');

@@ -18,9 +18,10 @@ describe('serializeKml', () => {
   });
 
   it('falls back to LineString without trustworthy UTC times', () => {
-    expect(TRACK_KML_GOLDEN).not.toContain('gx:Track');
-    expect(TRACK_KML_GOLDEN).not.toContain('<when>');
-    expect(TRACK_KML_GOLDEN.match(/<LineString>/g)).toHaveLength(2);
+    const text = serializeKml(buildTrack(TRACK_ROWS));
+    expect(text).not.toContain('gx:Track');
+    expect(text).not.toContain('<when>');
+    expect(text.match(/<LineString>/g)).toHaveLength(2);
   });
 
   it('writes a timed segment as one gx:Track with paired <when> and <gx:coord>', () => {
