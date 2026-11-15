@@ -3,7 +3,7 @@
 import type { MapStyle } from '../../src/config.js';
 import { zoomLimits } from '../../src/plan.js';
 
-export interface ZoomPillProps {
+export interface ZoomStepperProps {
   /** The pinned "Zoom" setting: 0 is auto-fit. */
   zoom: number;
   /** The level the map currently shows, as planned for the preview. */
@@ -14,7 +14,7 @@ export interface ZoomPillProps {
   notice?: string;
 }
 
-export function ZoomPill({ zoom, visibleZoom, style, onStep, notice = '' }: ZoomPillProps) {
+export function ZoomStepper({ zoom, visibleZoom, style, onStep, notice = '' }: ZoomStepperProps) {
   const { min, max } = zoomLimits(style);
   const canOut = visibleZoom > min;
   const canIn = visibleZoom < max;

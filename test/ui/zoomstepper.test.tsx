@@ -6,16 +6,16 @@ import { fileURLToPath } from 'node:url';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ZoomPill } from '../../ui/components/ZoomPill.js';
+import { ZoomStepper } from '../../ui/components/ZoomStepper.js';
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-function renderPill(zoom: number, visibleZoom: number, onStep = vi.fn(), notice = '') {
+function renderStepper(zoom: number, visibleZoom: number, onStep = vi.fn(), notice = '') {
   const view = render(
-    <ZoomPill
+    <ZoomStepper
       zoom={zoom}
       visibleZoom={visibleZoom}
       style="satellite"
@@ -26,16 +26,16 @@ function renderPill(zoom: number, visibleZoom: number, onStep = vi.fn(), notice 
   return { ...view, onStep };
 }
 
-describe('ZoomPill (#270)', () => {
+describe('ZoomStepper (#270)', () => {
   it('renders the step buttons in a labeled group', () => {
-    renderPill(0, 15);
+    renderStepper(0, 15);
     expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeTruthy();
   });
 
   it('carries the level inside the live announcement (#271)', () => {
-    const { container } = renderPill(14, 14);
+    const { container } = renderStepper(14, 14);
     const readout = container.querySelector('.map-zoom-level') as HTMLElement;
     expect(readout.getAttribute('aria-live')).toBe('polite');
     expect(readout.textContent).toBe('Zoom level 14');
@@ -43,24 +43,24 @@ describe('ZoomPill (#270)', () => {
   });
 
   it('shows the pinned level when zoom is pinned', () => {
-    renderPill(14, 14);
+    renderStepper(14, 14);
     expect(screen.getByText('14')).toBeTruthy();
     expect(screen.queryByText('auto')).toBeNull();
   });
 
   it('shows auto while auto-fit', () => {
-    renderPill(0, 15);
+    renderStepper(0, 15);
     expect(screen.getByText('auto')).toBeTruthy();
     expect(screen.queryByText('15')).toBeNull();
   });
 
   it('shows the level the map renders even for an out-of-range pin', () => {
-    renderPill(25, 19);
+    renderStepper(25, 19);
     expect(screen.getByText('19')).toBeTruthy();
   });
 
   it('steps one level per press', () => {
-    const { onStep } = renderPill(14, 14);
+    const { onStep } = renderStepper(14, 14);
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(onStep).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
@@ -69,7 +69,7 @@ describe('ZoomPill (#270)', () => {
   });
 
   it('shows the real key in the button titles (#271)', () => {
-    renderPill(14, 14);
+    renderStepper(14, 14);
     expect(screen.getByRole('button', { name: 'Zoom in' }).getAttribute('title')).toBe(
       'Zoom the map in one level (+)',
     );
@@ -79,7 +79,7 @@ describe('ZoomPill (#270)', () => {
   });
 
   it('marks zooming in at the maximum disabled but keeps the button focusable (#271)', () => {
-    renderPill(19, 19);
+    renderStepper(19, 19);
     const zoomIn = screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom in' });
     expect(zoomIn.getAttribute('aria-disabled')).toBe('true');
     expect(zoomIn.disabled).toBe(false);
@@ -92,7 +92,7 @@ describe('ZoomPill (#270)', () => {
   });
 
   it('marks zooming out at the floor disabled but keeps the button focusable (#271)', () => {
-    renderPill(2, 2);
+    renderStepper(2, 2);
     const zoomOut = screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom out' });
     expect(zoomOut.getAttribute('aria-disabled')).toBe('true');
     expect(zoomOut.disabled).toBe(false);
@@ -105,7 +105,7 @@ describe('ZoomPill (#270)', () => {
   });
 
   it('keeps both buttons live between the limits', () => {
-    renderPill(0, 15);
+    renderStepper(0, 15);
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom in' }).getAttribute(
         'aria-disabled',
@@ -119,26 +119,26 @@ describe('ZoomPill (#270)', () => {
   });
 
   it('routes a press at a limit through onStep so the caller can announce it (#271)', () => {
-    const { onStep } = renderPill(19, 19);
+    const { onStep } = renderStepper(19, 19);
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(onStep).toHaveBeenCalledWith(1);
   });
 
   it('speaks a refused step through the live region (#271)', () => {
-    const { container } = renderPill(19, 19, vi.fn(), 'Already zoomed all the way in');
+    const { container } = renderStepper(19, 19, vi.fn(), 'Already zoomed all the way in');
     const readout = container.querySelector('.map-zoom-level') as HTMLElement;
     expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
   });
 
   it('renders the bare stepper markup with no pill container (#272)', () => {
-    const { container } = renderPill(14, 14);
+    const { container } = renderStepper(14, 14);
     const stepper = container.querySelector('.map-zoom-stepper') as HTMLElement;
     expect(stepper.getAttribute('role')).toBe('group');
     expect(container.querySelector('.map-zoom-pill')).toBeNull();
   });
 });
 
-describe('ZoomPill style contract (#272)', () => {
+describe('ZoomStepper style contract (#272)', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const cssText = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
 

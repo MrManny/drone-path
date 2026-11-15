@@ -4,7 +4,7 @@ import type { RefObject } from 'react';
 
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';
-import { ZoomPill } from './ZoomPill.js';
+import { ZoomStepper } from './ZoomStepper.js';
 
 export interface MapStripProps {
   /** The scene writes the readout columns into this host; it stays mounted. */
@@ -25,7 +25,7 @@ export function MapStrip({ hudHostRef, layout, zoomControls, visibleZoom }: MapS
       {layout === 'split' && zoomControls ? (
         <div className="map-strip-zoom">
           <span className="label">Zoom</span>
-          <ZoomPill
+          <ZoomStepper
             zoom={zoomControls.zoom}
             visibleZoom={visibleZoom}
             style={zoomControls.style}

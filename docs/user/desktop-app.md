@@ -107,6 +107,10 @@ The **File → Map appearance…** menu item opens the *Map appearance* popover 
 
 Below the flight map in the split view sits one compact strip with three labeled columns: **Speed**, **Altitude** and **Zoom**. The columns are always there — a readout streams live values while its HUD chip is on and shows a dimmed **--** otherwise, including Altitude when the telemetry has none. The bare `−` and `+` buttons around the level step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the **Zoom** setting, so the stepper, the field and the export all show exactly that zoom level, and setting **Zoom** back to **0** restores auto-fit. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The Zoom column needs the split view: the PiP overlay keeps the readouts but no zoom controls.
 
+![The compact readout strip below the flight map: Speed and Altitude readouts beside the zoom stepper](../images/app-map-strip.jpg)
+
+*The compact strip below the flight map: labeled readouts beside the bare zoom stepper.*
+
 Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults. Opening a recording resets **Zoom** to auto-fit regardless of what was remembered.
 
 ![The map appearance panel with map style, view, zoom and HUD chips](../images/app-review-map-appearance.jpg)

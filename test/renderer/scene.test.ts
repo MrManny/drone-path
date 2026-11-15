@@ -292,6 +292,34 @@ describe('createScene', () => {
     expect(strip.querySelector('#chip-alt')?.className).toContain('map-readout-off');
   });
 
+  it('dims the placeholder when a live sample is missing (#272 review)', async () => {
+    const { host } = mount();
+    const strip = document.createElement('div');
+    document.body.appendChild(strip);
+    const { L } = fakeL(host);
+    const scene = createScene(host, sceneData(), { L, hudHost: strip });
+
+    // Chips on: frame 2 has no altitude sample, frame 0 no speed sample.
+    await applyFrame(scene, 2);
+    expect(strip.querySelector('#chip-alt .num')?.textContent).toBe('--');
+    expect(strip.querySelector('#chip-alt')?.className).toContain('map-readout-off');
+    expect(strip.querySelector('#chip-speed .num')?.textContent).toBe('3.1');
+    expect(strip.querySelector('#chip-speed')?.className).not.toContain('map-readout-off');
+
+    await applyFrame(scene, 0);
+    expect(strip.querySelector('#chip-speed .num')?.textContent).toBe('--');
+    expect(strip.querySelector('#chip-speed')?.className).toContain('map-readout-off');
+    expect(strip.querySelector('#chip-alt .num')?.textContent).toBe('10');
+    expect(strip.querySelector('#chip-alt')?.className).not.toContain('map-readout-off');
+
+    // A sample returning restores the undimmed live value.
+    await applyFrame(scene, 1);
+    expect(strip.querySelector('#chip-alt .num')?.textContent).toBe('11');
+    expect(strip.querySelector('#chip-alt')?.className).not.toContain('map-readout-off');
+    expect(strip.querySelector('#chip-speed .num')?.textContent).toBe('2.5');
+    expect(strip.querySelector('#chip-speed')?.className).not.toContain('map-readout-off');
+  });
+
   it('carries the full credit text in the attribution title', async () => {
     const { host } = mount();
     const { L } = fakeL(host);

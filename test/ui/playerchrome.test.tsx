@@ -563,7 +563,7 @@ describe('PlayerChrome map zoom (#270)', () => {
     return onSettingsChange;
   }
 
-  it('pins one zoom level per pill press', () => {
+  it('pins one zoom level per stepper press', () => {
     const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
@@ -580,14 +580,14 @@ describe('PlayerChrome map zoom (#270)', () => {
     });
   });
 
-  it('keeps the pill readout and the Zoom field in sync', () => {
+  it('keeps the stepper readout and the Zoom field in sync', () => {
     renderZoom({ ...SETTINGS, zoom: 14 });
     expect(screen.getByText('14')).toBeTruthy();
     clickMenuItem('Map appearance…');
     expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('14');
   });
 
-  it('reads auto in the pill while the Zoom field is auto-fit', () => {
+  it('reads auto in the stepper while the Zoom field is auto-fit', () => {
     renderZoom(SETTINGS);
     expect(screen.getByText('auto')).toBeTruthy();
     clickMenuItem('Map appearance…');
@@ -666,7 +666,7 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(readout.textContent).toBe('Zoom level 19');
   });
 
-  it('announces a refused pill press at the limit (#271)', () => {
+  it('announces a refused stepper press at the limit (#271)', () => {
     const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 19 });
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(onSettingsChange).not.toHaveBeenCalled();
@@ -674,7 +674,7 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
   });
 
-  it('refuses an out-of-range Zoom entry instead of desyncing the pill (#271)', () => {
+  it('refuses an out-of-range Zoom entry instead of desyncing the stepper (#271)', () => {
     const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
     clickMenuItem('Map appearance…');
     fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '25' } });
