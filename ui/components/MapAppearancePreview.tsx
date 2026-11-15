@@ -1,0 +1,60 @@
+'use client';
+
+import type { HudLayout } from '../../src/config.js';
+import type { SceneData } from '../../src/renderer/scene.js';
+import { useSceneIsland } from '../hooks/useSceneIsland.js';
+import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
+import { EXAMPLE_STATE_LABEL } from '../lib/exampleflight.js';
+import { HudChips } from './HudChips.js';
+import 'leaflet/dist/leaflet.css';
+
+export const RECORDING_STATE_LABEL = 'Recording — the preview shows your flight';
+
+interface MapAppearancePreviewProps {
+  data: SceneData;
+  frame: number;
+  /** Without a recording the preview draws the bundled example flight. */
+  isExample: boolean;
+  hud: HudLayout;
+  readouts: ChipReadouts;
+  altUnavailable: boolean;
+  onToggleChip: (chip: HudChipId) => void;
+}
+
+/** The export frame as a live preview: the map renderer draws it, the chips
+    over it double as the toggles for the on-frame readouts. */
+export function MapAppearancePreview({
+  data,
+  frame,
+  isExample,
+  hud,
+  readouts,
+  altUnavailable,
+  onToggleChip,
+}: MapAppearancePreviewProps) {
+  const hostRef = useSceneIsland({ data, frame });
+  return (
+    <div className="map-appearance-preview">
+      <div className="map-appearance-head">
+        <span className="map-appearance-state">
+          {isExample ? EXAMPLE_STATE_LABEL : RECORDING_STATE_LABEL}
+        </span>
+        <span className="map-appearance-dims">export frame · 16:9</span>
+      </div>
+      <div
+        className="map-appearance-frame"
+        style={{ aspectRatio: `${data.width} / ${data.height}` }}
+      >
+        <div className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />
+        <div className="preview-chips">
+          <HudChips
+            hud={hud}
+            readouts={readouts}
+            altUnavailable={altUnavailable}
+            onToggle={onToggleChip}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

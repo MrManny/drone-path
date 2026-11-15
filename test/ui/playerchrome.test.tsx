@@ -13,7 +13,7 @@ import { useDialogs } from '../../ui/hooks/useDialogs.js';
 import { START_PREPARE_PROGRESS } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 import { restyleMeta } from '../../ui/lib/restylemeta.js';
-import { SESSION, flushRaf, installRafStub } from './harness.js';
+import { SESSION, flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
 
 const fakeScene = vi.hoisted((): Scene => ({
   setFrame: vi.fn(() => Promise.resolve()),
@@ -27,6 +27,18 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
   const { delayedMapIslandMock } = await import('./harness.js');
   return delayedMapIslandMock(fakeScene);
 });
+
+vi.mock('../../src/renderer/boot.js', () => ({
+  bootScene: (): Scene => ({
+    setFrame: vi.fn(() => Promise.resolve()),
+    relayout: vi.fn(),
+    update: vi.fn(() => Promise.resolve()),
+    ready: Promise.resolve(),
+    dispose: vi.fn(),
+  }),
+}));
+
+vi.mock('leaflet', () => ({ default: {} }));
 
 vi.mock('../../ui/components/ExportPreview.js', async () => {
   const { stubExportPreviewMock } = await import('./harness.js');
@@ -50,6 +62,7 @@ function Chrome({
 beforeEach(() => {
   vi.clearAllMocks();
   installRafStub();
+  installResizeObserverStub();
 });
 
 afterEach(() => {
@@ -81,7 +94,11 @@ describe('PlayerChrome workspace structure', () => {
   it('keeps the menu, transport and timeline actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('File');
-    for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Map appearance…', 'Exit']) {
+    for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Exit']) {
+      expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
+    }
+    openMenu('View');
+    for (const name of ['Map appearance…', 'Toggle PiP']) {
       expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
     }
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
@@ -134,6 +151,7 @@ describe('PlayerChrome workspace structure', () => {
           modalOpen: false,
           helpOpen: false,
           aboutOpen: false,
+          mapAppearanceOpen: false,
           exportOpen: false,
           trackSaveOpen: false,
           updateOpen: false,
@@ -255,12 +273,13 @@ describe('PlayerChrome view swap', () => {
   });
 });
 
-describe('PlayerChrome map appearance popover', () => {
-  it('opens from the File menu and closes with Escape', () => {
+describe('PlayerChrome map appearance dialog', () => {
+  it('opens from the View menu and closes with Escape', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     clickMenuItem('Map appearance…');
-    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    const dialog = screen.getByRole('dialog', { name: 'Map appearance' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
     key(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
   });
@@ -272,10 +291,10 @@ describe('PlayerChrome map appearance popover', () => {
     clickMenuItem('Map appearance…');
     expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
     // Menu actions return focus to their menu's label, the home of the item.
-    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'File' }));
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'View' }));
   });
 
-  it('applies settings changes from the popover', () => {
+  it('applies settings changes from the dialog', () => {
     const onSettingsChange = vi.fn();
     render(
       <Chrome
@@ -286,7 +305,7 @@ describe('PlayerChrome map appearance popover', () => {
       />,
     );
     clickMenuItem('Map appearance…');
-    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));
     expect(onSettingsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ style: 'topo' }),
     );
@@ -354,7 +373,7 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Open…': 'File',
   'Export video…': 'File',
   'Export telemetry…': 'File',
-  'Map appearance…': 'File',
+  'Map appearance…': 'View',
   Exit: 'File',
   'Toggle PiP': 'View',
   'Help': 'Help',
@@ -580,18 +599,21 @@ describe('PlayerChrome map zoom (#270)', () => {
     });
   });
 
-  it('keeps the stepper readout and the Zoom field in sync', () => {
+  it('keeps the stepper readout and the zoom setting in sync', () => {
     renderZoom({ ...SETTINGS, zoom: 14 });
     expect(screen.getByText('14')).toBeTruthy();
     clickMenuItem('Map appearance…');
-    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('14');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom level').value).toBe('14');
   });
 
-  it('reads auto in the stepper while the Zoom field is auto-fit', () => {
+  it('reads auto in the stepper while the zoom is auto-fit', () => {
     renderZoom(SETTINGS);
     expect(screen.getByText('auto')).toBeTruthy();
     clickMenuItem('Map appearance…');
-    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('0');
+    expect(
+      (screen.getByRole<HTMLInputElement>('checkbox', { name: 'Auto-fit zoom' })).checked,
+    ).toBe(true);
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom level').disabled).toBe(true);
   });
 
   it('steps the zoom with the + and - keys and pins the level', () => {
@@ -626,7 +648,7 @@ describe('PlayerChrome map zoom (#270)', () => {
   it('keeps the zoom keys inert while typing in a field', () => {
     const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
     clickMenuItem('Map appearance…');
-    key(screen.getByLabelText('Zoom'), { key: '+' });
+    key(screen.getByLabelText('Intro zoom'), { key: '+' });
     expect(onSettingsChange).not.toHaveBeenCalled();
   });
 
@@ -674,25 +696,37 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
   });
 
-  it('refuses an out-of-range Zoom entry instead of desyncing the stepper (#271)', () => {
-    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+  it('keeps the zoom slider inside the usable range so the stepper cannot desync (#271)', () => {
+    renderZoom({ ...SETTINGS, zoom: 14 });
     clickMenuItem('Map appearance…');
-    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '25' } });
-    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
-    expect(onSettingsChange).not.toHaveBeenCalled();
-    expect(screen.getByText('14')).toBeTruthy();
+    const slider = screen.getByLabelText<HTMLInputElement>('Zoom level');
+    expect(slider.min).toBe('2');
+    expect(slider.max).toBe('19');
+    expect(slider.step).toBe('1');
   });
 
-  it('refuses a fractional Zoom entry with the same rule (#271)', () => {
-    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+  it('moves the stepper readout when the dialog sets the level (#271)', () => {
+    function ZoomChrome({ initial }: { initial: RenderConfig }) {
+      const [settings, setSettings] = useState(initial);
+      return (
+        <Chrome
+          session={SESSION}
+          settings={settings}
+          onSettingsChange={setSettings}
+          onOpen={() => {}}
+        />
+      );
+    }
+    render(<ZoomChrome initial={{ ...SETTINGS, zoom: 14 }} />);
+    const readout = () => document.querySelector('.map-zoom-level') as HTMLElement;
     clickMenuItem('Map appearance…');
-    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '14.5' } });
-    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
-    expect(onSettingsChange).not.toHaveBeenCalled();
-    expect(screen.getByText('14')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Zoom level'), { target: { value: '17' } });
+    expect(readout().textContent).toBe('Zoom level 17');
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(readout().textContent).toBe('Zoom level 18');
   });
 
-  it('drops a stale refusal reason when the Zoom field moves the level (#271)', () => {
+  it('drops a stale refusal reason when the dialog moves the level (#271)', () => {
     function ZoomChrome({ initial }: { initial: RenderConfig }) {
       const [settings, setSettings] = useState(initial);
       return (
@@ -710,11 +744,11 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(readout().textContent).toBe('Zoom level 19. Already zoomed all the way in');
 
     clickMenuItem('Map appearance…');
-    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '14' } });
+    fireEvent.change(screen.getByLabelText('Zoom level'), { target: { value: '14' } });
     expect(readout().textContent).toBe('Zoom level 14');
     expect(readout().textContent).not.toContain('Already zoomed');
 
-    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-fit zoom' }));
     expect(readout().textContent).toBe('Zoom level auto');
     expect(readout().textContent).not.toContain('Already zoomed');
   });
@@ -735,7 +769,7 @@ describe('PlayerChrome loop region', () => {
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
   });
 
-  it('closes the popover on Esc first and clears the loop on the second', async () => {
+  it('closes the dialog on Esc first and clears the loop on the second', async () => {
     await renderPlayer();
     setLoopRegion(30, 60);
     clickMenuItem('Map appearance…');
@@ -921,35 +955,36 @@ describe('PlayerChrome shortcut guard rails', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it('keeps player keys inert while typing in a popover field', async () => {
+  it('keeps player keys inert while typing in a dialog field', async () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
     clickMenuItem('Map appearance…');
-    const field = document.querySelector('input[type="number"]') as HTMLInputElement;
+    const field = screen.getByLabelText('Intro zoom');
     key(field, { key: '3' });
     key(field, { key: ' ' });
     expect(fake.state.playbackRate).toBe(1);
     expect(fake.play).not.toHaveBeenCalled();
     expect(onOpen).not.toHaveBeenCalled();
-    key(field, { key: 'o', ctrlKey: true });
-    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps player keys live while the popover is open', async () => {
-    const fake = await renderPlayer();
+  it('keeps player keys inert while the Map appearance dialog is open (#274)', async () => {
+    const onOpen = vi.fn();
+    const fake = await renderPlayer(onOpen);
     clickMenuItem('Map appearance…');
     key(window, { key: ' ' });
-    expect(fake.play).toHaveBeenCalledTimes(1);
+    key(window, { key: 'o', ctrlKey: true });
+    expect(fake.play).not.toHaveBeenCalled();
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it('leaves Esc on an open select dropdown to the select', async () => {
     await renderPlayer();
-    clickMenuItem('Map appearance…');
-    const select = document.querySelector('select') as HTMLSelectElement;
+    clickMenuItem('Export video…');
+    const select = screen.getByLabelText<HTMLSelectElement>('Codec');
     key(select, { key: 'Escape' });
-    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Export video' })).toBeTruthy();
     key(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
   });
 });
 

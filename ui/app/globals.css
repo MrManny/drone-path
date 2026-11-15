@@ -1018,67 +1018,339 @@ button.primary {
   background: var(--hairline);
 }
 
-/* The map appearance popover: a non-modal panel docked left of the map card,
-   over the video letterbox, so the map preview and the transport and loop
-   controls stay visible while adjusting. Below dialogs in the stacking order. */
-.map-popover {
-  position: fixed;
-  top: calc(var(--menu-h) + var(--header-h) + 8px);
-  right: calc(var(--rail-w) + 24px);
-  z-index: 1500;
-  width: 360px;
-  max-width: calc(100% - var(--rail-w) - 48px);
-  max-height: calc(100vh - var(--menu-h) - var(--header-h) - var(--transport-h) - var(--timeline-h) - 16px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  box-sizing: border-box;
-  padding: 16px;
-  background: var(--surface-1);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-float);
+/* Map appearance: a modal built around the live export-frame preview. The
+   preview and the opening & ending strip take the left column, the grouped
+   settings cards the right one, so every setting is visible at once. The
+   two-class selector outranks the shared dialog width recipe below. */
+.settings-panel.map-appearance-panel {
+  width: min(1180px, 100%);
 }
-/* Swap (PiP): dock left of the floating mini-map card instead of the rail. */
-.stage-overlay ~ .map-popover {
-  right: calc(18px + clamp(180px, 36%, 242px) + 8px);
-  max-width: calc(100% - clamp(180px, 36%, 242px) - 58px);
-}
-/* Narrow panel: rows wrap instead of scrolling sideways. */
-.map-popover .settings-row {
-  flex-wrap: wrap;
-}
-.map-popover .settings-row .hint {
-  white-space: normal;
-}
-.map-popover-header {
-  display: flex;
-  align-items: center;
+.map-appearance-panel .dialog-actions {
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.map-popover-header h2 {
-  margin: 0;
-  font-size: 18px;
+  margin-top: 12px;
 }
 .map-appearance-desc {
   margin: 0 0 8px;
   line-height: 1.5;
   color: var(--text-2);
 }
-.popover-note {
+.map-appearance-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+.map-appearance-main {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
+  gap: 12px;
+  min-width: 0;
+}
+.map-appearance-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.group-label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.map-appearance-frame {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+}
+.map-appearance-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.map-appearance-state {
+  color: var(--text-2);
+}
+.map-appearance-dims {
+  color: var(--text-3);
+}
+/* The chip row over the preview: the chips double as the toggles and sit
+   clear of the renderer's scale bar in the same corner. */
+.preview-chips {
+  position: absolute;
+  left: 12px;
+  bottom: 36px;
+  z-index: 1300;
+}
+.hud-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hud-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: rgba(14, 19, 28, 0.9);
+  border: 1px solid var(--hairline-strong);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.hud-chip .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--accent-text);
+}
+.hud-chip .unit {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.72;
+}
+.hud-chip .chip-arrow {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--accent-text);
+}
+.hud-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+.hud-chip[aria-pressed='false'] {
+  opacity: 0.55;
+}
+.hud-chip[aria-pressed='false'] .label {
+  color: var(--text-3);
+}
+/* Map style: two thumbnail tiles, selected by an accent frame plus label. */
+.map-style-tiles {
+  display: flex;
+  gap: 12px;
+}
+.map-style-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  background: none;
+  border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-control);
 }
-.popover-note span {
+.map-style-thumb {
+  display: block;
+  width: 112px;
+  height: 63px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--hairline);
+}
+.map-style-label {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.map-style-tile[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.map-style-tile[aria-pressed='true'] .map-style-label {
+  color: var(--accent-text);
+}
+/* Trail color: a swatch row; the style default wears a hatched dot so it
+   stays distinct from the Coral preset. */
+.trail-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+.trail-swatch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+.trail-swatch-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline-strong);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.trail-swatch-dot.style-default {
+  background: repeating-conic-gradient(var(--surface-3) 0% 25%, var(--surface-4) 0% 50%) 0 0 /
+    10px 10px;
+}
+.trail-swatch-label {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.trail-swatch[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+.trail-swatch[aria-pressed='true'] .trail-swatch-label {
+  color: var(--accent-text);
+}
+.trail-swatch-custom {
+  flex-direction: row;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-2);
+}
+/* Camera: a switch and two sliders with their readouts beside them. */
+.toggle-row {
+  cursor: pointer;
+}
+.toggle-row input.toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--hairline-strong);
+  cursor: pointer;
+}
+.toggle-row input.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform var(--motion) var(--ease);
+}
+.toggle-row input.toggle:checked {
+  background: var(--accent);
+  border-color: transparent;
+}
+.toggle-row input.toggle:checked::after {
+  background: var(--accent-ink);
+  transform: translateX(16px);
+}
+.settings-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.settings-row input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+.settings-row input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.settings-row input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+.settings-row input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.settings-row input[type='range']:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+.range-readout {
+  flex: none;
+  min-width: 92px;
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.field-unit {
+  flex: none;
   font-size: 13px;
   color: var(--text-3);
+}
+/* Opening & ending: the structure bar's segments resize with the steppers and
+   also pick which end of the flight the preview shows. */
+.opening-ending {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.structure-bar {
+  display: flex;
+  gap: 4px;
+  height: 32px;
+}
+.structure-seg {
+  flex-basis: 0;
+  min-width: 52px;
+  height: 100%;
+  padding: 0 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.structure-seg-flight {
+  background: var(--surface-3);
+}
+.structure-seg[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.opening-ending-steppers {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.opening-ending-steppers .settings-row {
+  flex: none;
+  min-height: 0;
+}
+.opening-ending-steppers .settings-label {
+  width: auto;
+}
+.opening-ending-steppers .hint {
+  flex: 1;
+  text-align: center;
+}
+@media (max-width: 1100px) {
+  .map-appearance-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Dialogs share one anchor: the top edge stays fixed as the phase changes. */

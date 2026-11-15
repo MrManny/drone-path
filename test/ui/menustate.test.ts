@@ -86,8 +86,8 @@ describe('reduceMenu keyboard navigation', () => {
   it('walks the rows with ArrowDown and wraps', () => {
     const downs = (count: number): MenuEvent[] =>
       Array.from({ length: count }, () => ({ type: 'keyDown', key: 'ArrowDown' }) as const);
-    expect(run(downs(5), LOADED, opened).state.active).toBe(4);
-    expect(run(downs(6), LOADED, opened).state.active).toBe(0);
+    expect(run(downs(4), LOADED, opened).state.active).toBe(3);
+    expect(run(downs(5), LOADED, opened).state.active).toBe(0);
   });
 
   it('walks upwards from the end and wraps', () => {
@@ -99,7 +99,7 @@ describe('reduceMenu keyboard navigation', () => {
       LOADED,
       opened,
     );
-    expect(state.active).toBe(3);
+    expect(state.active).toBe(2);
   });
 
   it('switches menus with the arrow keys, preselecting the first row', () => {

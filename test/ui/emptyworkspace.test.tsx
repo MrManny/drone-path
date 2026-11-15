@@ -1,25 +1,44 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Scene } from '../../src/renderer/scene.js';
 import { EmptyWorkspace } from '../../ui/components/EmptyWorkspace.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import type { Dialogs } from '../../ui/hooks/useDialogs.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
+import { installResizeObserverStub } from './harness.js';
 
 vi.mock('../../ui/components/MapIsland.js', async () => {
   const { createFakeScene, immediateMapIslandMock } = await import('./harness.js');
   return immediateMapIslandMock(createFakeScene());
 });
 
-afterEach(cleanup);
+vi.mock('../../src/renderer/boot.js', async () => {
+  const { createFakeScene } = await import('./harness.js');
+  return {
+    bootScene: (): Scene => createFakeScene(),
+  };
+});
+
+vi.mock('leaflet', () => ({ default: {} }));
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  installResizeObserverStub();
+});
 
 function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
   return {
     modalOpen: false,
     helpOpen: false,
     aboutOpen: false,
+    mapAppearanceOpen: false,
     exportOpen: false,
     trackSaveOpen: false,
     updateOpen: false,
@@ -99,9 +118,6 @@ describe('EmptyWorkspace skeleton', () => {
         'true',
       );
     }
-    expect(
-      within(menu()).getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
-    ).toBeNull();
     expect(within(menu()).getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
   });
 
@@ -125,11 +141,10 @@ describe('EmptyWorkspace skeleton', () => {
 
   it('keeps Map appearance and Help live while Toggle PiP stays disabled', () => {
     const { onHelp, onExit } = renderWorkspace();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
       within(menu()).getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
     ).toBeNull();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
       within(menu()).getByRole('menuitem', { name: 'Toggle PiP' }).getAttribute('aria-disabled'),
     ).toBe('true');
@@ -220,31 +235,52 @@ describe('EmptyWorkspace open states', () => {
 
 describe('EmptyWorkspace map appearance', () => {
   function openMapAppearance() {
-    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Map appearance…' }));
   }
 
-  it('opens the popover with no recording loaded (#236)', () => {
-    renderWorkspace();
+  it('asks for the Map appearance dialog from the View menu with no recording loaded (#236)', () => {
+    const { dialogs } = renderWorkspace();
     openMapAppearance();
-    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
-    expect(screen.getByText('No recording is loaded, so the ALT chip stays off.')).toBeTruthy();
+    expect(dialogs.dispatchDialog).toHaveBeenCalledWith({ type: 'openMapAppearance' });
+  });
+
+  it('opens the modal with the example flight and live chips (#274)', () => {
+    renderWorkspace(
+      { kind: 'idle' },
+      fakeDialogs({ mapAppearanceOpen: true, modalOpen: true }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Map appearance' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(
+      screen.getByText('Example flight — open a recording to preview yours'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/No recording is loaded/)).toBeNull();
+    const alt = [...document.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('ALT'),
+    ) as HTMLButtonElement;
+    expect(alt.disabled).toBe(false);
   });
 
   it('applies map look changes with no recording loaded', () => {
-    const { onSettingsChange } = renderWorkspace();
-    openMapAppearance();
-    fireEvent.change(screen.getByLabelText('Map style'), { target: { value: 'topo' } });
+    const onSettingsChange = vi.fn();
+    renderWorkspace(
+      { kind: 'idle' },
+      fakeDialogs({ mapAppearanceOpen: true, modalOpen: true }),
+      onSettingsChange,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));
     expect(onSettingsChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ style: 'topo' }),
     );
   });
 
-  it('closes with Escape without dispatching a dialog close', () => {
-    const { dialogs } = renderWorkspace();
-    openMapAppearance();
+  it('closes with Escape through the dialog state machine', () => {
+    const { dialogs } = renderWorkspace(
+      { kind: 'idle' },
+      fakeDialogs({ mapAppearanceOpen: true, modalOpen: true }),
+    );
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Map appearance' })).toBeNull();
-    expect(dialogs.dispatchDialog).not.toHaveBeenCalled();
+    expect(dialogs.dispatchDialog).toHaveBeenCalledWith({ type: 'close' });
   });
 });

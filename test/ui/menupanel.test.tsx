@@ -44,13 +44,7 @@ describe('MenuPanel', () => {
     renderPanel();
     const panel = screen.getByRole('menu', { name: 'File' });
     const rows = [...panel.querySelectorAll('.menu-row')].map((row) => row.textContent);
-    expect(rows).toEqual([
-      'Open…Ctrl+O',
-      'Export video…',
-      'Export telemetry…',
-      'Map appearance…',
-      'Exit',
-    ]);
+    expect(rows).toEqual(['Open…Ctrl+O', 'Export video…', 'Export telemetry…', 'Exit']);
     const order = [...panel.querySelectorAll('.menu-row, .menu-separator')].map((el) =>
       el.classList.contains('menu-separator') ? '—' : (el.textContent ?? ''),
     );
@@ -58,8 +52,6 @@ describe('MenuPanel', () => {
       'Open…Ctrl+O',
       'Export video…',
       'Export telemetry…',
-      '—',
-      'Map appearance…',
       '—',
       'Exit',
     ]);
@@ -78,7 +70,6 @@ describe('MenuPanel', () => {
       'Open…Ctrl+O': false,
       'Export video…': true,
       'Export telemetry…': true,
-      'Map appearance…': false,
       Exit: false,
     });
   });
