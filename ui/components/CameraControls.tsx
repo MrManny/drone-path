@@ -40,7 +40,7 @@ export function CameraControls({
   const paddingMax = Math.max(10, framePadding);
 
   return (
-    <div className="camera-controls">
+    <div>
       <div className="settings-row">
         <span className="settings-label">View</span>
         <div className="segmented" role="group" aria-label="View">

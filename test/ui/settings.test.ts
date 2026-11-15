@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import { patchConfig, setHudChip } from '../../ui/lib/settings.js';
+import { ODD_DIMENSIONS } from '../fixtures.js';
 
 describe('patchConfig', () => {
   it('applies a valid patch', () => {
@@ -22,9 +23,9 @@ describe('patchConfig', () => {
   });
 
   it('normalizes odd dimensions to the effective even canvas', () => {
-    const next = patchConfig(DEFAULT_CONFIG, { width: 641, height: 501 });
-    expect(next?.width).toBe(640);
-    expect(next?.height).toBe(500);
+    const next = patchConfig(DEFAULT_CONFIG, { ...ODD_DIMENSIONS.input });
+    expect(next?.width).toBe(ODD_DIMENSIONS.even.width);
+    expect(next?.height).toBe(ODD_DIMENSIONS.even.height);
   });
 });
 

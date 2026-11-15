@@ -114,14 +114,14 @@ describe('formatLoopReadout', () => {
       want: 'in 0:10 · out 0:12',
     },
     {
-      name: 'a lone in point reads the clip end as its out',
+      name: 'a lone in point reads the clip end as its out (#245)',
       loop: { in: 300, out: null },
       fps: 30,
       maxFrame: 599,
       want: 'in 0:10 · out 0:20',
     },
     {
-      name: 'a lone out point reads the clip start as its in',
+      name: 'a lone out point reads the clip start as its in (#245)',
       loop: { in: null, out: 360 },
       fps: 30,
       maxFrame: 599,
@@ -143,11 +143,6 @@ describe('formatLoopReadout', () => {
     },
   ])('$name', ({ loop, fps, maxFrame, want }) => {
     expect(formatLoopReadout(loop, fps, maxFrame)).toBe(want);
-  });
-
-  it('reads a lone point to the clip boundary (#245)', () => {
-    expect(formatLoopReadout({ in: 300, out: null }, 30, 599)).toBe('in 0:10 · out 0:20');
-    expect(formatLoopReadout({ in: null, out: 360 }, 30, 599)).toBe('in 0:00 · out 0:12');
   });
 });
 

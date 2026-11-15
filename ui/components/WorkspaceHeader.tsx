@@ -11,7 +11,7 @@ export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
   return (
     <header className="workspace-header">
       <div className="brand">
-        <span className="brand-name">drone</span>
+        <span>drone</span>
         <span className="brand-light"> / path</span>
       </div>
       <div className="header-divider" />

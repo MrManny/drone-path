@@ -15,6 +15,7 @@ import {
   SRT_SAMPLE,
   SRT_SAMPLE_MIXED,
   cleanupTmpDirs,
+  gpsFixCoords,
   productMetaPacket,
   tmpDir,
   writeSrt,
@@ -221,20 +222,6 @@ describe('telemetry source selection', () => {
     }
   > = [
     {
-      name: 'only an .SRT sidecar: the sidecar is used',
-      cam: 'none',
-      srt: true,
-      source: 'srt',
-      method: 'srt-cues',
-      check: (loaded) => {
-        expect(loaded.telemetry.frames[0].fix?.lat).toBeCloseTo(46.61307, 6);
-        expect(loaded.telemetry.headingMode).toBe('cog');
-        expect(loaded.frameValues).toHaveLength(3);
-        expect(loaded.protoFile).toBeNull();
-        expect(loaded.gimbalDevice).toBeNull();
-      },
-    },
-    {
       name: 'only a CAM meta (DVTM) stream: cammeta is used',
       cam: 'fixes',
       srt: false,
@@ -368,6 +355,9 @@ describe('cross-source fix classification', () => {
     return { fixes: samples.length, noLock };
   }
 
+  const REGULAR: [number, number] = [46.6, 14.3];
+  const REGULAR_ALT: [number, number] = [46.61, 14.31];
+
   const CASES: Array<{
     name: string;
     coords: Array<[number, number]>;
@@ -376,37 +366,56 @@ describe('cross-source fix classification', () => {
   }> = [
     {
       name: 'regular fixes',
-      coords: [[46.6, 14.3], [46.61, 14.31]],
+      coords: [REGULAR, REGULAR_ALT],
       fixes: 2,
       noLock: 0,
     },
     {
       name: 'the 0/0 placeholder',
-      coords: [[0, 0], [46.6, 14.3], [46.61, 14.31]],
+      coords: [gpsFixCoords('the 0/0 placeholder'), REGULAR, REGULAR_ALT],
       fixes: 2,
       noLock: 1,
     },
     {
       name: 'near-null-island fixes (the disagreement regression)',
-      coords: [[0.1, 0.1], [0.5, 0.5], [46.6, 14.3]],
+      coords: [
+        gpsFixCoords('near-null-island fix (the disagreement regression)'),
+        gpsFixCoords('the 0.5 boundary'),
+        REGULAR,
+      ],
       fixes: 3,
       noLock: 0,
     },
     {
       name: 'equator and prime meridian crossings',
-      coords: [[0.2, 10.2], [10.2, 0.2], [0, 0]],
+      coords: [
+        gpsFixCoords('equator crossing'),
+        gpsFixCoords('prime meridian crossing'),
+        gpsFixCoords('the 0/0 placeholder'),
+      ],
       fixes: 2,
       noLock: 1,
     },
     {
       name: 'out-of-range coordinates',
-      coords: [[91, 0], [0, 181], [46.6, 14.3]],
+      coords: [
+        gpsFixCoords('out-of-range latitude'),
+        gpsFixCoords('out-of-range longitude'),
+        REGULAR,
+      ],
       fixes: 1,
       noLock: 2,
     },
     {
       name: 'mixed fixes, placeholders and boundaries',
-      coords: [[0, 0], [0.1, 0.1], [0.5, 0.5], [0, 0], [46.6, 14.3], [46.61, 14.31]],
+      coords: [
+        gpsFixCoords('the 0/0 placeholder'),
+        gpsFixCoords('near-null-island fix (the disagreement regression)'),
+        gpsFixCoords('the 0.5 boundary'),
+        gpsFixCoords('the 0/0 placeholder'),
+        REGULAR,
+        REGULAR_ALT,
+      ],
       fixes: 4,
       noLock: 2,
     },

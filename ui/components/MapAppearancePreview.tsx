@@ -8,7 +8,7 @@ import { EXAMPLE_STATE_LABEL } from '../lib/exampleflight.js';
 import { HudChips } from './HudChips.js';
 import 'leaflet/dist/leaflet.css';
 
-export const RECORDING_STATE_LABEL = 'Recording — the preview shows your flight';
+const RECORDING_STATE_LABEL = 'Recording — the preview shows your flight';
 
 interface MapAppearancePreviewProps {
   data: SceneData;
@@ -34,7 +34,7 @@ export function MapAppearancePreview({
 }: MapAppearancePreviewProps) {
   const hostRef = useSceneIsland({ data, frame });
   return (
-    <div className="map-appearance-preview">
+    <div>
       <div className="map-appearance-head">
         <span className="map-appearance-state">
           {isExample ? EXAMPLE_STATE_LABEL : RECORDING_STATE_LABEL}

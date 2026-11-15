@@ -2,6 +2,7 @@
 
 import { MAP_STYLE_VALUES } from '../../src/config.js';
 import type { MapStyle } from '../../src/config.js';
+import { TILE_CREDITS } from '../../src/renderer/tilesources.js';
 import { STYLE_LABELS } from '../lib/settings.js';
 import satelliteThumb from '../assets/map-style/satellite.jpg';
 import topoThumb from '../assets/map-style/topo.jpg';
@@ -24,15 +25,10 @@ const THUMBS: Record<MapStyle, Thumb> = {
   topo: topoThumb,
 };
 
-// The thumbnails are crops of real tiles, so they carry the tile credits.
-const THUMB_CREDIT =
-  'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community · ' +
-  '© OpenStreetMap contributors, SRTM · Style © OpenTopoMap (CC-BY-SA)';
-
 /** Map style as two thumbnail tiles instead of a dropdown. */
 export function MapStyleTiles({ value, onChange }: MapStyleTilesProps) {
   return (
-    <div className="map-style-group">
+    <div>
       <div className="map-style-tiles" role="group" aria-label="Map style">
         {MAP_STYLE_VALUES.map((style) => (
           <button
@@ -48,7 +44,7 @@ export function MapStyleTiles({ value, onChange }: MapStyleTilesProps) {
           </button>
         ))}
       </div>
-      <p className="hint">{THUMB_CREDIT}</p>
+      <p className="hint">{TILE_CREDITS}</p>
     </div>
   );
 }

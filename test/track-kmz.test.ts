@@ -37,10 +37,6 @@ describe('kmzBytes', () => {
     expect(kmzBytes(kml).toString('hex')).toBe(TRACK_KMZ_GOLDEN_HEX);
   });
 
-  it('is deterministic', () => {
-    expect(kmzBytes(kml).equals(kmzBytes(kml))).toBe(true);
-  });
-
   it('wraps one stored doc.kml entry with fixed 1980-01-01 timestamps', () => {
     const bytes = kmzBytes(kml);
     const entry = parseSingleStoredEntry(bytes);

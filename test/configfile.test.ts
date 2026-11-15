@@ -11,7 +11,7 @@ import {
   resolveConfig,
 } from '../src/configfile.js';
 import { DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { ODD_DIMENSIONS, cleanupTmpDirs, tmpDir } from './fixtures.js';
 
 afterEach(cleanupTmpDirs);
 
@@ -202,12 +202,12 @@ describe('resolveConfig', () => {
     const file = path.join(root, '.dronepath.json');
     fs.writeFileSync(file, '{}');
     const { config } = resolveConfig({
-      cli: { width: 767, height: 501 },
+      cli: { ...ODD_DIMENSIONS.input },
       configPath: file,
       cwd: root,
     });
-    expect(config.width).toBe(766);
-    expect(config.height).toBe(500);
+    expect(config.width).toBe(ODD_DIMENSIONS.even.width);
+    expect(config.height).toBe(ODD_DIMENSIONS.even.height);
   });
 
   it('keeps hud state private to each resolved config', () => {

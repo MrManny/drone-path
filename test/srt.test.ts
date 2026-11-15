@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseSrtText } from '../src/srt.js';
-import { SRT_SAMPLE } from './fixtures.js';
+import { GPS_FIX_CASES, SRT_SAMPLE } from './fixtures.js';
 
 describe('parseSrtText', () => {
   const r = parseSrtText(SRT_SAMPLE);
@@ -99,21 +99,13 @@ function cueText(lat: number, lon: number): string {
 }
 
 describe('cue fix classification', () => {
-  it.for([
-    { name: 'regular fix', lat: 46.61307, lon: 14.262388, fix: true },
-    { name: 'prime meridian crossing', lat: 10.2, lon: 0.2, fix: true },
-    { name: 'equator crossing', lat: 0.2, lon: 10.2, fix: true },
-    {
-      name: 'near-null-island fix (the disagreement regression)',
-      lat: 0.1,
-      lon: 0.1,
-      fix: true,
-    },
-    { name: 'the 0.5 boundary', lat: 0.5, lon: 0.5, fix: true },
-    { name: 'the 0/0 placeholder', lat: 0, lon: 0, fix: false },
-    { name: 'out-of-range latitude', lat: 91, lon: 0, fix: false },
-    { name: 'out-of-range longitude', lat: 0, lon: 181, fix: false },
-  ])('$name -> fix:$fix', ({ lat, lon, fix }) => {
+  // cues carry coordinates as decimal text, so the -0/NaN/Infinity rows stay out
+  it.for(
+    GPS_FIX_CASES.filter(
+      ({ coords: [lat, lon] }) =>
+        Number.isFinite(lat) && Number.isFinite(lon) && !Object.is(lat, -0) && !Object.is(lon, -0),
+    ),
+  )('$name -> fix:$fix', ({ coords: [lat, lon], fix }) => {
     const r = parseSrtText(cueText(lat, lon));
     expect(r.noLock).toBe(fix ? 0 : 1);
     expect(r.cues[0].fix !== null).toBe(fix);

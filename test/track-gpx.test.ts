@@ -10,11 +10,6 @@ describe('serializeGpx', () => {
     expect(serializeGpx(buildTrack(TRACK_ROWS))).toBe(TRACK_GPX_GOLDEN);
   });
 
-  it('is deterministic', () => {
-    const track = buildTrack(TRACK_ROWS);
-    expect(serializeGpx(track)).toBe(serializeGpx(track));
-  });
-
   it('writes a <time> only for a vertex that carries trustworthy UTC', () => {
     const segment: TrackSegment = [
       {
@@ -31,8 +26,9 @@ describe('serializeGpx', () => {
   });
 
   it('writes one <trkseg> per segment', () => {
-    expect(TRACK_GPX_GOLDEN.match(/<trkseg>/g)).toHaveLength(2);
-    expect(TRACK_GPX_GOLDEN.match(/<\/trkseg>/g)).toHaveLength(2);
+    const gpx = serializeGpx(buildTrack(TRACK_ROWS));
+    expect(gpx.match(/<trkseg>/g)).toHaveLength(2);
+    expect(gpx.match(/<\/trkseg>/g)).toHaveLength(2);
   });
 
   it('writes an empty track as a track without segments', () => {

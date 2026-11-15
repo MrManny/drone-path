@@ -14,7 +14,7 @@ export function AboutDialog({ content, onClose }: AboutDialogProps) {
     <DialogShell title="About" onClose={onClose} panelClass="about-panel">
       <div className="about-body">
         <div className="brand">
-          <span className="brand-name">drone</span>
+          <span>drone</span>
           <span className="brand-light"> / path</span>
         </div>
         <p className="about-version">{content.versionLine}</p>

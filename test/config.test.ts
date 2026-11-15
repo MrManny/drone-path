@@ -6,6 +6,7 @@ import {
   OVERRIDE_NORMALIZERS,
   SETTINGS_KEYS,
   TELEMETRY_JSON_ALIAS,
+  appearanceOf,
   asTrailColor,
   cliDefaultOf,
   formatHud,
@@ -19,6 +20,7 @@ import {
   resolveHudLayout,
   validateRenderConfig,
 } from '../src/config.js';
+import { ODD_DIMENSIONS } from './fixtures.js';
 
 describe('normalizeDimensions', () => {
   it.each([
@@ -31,6 +33,23 @@ describe('normalizeDimensions', () => {
       width: wantWidth,
       height: wantHeight,
     });
+  });
+});
+
+describe('appearanceOf', () => {
+  it('projects the look keys and keeps hud private to each projection', () => {
+    const look = appearanceOf(DEFAULT_CONFIG);
+    expect(look).toEqual({
+      style: DEFAULT_CONFIG.style,
+      view: DEFAULT_CONFIG.view,
+      zoom: DEFAULT_CONFIG.zoom,
+      zoomOut: DEFAULT_CONFIG.zoomOut,
+      hud: DEFAULT_CONFIG.hud,
+      introSec: DEFAULT_CONFIG.introSec,
+      outroSec: DEFAULT_CONFIG.outroSec,
+      trailColor: DEFAULT_CONFIG.trailColor,
+    });
+    expect(look.hud).not.toBe(DEFAULT_CONFIG.hud);
   });
 });
 
@@ -368,11 +387,11 @@ describe('parseExportRequest', () => {
 
   it('normalizes odd dimensions to the effective even canvas', () => {
     const request = parseExportRequest(
-      { outPath: '/x/a.mp4', config: { width: 641, height: 767 } },
+      { outPath: '/x/a.mp4', config: { ...ODD_DIMENSIONS.input } },
       base,
     );
-    expect(request.config.width).toBe(640);
-    expect(request.config.height).toBe(766);
+    expect(request.config.width).toBe(ODD_DIMENSIONS.even.width);
+    expect(request.config.height).toBe(ODD_DIMENSIONS.even.height);
   });
 
   it.each([

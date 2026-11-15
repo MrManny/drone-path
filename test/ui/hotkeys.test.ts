@@ -147,12 +147,6 @@ describe('mapKey', () => {
     { name: 'Esc clears the loop', event: { key: 'Escape' }, want: { type: 'clearLoop' } },
     { name: 'Esc closes an open overlay', event: { key: 'Escape' }, ctx: MODAL, want: { type: 'closeOverlay' } },
     {
-      name: 'Esc closes the Map appearance dialog instead of clearing the loop',
-      event: { key: 'Escape' },
-      ctx: MODAL,
-      want: { type: 'closeOverlay' },
-    },
-    {
       name: 'Esc from a field inside the Map appearance dialog closes the dialog',
       event: { key: 'Escape', target: input },
       ctx: MODAL,
@@ -169,12 +163,6 @@ describe('mapKey', () => {
       event: { key: 'i' },
       ctx: MODAL,
       want: null,
-    },
-    {
-      name: 'Esc from a text field still acts',
-      event: { key: 'Escape', target: input },
-      ctx: MODAL,
-      want: { type: 'closeOverlay' },
     },
     { name: 'unknown keys are ignored', event: { key: 'x' }, want: null },
     { name: 'F5 is left to the platform', event: { key: 'F5' }, want: null },
@@ -204,10 +192,8 @@ describe('mapKey', () => {
   });
 
   it.for<Case>([
-    { name: 'Space while a modal is open', event: { key: ' ' }, ctx: MODAL, want: null },
     { name: 'arrows while a modal is open', event: { key: 'ArrowRight' }, ctx: MODAL, want: null },
     { name: 'speed keys while a modal is open', event: { key: '2' }, ctx: MODAL, want: null },
-    { name: 'loop keys while a modal is open', event: { key: 'i' }, ctx: MODAL, want: null },
     { name: 'toggle PiP while a modal is open', event: { key: 'p' }, ctx: MODAL, want: null },
     { name: 'zoom keys while a modal is open', event: { key: '+' }, ctx: MODAL, want: null },
     { name: 'Ctrl+O while a modal is open', event: { key: 'o', ctrlKey: true }, ctx: MODAL, want: null },

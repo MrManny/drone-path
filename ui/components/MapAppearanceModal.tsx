@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import { hasAltitude } from '../../src/config.js';
+import { appearanceOf, hasAltitude } from '../../src/config.js';
 import type { ConfigOverrides, RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import type { HudChipId } from '../lib/chipreadouts.js';
@@ -37,10 +37,7 @@ interface MapAppearanceModalProps {
 export function MapAppearanceModal({ session, config, onChange, onClose }: MapAppearanceModalProps) {
   const [segment, setSegment] = useState<PreviewSegment>('flight');
 
-  const appearance = useMemo(() => {
-    const { style, view, zoom, zoomOut, introSec, outroSec, trailColor, hud } = config;
-    return { style, view, zoom, zoomOut, introSec, outroSec, trailColor, hud };
-  }, [config]);
+  const appearance = useMemo(() => appearanceOf(config), [config]);
 
   const preview = useMemo(() => {
     const base = session === null ? EXAMPLE_FLIGHT.baseScene : session.scene;

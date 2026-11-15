@@ -12,8 +12,14 @@ export interface CompiledPage {
   refs: CompiledRefs;
 }
 
+/** Angle brackets only — for help text that carries no entities (the CLI
+    reference renders these as literal angle brackets). */
+export function escapeAngleBrackets(value: string): string {
+  return value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escapeAngleBrackets(value.replace(/&/g, '&amp;'));
 }
 
 function escapeAttr(value: string): string {
