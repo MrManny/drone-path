@@ -3,12 +3,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import { hasAltitude } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import { restyleMeta } from '../lib/restylemeta.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
-import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import { useTrackSave } from '../hooks/useTrackSave.js';
@@ -16,15 +14,13 @@ import type { StageLayout } from '../lib/layout.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import { stepPinnedZoom } from '../lib/mapzoom.js';
 import type { MenuItemId } from '../lib/menumodel.js';
-import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
 import { trackScope } from '../lib/tracksave.js';
 import { ExportHost } from './ExportHost.js';
+import { MapAppearanceModal } from './MapAppearanceModal.js';
 import { MenuBar } from './MenuBar.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
-import { Popover } from './Popover.js';
-import { SettingsPanel } from './SettingsPanel.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TrackSaveModal } from './TrackSaveModal.js';
 import { TransportBar } from './TransportBar.js';
@@ -75,22 +71,16 @@ export function PlayerChrome({
     timeRef,
     playheadRef,
   } = usePlayback(video, durationSec);
-  const { modalOpen, exportOpen, trackSaveOpen, dismissible, dispatchDialog } = dialogs;
+  const { modalOpen, mapAppearanceOpen, exportOpen, trackSaveOpen, dismissible, dispatchDialog } =
+    dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
   const [menuOpen, setMenuOpen] = useState(false);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
-  const {
-    open: mapAppearanceOpen,
-    toggle: toggleMapAppearance,
-    close: closeMapAppearance,
-    triggerRef: appearanceButtonRef,
-  } = useMapAppearance();
+  const toggleMapAppearance = useCallback(() => {
+    dispatchDialog({ type: mapAppearanceOpen ? 'close' : 'openMapAppearance' });
+  }, [mapAppearanceOpen, dispatchDialog]);
 
-  const closeOverlay = useCallback(() => {
-    const target = closeOverlayTarget({ modalOpen, popoverOpen: mapAppearanceOpen });
-    if (target === 'modal') dispatchDialog({ type: 'close' });
-    else if (target === 'popover') closeMapAppearance();
-  }, [modalOpen, mapAppearanceOpen, dispatchDialog, closeMapAppearance]);
+  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
   const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
   const sceneData = useMemo(
@@ -141,7 +131,7 @@ export function PlayerChrome({
       closeOverlay,
       zoomStep: stepZoom,
     },
-    { modalOpen, popoverOpen: mapAppearanceOpen, menuOpen, fps: video.fps, frames: video.frames },
+    { modalOpen, menuOpen, fps: video.fps, frames: video.frames },
   );
 
   const maxFrame = Math.max(0, video.frames - 1);
@@ -180,7 +170,6 @@ export function PlayerChrome({
         itemTitles={{ exportTelemetry: `Export telemetry for the ${scope}` }}
         onActivate={(item) => menuActions[item]()}
         onMenuOpenChange={setMenuOpen}
-        barRef={appearanceButtonRef}
       />
       <WorkspaceHeader durationSec={durationSec} />
       <PlayerStage
@@ -216,14 +205,12 @@ export function PlayerChrome({
         src={video.src}
       />
       {mapAppearanceOpen ? (
-        <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
-          <SettingsPanel
-            config={settings}
-            hasRecording
-            hasAltitude={hasAltitude(session.scene.alt)}
-            onChange={onSettingsChange}
-          />
-        </Popover>
+        <MapAppearanceModal
+          session={session}
+          config={settings}
+          onChange={onSettingsChange}
+          onClose={() => dispatchDialog({ type: 'close' })}
+        />
       ) : null}
       <ExportHost
         session={session}

@@ -7,6 +7,7 @@ const STATES: DialogState[] = [
   'closed',
   'help',
   'about',
+  'map-appearance',
   'export-form',
   'export-running',
   'track-save',
@@ -17,6 +18,7 @@ const STATES: DialogState[] = [
 const EVENTS: DialogEvent[] = [
   { type: 'openHelp' },
   { type: 'openAbout' },
+  { type: 'openMapAppearance' },
   { type: 'openExport' },
   { type: 'openTrackSave' },
   { type: 'runStarted' },
@@ -39,6 +41,8 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
       return pinned(state) ? state : 'help';
     case 'openAbout':
       return pinned(state) ? state : 'about';
+    case 'openMapAppearance':
+      return pinned(state) ? state : 'map-appearance';
     case 'openExport':
       return pinned(state) ? state : 'export-form';
     case 'openTrackSave':
@@ -76,6 +80,7 @@ describe.each<DialogState>([
   'closed',
   'help',
   'about',
+  'map-appearance',
   'export-form',
   'track-save',
   'update-prompt',
@@ -118,6 +123,22 @@ describe('the telemetry save round trip', () => {
     state = dialogReducer(state, { type: 'runFinished' });
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');
+  });
+});
+
+describe('the map appearance dialog round trip', () => {
+  it('opens over a quiet UI, replaces another dialog and closes like any dialog', () => {
+    let state: DialogState = 'closed';
+    state = dialogReducer(state, { type: 'openMapAppearance' });
+    expect(state).toBe('map-appearance');
+    expect(canDismiss(state)).toBe(true);
+    expect(dialogReducer(state, { type: 'openAbout' })).toBe('about');
+    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
+  });
+
+  it('never opens over pinned work', () => {
+    expect(dialogReducer('export-running', { type: 'openMapAppearance' })).toBe('export-running');
+    expect(dialogReducer('update-prompt', { type: 'openMapAppearance' })).toBe('update-prompt');
   });
 });
 

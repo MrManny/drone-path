@@ -8,11 +8,13 @@ export interface NumberFieldProps {
   min: number;
   rule: string;
   step?: number;
+  /** Unit shown beside the field, e.g. "s". */
+  unit?: string;
   hint?: string;
   onValue: (value: number) => boolean;
 }
 
-export function NumberField({ label, value, min, rule, step, hint, onValue }: NumberFieldProps) {
+export function NumberField({ label, value, min, rule, step, unit, hint, onValue }: NumberFieldProps) {
   const id = useId();
   const messageId = `${id}-message`;
   const hintId = `${id}-hint`;
@@ -46,6 +48,7 @@ export function NumberField({ label, value, min, rule, step, hint, onValue }: Nu
           setInvalid(false);
         }}
       />
+      {unit ? <span className="field-unit">{unit}</span> : null}
       {invalid ? (
         <span className="field-message" id={messageId}>
           {`Must be ${rule}.`}

@@ -6,8 +6,6 @@ import type { HotkeyContext, HotkeySession } from '../../ui/lib/hotkeys.js';
 
 const PLAYING = { modalOpen: false };
 const MODAL = { modalOpen: true };
-const POPOVER: HotkeyContext = { modalOpen: false, popoverOpen: true };
-
 const input = { tagName: 'INPUT' };
 const range = { tagName: 'INPUT', type: 'range' };
 const numberField = { tagName: 'INPUT', type: 'number' };
@@ -149,28 +147,28 @@ describe('mapKey', () => {
     { name: 'Esc clears the loop', event: { key: 'Escape' }, want: { type: 'clearLoop' } },
     { name: 'Esc closes an open overlay', event: { key: 'Escape' }, ctx: MODAL, want: { type: 'closeOverlay' } },
     {
-      name: 'Esc closes the map appearance popover instead of clearing the loop',
+      name: 'Esc closes the Map appearance dialog instead of clearing the loop',
       event: { key: 'Escape' },
-      ctx: POPOVER,
+      ctx: MODAL,
       want: { type: 'closeOverlay' },
     },
     {
-      name: 'Esc from a popover field closes the popover',
+      name: 'Esc from a field inside the Map appearance dialog closes the dialog',
       event: { key: 'Escape', target: input },
-      ctx: POPOVER,
+      ctx: MODAL,
       want: { type: 'closeOverlay' },
     },
     {
-      name: 'Space stays live while the popover is open',
+      name: 'Space is inert while the Map appearance dialog is open (#274)',
       event: { key: ' ' },
-      ctx: POPOVER,
-      want: { type: 'togglePlay' },
+      ctx: MODAL,
+      want: null,
     },
     {
-      name: 'loop keys stay live while the popover is open',
+      name: 'loop keys are inert while the Map appearance dialog is open (#274)',
       event: { key: 'i' },
-      ctx: POPOVER,
-      want: { type: 'setLoopIn' },
+      ctx: MODAL,
+      want: null,
     },
     {
       name: 'Esc from a text field still acts',

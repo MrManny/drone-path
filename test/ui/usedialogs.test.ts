@@ -24,12 +24,24 @@ describe('useDialogs', () => {
       modalOpen: false,
       helpOpen: false,
       aboutOpen: false,
+      mapAppearanceOpen: false,
       exportOpen: false,
       trackSaveOpen: false,
       updateOpen: false,
       dismissible: true,
       dispatchDialog: result.current.dispatchDialog,
     });
+  });
+
+  it('opens the Map appearance dialog as a dismissable modal', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'openMapAppearance' });
+    expect(result.current.modalOpen).toBe(true);
+    expect(result.current.mapAppearanceOpen).toBe(true);
+    expect(result.current.dismissible).toBe(true);
+    send({ type: 'close' });
+    expect(result.current.mapAppearanceOpen).toBe(false);
+    expect(result.current.modalOpen).toBe(false);
   });
 
   it('opens the export dialog', () => {

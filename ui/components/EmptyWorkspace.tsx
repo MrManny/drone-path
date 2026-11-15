@@ -4,16 +4,13 @@ import { useCallback, useRef, useState } from 'react';
 
 import type { RenderConfig } from '../../src/config.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
-import { useMapAppearance } from '../hooks/useMapAppearance.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { LoopState } from '../lib/loop.js';
 import type { MenuItemId } from '../lib/menumodel.js';
-import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
 import { EmptyStage } from './EmptyStage.js';
+import { MapAppearanceModal } from './MapAppearanceModal.js';
 import { MenuBar } from './MenuBar.js';
-import { Popover } from './Popover.js';
-import { SettingsPanel } from './SettingsPanel.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
@@ -47,21 +44,13 @@ export function EmptyWorkspace({
   const scrubRef = useRef<HTMLInputElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const {
-    open: mapAppearanceOpen,
-    toggle: toggleMapAppearance,
-    close: closeMapAppearance,
-    triggerRef: appearanceButtonRef,
-  } = useMapAppearance();
+  const { mapAppearanceOpen, dispatchDialog } = dialogs;
 
-  const closeOverlay = useCallback(() => {
-    const target = closeOverlayTarget({
-      modalOpen: dialogs.modalOpen,
-      popoverOpen: mapAppearanceOpen,
-    });
-    if (target === 'modal') dialogs.dispatchDialog({ type: 'close' });
-    else if (target === 'popover') closeMapAppearance();
-  }, [dialogs, mapAppearanceOpen, closeMapAppearance]);
+  const toggleMapAppearance = useCallback(() => {
+    dispatchDialog({ type: mapAppearanceOpen ? 'close' : 'openMapAppearance' });
+  }, [mapAppearanceOpen, dispatchDialog]);
+
+  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
   const dispatch = usePlayerHotkeys(
     {
@@ -78,7 +67,6 @@ export function EmptyWorkspace({
     },
     {
       modalOpen: dialogs.modalOpen,
-      popoverOpen: mapAppearanceOpen,
       menuOpen,
       fps: 0,
       frames: 0,
@@ -90,7 +78,7 @@ export function EmptyWorkspace({
     open: onPick,
     settings: toggleMapAppearance,
     documentation: onHelp,
-    about: () => dialogs.dispatchDialog({ type: 'openAbout' }),
+    about: () => dispatchDialog({ type: 'openAbout' }),
     exit: onExit,
   };
 
@@ -102,7 +90,6 @@ export function EmptyWorkspace({
         modalOpen={dialogs.modalOpen}
         onActivate={(item) => menuActions[item]?.()}
         onMenuOpenChange={setMenuOpen}
-        barRef={appearanceButtonRef}
       />
       <WorkspaceHeader durationSec={null} />
       <EmptyStage state={state} onPick={onPick} onDismiss={onDismiss} />
@@ -131,14 +118,12 @@ export function EmptyWorkspace({
         src=""
       />
       {mapAppearanceOpen ? (
-        <Popover label="Map appearance" triggerRef={appearanceButtonRef} onClose={closeMapAppearance}>
-          <SettingsPanel
-            config={settings}
-            hasRecording={false}
-            hasAltitude={false}
-            onChange={onSettingsChange}
-          />
-        </Popover>
+        <MapAppearanceModal
+          session={null}
+          config={settings}
+          onChange={onSettingsChange}
+          onClose={() => dispatchDialog({ type: 'close' })}
+        />
       ) : null}
     </div>
   );

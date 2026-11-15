@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { RefObject } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useMenuKeys } from '../hooks/useMenuKeys.js';
 import type { MenuFlags, MenuItemId, MenuId } from '../lib/menumodel.js';
@@ -17,8 +16,6 @@ export interface MenuBarProps {
   itemTitles?: Partial<Record<MenuItemId, string>>;
   onActivate: (item: MenuItemId) => void;
   onMenuOpenChange: (open: boolean) => void;
-  /** Element the map appearance popover treats as its trigger. */
-  barRef?: RefObject<HTMLElement | null>;
 }
 
 export function MenuBar({
@@ -28,7 +25,6 @@ export function MenuBar({
   itemTitles,
   onActivate,
   onMenuOpenChange,
-  barRef,
 }: MenuBarProps) {
   const flags = useMemo<MenuFlags>(
     () => ({ hasRecording, opening }),
@@ -44,14 +40,6 @@ export function MenuBar({
     // that claim applies only to events inside the bar.
     inBar: (target) => target instanceof Node && rootRef.current?.contains(target) === true,
   });
-
-  const setRoot = useCallback(
-    (node: HTMLDivElement | null) => {
-      rootRef.current = node;
-      if (barRef) barRef.current = node;
-    },
-    [barRef],
-  );
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent): void => {
@@ -98,7 +86,7 @@ export function MenuBar({
       className="menu-bar"
       role="menubar"
       aria-label="Main menu"
-      ref={setRoot}
+      ref={rootRef}
       tabIndex={-1}
       onKeyDown={(e) => {
         // Tab closes the open menu and stays unclaimed so the browser

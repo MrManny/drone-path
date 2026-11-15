@@ -1,5 +1,6 @@
-import { isValidRenderConfig, normalizeDimensions } from '../../src/config.js';
+import { DEFAULT_CONFIG, isValidRenderConfig, normalizeDimensions } from '../../src/config.js';
 import type {
+  AppearanceSettings,
   ConfigOverrides,
   HudLayout,
   RenderConfig,
@@ -35,3 +36,9 @@ export const VIEW_LABELS: Record<ViewMode, string> = {
   follow: 'Follow',
   overview: 'Overview',
 };
+
+/** The map look settings Map appearance owns; Restore defaults resets only these. */
+export function defaultAppearance(): AppearanceSettings {
+  const { style, view, zoom, zoomOut, introSec, outroSec, trailColor, hud } = DEFAULT_CONFIG;
+  return { style, view, zoom, zoomOut, introSec, outroSec, trailColor, hud: { ...hud } };
+}

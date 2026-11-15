@@ -17,13 +17,13 @@ describe('MENU_BAR', () => {
       { id: 'open', label: 'Open…', icon: 'folderOpen', hint: 'Ctrl+O' },
       { id: 'exportVideo', label: 'Export video…', icon: 'export' },
       { id: 'exportTelemetry', label: 'Export telemetry…', icon: 'telemetry' },
-      { id: 'settings', label: 'Map appearance…', icon: 'settings', separatorBefore: true },
       { id: 'exit', label: 'Exit', icon: 'exit', separatorBefore: true },
     ]);
   });
 
-  it('offers Toggle PiP with its shortcut hint in View', () => {
+  it('lives Map appearance under View, ahead of Toggle PiP (#274)', () => {
     expect(menuOf('view').items).toEqual([
+      { id: 'settings', label: 'Map appearance…', icon: 'settings' },
       { id: 'swap', label: 'Toggle PiP', icon: 'swap', hint: 'P' },
     ]);
   });

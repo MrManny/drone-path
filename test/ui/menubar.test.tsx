@@ -65,13 +65,12 @@ describe('MenuBar', () => {
     const names = within(panel)
       .getAllByRole('menuitem')
       .map((row) => row.textContent);
-    expect(names).toEqual([
-      'Open…Ctrl+O',
-      'Export video…',
-      'Export telemetry…',
-      'Map appearance…',
-      'Exit',
-    ]);
+    expect(names).toEqual(['Open…Ctrl+O', 'Export video…', 'Export telemetry…', 'Exit']);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    const viewNames = within(screen.getByRole('menu', { name: 'View' }))
+      .getAllByRole('menuitem')
+      .map((row) => row.textContent);
+    expect(viewNames).toEqual(['Map appearance…', 'Toggle PiPP']);
   });
 
   it('marks disabled rows with aria-disabled', () => {
@@ -104,10 +103,10 @@ describe('MenuBar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Export telemetry…' }));
 
     openFile();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Map appearance…' }));
-
-    openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Exit' }));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Map appearance…' }));
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Toggle PiP' }));
@@ -123,8 +122,8 @@ describe('MenuBar', () => {
       'open',
       'exportVideo',
       'exportTelemetry',
-      'settings',
       'exit',
+      'settings',
       'swap',
       'documentation',
       'about',
@@ -138,11 +137,11 @@ describe('MenuBar', () => {
       expect(screen.getByRole('menuitem', { name }).getAttribute('aria-disabled')).toBe('true');
     }
     expect(screen.getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
       screen.getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
     ).toBeNull();
-    expect(screen.getByRole('menuitem', { name: 'Exit' }).getAttribute('aria-disabled')).toBeNull();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
       screen.getByRole('menuitem', { name: 'Toggle PiP' }).getAttribute('aria-disabled'),
     ).toBe('true');

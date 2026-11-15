@@ -10,9 +10,9 @@ The review player in the desktop app is fully keyboard-operable, including the m
 | `Shift+Left` / `Shift+Right` | Jump one second |
 | `Home` / `End` | Jump to the start / end |
 | `I` / `O` | Set the in / out point |
-| `Esc` | Close the open menu, dialog or popover, or clear the in and out points |
+| `Esc` | Close the open menu or dialog, or clear the in and out points |
 | `P` | Toggle PiP — switch the map into a corner overlay and back |
-| `+` / `-` | Zoom the map in / out one level and pin it as the [Zoom setting](desktop-app.md#map-appearance); the character and numpad keys both work |
+| `+` / `-` | Zoom the map in / out one level and pin it as the [zoom level](desktop-app.md#map-appearance); the character and numpad keys both work |
 | `Ctrl+O` | Open a recording — works in the empty workspace and while typing |
 
 ## Menu bar
@@ -35,8 +35,8 @@ The menu bar at the top of the workspace follows the Windows menu conventions:
 - Shortcuts are inert while a text field, select or other editable control has focus, but stay live over non-text controls like the timeline scrubber. `Ctrl+O` and `Esc` are the exceptions: they also work while typing.
 - `Space` leaves activation to a focused button, link or disclosure instead of toggling playback.
 - While a menu is open it owns the keyboard: the player shortcuts wait until it closes.
-- While a dialog is open, only `Esc` works: it closes the dialog. The Map appearance popover is not a dialog — shortcuts stay live, and `Esc` closes it.
-- The first `Esc` over a focused select closes its dropdown; the next one closes the dialog or popover, or clears the in and out points, as from anywhere else.
+- While a dialog is open, only `Esc` works: it closes the dialog. This includes **Map appearance** — the dialog is modal, so the player shortcuts pause while it is open and keystrokes in a field never move the player.
+- The first `Esc` over a focused select closes its dropdown; the next one closes the dialog, or clears the in and out points, as from anywhere else.
 - The In–Out segment's edge handles on the timeline are a pointer-only enhancement: with the keyboard, set the points with `I` / `O` or the in/out-point buttons in the timeline header.
 - One point is enough to mark a passage: `I` alone plays to the end of the recording, `O` alone from its start. Setting a point past the other replaces it, so the in point always stays before the out point.
 - Held keys auto-repeat only for stepping and jumping; every other shortcut acts once per press.

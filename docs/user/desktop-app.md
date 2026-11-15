@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## The menu bar
 
-Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…**, **Map appearance…** and **Exit**; **View** holds **Toggle PiP** (`P`); **Help**, at the right edge, opens the Help overlay — this manual — and lists **About** under a separator. Items that cannot act right now — export, telemetry and Toggle PiP without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…** and **Toggle PiP** (`P`); **Help**, at the right edge, opens the Help overlay — this manual — and lists **About** under a separator. Items that cannot act right now — export, telemetry and Toggle PiP without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
 
 ## Loading a recording
 
@@ -97,25 +97,28 @@ Every format honors the In–Out range exactly like the telemetry document: with
 
 ## Map appearance
 
-The **File → Map appearance…** menu item opens the *Map appearance* popover with the map look settings (it is available with or without a recording, since the look applies to future exports):
+The **View → Map appearance…** menu item opens the *Map appearance* dialog (it is available with or without a recording, since the look applies to future exports). The dialog is built around a **live preview** of the export frame (16:9) on the left: the real recording when one is loaded, a bundled example flight otherwise, with that state named above the frame. Every change shows in the preview at once, applies to the map and future exports, and persists between launches.
 
-- **Map style** — satellite or topographic.
-- **View** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it.
-- **Zoom** — the map zoom: **0** auto-fits to the flight path; a whole level from 2 to 19 pins that zoom level. Any other number is refused with a message, so the field, the stepper and the export always agree. **Zoom-out** pulls the auto-fit camera back that many levels, and the intro and outro seconds animate the zoom at the start and end.
-- **Trail color** — any RGB or RGBA hex color like `#e63946` or `#e63946cc`; leave it empty to keep the map style's own trail color.
-- **HUD chips** — heading arrow, altitude (ALT) and speed (SPD), for the exported map frame and the live readouts in the map strip. Altitude and speed are off by default, and altitude is unavailable when the telemetry has none; a turned-off chip keeps its strip column and shows **--** instead of a value.
+The settings on the right are grouped:
 
-Below the flight map in the split view sits one compact strip with three labeled columns: **Speed**, **Altitude** and **Zoom**. The columns are always there — a readout streams live values while its HUD chip is on and shows a dimmed **--** otherwise, including Altitude when the telemetry has none. The bare `−` and `+` buttons around the level step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the **Zoom** setting, so the stepper, the field and the export all show exactly that zoom level, and setting **Zoom** back to **0** restores auto-fit. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The Zoom column needs the split view: the PiP overlay keeps the readouts but no zoom controls.
+- **Map look** — the map style as two thumbnail tiles (Satellite, Topographic), and the trail color as a swatch row: *Style default* keeps the map style's own trail color; Coral, White and Black pin one of those; **Custom…** reveals a hex field for any RGB or RGBA color like `#e63946` or `#e63946cc`.
+- **Camera** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it. **Auto-fit zoom** frames the flight path automatically: while it is on, the zoom level slider is disabled and shows the level auto-fit resolves to (like *auto-fit → 13*); turning it off pins that level, and the slider sets any whole level from 2 to 19. **Frame padding** pulls the auto-fit camera back that many levels.
+- **On-frame readouts** — the HUD chips (heading arrow, ALT, SPD) rendered as the chips themselves. Clicking a chip here or over the preview toggles it, and both stay in sync; a turned-off chip shows a dimmed **--**. Altitude and speed are off by default, and the ALT chip stays off with a text notice when the recording's telemetry has no altitude.
+- **Opening & ending** — the structure bar under the preview shows the `[intro | flight | outro]` shape and its segments pick which end of the flight the preview shows. *Intro zoom* and *Outro zoom* set how long the camera eases in and out; the hint reads *the camera eases in and out · 0 s disables it*.
+
+**Restore defaults** resets the map look settings to their defaults. **Close** — or `Esc` — dismisses the dialog. The dialog is modal, so the [player shortcuts](keyboard-shortcuts.md) pause while it is open and keystrokes in a field never reach the player.
+
+Below the flight map in the split view sits one compact strip with three labeled columns: **Speed**, **Altitude** and **Zoom**. The columns are always there — a readout streams live values while its HUD chip is on and shows a dimmed **--** otherwise, including Altitude when the telemetry has none. The bare `−` and `+` buttons around the level step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the zoom level (the *Zoom level* slider in [Map appearance](#map-appearance)), so the stepper, the slider and the export all show exactly that zoom level, and switching **Auto-fit zoom** back on restores automatic framing. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The Zoom column needs the split view: the PiP overlay keeps the readouts but no zoom controls.
 
 ![The compact readout strip below the flight map: Speed and Altitude readouts beside the zoom stepper](../images/app-map-strip.jpg)
 
 *The compact strip below the flight map: labeled readouts beside the bare zoom stepper.*
 
-Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults. Opening a recording resets **Zoom** to auto-fit regardless of what was remembered.
+Every change applies at once to the preview and the next export. The app remembers these settings between launches: the next launch starts with the last-used look, and a fresh install — or settings the app cannot read — starts at the defaults. Opening a recording resets the zoom to auto-fit regardless of what was remembered.
 
-![The map appearance panel with map style, trail color, view and zoom settings](../images/app-review-map-appearance.jpg)
+![The Map appearance dialog: live export-frame preview beside the grouped map look, camera and readout settings](../images/app-review-map-appearance.jpg)
 
-*The map appearance panel: the map look settings live beside the workspace they affect.*
+*The Map appearance dialog: the live preview and the opening & ending strip on the left, the grouped settings on the right.*
 
 ## Updates
 

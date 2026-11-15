@@ -49,7 +49,6 @@ export const MENU_BAR: readonly MenuDef[] = [
       { id: 'open', label: 'Open…', icon: 'folderOpen', hint: 'Ctrl+O' },
       { id: 'exportVideo', label: 'Export video…', icon: 'export' },
       { id: 'exportTelemetry', label: 'Export telemetry…', icon: 'telemetry' },
-      { id: 'settings', label: 'Map appearance…', icon: 'settings', separatorBefore: true },
       { id: 'exit', label: 'Exit', icon: 'exit', separatorBefore: true },
     ],
   },
@@ -58,7 +57,10 @@ export const MENU_BAR: readonly MenuDef[] = [
     label: 'View',
     mnemonic: 'v',
     align: 'start',
-    items: [{ id: 'swap', label: 'Toggle PiP', icon: 'swap', hint: 'P' }],
+    items: [
+      { id: 'settings', label: 'Map appearance…', icon: 'settings' },
+      { id: 'swap', label: 'Toggle PiP', icon: 'swap', hint: 'P' },
+    ],
   },
   {
     id: 'help',

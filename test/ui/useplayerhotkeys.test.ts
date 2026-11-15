@@ -11,7 +11,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const CTX = { modalOpen: false, popoverOpen: false, menuOpen: false, fps: 30, frames: 90 };
+const CTX = { modalOpen: false, menuOpen: false, fps: 30, frames: 90 };
 
 function fakeHandlers(): PlayerActionHandlers {
   return {
@@ -176,21 +176,21 @@ describe('usePlayerHotkeys key subscription', () => {
     select.remove();
   });
 
-  it('routes Escape to closeOverlay while the map appearance popover is open', () => {
+  it('routes Escape to closeOverlay while the Map appearance dialog is open', () => {
     const handlers = fakeHandlers();
-    mountHotkeys(handlers, { ...CTX, popoverOpen: true });
+    mountHotkeys(handlers, { ...CTX, modalOpen: true });
     pressKey({ key: 'Escape' });
     expect(handlers.closeOverlay).toHaveBeenCalledTimes(1);
     expect(handlers.clearLoop).not.toHaveBeenCalled();
   });
 
-  it('keeps player keys live while the map appearance popover is open', () => {
+  it('keeps player keys inert while the Map appearance dialog is open (#274)', () => {
     const handlers = fakeHandlers();
-    mountHotkeys(handlers, { ...CTX, popoverOpen: true });
+    mountHotkeys(handlers, { ...CTX, modalOpen: true });
     pressKey({ key: ' ' });
     pressKey({ key: 'o', ctrlKey: true });
-    expect(handlers.togglePlay).toHaveBeenCalledTimes(1);
-    expect(handlers.openRecording).toHaveBeenCalledTimes(1);
+    expect(handlers.togglePlay).not.toHaveBeenCalled();
+    expect(handlers.openRecording).not.toHaveBeenCalled();
   });
 
   it('claims the zoom keys and dispatches one step per press (#270)', () => {
