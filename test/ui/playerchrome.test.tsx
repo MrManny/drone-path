@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
+import { restyleSceneData } from '../../src/restyle.js';
 import type { Scene } from '../../src/renderer/scene.js';
 import { PlayerChrome } from '../../ui/components/PlayerChrome.js';
 import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
 import { useDialogs } from '../../ui/hooks/useDialogs.js';
 import { START_PREPARE_PROGRESS } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
+import { restyleMeta } from '../../ui/lib/restylemeta.js';
 import { SESSION, flushRaf, installRafStub } from './harness.js';
 
 const fakeScene = vi.hoisted((): Scene => ({
@@ -534,6 +537,186 @@ describe('PlayerChrome keyboard shortcuts', () => {
     const card = document.querySelector('.map-card') as HTMLElement;
     key(window, { key: 'p' });
     expect(card.className).toContain('map-card-overlay');
+  });
+});
+
+describe('PlayerChrome map zoom (#270)', () => {
+  function plannedZoom(settings: RenderConfig): number {
+    const { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud } = settings;
+    return restyleSceneData(
+      SESSION.scene,
+      { style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud },
+      restyleMeta(SESSION),
+    ).zoom;
+  }
+
+  function renderZoom(settings: RenderConfig) {
+    const onSettingsChange = vi.fn();
+    render(
+      <Chrome
+        session={SESSION}
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        onOpen={() => {}}
+      />,
+    );
+    return onSettingsChange;
+  }
+
+  it('pins one zoom level per pill press', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(onSettingsChange).toHaveBeenNthCalledWith(1, { ...SETTINGS, zoom: 15 });
+    expect(onSettingsChange).toHaveBeenNthCalledWith(2, { ...SETTINGS, zoom: 13 });
+  });
+
+  it('resolves auto-fit to the visible level on the first press', () => {
+    const onSettingsChange = renderZoom(SETTINGS);
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(onSettingsChange).toHaveBeenCalledWith({
+      ...SETTINGS,
+      zoom: plannedZoom(SETTINGS) + 1,
+    });
+  });
+
+  it('keeps the pill readout and the Zoom field in sync', () => {
+    renderZoom({ ...SETTINGS, zoom: 14 });
+    expect(screen.getByText('14')).toBeTruthy();
+    clickMenuItem('Map appearance…');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('14');
+  });
+
+  it('reads auto in the pill while the Zoom field is auto-fit', () => {
+    renderZoom(SETTINGS);
+    expect(screen.getByText('auto')).toBeTruthy();
+    clickMenuItem('Map appearance…');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('0');
+  });
+
+  it('steps the zoom with the + and - keys and pins the level', () => {
+    const onSettingsChange = renderZoom(SETTINGS);
+    key(window, { key: '+' });
+    key(window, { key: '-' });
+    expect(onSettingsChange).toHaveBeenNthCalledWith(1, {
+      ...SETTINGS,
+      zoom: plannedZoom(SETTINGS) + 1,
+    });
+    expect(onSettingsChange).toHaveBeenNthCalledWith(2, {
+      ...SETTINGS,
+      zoom: plannedZoom(SETTINGS) - 1,
+    });
+  });
+
+  it('leaves = and _ to their default behavior', () => {
+    const onSettingsChange = renderZoom(SETTINGS);
+    const eq = key(window, { key: '=' });
+    const underscore = key(window, { key: '_', shiftKey: true });
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(eq.defaultPrevented).toBe(false);
+    expect(underscore.defaultPrevented).toBe(false);
+  });
+
+  it('acts once per press and never on held-key repeats', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    key(window, { key: '+', repeat: true });
+    expect(onSettingsChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps the zoom keys inert while typing in a field', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    clickMenuItem('Map appearance…');
+    key(screen.getByLabelText('Zoom'), { key: '+' });
+    expect(onSettingsChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps the zoom keys live in the PiP overlay', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    key(window, { key: 'p' });
+    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    key(window, { key: '+' });
+    expect(onSettingsChange).toHaveBeenCalledWith({ ...SETTINGS, zoom: 15 });
+  });
+
+  it('keeps the limit button focusable and states why (#271)', () => {
+    renderZoom({ ...SETTINGS, zoom: 19 });
+    const zoomIn = screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom in' });
+    expect(zoomIn.getAttribute('aria-disabled')).toBe('true');
+    expect(zoomIn.disabled).toBe(false);
+    expect(zoomIn.getAttribute('title')).toBe('Already zoomed all the way in');
+    expect(screen.getByText('19')).toBeTruthy();
+  });
+
+  it('states why zooming out is unavailable at the floor (#271)', () => {
+    renderZoom({ ...SETTINGS, zoom: 2 });
+    const zoomOut = screen.getByRole<HTMLButtonElement>('button', { name: 'Zoom out' });
+    expect(zoomOut.getAttribute('aria-disabled')).toBe('true');
+    expect(zoomOut.disabled).toBe(false);
+    expect(zoomOut.getAttribute('title')).toBe('Already zoomed all the way out');
+  });
+
+  it('announces why a refused keyboard step did nothing (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 19 });
+    const readout = document.querySelector('.map-zoom-level') as HTMLElement;
+    key(window, { key: '+' });
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
+    key(window, { key: '-' });
+    expect(onSettingsChange).toHaveBeenCalledWith({ ...SETTINGS, zoom: 18 });
+    expect(readout.textContent).toBe('Zoom level 19');
+  });
+
+  it('announces a refused pill press at the limit (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 19 });
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    const readout = document.querySelector('.map-zoom-level') as HTMLElement;
+    expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
+  });
+
+  it('refuses an out-of-range Zoom entry instead of desyncing the pill (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    clickMenuItem('Map appearance…');
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '25' } });
+    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(screen.getByText('14')).toBeTruthy();
+  });
+
+  it('refuses a fractional Zoom entry with the same rule (#271)', () => {
+    const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
+    clickMenuItem('Map appearance…');
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '14.5' } });
+    expect(screen.getByText('Must be 0 or 2-19.')).toBeTruthy();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    expect(screen.getByText('14')).toBeTruthy();
+  });
+
+  it('drops a stale refusal reason when the Zoom field moves the level (#271)', () => {
+    function ZoomChrome({ initial }: { initial: RenderConfig }) {
+      const [settings, setSettings] = useState(initial);
+      return (
+        <Chrome
+          session={SESSION}
+          settings={settings}
+          onSettingsChange={setSettings}
+          onOpen={() => {}}
+        />
+      );
+    }
+    render(<ZoomChrome initial={{ ...SETTINGS, zoom: 19 }} />);
+    key(window, { key: '+' });
+    const readout = () => document.querySelector('.map-zoom-level') as HTMLElement;
+    expect(readout().textContent).toBe('Zoom level 19. Already zoomed all the way in');
+
+    clickMenuItem('Map appearance…');
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '14' } });
+    expect(readout().textContent).toBe('Zoom level 14');
+    expect(readout().textContent).not.toContain('Already zoomed');
+
+    fireEvent.change(screen.getByLabelText('Zoom'), { target: { value: '0' } });
+    expect(readout().textContent).toBe('Zoom level auto');
+    expect(readout().textContent).not.toContain('Already zoomed');
   });
 });
 

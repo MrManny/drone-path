@@ -16,6 +16,7 @@ export interface PlayerActionHandlers {
   swap: () => void;
   openRecording: () => void;
   closeOverlay: () => void;
+  zoomStep: (delta: 1 | -1) => void;
 }
 
 interface PlayerActionContext {
@@ -67,6 +68,9 @@ export function usePlayerHotkeys(
         return;
       case 'closeOverlay':
         handlers.closeOverlay();
+        return;
+      case 'zoomStep':
+        handlers.zoomStep(action.delta);
         return;
     }
   };

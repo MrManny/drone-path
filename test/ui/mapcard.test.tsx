@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Scene } from '../../src/renderer/scene.js';
@@ -171,6 +171,55 @@ describe('MapCard chip strip (#236)', () => {
     const strip = container.querySelector('.map-card-strip');
     rerender(<MapCard data={DATA} onScene={() => {}} layout="overlay" />);
     expect(container.querySelector('.map-card-strip')).toBe(strip);
+  });
+});
+
+describe('MapCard zoom pill (#270)', () => {
+  const ZOOM_DATA = { zoom: 14 } as SceneData;
+  const CONTROLS = { zoom: 14, style: 'satellite' as const, onStep: () => {} };
+
+  it('mounts the pill row below the map and above the chip strip in split view', () => {
+    const { container } = render(
+      <MapCard data={ZOOM_DATA} onScene={() => {}} layout="split" zoomControls={CONTROLS} />,
+    );
+    const card = container.querySelector('.map-card') as HTMLElement;
+    const map = card.querySelector('.map-card-map') as HTMLElement;
+    const zoomRow = card.querySelector('.map-card-zoom') as HTMLElement;
+    const strip = card.querySelector('.map-card-strip') as HTMLElement;
+    expect(zoomRow).toBeTruthy();
+    expect(zoomRow.querySelector('.map-zoom-pill')).toBeTruthy();
+    expect(map.nextElementSibling).toBe(zoomRow);
+    expect(zoomRow.nextElementSibling).toBe(strip);
+    expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
+  });
+
+  it('keeps the pill out of the compact PiP card', () => {
+    const { container } = render(
+      <MapCard data={ZOOM_DATA} onScene={() => {}} layout="overlay" zoomControls={CONTROLS} />,
+    );
+    expect(container.querySelector('.map-card-zoom')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+  });
+
+  it('steps through the supplied zoom controls', () => {
+    const onStep = vi.fn();
+    render(
+      <MapCard
+        data={ZOOM_DATA}
+        onScene={() => {}}
+        layout="split"
+        zoomControls={{ ...CONTROLS, onStep }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(onStep).toHaveBeenNthCalledWith(1, 1);
+    expect(onStep).toHaveBeenNthCalledWith(2, -1);
+  });
+
+  it('renders no pill without zoom controls', () => {
+    const { container } = render(<MapCard data={DATA} onScene={() => {}} layout="split" />);
+    expect(container.querySelector('.map-card-zoom')).toBeNull();
   });
 });
 

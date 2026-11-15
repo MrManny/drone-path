@@ -483,13 +483,25 @@ describe('settings persistence', () => {
   }
 
   it('seeds the map appearance popover from the persisted look', async () => {
-    await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoom: 15 });
+    await openPlayerWith({ ...DEFAULT_CONFIG, style: 'topo', view: 'overview', zoomOut: 3 });
     clickMenuItem('Map appearance…');
     expect(screen.getByLabelText<HTMLSelectElement>('Map style').value).toBe('topo');
     expect(
       screen.getByRole('button', { name: 'Overview' }).getAttribute('aria-pressed'),
     ).toBe('true');
-    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('15');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom-out').value).toBe('3');
+    // Zoom is the exception: opening a recording resets it to auto-fit (#270).
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('0');
+  });
+
+  it('normalizes a stale stored zoom to one usable level on load (#271)', async () => {
+    const harness = installBridge();
+    harness.bridge.getSettings.mockResolvedValue({ ...DEFAULT_CONFIG, zoom: 25 });
+    openWorkspace();
+    await act(async () => {});
+    clickMenuItem('Map appearance…');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('19');
+    expect(harness.bridge.saveSettings).not.toHaveBeenCalled();
   });
 
   it('persists every panel change through the backend', async () => {
@@ -513,6 +525,35 @@ describe('settings persistence', () => {
     expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ codec: 'h265' }),
     );
+  });
+});
+
+describe('map zoom reset on open (#270)', () => {
+  it('prepares and opens a recording at auto-fit regardless of the previous pin', async () => {
+    const harness = installBridge();
+    harness.bridge.getSettings.mockResolvedValue({ ...DEFAULT_CONFIG, zoom: 12 });
+    openWorkspace();
+    // Let the persisted settings land, so the pick runs from a pinned zoom.
+    await act(async () => {});
+    await commitLoaded(harness);
+
+    expect(harness.bridge.pickRecording).toHaveBeenCalledWith({
+      settings: expect.objectContaining({ zoom: 0 }),
+    });
+    expect(screen.getByText('auto')).toBeTruthy();
+    clickMenuItem('Map appearance…');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('0');
+  });
+
+  it('keeps the zoom choice when the picker is canceled', async () => {
+    const harness = installBridge();
+    harness.bridge.getSettings.mockResolvedValue({ ...DEFAULT_CONFIG, zoom: 12 });
+    openWorkspace();
+    fireEvent.click(stageCta());
+    await harness.settle({ ok: false, canceled: true });
+
+    clickMenuItem('Map appearance…');
+    expect(screen.getByLabelText<HTMLInputElement>('Zoom').value).toBe('12');
   });
 });
 

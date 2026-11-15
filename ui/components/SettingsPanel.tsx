@@ -4,6 +4,8 @@ import { useId } from 'react';
 
 import { asTrailColor, MAP_STYLE_VALUES } from '../../src/config.js';
 import type { MapStyle, RenderConfig, ViewMode } from '../../src/config.js';
+import { zoomLimits } from '../../src/plan.js';
+import { isZoomPinValue } from '../lib/mapzoom.js';
 import { patchConfig, setHudChip, STYLE_LABELS, VIEW_LABELS } from '../lib/settings.js';
 import { ColorField } from './ColorField.js';
 import { Notice } from './Notice.js';
@@ -31,6 +33,8 @@ const VIEW_CHOICES: ReadonlyArray<{ value: ViewMode; label: string }> = [
 
 export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: SettingsPanelProps) {
   const viewHintId = useId();
+  // The field rule names the usable zoom levels so a refusal explains itself.
+  const { min: zoomMin, max: zoomMax } = zoomLimits(config.style);
   const apply = (patch: Parameters<typeof patchConfig>[1]): boolean => {
     const next = patchConfig(config, patch);
     if (!next) return false;
@@ -83,9 +87,9 @@ export function SettingsPanel({ config, hasRecording, hasAltitude, onChange }: S
           label="Zoom"
           value={config.zoom}
           min={0}
-          rule="at least 0"
-          hint="0 = auto-fit"
-          onValue={(zoom) => apply({ zoom })}
+          rule={`0 or ${zoomMin}-${zoomMax}`}
+          hint={`0 = auto-fit, ${zoomMin}-${zoomMax} = a fixed level`}
+          onValue={(zoom) => (isZoomPinValue(zoom, config.style) ? apply({ zoom }) : false)}
         />
         <NumberField
           label="Zoom-out"

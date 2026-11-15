@@ -14,6 +14,7 @@ import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import { useTelemetrySave } from '../hooks/useTelemetrySave.js';
 import type { StageLayout } from '../lib/layout.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
+import { stepPinnedZoom } from '../lib/mapzoom.js';
 import type { MenuItemId } from '../lib/menumodel.js';
 import { closeOverlayTarget } from '../lib/overlayrouting.js';
 import type { PickState } from '../lib/pickstate.js';
@@ -102,6 +103,31 @@ export function PlayerChrome({
     [session, style, trailColor, view, zoom, zoomOut, introSec, outroSec, hud],
   );
 
+  // One step pins the level the map shows as the fixed "Zoom" setting (#270).
+  // A refusal reason is keyed to the level it was announced at, so it can
+  // never speak for a level that arrived through another entry point (#271).
+  const [zoomNotice, setZoomNotice] = useState<{ level: number; text: string } | null>(null);
+  const stepZoom = useCallback(
+    (delta: 1 | -1) => {
+      const pinned = stepPinnedZoom(sceneData.zoom, delta, style);
+      if (pinned === null) {
+        // A refused step says why instead of doing nothing silently (#271).
+        // An identical repeat cannot re-announce; the button title keeps the
+        // reason available either way.
+        setZoomNotice({
+          level: sceneData.zoom,
+          text: delta > 0 ? 'Already zoomed all the way in' : 'Already zoomed all the way out',
+        });
+        return;
+      }
+      setZoomNotice(null);
+      onSettingsChange({ ...settings, zoom: pinned });
+    },
+    [settings, style, sceneData.zoom, onSettingsChange],
+  );
+  const zoomNoticeText =
+    zoomNotice !== null && zoomNotice.level === sceneData.zoom ? zoomNotice.text : '';
+
   const dispatch = usePlayerHotkeys(
     {
       togglePlay,
@@ -113,6 +139,7 @@ export function PlayerChrome({
       swap,
       openRecording: onOpen,
       closeOverlay,
+      zoomStep: stepZoom,
     },
     { modalOpen, popoverOpen: mapAppearanceOpen, menuOpen, fps: video.fps, frames: video.frames },
   );
@@ -164,6 +191,7 @@ export function PlayerChrome({
         onScene={handleScene}
         onPlayState={setPlaying}
         notice={openNotice}
+        zoomControls={{ zoom, style, onStep: stepZoom, notice: zoomNoticeText }}
       />
       <TransportBar
         dispatch={dispatch}

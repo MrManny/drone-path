@@ -4,10 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
+import type { ZoomControls } from '../lib/mapzoom.js';
 import { MapIsland } from './MapIsland.js';
+import { ZoomPill } from './ZoomPill.js';
 
 type MapCardProps =
-  | { data: SceneData; onScene: (scene: Scene) => void; layout: StageLayout }
+  | {
+      data: SceneData;
+      onScene: (scene: Scene) => void;
+      layout: StageLayout;
+      zoomControls?: ZoomControls;
+    }
   | { data: null; layout: StageLayout };
 
 interface SceneDelivery {
@@ -58,6 +65,18 @@ export function MapCard(props: MapCardProps) {
           <div className="map-card-map">
             <MapIsland data={withScene.data} onScene={handleScene} hudHostRef={stripRef} />
           </div>
+          {/* The pill is split-view only: the compact PiP card keeps no zoom controls. */}
+          {layout === 'split' && withScene.zoomControls ? (
+            <div className="map-card-zoom">
+              <ZoomPill
+                zoom={withScene.zoomControls.zoom}
+                visibleZoom={withScene.data.zoom}
+                style={withScene.zoomControls.style}
+                onStep={withScene.zoomControls.onStep}
+                notice={withScene.zoomControls.notice}
+              />
+            </div>
+          ) : null}
           <div className="map-card-strip" ref={stripRef} />
           {mapReady ? null : (
             <div className="map-card-busy" role="status">

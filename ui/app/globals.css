@@ -441,6 +441,43 @@ button.primary {
 .map-card-overlay .map-card-strip .chip .unit {
   font-size: 9px;
 }
+/* The zoom pill below the map image (split view): step buttons around the
+   level readout. Like the chip strip it sits outside the map image, so it
+   never covers tiles. */
+.map-card-zoom {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  padding: 6px 10px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
+}
+.map-zoom-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+}
+.map-zoom-pill button {
+  min-height: 30px;
+  min-width: 32px;
+  padding: 0 8px;
+  font-size: 16px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+.map-zoom-level {
+  min-width: 40px;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
 /* The map rail before a recording loads: a quiet pane that says so. */
 .map-card-empty {
   position: absolute;
@@ -645,6 +682,19 @@ button.primary {
 }
 .readout.loop-readout {
   color: var(--loop-text);
+}
+
+/* Labels inside compact visible readouts, for screen readers only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Timeline panel: loop actions and readout in the header, a time ruler, and
