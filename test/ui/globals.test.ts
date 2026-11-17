@@ -15,8 +15,9 @@ describe('selection-state style contract (#285)', () => {
   function rulePattern(selector: string, fragment: string): RegExp {
     const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Selector prefix, then any grouped siblings up to the body, then the
-    // declaration the recipe owes the state.
-    return new RegExp(`${escape(selector)}[^{]*\\{[^}]*${escape(fragment)}`);
+    // declaration the recipe owes the state — never crossing a closing
+    // brace into a neighboring rule's body.
+    return new RegExp(`${escape(selector)}[^}]*\\{[^}]*${escape(fragment)}`);
   }
 
   it.for([

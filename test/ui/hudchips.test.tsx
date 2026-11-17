@@ -46,7 +46,6 @@ describe('HudChips', () => {
       />,
     );
     const chip = chips().find((b) => b.textContent?.includes(pill));
-    expect(chip?.textContent).toContain(pill);
     expect(chip?.getAttribute('aria-label')).toBe(name);
   });
 
