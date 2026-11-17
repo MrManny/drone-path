@@ -22,6 +22,7 @@ export type TrackSavePhase =
 type TrackSaveAction =
   | { type: 'started' }
   | { type: 'result'; event: TrackSaveEvent; scope: string }
+  | { type: 'clearError' }
   | { type: 'revealFailed'; error: string };
 
 // The persistent phase line; the failure phase announces through its alert
@@ -49,6 +50,10 @@ export function trackSaveReducer(
       return action.event.type === 'saved'
         ? { kind: 'done', path: action.event.path, scope: action.scope }
         : { kind: 'error', message: action.event.message };
+    case 'clearError':
+      return state?.kind === 'done' && state.error !== undefined
+        ? { kind: 'done', path: state.path, scope: state.scope }
+        : state;
     case 'revealFailed':
       return state?.kind === 'done' ? { ...state, error: action.error } : state;
   }

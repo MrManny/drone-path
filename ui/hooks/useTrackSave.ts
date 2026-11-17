@@ -48,6 +48,9 @@ export function useTrackSave(options: {
 
   const reveal = useCallback((): void => {
     if (phase?.kind !== 'done') return;
+    // Every attempt clears the previous failure first, so a successful
+    // retry cannot leave a stale error behind.
+    dispatch({ type: 'clearError' });
     const done = phase;
     void (async () => {
       try {

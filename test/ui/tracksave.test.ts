@@ -189,6 +189,34 @@ describe('trackSaveReducer', () => {
   ] as const)('ignores a reveal failure in %s', (_what, state) => {
     expect(trackSaveReducer(state, { type: 'revealFailed', error: 'nope' })).toBe(state);
   });
+
+  it('drops a stale reveal failure when the retry clears it (#286)', () => {
+    const failed = trackSaveReducer(DONE, {
+      type: 'revealFailed',
+      error: 'the folder is missing',
+    });
+    expect(trackSaveReducer(failed, { type: 'clearError' })).toStrictEqual(DONE);
+  });
+
+  it('shows only the new failure when a cleared retry fails again', () => {
+    const cleared = trackSaveReducer(
+      trackSaveReducer(DONE, { type: 'revealFailed', error: 'the folder is missing' }),
+      { type: 'clearError' },
+    );
+    expect(trackSaveReducer(cleared, { type: 'revealFailed', error: 'the folder went away' })).toEqual({
+      ...DONE,
+      error: 'the folder went away',
+    });
+  });
+
+  it.each([
+    ['no phase', null],
+    ['the saving phase', SAVING],
+    ['the error phase', { kind: 'error', message: 'disk full' } as const],
+    ['a clean done phase', DONE],
+  ] as const)('ignores a clear in %s, which carries no reveal error to drop', (_what, state) => {
+    expect(trackSaveReducer(state, { type: 'clearError' })).toBe(state);
+  });
 });
 
 describe('trackScope', () => {
