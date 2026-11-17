@@ -43,6 +43,10 @@ describe('ZoomReadout (#287)', () => {
     const { container } = renderReadout(19, 19, 'Already zoomed all the way in');
     const readout = container.querySelector('.map-zoom-level') as HTMLElement;
     expect(readout.textContent).toBe('Zoom level 19. Already zoomed all the way in');
+    // The reason stays hidden copy: every word of it lives in sr-only spans,
+    // so it can never surface as visible text in the strip.
+    const hidden = Array.from(readout.querySelectorAll('.sr-only'), (el) => el.textContent);
+    expect(hidden).toEqual(['Zoom level ', '. Already zoomed all the way in']);
   });
 
   it('drops the reason again when the notice clears', () => {
