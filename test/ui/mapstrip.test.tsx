@@ -14,27 +14,37 @@ afterEach(() => {
 
 const CONTROLS: ZoomControls = { zoom: 0, style: 'satellite', onStep: () => {} };
 
-function renderStrip(
+function strip(
   layout: 'split' | 'overlay',
-  zoomControls?: ZoomControls,
-  hudHostRef: RefObject<HTMLDivElement | null> = { current: null },
+  zoomControls: ZoomControls | undefined,
+  hudHostRef: RefObject<HTMLDivElement | null>,
+  visibleZoom: number,
 ) {
-  const view = render(
+  return (
     <MapStrip
       hudHostRef={hudHostRef}
       layout={layout}
       zoomControls={zoomControls}
-      visibleZoom={14}
-    />,
+      visibleZoom={visibleZoom}
+    />
   );
+}
+
+function renderStrip(
+  layout: 'split' | 'overlay',
+  zoomControls?: ZoomControls,
+  hudHostRef: RefObject<HTMLDivElement | null> = { current: null },
+  visibleZoom = 14,
+) {
+  const view = render(strip(layout, zoomControls, hudHostRef, visibleZoom));
   return { ...view, hudHostRef };
 }
 
-describe('MapStrip (#272)', () => {
+describe('MapStrip (#272, #287)', () => {
   it('renders the scene-owned readout host inside the strip', () => {
     const { container, hudHostRef } = renderStrip('split');
-    const strip = container.querySelector('.map-card-strip') as HTMLElement;
-    const readouts = strip.querySelector('.map-strip-readouts') as HTMLElement;
+    const stripEl = container.querySelector('.map-card-strip') as HTMLElement;
+    const readouts = stripEl.querySelector('.map-strip-readouts') as HTMLElement;
     expect(readouts).toBeTruthy();
     expect(hudHostRef.current).toBe(readouts);
   });
@@ -45,17 +55,49 @@ describe('MapStrip (#272)', () => {
     expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
   });
 
-  it('keeps the zoom column out of the PiP layout', () => {
+  it('renders the zoom readout column in the PiP layout (#287)', () => {
     const { container } = renderStrip('overlay', CONTROLS);
-    expect(container.querySelector('.map-strip-zoom')).toBeNull();
-    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    const zoomColumn = container.querySelector('.map-strip-zoom') as HTMLElement;
+    expect(zoomColumn.querySelector('.label')?.textContent).toBe('Zoom');
+    expect(zoomColumn.querySelector('.map-zoom-level')).toBeTruthy();
+    expect(screen.getByText('Zoom')).toBeTruthy();
   });
 
-  it('renders the readout host but no zoom column without zoom controls', () => {
-    const { container } = renderStrip('split');
-    expect(container.querySelector('.map-strip-readouts')).toBeTruthy();
-    expect(container.querySelector('.map-strip-zoom')).toBeNull();
+  it('keeps the stepper controls out of the PiP layout (#287)', () => {
+    const { container } = renderStrip('overlay', CONTROLS);
+    expect(container.querySelector('.map-zoom-stepper')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
   });
+
+  it('shows a step change in the PiP readout (#287 regression)', () => {
+    const { container, rerender } = renderStrip('overlay', { ...CONTROLS, zoom: 14 });
+    const readout = () => container.querySelector('.map-zoom-level') as HTMLElement;
+    expect(readout().textContent).toBe('Zoom level 14');
+    rerender(strip('overlay', { ...CONTROLS, zoom: 15 }, { current: null }, 15));
+    expect(readout().textContent).toBe('Zoom level 15');
+  });
+
+  it('announces a refused step through the PiP live region (#287 regression)', () => {
+    const { container } = renderStrip('overlay', {
+      ...CONTROLS,
+      zoom: 14,
+      notice: 'Already zoomed all the way in',
+    });
+    const readout = container.querySelector('.map-zoom-level') as HTMLElement;
+    expect(readout.getAttribute('aria-live')).toBe('polite');
+    expect(readout.textContent).toBe('Zoom level 14. Already zoomed all the way in');
+  });
+
+  it.for(['split', 'overlay'] as const)(
+    'renders the readout host but no zoom column without zoom controls in the %s layout',
+    (layout) => {
+      const { container } = renderStrip(layout);
+      expect(container.querySelector('.map-strip-readouts')).toBeTruthy();
+      expect(container.querySelector('.map-strip-zoom')).toBeNull();
+    },
+  );
 
   it('routes step presses to the zoom controls', () => {
     const onStep = vi.fn();

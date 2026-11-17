@@ -196,12 +196,16 @@ describe('MapCard zoom column (#270, #272)', () => {
     expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
   });
 
-  it('keeps the zoom column out of the compact PiP card', () => {
+  it('renders the zoom readout but no stepper in the compact PiP card (#287)', () => {
     const { container } = render(
       <MapCard data={ZOOM_DATA} onScene={() => {}} layout="overlay" zoomControls={CONTROLS} />,
     );
-    expect(container.querySelector('.map-strip-zoom')).toBeNull();
+    const zoomColumn = container.querySelector('.map-strip-zoom') as HTMLElement;
+    expect(zoomColumn.querySelector('.map-zoom-level')).toBeTruthy();
+    expect(zoomColumn.querySelector('.map-zoom-stepper')).toBeNull();
     expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
   });
 
   it('steps through the supplied zoom controls', () => {
@@ -272,6 +276,18 @@ describe('MapCard style contract (#236)', () => {
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.label,[^}]*font-size: 9px/);
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.value \{[^}]*font-size: 12px/);
     expect(cssText).toMatch(/\.map-card-overlay \.map-readout \.unit \{[^}]*font-size: 9px/);
+  });
+
+  it('keeps the zoom readout column in the compact strip (#287)', () => {
+    // The PiP strip keeps the Zoom column down to its readout: a third grid
+    // column, placed like the values and scaled to the compact value line.
+    expect(cssText).toMatch(
+      /\.map-card-overlay \.map-card-strip \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) auto/,
+    );
+    expect(cssText).toMatch(/\.map-strip-zoom > \.map-zoom-level \{[^}]*grid-row: 2/);
+    expect(cssText).toMatch(
+      /\.map-card-overlay \.map-strip-zoom > \.map-zoom-level \{[^}]*font-size: 12px[^}]*line-height: 20px/,
+    );
   });
 
   it('keeps the zoom stepper bare with no pill container or borders (#272)', () => {

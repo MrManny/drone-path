@@ -2,6 +2,7 @@
 
 import type { MapStyle } from '../../src/config.js';
 import { zoomLimits } from '../../src/plan.js';
+import { ZoomReadout } from './ZoomReadout.js';
 
 export interface ZoomStepperProps {
   /** The pinned "Zoom" setting: 0 is auto-fit. */
@@ -18,8 +19,6 @@ export function ZoomStepper({ zoom, visibleZoom, style, onStep, notice = '' }: Z
   const { min, max } = zoomLimits(style);
   const canOut = visibleZoom > min;
   const canIn = visibleZoom < max;
-  // The readout states the level the map renders; auto-fit says so instead.
-  const level = zoom === 0 ? 'auto' : String(visibleZoom);
   // At a limit the buttons stay focusable through aria-disabled, so the
   // keyboard highlight and the reason in the title get announced (#271).
   // The stepper is bare: no pill container and no button borders (#272).
@@ -34,11 +33,7 @@ export function ZoomStepper({ zoom, visibleZoom, style, onStep, notice = '' }: Z
       >
         −
       </button>
-      <span className="map-zoom-level" aria-live="polite" aria-atomic="true">
-        <span className="sr-only">Zoom level </span>
-        {level}
-        {notice ? <span className="sr-only">. {notice}</span> : null}
-      </span>
+      <ZoomReadout zoom={zoom} visibleZoom={visibleZoom} notice={notice} />
       <button
         type="button"
         aria-label="Zoom in"

@@ -438,6 +438,16 @@ button.primary {
 .map-strip-zoom .map-zoom-stepper {
   grid-row: 2;
 }
+/* In the PiP strip the Zoom column carries only its readout — a direct grid
+   child placed like the values, left-aligned with its label (#287). The child
+   combinator keeps the stepper's nested readout out of this placement. */
+.map-strip-zoom > .map-zoom-level {
+  grid-column: 3;
+  grid-row: 2;
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+}
 .map-readout .unit {
   margin-left: 4px;
   font-size: 10px;
@@ -487,9 +497,9 @@ button.primary {
   white-space: nowrap;
 }
 /* The compact PiP card scales the strip's micro-labels with the furniture and
-   keeps only the two readout columns (no zoom controls in PiP). */
+   keeps the Zoom column down to its readout (no stepper buttons in PiP). */
 .map-card-overlay .map-card-strip {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   column-gap: 6px;
   row-gap: 1px;
   padding: 4px 6px;
@@ -505,6 +515,12 @@ button.primary {
 }
 .map-card-overlay .map-readout .unit {
   font-size: 9px;
+}
+/* The PiP zoom readout shares the compact value line so the strip's
+   baselines hold (#287). */
+.map-card-overlay .map-strip-zoom > .map-zoom-level {
+  font-size: 12px;
+  line-height: 20px;
 }
 /* The map rail before a recording loads: a quiet pane that says so. */
 .map-card-empty {
