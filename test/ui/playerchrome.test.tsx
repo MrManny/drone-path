@@ -754,6 +754,54 @@ describe('PlayerChrome map zoom (#270)', () => {
   });
 });
 
+describe('PlayerChrome PiP zoom readout (#287)', () => {
+  function PinnedChrome({ initial }: { initial: RenderConfig }) {
+    const [settings, setSettings] = useState(initial);
+    return (
+      <Chrome
+        session={SESSION}
+        settings={settings}
+        onSettingsChange={setSettings}
+        onOpen={() => {}}
+      />
+    );
+  }
+
+  function zoomReadout(): HTMLElement {
+    return document.querySelector('.map-zoom-level') as HTMLElement;
+  }
+
+  it('shows the zoom readout in the PiP strip while the stepper stays out', () => {
+    render(<PinnedChrome initial={{ ...SETTINGS, zoom: 14 }} />);
+    key(window, { key: 'p' });
+    expect(screen.getByText('Zoom')).toBeTruthy();
+    expect(zoomReadout().textContent).toBe('Zoom level 14');
+    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
+  });
+
+  it('moves the PiP readout when a zoom key steps the map (#287 regression)', () => {
+    render(<PinnedChrome initial={{ ...SETTINGS, zoom: 14 }} />);
+    key(window, { key: 'p' });
+    expect(zoomReadout().textContent).toBe('Zoom level 14');
+    key(window, { key: '+' });
+    expect(zoomReadout().textContent).toBe('Zoom level 15');
+    key(window, { key: '-' });
+    expect(zoomReadout().textContent).toBe('Zoom level 14');
+  });
+
+  it('announces a refused step through the mounted PiP live region (#287 regression)', () => {
+    render(<PinnedChrome initial={{ ...SETTINGS, zoom: 19 }} />);
+    key(window, { key: 'p' });
+    expect(zoomReadout().textContent).toBe('Zoom level 19');
+    key(window, { key: '+' });
+    expect(zoomReadout().textContent).toBe('Zoom level 19. Already zoomed all the way in');
+    key(window, { key: '-' });
+    expect(zoomReadout().textContent).toBe('Zoom level 18');
+  });
+});
+
 describe('PlayerChrome loop region', () => {
   it('sets the loop with I and O, shows the region, and wraps playback into it', async () => {
     const fake = await renderPlayer();

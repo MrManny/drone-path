@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';
+import { ZoomReadout } from './ZoomReadout.js';
 import { ZoomStepper } from './ZoomStepper.js';
 
 export interface MapStripProps {
@@ -16,22 +17,31 @@ export interface MapStripProps {
 }
 
 /** The one compact surface below the map: Speed | Altitude readouts beside the
-    Zoom stepper. The readouts are scene-owned; the Zoom column is split-view
-    only — the compact PiP card keeps no zoom controls. */
+    Zoom column. The readouts are scene-owned; the Zoom column carries the bare
+    stepper in split view and only its readout in the compact PiP card — the
+    level and its live region stay mounted in both layouts (#287). */
 export function MapStrip({ hudHostRef, layout, zoomControls, visibleZoom }: MapStripProps) {
   return (
     <div className="map-card-strip">
       <div className="map-strip-readouts" ref={hudHostRef} />
-      {layout === 'split' && zoomControls ? (
+      {zoomControls ? (
         <div className="map-strip-zoom">
           <span className="label">Zoom</span>
-          <ZoomStepper
-            zoom={zoomControls.zoom}
-            visibleZoom={visibleZoom}
-            style={zoomControls.style}
-            onStep={zoomControls.onStep}
-            notice={zoomControls.notice}
-          />
+          {layout === 'split' ? (
+            <ZoomStepper
+              zoom={zoomControls.zoom}
+              visibleZoom={visibleZoom}
+              style={zoomControls.style}
+              onStep={zoomControls.onStep}
+              notice={zoomControls.notice}
+            />
+          ) : (
+            <ZoomReadout
+              zoom={zoomControls.zoom}
+              visibleZoom={visibleZoom}
+              notice={zoomControls.notice}
+            />
+          )}
         </div>
       ) : null}
     </div>
