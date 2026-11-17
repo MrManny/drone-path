@@ -21,6 +21,13 @@ describe('sceneCss', () => {
     expect(css).toContain('font-size: 42px');
   });
 
+  it('places the HUD pills as a top-left column with an arrow slot (#283)', () => {
+    const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 768, 768, 1, 'scene-scope-1');
+    expect(css).toMatch(/#hud \{[^}]*top: 16px; left: 16px/);
+    expect(css).toMatch(/#hud \{[^}]*flex-direction: column/);
+    expect(css).toMatch(/\.chip \.chip-arrow \{[^}]*justify-content: center/);
+  });
+
   it('keeps the map frame canvas-sized for the export', () => {
     const css = sceneCss(TILE_SOURCES.satellite, themeFor('satellite'), 1920, 1080, 1, 'scene-scope-1');
     expect(css).toContain(
@@ -62,7 +69,7 @@ describe('mapMarkup', () => {
   it('carries the renderer DOM contract', () => {
     const markup = mapMarkup({ heading: true, alt: true, speed: true }, 'Test Attribution');
     for (const id of [
-      'map-frame', 'map', 'vignette', 'hud', 'chip-alt', 'chip-speed',
+      'map-frame', 'map', 'vignette', 'hud', 'chip-heading', 'chip-alt', 'chip-speed',
       'attr', 'scalebar', 'scaletext', 'scaleline',
     ]) {
       expect(markup).toContain(`id="${id}"`);
@@ -70,13 +77,31 @@ describe('mapMarkup', () => {
     expect(markup).toContain('Test Attribution');
   });
 
+  it('emits the heading pill the export owes the preview (#283 regression)', () => {
+    const markup = mapMarkup({ heading: true, alt: false, speed: false }, 'attr');
+    expect(markup).toContain('id="chip-heading"');
+    expect(markup).toContain('<span class="label">HDG</span>');
+    expect(markup).toContain('<span class="chip-arrow">▲</span>');
+    expect(markup).toContain('<span class="num">--</span>');
+  });
+
+  it('stacks the pills HDG, ALT, SPD in export order (#283)', () => {
+    const markup = mapMarkup({ heading: true, alt: true, speed: true }, 'attr');
+    const order = ['chip-heading', 'chip-alt', 'chip-speed'].map(
+      (id) => markup.indexOf(`id="${id}"`),
+    );
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
   it.for([
-    { name: 'heading only', hud: { heading: true, alt: false, speed: false }, want: [] },
-    { name: 'all chips', hud: { heading: true, alt: true, speed: true }, want: ['chip-alt', 'chip-speed'] },
+    { name: 'heading only', hud: { heading: true, alt: false, speed: false }, want: ['chip-heading'] },
+    { name: 'all chips', hud: { heading: true, alt: true, speed: true }, want: ['chip-heading', 'chip-alt', 'chip-speed'] },
     { name: 'no chips', hud: { heading: false, alt: false, speed: false }, want: [] },
   ])('renders $name', ({ hud, want }) => {
     const markup = mapMarkup(hud, 'attr');
     for (const id of want) expect(markup).toContain(`id="${id}"`);
+    if (!hud.heading) expect(markup).not.toContain('id="chip-heading"');
     if (!hud.alt) expect(markup).not.toContain('id="chip-alt"');
     if (!hud.speed) expect(markup).not.toContain('id="chip-speed"');
   });

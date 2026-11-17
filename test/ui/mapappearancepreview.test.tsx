@@ -1,4 +1,8 @@
 // @vitest-environment jsdom
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -119,7 +123,7 @@ describe('MapAppearancePreview', () => {
   it('carries the chip toggles over the frame', () => {
     const onToggleChip = vi.fn();
     renderPreview({ onToggleChip });
-    fireEvent.click(screen.getByRole('button', { name: /ALT/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Altitude/ }));
     expect(onToggleChip).toHaveBeenCalledWith('alt');
   });
 
@@ -128,5 +132,25 @@ describe('MapAppearancePreview', () => {
     await waitFor(() => expect(boot.calls).toHaveLength(1));
     expect(observers[0].observed).toBe(true);
     expect(boot.calls[0].host.id).toBe('');
+  });
+});
+
+describe('MapAppearancePreview style contract (#283)', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const cssText = fs.readFileSync(path.join(root, 'ui', 'app', 'globals.css'), 'utf8');
+
+  it('puts the pill toggles where the export puts its pills', () => {
+    const chips = /\.preview-chips \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(chips).toContain('top: 16px');
+    expect(chips).toContain('left: 16px');
+    // The bottom-left placement — and its scale-bar collision offset — is
+    // gone with it.
+    expect(chips).not.toContain('bottom');
+  });
+
+  it('stacks the pill toggles in the export column', () => {
+    const stack = /\.preview-chips \.hud-chips \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+    expect(stack).toContain('flex-direction: column');
+    expect(stack).toContain('align-items: flex-start');
   });
 });

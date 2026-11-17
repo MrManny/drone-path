@@ -44,8 +44,9 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
     const meta = session === null ? EXAMPLE_FLIGHT.meta : restyleMeta(session);
     const data = restyleSceneData(base, appearance, meta, PREVIEW_SIZE);
     // The chips over the preview stand in for the export frame's HUD pills,
-    // so the renderer draws none of its own.
-    return { ...data, hud: { ...data.hud, alt: false, speed: false } };
+    // so the renderer draws none of its own; the real HUD flags stay on the
+    // data because the marker arrow follows the heading setting (#283).
+    return { ...data, hudPills: false };
   }, [session, appearance]);
 
   const frames = session === null ? EXAMPLE_FLIGHT.frames : session.video.frames;
