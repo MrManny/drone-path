@@ -20,7 +20,7 @@ function summary(overrides: Partial<RecordingSummary> = {}): RecordingSummary {
 describe('formatExportSummary', () => {
   it.for<{ name: string; overrides: Partial<RecordingSummary>; want: string }>([
     {
-      name: 'a decimal rate',
+      name: 'a ratio rate',
       overrides: {},
       want: '120 frames @ 29.97 fps · 4 s · 1280×720',
     },
