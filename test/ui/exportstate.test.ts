@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ExportRequest } from '../../src/config.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
+import type { ExportOutcome } from '../../src/exportjob.js';
 import {
   captureFraction,
   exportPhaseText,
@@ -130,20 +131,26 @@ describe('export lifecycle', () => {
     expect(state.result).toEqual(OK_SUMMARY);
   });
 
-  it('finishes to error with the message, keeping the form for a retry', () => {
+  it('returns to the form with the failure message when the run fails (#282)', () => {
     const state = exportReducer(running(), {
       type: 'finish',
       outcome: { status: 'error', error: 'verification failed' },
     });
-    expect(state.phase).toBe('error');
+    expect(state.phase).toBe('form');
     expect(state.error).toBe('verification failed');
+    expect(state.notice).toBeNull();
+    expect(state.request).toBeNull();
+    expect(state.canceling).toBe(false);
   });
 
-  it('finishes to canceled', () => {
+  it('returns to the form carrying the cancel sentence as a notice (#282)', () => {
     const cancelling = exportReducer(running(), { type: 'cancelRequested' });
     expect(cancelling.canceling).toBe(true);
     const state = exportReducer(cancelling, { type: 'finish', outcome: { status: 'canceled' } });
-    expect(state.phase).toBe('canceled');
+    expect(state.phase).toBe('form');
+    expect(state.notice).toBe('Export canceled; its unfinished file was removed.');
+    expect(state.error).toBeNull();
+    expect(state.request).toBeNull();
     expect(state.canceling).toBe(false);
   });
 
@@ -321,16 +328,44 @@ describe('exportPhaseText', () => {
     expect(exportPhaseText(done)).toBe('Export finished.');
   });
 
-  it('carries the canceled sentence', () => {
-    const canceled = exportReducer(running(), { type: 'finish', outcome: { status: 'canceled' } });
-    expect(exportPhaseText(canceled)).toBe('Export canceled; its unfinished file was removed.');
+  it.for<{ name: string; outcome: ExportOutcome }>([
+    { name: 'a failed run', outcome: { status: 'error', error: 'boom' } },
+    { name: 'a canceled run', outcome: { status: 'canceled' } },
+  ])(
+    'stays empty after $name returns to the form, which announces through its notices',
+    ({ outcome }) => {
+      const settled = exportReducer(running(), { type: 'finish', outcome });
+      expect(exportPhaseText(settled)).toBe('');
+    },
+  );
+});
+
+describe('outcome notices', () => {
+  function canceledForm(): ExportState {
+    return exportReducer(exportReducer(running(), { type: 'cancelRequested' }), {
+      type: 'finish',
+      outcome: { status: 'canceled' },
+    });
+  }
+
+  it('clears the notice when the next export starts', () => {
+    expect(exportReducer(canceledForm(), { type: 'start', request: REQUEST }).notice).toBeNull();
   });
 
-  it('stays empty in the error phase, which announces through its alert', () => {
-    const failed = exportReducer(running(), {
-      type: 'finish',
-      outcome: { status: 'error', error: 'boom' },
-    });
-    expect(exportPhaseText(failed)).toBe('');
+  it.for<{ name: string; event: ExportEvent }>([
+    { name: 'a chosen destination', event: { type: 'choose', path: '/exports/b.mp4' } },
+    { name: 'a width edit', event: { type: 'setWidth', width: 1024 } },
+    { name: 'a height edit', event: { type: 'setHeight', height: 576 } },
+    { name: 'a range edit', event: { type: 'setRange', range: { start: 3, end: 9 } } },
+    { name: 'a dismissed message', event: { type: 'clearError' } },
+    { name: 'a new failure', event: { type: 'failed', error: 'boom' } },
+  ])('clears the notice on $name', ({ event }) => {
+    expect(exportReducer(canceledForm(), event).notice).toBeNull();
+  });
+
+  it('never carries an error and a notice at once', () => {
+    const failed = exportReducer(canceledForm(), { type: 'failed', error: 'boom' });
+    expect(failed.error).toBe('boom');
+    expect(failed.notice).toBeNull();
   });
 });

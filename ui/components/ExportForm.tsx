@@ -10,6 +10,7 @@ import {
 } from '../../src/config.js';
 import type { ExportEvent, ExportForm as ExportFormState } from '../lib/exportstate.js';
 import { ErrorNotice } from './ErrorNotice.js';
+import { Notice } from './Notice.js';
 import { NumberField } from './NumberField.js';
 import { SelectField } from './SelectField.js';
 
@@ -19,6 +20,7 @@ export interface ExportFormProps {
   totalText: string;
   encode: EncodeSettings;
   error: string | null;
+  notice: string | null;
   dispatch: (event: ExportEvent) => void;
   onEncoderChange: (patch: Partial<EncodeSettings>) => void;
   onClose: () => void;
@@ -46,6 +48,7 @@ export function ExportForm({
   totalText,
   encode,
   error,
+  notice,
   dispatch,
   onEncoderChange,
   onClose,
@@ -130,6 +133,7 @@ export function ExportForm({
       </fieldset>
 
       {error ? <ErrorNotice message={error} /> : null}
+      {notice ? <Notice tone="info">{notice}</Notice> : null}
       <div className="dialog-actions">
         <button type="button" onClick={onClose}>
           Cancel

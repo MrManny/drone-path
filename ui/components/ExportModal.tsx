@@ -20,7 +20,6 @@ import type { LoopState } from '../lib/loop.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import { DialogShell } from './DialogShell.js';
 import { ExportDone } from './ExportDone.js';
-import { ExportError } from './ExportError.js';
 import { ExportForm } from './ExportForm.js';
 import { ExportPreview } from './ExportPreview.js';
 import { ExportRunning } from './ExportRunning.js';
@@ -93,7 +92,7 @@ export function ExportModal({
     };
   }, []);
 
-  const { phase, form, result, error, canceling } = state;
+  const { phase, form, result, error, notice, canceling } = state;
 
   // A phase change unmounts the old phase's action; focus follows the flow to
   // the new primary action (or the dialog) so it never lands on <body>.
@@ -108,7 +107,6 @@ export function ExportModal({
     (target ?? fallback)?.focus();
   }, [phase]);
 
-  const showPreview = phase === 'form' || phase === 'running' || phase === 'done';
   const previewConfig = state.request?.config ?? settings;
   const previewRange = state.request ? state.request.range : form.range;
   const totalText = formatTime(durationSec);
@@ -143,15 +141,13 @@ export function ExportModal({
       blockedReason={dismissible ? undefined : 'Export is running. Cancel it to close.'}
     >
       <div className="export-body">
-        {showPreview ? (
-          <ExportPreview
-            session={session}
-            config={previewConfig}
-            size={{ width: form.width, height: form.height }}
-            frame={previewFrame(previewRange, video.frames)}
-            note={phase === 'form'}
-          />
-        ) : null}
+        <ExportPreview
+          session={session}
+          config={previewConfig}
+          size={{ width: form.width, height: form.height }}
+          frame={previewFrame(previewRange, video.frames)}
+          note={phase === 'form'}
+        />
         <div className="export-phase" ref={phaseColumnRef}>
           <p className="phase-status" role="status">
             {exportPhaseText(state)}
@@ -163,6 +159,7 @@ export function ExportModal({
               totalText={totalText}
               encode={{ codec: settings.codec, quality: settings.quality, preset: settings.preset }}
               error={error}
+              notice={notice}
               dispatch={dispatch}
               onEncoderChange={changeEncoder}
               onClose={onClose}
@@ -201,8 +198,6 @@ export function ExportModal({
               }
             />
           ) : null}
-
-          {phase === 'error' && error ? <ExportError error={error} /> : null}
         </div>
       </div>
     </DialogShell>

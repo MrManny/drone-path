@@ -23,6 +23,7 @@ function renderForm(overrides: Partial<ExportFormProps> = {}) {
       totalText="0:34"
       encode={ENCODE}
       error={null}
+      notice={null}
       onClose={vi.fn()}
       onStart={vi.fn()}
       {...overrides}
@@ -134,6 +135,15 @@ describe('ExportForm actions', () => {
   it('shows a failure message above the actions', () => {
     renderForm({ error: 'the app backend went away' });
     expect(screen.getByText('the app backend went away')).toBeTruthy();
+  });
+
+  it('shows the outcome notice as a status message above the actions', () => {
+    renderForm({ notice: 'Export canceled; its unfinished file was removed.' });
+    const notice = screen
+      .getByText('Export canceled; its unfinished file was removed.')
+      .closest('.notice');
+    expect(notice?.className).toContain('notice-info');
+    expect(notice?.getAttribute('role')).toBe('status');
   });
 });
 
