@@ -42,9 +42,9 @@ describe('ExportDone outcome', () => {
     expect(out.getAttribute('title')).toBe('/exports/flight-map.mp4');
   });
 
-  it('drops the rate clause when the summary carries no rate', () => {
+  it('drops the rate and duration clauses when the summary carries no rate', () => {
     renderDone({ result: { ...RESULT, fps: undefined } });
-    expect(screen.getByText('120 frames · 4 s · 1280×720')).toBeTruthy();
+    expect(screen.getByText('120 frames · 1280×720')).toBeTruthy();
   });
 
   it('surfaces a reveal or open failure above the summary', () => {

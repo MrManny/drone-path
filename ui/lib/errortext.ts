@@ -21,6 +21,11 @@ interface ErrorText {
   technical: string | null;
 }
 
+// One cancel sentence for every surface — the form notice after a canceled
+// run and the ERR_RENDER_CANCELED mapping below — so one event never reads
+// two ways (#282).
+export const CANCELED_SENTENCE = 'Export canceled; its unfinished file was removed.';
+
 const NODE_CODE = /^(EEXIST|ENOENT|EACCES|EPERM|ENOSPC|EBUSY|EISDIR): /;
 
 function quotedPath(message: string): string | null {
@@ -88,7 +93,7 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =>
     () => 'The export needs a full path to its destination. Choose the destination again.',
   ],
   [exactMessage(ERR_APP_BRIDGE_UNAVAILABLE), () => 'The app cannot reach its own services. Restart the app.'],
-  [exactMessage(ERR_RENDER_CANCELED), () => 'The export was canceled.'],
+  [exactMessage(ERR_RENDER_CANCELED), () => CANCELED_SENTENCE],
   [
     new RegExp(`^${escaped(ERR_NOT_READABLE_MP4)}(.+)$`),
     (m) => `"${leafName(m[1])}" is not a readable .mp4 recording. Choose a different .mp4 file.`,

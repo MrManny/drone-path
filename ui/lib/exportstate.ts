@@ -3,8 +3,9 @@ import { normalizeDimensions } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { RecordingSummary } from '../../src/pipeline.js';
+import { CANCELED_SENTENCE } from './errortext.js';
 
-type ExportPhase = 'form' | 'running' | 'done' | 'error' | 'canceled';
+type ExportPhase = 'form' | 'running' | 'done';
 
 const LOG_CAP = 50;
 
@@ -18,9 +19,9 @@ export function runningPhaseText(fraction: number | null, canceling: boolean): s
   return fraction === null ? 'Preparing…' : `Exporting ${Math.round(fraction * 100)}%`;
 }
 
-// The persistent phase line carries the running progress and the result
-// sentences; the form and failure phases announce through their own notices,
-// so they leave it empty.
+// The persistent phase line carries the running progress and the success
+// sentence; the form and its outcome notices announce themselves, so the
+// form leaves it empty.
 export function exportPhaseText(state: ExportState): string {
   switch (state.phase) {
     case 'form':
@@ -29,10 +30,6 @@ export function exportPhaseText(state: ExportState): string {
       return runningPhaseText(captureFraction(state.capture), state.canceling);
     case 'done':
       return 'Export finished.';
-    case 'canceled':
-      return 'Export canceled; its unfinished file was removed.';
-    case 'error':
-      return '';
   }
 }
 
@@ -57,6 +54,9 @@ export interface ExportState {
   capture: CaptureProgress | null;
   result: RecordingSummary | null;
   error: string | null;
+  // The outcome sentence of a canceled run, shown by the form as an info
+  // notice; a failure's sentence travels in `error` instead (#282).
+  notice: string | null;
   canceling: boolean;
 }
 
@@ -88,6 +88,7 @@ export function initialExportState(
     capture: null,
     result: null,
     error: null,
+    notice: null,
     canceling: false,
   };
 }
@@ -96,7 +97,7 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
   switch (event.type) {
     case 'choose':
       return state.phase === 'form'
-        ? { ...state, form: { ...state.form, outPath: event.path }, error: null }
+        ? { ...state, form: { ...state.form, outPath: event.path }, error: null, notice: null }
         : state;
     case 'setWidth':
       return state.phase === 'form'
@@ -104,6 +105,7 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
             ...state,
             form: { ...state.form, ...normalizeDimensions(event.width, state.form.height) },
             error: null,
+            notice: null,
           }
         : state;
     case 'setHeight':
@@ -112,14 +114,15 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
             ...state,
             form: { ...state.form, ...normalizeDimensions(state.form.width, event.height) },
             error: null,
+            notice: null,
           }
         : state;
     case 'setRange':
       return state.phase === 'form'
-        ? { ...state, form: { ...state.form, range: event.range }, error: null }
+        ? { ...state, form: { ...state.form, range: event.range }, error: null, notice: null }
         : state;
     case 'failed':
-      return { ...state, error: event.error };
+      return { ...state, error: event.error, notice: null };
     case 'start':
       return state.phase === 'form'
         ? {
@@ -130,12 +133,13 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
             capture: null,
             result: null,
             error: null,
+            notice: null,
             canceling: false,
           }
         : state;
     case 'startFailed':
       return state.phase === 'running'
-        ? { ...state, phase: 'form', request: null, error: event.error }
+        ? { ...state, phase: 'form', request: null, error: event.error, notice: null }
         : state;
     case 'progress':
       return state.phase === 'running'
@@ -149,21 +153,48 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
         ? { ...state, capture: event.progress }
         : state;
     case 'cancelRequested':
-      return state.phase === 'running' ? { ...state, canceling: true, error: null } : state;
+      return state.phase === 'running'
+        ? { ...state, canceling: true, error: null, notice: null }
+        : state;
     case 'cancelFailed':
-      return state.phase === 'running' ? { ...state, canceling: false, error: event.error } : state;
+      return state.phase === 'running'
+        ? { ...state, canceling: false, error: event.error, notice: null }
+        : state;
     case 'clearError':
-      return { ...state, error: null };
+      return { ...state, error: null, notice: null };
     case 'finish': {
       if (state.phase !== 'running') return state;
       const { outcome } = event;
       if (outcome.status === 'ok') {
-        return { ...state, phase: 'done', result: outcome.summary, error: null, canceling: false };
+        return {
+          ...state,
+          phase: 'done',
+          result: outcome.summary,
+          error: null,
+          notice: null,
+          canceling: false,
+        };
       }
+      // Failed and canceled runs return to the form carrying their sentence,
+      // matching the start-failure behavior (#282).
       if (outcome.status === 'canceled') {
-        return { ...state, phase: 'canceled', error: null, canceling: false };
+        return {
+          ...state,
+          phase: 'form',
+          request: null,
+          error: null,
+          notice: CANCELED_SENTENCE,
+          canceling: false,
+        };
       }
-      return { ...state, phase: 'error', error: outcome.error, canceling: false };
+      return {
+        ...state,
+        phase: 'form',
+        request: null,
+        error: outcome.error,
+        notice: null,
+        canceling: false,
+      };
     }
   }
 }

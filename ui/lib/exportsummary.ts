@@ -1,10 +1,18 @@
-import { formatFps } from '../../src/frametime.js';
+import { formatFps, parseRate } from '../../src/frametime.js';
 import type { RecordingSummary } from '../../src/pipeline.js';
+
+// The spec line reads as media specs only: the encode wall time between them
+// would read as a wrong media duration (#284).
+function mediaSeconds(frames: number | undefined, fps: string | undefined): number | null {
+  const rate = fps ? parseRate(fps) : null;
+  const den = rate?.den ?? 1;
+  if (!frames || !rate || !(rate.num > 0) || !(den > 0)) return null;
+  return (frames * den) / rate.num;
+}
 
 export function formatExportSummary(summary: RecordingSummary): string {
   const rate = summary.fps ? ` @ ${formatFps(summary.fps)}` : '';
-  return (
-    `${summary.frames} frames${rate} · ${Math.round(summary.elapsedSec)} s · ` +
-    `${summary.width}×${summary.height}`
-  );
+  const seconds = mediaSeconds(summary.frames, summary.fps);
+  const duration = seconds === null ? '' : ` · ${seconds < 1 ? '<1 s' : `${Math.round(seconds)} s`}`;
+  return `${summary.frames} frames${rate}${duration} · ${summary.width}×${summary.height}`;
 }

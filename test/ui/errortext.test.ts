@@ -238,7 +238,7 @@ describe.for([
     constant: ERR_RENDER_CANCELED,
     message: 'render canceled',
     raw: ERR_RENDER_CANCELED,
-    text: 'The export was canceled.',
+    text: 'Export canceled; its unfinished file was removed.',
   },
   {
     name: 'ERR_NOT_READABLE_MP4',

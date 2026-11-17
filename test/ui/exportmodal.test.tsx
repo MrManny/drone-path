@@ -60,14 +60,21 @@ const SUMMARY = {
   height: 720,
 };
 
-type Phase = 'form' | 'running' | 'done' | 'error' | 'canceled';
+type Phase = 'form' | 'running' | 'done';
+type Outcome = 'error' | 'canceled';
+type Scenario = Phase | Outcome;
 
 const FOOTERS: Record<Phase, string[]> = {
   form: ['Cancel', 'Start export'],
   running: ['Cancel export'],
   done: ['Open video', 'Reveal in folder'],
-  error: [],
-  canceled: [],
+};
+
+// A settled run returns to the form, so its actions — retry among them —
+// stay one click away (#282).
+const OUTCOME_FOOTERS: Record<Outcome, string[]> = {
+  error: ['Cancel', 'Start export'],
+  canceled: ['Cancel', 'Start export'],
 };
 
 function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
@@ -152,7 +159,7 @@ function renderModal(
   );
 }
 
-async function reachPhase(phase: Phase, emitDone: (outcome: ExportOutcome) => void) {
+async function reachPhase(phase: Scenario, emitDone: (outcome: ExportOutcome) => void) {
   renderModal({ in: null, out: null });
   if (phase === 'form') return;
   fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
@@ -327,7 +334,7 @@ describe('ExportModal save-first flow', () => {
   });
 });
 
-describe.each<Phase>(['form', 'running', 'done', 'error', 'canceled'])(
+describe.each<Phase>(['form', 'running', 'done'])(
   'ExportModal footer in the %s phase',
   (phase) => {
     it('offers exactly the actions of that phase', async () => {
@@ -342,12 +349,27 @@ describe.each<Phase>(['form', 'running', 'done', 'error', 'canceled'])(
   },
 );
 
-describe.each<Phase>(['form', 'done', 'error', 'canceled'])(
-  'ExportModal header Close in the %s phase',
-  (phase) => {
+describe.each<Outcome>(['error', 'canceled'])(
+  'ExportModal footer after a %s run',
+  (outcome) => {
+    it('returns to the form actions instead of dead-ending (#282)', async () => {
+      const { emitDone } = installBridge();
+      await reachPhase(outcome, emitDone);
+      const footer = dialogFooter();
+      const labels = footer
+        ? [...footer.querySelectorAll('button')].map((b) => b.textContent?.trim())
+        : [];
+      expect(labels).toEqual(OUTCOME_FOOTERS[outcome]);
+    });
+  },
+);
+
+describe.each<Scenario>(['form', 'done', 'error', 'canceled'])(
+  'ExportModal header Close in the %s state',
+  (scenario) => {
     it('stays enabled', async () => {
       const { emitDone } = installBridge();
-      await reachPhase(phase, emitDone);
+      await reachPhase(scenario, emitDone);
       expect(headerClose().disabled).toBe(false);
     });
   },
@@ -407,29 +429,29 @@ describe('ExportModal outcomes', () => {
     expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
   });
 
-  it('rounds the elapsed seconds to whole ones', async () => {
+  it('shows the media duration, never the encode wall time (#284)', async () => {
     const { emitDone } = installBridge();
     renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     await screen.findByRole('button', { name: 'Cancel export' });
-    emitDone({ status: 'ok', summary: { ...SUMMARY, elapsedSec: 4.25 } });
-    expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
+    emitDone({ status: 'ok', summary: { ...SUMMARY, frames: 361, elapsedSec: 9 } });
+    expect(screen.getByText('361 frames @ 29.97 fps · 12 s · 1280×720')).toBeTruthy();
+    expect(screen.queryByText(/9 s/)).toBeNull();
   });
 
-  it('drops the rate clause when the summary carries no frame rate', async () => {
+  it('drops the rate and duration clauses when the summary carries no frame rate', async () => {
     const { emitDone } = installBridge();
     renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     await screen.findByRole('button', { name: 'Cancel export' });
     emitDone({ status: 'ok', summary: { ...SUMMARY, fps: undefined } });
-    expect(screen.getByText('120 frames · 4 s · 1280×720')).toBeTruthy();
+    expect(screen.getByText('120 frames · 1280×720')).toBeTruthy();
   });
 
   it('turns a raw Node error into a sentence and keeps the original as details', async () => {
     const { emitDone } = installBridge();
     await reachPhase('error', emitDone);
     expect(screen.getByText(/A file named "blocked-folder" is in the way\./)).toBeTruthy();
-    expect(screen.getByText(/The destination file was left untouched\./)).toBeTruthy();
     expect(screen.getByText('Technical details')).toBeTruthy();
     expect(screen.getByText("EEXIST: file already exists, mkdir '/exports/blocked-folder'")).toBeTruthy();
   });
@@ -600,13 +622,13 @@ describe.each<Phase>(['form', 'running', 'done'])(
   },
 );
 
-describe.each<Phase>(['canceled', 'error'])(
-  'ExportModal output preview in the %s phase',
-  (phase) => {
-    it('drops out so nothing implies a kept file', async () => {
+describe.each<Outcome>(['canceled', 'error'])(
+  'ExportModal output preview after a %s run',
+  (outcome) => {
+    it('comes back with the returned form (#282)', async () => {
       const { emitDone } = installBridge();
-      await reachPhase(phase, emitDone);
-      expect(screen.queryByTestId('export-preview')).toBeNull();
+      await reachPhase(outcome, emitDone);
+      expect(screen.getByTestId('export-preview')).toBeTruthy();
     });
   },
 );
@@ -665,11 +687,11 @@ describe('ExportModal phase lead', () => {
     expect(document.querySelector('.phase-status')).toBe(status);
   });
 
-  it('carries the canceled sentence in the same region', async () => {
+  it('leaves the status line empty when the form carries the outcome notice', async () => {
     const { emitDone } = installBridge();
     await reachPhase('canceled', emitDone);
     const status = document.querySelector('.phase-status') as HTMLElement;
-    expect(status.textContent).toBe('Export canceled; its unfinished file was removed.');
+    expect(status.textContent).toBe('');
   });
 });
 
@@ -686,14 +708,17 @@ describe('ExportModal focus on phase changes', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('falls back to the dialog when the phase carries no action', async () => {
-    const { emitDone } = installBridge();
-    await reachPhase('canceled', emitDone);
-    await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'Export video' })),
-    );
-    expect(document.activeElement).not.toBe(document.body);
-  });
+  it.for<Outcome>(['error', 'canceled'])(
+    'returns focus to Start export after a %s run (#282)',
+    async (outcome) => {
+      const { emitDone } = installBridge();
+      await reachPhase(outcome, emitDone);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start export' })),
+      );
+      expect(document.activeElement).not.toBe(document.body);
+    },
+  );
 
   it('returns focus to Start export when the job fails to start', async () => {
     installBridge({
@@ -711,6 +736,26 @@ describe('ExportModal focus on phase changes', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Start export' })),
     );
     expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
+describe('ExportModal terminal outcomes return to the form (#282)', () => {
+  it('keeps the failure sentence in place and retries on the next click', async () => {
+    const { bridge, emitDone } = installBridge();
+    await reachPhase('error', emitDone);
+    expect(screen.getByText(/A file named "blocked-folder" is in the way\./)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await waitFor(() => expect(bridge.startExport).toHaveBeenCalledTimes(2));
+  });
+
+  it('carries the cancel sentence as a status notice, not an alert', async () => {
+    const { emitDone } = installBridge();
+    await reachPhase('canceled', emitDone);
+    const notice = screen
+      .getByText('Export canceled; its unfinished file was removed.')
+      .closest('.notice');
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
 
