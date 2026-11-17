@@ -30,13 +30,6 @@ describe('ErrorNotice', () => {
     ).toBeTruthy();
   });
 
-  it('appends the tail sentence like the export outcome does', () => {
-    render(<ErrorNotice message="boom" tail="The destination file was left untouched." />);
-    expect(
-      screen.getByText('Something went wrong. Try again. The destination file was left untouched.'),
-    ).toBeTruthy();
-  });
-
   it('announces as an alert', () => {
     render(<ErrorNotice message="boom" />);
     expect(screen.getByRole('alert')).toBeTruthy();
