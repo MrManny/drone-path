@@ -1069,13 +1069,17 @@ button.primary {
 .map-appearance-dims {
   color: var(--text-3);
 }
-/* The chip row over the preview: the chips double as the toggles and sit
-   clear of the renderer's scale bar in the same corner. */
+/* The chip toggles over the preview stand in for the export frame's HUD
+   pills, so they use its placement and stacking: a top-left column (#283). */
 .preview-chips {
   position: absolute;
-  left: 12px;
-  bottom: 36px;
+  top: 16px;
+  left: 16px;
   z-index: 1300;
+}
+.preview-chips .hud-chips {
+  flex-direction: column;
+  align-items: flex-start;
 }
 .hud-chips {
   display: flex;

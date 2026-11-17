@@ -76,7 +76,15 @@ function chipCss(at: string, theme: Theme, scale: number): string {
     font-size: 0.55em; font-weight: 700; letter-spacing: 1.2px;
     color: ${theme.core}; opacity: 0.95;
   }
-  ${at} .chip .unit { font-weight: 500; opacity: 0.72; font-size: 0.68em; }`;
+  ${at} .chip .unit { font-weight: 500; opacity: 0.72; font-size: 0.68em; }
+  ${at} .chip .chip-arrow {
+    /* The heading arrow lives in a fixed square slot like the preview chip's,
+       so its ink never crowds the pill padding at any rotation angle. */
+    display: inline-flex; align-items: center; justify-content: center;
+    width: ${Math.round(24 * scale)}px; height: ${Math.round(24 * scale)}px;
+    font-size: ${Math.round(19 * scale)}px; line-height: 1;
+    color: ${theme.core};
+  }`;
 }
 
 function attrCss(at: string, scale: number): string {
@@ -131,6 +139,11 @@ export function sceneCss(
 
 export function hudMarkup(hud: HudLayout): string {
   const chips: string[] = [];
+  if (hud.heading) {
+    chips.push(
+      '<div class="chip" id="chip-heading"><span class="label">HDG</span><span class="chip-arrow">▲</span><span class="num">--</span></div>',
+    );
+  }
   if (hud.alt) {
     chips.push(
       '<div class="chip" id="chip-alt"><span class="label">ALT</span><span class="num">--</span><span class="unit">m</span></div>',

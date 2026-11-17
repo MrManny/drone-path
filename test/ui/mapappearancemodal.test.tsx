@@ -289,10 +289,22 @@ describe('MapAppearanceModal preview', () => {
     expect(data.width).toBe(1280);
     expect(data.height).toBe(720);
     expect(data.tileUrl).toContain('/tiles/satellite/{z}/{x}/{y}.png');
-    // The chips over the frame stand in for the export HUD pills.
-    expect(data.hud.alt).toBe(false);
-    expect(data.hud.speed).toBe(false);
-    expect(data.hud.heading).toBe(true);
+    // The chips over the frame stand in for the export HUD pills, so the
+    // scene draws none of its own (#283).
+    expect(data.hudPills).toBe(false);
+  });
+
+  it('keeps the real HUD flags on the preview scene for the marker arrow (#283)', async () => {
+    renderModal({
+      session: null,
+      initial: { ...DEFAULT_CONFIG, hud: { heading: true, alt: true, speed: true } },
+    });
+    await waitFor(() => expect(boot.calls).toHaveLength(1));
+    const { data } = boot.calls[0];
+    // Not falsified: the marker arrow follows the heading setting exactly as
+    // the export does; only the pill drawing is suppressed.
+    expect(data.hud).toEqual({ heading: true, alt: true, speed: true });
+    expect(data.hudPills).toBe(false);
   });
 
   it('reads plausible example values into the chips', async () => {

@@ -237,9 +237,76 @@ describe('createScene', () => {
     const { host } = mount();
     const { L } = fakeL(host);
     createScene(host, sceneData({ hud: { heading: false, alt: true, speed: false } }), { L });
+    expect(host.querySelector('#chip-heading')).toBeNull();
     expect(host.querySelector('#chip-alt')).toBeTruthy();
     expect(host.querySelector('#chip-speed')).toBeNull();
     expect((host.querySelector('#drone-arrow') as HTMLElement).style.display).toBe('none');
+  });
+
+  it('renders the HDG pill with its rotating arrow (#283 regression)', async () => {
+    const { host } = mount();
+    const { L } = fakeL(host);
+    const scene = createScene(host, sceneData({ hud: { heading: true, alt: false, speed: false } }), { L });
+    const chip = host.querySelector('#chip-heading');
+    expect(chip?.querySelector('.label')?.textContent).toBe('HDG');
+    expect(chip?.querySelector('.chip-arrow')?.textContent).toBe('▲');
+
+    await applyFrame(scene, 1);
+    const arrow = chip?.querySelector<HTMLElement>('.chip-arrow');
+    expect(arrow?.style.transform).toBe('rotate(90deg)');
+  });
+
+  it('falls back to the dimmed placeholder when a heading sample is missing (#283)', async () => {
+    const { host } = mount();
+    const { L } = fakeL(host);
+    const scene = createScene(
+      host,
+      sceneData({ headingDeg: [0, 90], hud: { heading: true, alt: false, speed: false } }),
+      { L },
+    );
+    const chip = host.querySelector('#chip-heading');
+
+    await applyFrame(scene, 1);
+    expect(chip?.querySelector<HTMLElement>('.chip-arrow')?.style.display).not.toBe('none');
+
+    await applyFrame(scene, 2);
+    expect(chip?.querySelector<HTMLElement>('.chip-arrow')?.style.display).toBe('none');
+    expect(chip?.querySelector<HTMLElement>('.num')?.style.display).not.toBe('none');
+    expect(chip?.querySelector('.num')?.textContent).toBe('--');
+  });
+
+  it('draws no pills when the caller overlays its own, keeping the marker arrow (#283)', async () => {
+    const { host } = mount();
+    const { L } = fakeL(host);
+    const scene = createScene(host, sceneData({ hudPills: false }), { L });
+    expect(host.querySelector('#hud')?.textContent?.trim()).toBe('');
+    expect(host.querySelector('#chip-heading')).toBeNull();
+    expect(host.querySelector('#chip-alt')).toBeNull();
+    expect(host.querySelector('#chip-speed')).toBeNull();
+    // The marker arrow still follows the heading setting: the preview shows
+    // the same heading HUD as the export, only its pills are overlaid.
+    expect((host.querySelector('#drone-arrow') as HTMLElement).style.display).not.toBe('none');
+
+    const off = scene.update(sceneData({ hudPills: false, hud: { heading: false, alt: true, speed: true } }));
+    flushRaf();
+    flushRaf();
+    await off;
+    expect(host.querySelector('#chip-alt')).toBeNull();
+    expect((host.querySelector('#drone-arrow') as HTMLElement).style.display).toBe('none');
+  });
+
+  it('redraws the pills when the overlay flag flips on update (#283)', async () => {
+    const { host } = mount();
+    const { L } = fakeL(host);
+    const scene = createScene(host, sceneData({ hudPills: false }), { L });
+    expect(host.querySelector('#chip-alt')).toBeNull();
+
+    const on = scene.update(sceneData());
+    flushRaf();
+    flushRaf();
+    await on;
+    expect(host.querySelector('#chip-heading')).toBeTruthy();
+    expect(host.querySelector('#chip-alt')).toBeTruthy();
   });
 
   it('renders the chips into an external hud host instead of the map frame', async () => {

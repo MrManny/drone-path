@@ -27,9 +27,41 @@ describe('HudChips', () => {
       />,
     );
     const [heading, alt, speed] = chips();
-    expect(heading.textContent).toContain('Heading');
+    expect(heading.textContent).toContain('HDG');
     expect(alt.textContent).toBe('ALT11m');
     expect(speed.textContent).toBe('SPD2.6m/s');
+  });
+
+  it.for([
+    { pill: 'HDG', name: 'Heading, 90°' },
+    { pill: 'ALT', name: 'Altitude, 11 m' },
+    { pill: 'SPD', name: 'Speed, 2.6 m/s' },
+  ])('abbreviates the $pill pill on-screen but names it in full (#283)', ({ pill, name }) => {
+    render(
+      <HudChips
+        hud={{ heading: true, alt: true, speed: true }}
+        readouts={READOUTS}
+        altUnavailable={false}
+        onToggle={() => {}}
+      />,
+    );
+    const chip = chips().find((b) => b.textContent?.includes(pill));
+    expect(chip?.textContent).toContain(pill);
+    expect(chip?.getAttribute('aria-label')).toBe(name);
+  });
+
+  it('drops the value from the aria-label when a chip is off (#283)', () => {
+    render(
+      <HudChips
+        hud={{ heading: false, alt: false, speed: false }}
+        readouts={READOUTS}
+        altUnavailable={false}
+        onToggle={() => {}}
+      />,
+    );
+    for (const name of ['Heading', 'Altitude', 'Speed']) {
+      expect(screen.getByRole('button', { name })).toBeTruthy();
+    }
   });
 
   it('turns the chip into a toggle that reports the chip id', () => {

@@ -2,7 +2,7 @@
 
 import type { HudLayout } from '../../src/config.js';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
-import { formatChipValue } from '../lib/chipreadouts.js';
+import { chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
 
 export interface HudChipsProps {
   hud: HudLayout;
@@ -14,7 +14,7 @@ export interface HudChipsProps {
 }
 
 const CHIP_LABELS: Record<HudChipId, string> = {
-  heading: 'Heading',
+  heading: 'HDG',
   alt: 'ALT',
   speed: 'SPD',
 };
@@ -33,18 +33,16 @@ export function HudChips({ hud, readouts, altUnavailable, onToggle }: HudChipsPr
         const disabled = chip === 'alt' && altUnavailable;
         const on = hud[chip] && !disabled;
         const text = on ? formatChipValue(chip, readouts) : '--';
-        // The arrow encodes the heading as rotation only, so the button names
-        // the degrees for screen readers (WCAG 1.1.1).
-        const headingName =
-          chip === 'heading' && on && readouts.headingDeg !== null
-            ? `Heading, ${Math.round(readouts.headingDeg)}°`
-            : undefined;
+        // On-video pills abbreviate (HDG/ALT/SPD), so the aria-label carries
+        // the full readout name and its value; the heading arrow encodes the
+        // heading as rotation only (WCAG 1.1.1).
+        const ariaLabel = chipAriaLabel(chip, readouts, on);
         return (
           <button
             key={chip}
             type="button"
             className="hud-chip"
-            aria-label={headingName}
+            aria-label={ariaLabel}
             aria-pressed={on}
             disabled={disabled}
             onClick={() => onToggle(chip)}

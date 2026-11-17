@@ -27,6 +27,9 @@ export interface SceneData extends FrameChannels {
   introN: number;
   outroN: number;
   hud: HudLayout;
+  /** Whether this viewer draws the in-frame HUD pills; a caller that overlays
+      its own toggles (the Map appearance preview) sets this to false. */
+  hudPills?: boolean;
   trailLat: number[];
   trailLon: number[];
   trailFrame: number[];
@@ -102,6 +105,7 @@ class SceneState implements Scene {
   private bb: Leaflet.LatLngBounds;
   private layout!: Layout;
   private decor!: Decor;
+  private headingChip: HTMLElement | null = null;
   private altChip: HTMLElement | null = null;
   private speedChip: HTMLElement | null = null;
   /** Chip container: inside the map frame for exports, or an external strip. */
@@ -349,10 +353,14 @@ class SceneState implements Scene {
 
   private rebuildHud(): void {
     // Scoped to the chip container so an external strip and a second scene
-    // (the export preview) can never cross-write.
+    // (the export preview) can never cross-write. A scene whose caller
+    // overlays its own pills draws none of its own (#283).
     this.hudRoot.innerHTML = this.externalHud
       ? stripReadoutMarkup(this.data.hud)
-      : hudMarkup(this.data.hud);
+      : this.data.hudPills === false
+        ? ''
+        : hudMarkup(this.data.hud);
+    this.headingChip = this.hudRoot.querySelector<HTMLElement>('#chip-heading');
     this.altChip = this.hudRoot.querySelector<HTMLElement>('#chip-alt');
     this.speedChip = this.hudRoot.querySelector<HTMLElement>('#chip-speed');
     if (this.decor.arrowEl) {
@@ -386,6 +394,21 @@ class SceneState implements Scene {
     // "--" placeholder instead of a value (#272 review).
     this.setReadout(this.altChip, this.data.hud.alt ? this.data.alt[i] : null, (a) => String(Math.round(a)));
     this.setReadout(this.speedChip, this.data.hud.speed ? this.data.speed[i] : null, (s) => s.toFixed(1));
+    this.setHeading(this.headingChip, this.data.headingDeg[i]);
+  }
+
+  /** The heading pill rotates its arrow like the marker does; a missing
+      sample falls back to the dimmed "--", matching the preview chip (#283). */
+  private setHeading(chip: HTMLElement | null, deg: number | null | undefined): void {
+    if (!chip) return;
+    const missing = deg === null || deg === undefined;
+    const arrow = chip.querySelector<HTMLElement>('.chip-arrow');
+    const num = chip.querySelector<HTMLElement>('.num');
+    if (arrow) {
+      arrow.style.display = missing ? 'none' : '';
+      if (!missing) arrow.style.transform = 'rotate(' + deg + 'deg)';
+    }
+    if (num) num.style.display = missing ? '' : 'none';
   }
 
   private setReadout(
@@ -448,7 +471,7 @@ class SceneState implements Scene {
       next.width !== prev.width ||
       next.height !== prev.height;
     if (decorInvalidated) this.rebuildDecor();
-    if (!hudEq(prev.hud, next.hud)) this.rebuildHud();
+    if (!hudEq(prev.hud, next.hud) || next.hudPills !== prev.hudPills) this.rebuildHud();
     this.layoutMap();
     return this.setFrame(this.curIdx);
   }
