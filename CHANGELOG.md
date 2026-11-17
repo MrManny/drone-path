@@ -1,5 +1,31 @@
 # drone-path
 
+## 0.12.1
+
+- **Fixed:** The Export video dialog handles every outcome cleanly: a
+  failed or canceled run returns to the form with the outcome sentence
+  as a notice, so retry stays one click away, and a canceled run always
+  reads "Export canceled; its unfinished file was removed." The export
+  summary now reports the media duration (frames at the frame rate)
+  instead of the encode wall time, which read as a wrong duration
+  between the media specs.
+- **Fixed:** Exported frames carry the heading pill: the HDG readout
+  joins ALT and SPD in the top-left HUD column, toggled by the heading
+  readout setting, exactly as the Map appearance preview shows it. The
+  preview pills use the export's placement and stacking, and on-video
+  pills read HDG/ALT/SPD.
+- **Fixed:** Selected controls keep their accent selection marker while
+  hovered: HUD chips, map style tiles, trail swatches and structure bar
+  segments no longer read unselected under the cursor. Disabled HUD
+  chips dim to the disabled look instead of the "off" look, and select
+  and text fields lighten their border on hover like number fields.
+- **Fixed:** A failed "Reveal in folder" in the Export telemetry dialog
+  no longer leaves its error notice behind after a successful retry;
+  every reveal attempt clears the previous error first.
+- **Fixed:** The PiP overlay's map strip shows the zoom level and
+  announces refused zoom steps, so the `+` and `-` hotkeys give
+  feedback in every layout instead of silently re-pinning the zoom.
+
 ## 0.12.0
 
 - **New:** The flight map zooms in and out with a small `−`/`+` pill
