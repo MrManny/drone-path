@@ -1133,8 +1133,18 @@ button.primary {
 .hud-chip[aria-pressed='true'] {
   border-color: var(--accent);
 }
+/* A selected control keeps its marker under the cursor: the global
+   button:hover rule outranks these state rules without this override (#285). */
+.hud-chip[aria-pressed='true']:hover:not(:disabled) {
+  border-color: var(--accent);
+}
 .hud-chip[aria-pressed='false'] {
   opacity: 0.55;
+}
+/* A disabled chip dims to the disabled recipe, so "disabled" stays
+   distinguishable from the 0.55 "off" look (#285). */
+.hud-chip[aria-pressed='false']:disabled {
+  opacity: var(--disabled-opacity);
 }
 .hud-chip[aria-pressed='false'] .label {
   color: var(--text-3);
@@ -1167,6 +1177,10 @@ button.primary {
   color: var(--text-2);
 }
 .map-style-tile[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.map-style-tile[aria-pressed='true']:hover:not(:disabled) {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
@@ -1208,6 +1222,9 @@ button.primary {
   white-space: nowrap;
 }
 .trail-swatch[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+.trail-swatch[aria-pressed='true']:hover:not(:disabled) {
   border-color: var(--accent);
 }
 .trail-swatch[aria-pressed='true'] .trail-swatch-label {
@@ -1331,6 +1348,10 @@ button.primary {
   border-color: var(--accent);
   color: var(--accent-text);
 }
+.structure-seg[aria-pressed='true']:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
 .opening-ending-steppers {
   display: flex;
   align-items: center;
@@ -1441,7 +1462,9 @@ button.primary {
     transparent calc(50% + 1px)
   );
 }
-.settings-row input[type='number']:hover:not(:disabled) {
+.settings-row select:hover:not(:disabled),
+.settings-row input[type='number']:hover:not(:disabled),
+.settings-row input[type='text']:hover:not(:disabled) {
   border-color: var(--hairline-hover);
 }
 .settings-row input[aria-invalid='true'] {
