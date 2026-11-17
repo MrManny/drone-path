@@ -429,22 +429,23 @@ describe('ExportModal outcomes', () => {
     expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
   });
 
-  it('rounds the elapsed seconds to whole ones', async () => {
+  it('shows the media duration, never the encode wall time (#284)', async () => {
     const { emitDone } = installBridge();
     renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     await screen.findByRole('button', { name: 'Cancel export' });
-    emitDone({ status: 'ok', summary: { ...SUMMARY, elapsedSec: 4.25 } });
-    expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
+    emitDone({ status: 'ok', summary: { ...SUMMARY, frames: 361, elapsedSec: 9 } });
+    expect(screen.getByText('361 frames @ 29.97 fps · 12 s · 1280×720')).toBeTruthy();
+    expect(screen.queryByText(/9 s/)).toBeNull();
   });
 
-  it('drops the rate clause when the summary carries no frame rate', async () => {
+  it('drops the rate and duration clauses when the summary carries no frame rate', async () => {
     const { emitDone } = installBridge();
     renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     await screen.findByRole('button', { name: 'Cancel export' });
     emitDone({ status: 'ok', summary: { ...SUMMARY, fps: undefined } });
-    expect(screen.getByText('120 frames · 4 s · 1280×720')).toBeTruthy();
+    expect(screen.getByText('120 frames · 1280×720')).toBeTruthy();
   });
 
   it('turns a raw Node error into a sentence and keeps the original as details', async () => {
