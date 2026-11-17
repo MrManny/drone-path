@@ -100,7 +100,7 @@ describe('useTrackSave reveal', () => {
     expect(bridge.revealExportOutput.mock.calls[0][0]).toEqual({
       out: '/exports/flight.telemetry.json',
     });
-    expect(track.result.current.phase).toEqual(DONE);
+    expect(track.result.current.phase).toStrictEqual(DONE);
   });
 
   describe.each<{
@@ -149,7 +149,33 @@ describe('useTrackSave reveal', () => {
     );
     bridge.revealExportOutput.mockResolvedValue({ ok: true });
     track.reveal();
-    await waitFor(() => expect(track.result.current.phase).toEqual(DONE));
+    await waitFor(() => expect(track.result.current.phase).toStrictEqual(DONE));
+  });
+
+  it('clears a stale reveal failure before the retry resolves (#286)', async () => {
+    const bridge = installBridge({
+      revealExportOutput: async () => ({ ok: false, error: 'the folder is missing' }),
+    });
+    const track = mountTrackSave();
+    await track.reachDone();
+    track.reveal();
+    await waitFor(() =>
+      expect(track.result.current.phase).toEqual({ ...DONE, error: 'the folder is missing' }),
+    );
+    let settleReveal = (_ack: ExportAck): void => {};
+    bridge.revealExportOutput.mockImplementation(
+      () =>
+        new Promise<ExportAck>((resolve) => {
+          settleReveal = resolve;
+        }),
+    );
+    track.reveal();
+    expect(bridge.revealExportOutput).toHaveBeenCalledTimes(2);
+    // The stale failure is already gone while the retry is still in flight.
+    expect(track.result.current.phase).toStrictEqual(DONE);
+    settleReveal({ ok: true });
+    await act(async () => {});
+    expect(track.result.current.phase).toStrictEqual(DONE);
   });
 
   it('does nothing before a save reached done', () => {

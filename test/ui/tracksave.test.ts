@@ -195,7 +195,7 @@ describe('trackSaveReducer', () => {
       type: 'revealFailed',
       error: 'the folder is missing',
     });
-    expect(trackSaveReducer(failed, { type: 'clearError' })).toEqual(DONE);
+    expect(trackSaveReducer(failed, { type: 'clearError' })).toStrictEqual(DONE);
   });
 
   it('shows only the new failure when a cleared retry fails again', () => {
