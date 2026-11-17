@@ -84,7 +84,7 @@
     "concurrently": "~10.0.7",
     "electron": "~45.3.1",
     "electron-builder": "~26.18.0",
-    "eslint": "~10.14.0",
+    "eslint": "~10.15.0",
     "eslint-plugin-react-hooks": "~7.1.1",
     "jsdom": "~31.0.1",
     "lucide-react": "~1.72.0",
