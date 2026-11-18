@@ -24,8 +24,6 @@ function renderForm(overrides: Partial<ExportFormProps> = {}) {
       encode={ENCODE}
       error={null}
       notice={null}
-      onClose={vi.fn()}
-      onStart={vi.fn()}
       {...overrides}
       dispatch={dispatch}
       onEncoderChange={onEncoderChange}
@@ -74,7 +72,7 @@ describe('ExportForm what-to-export choice', () => {
 });
 
 describe('ExportForm dimensions', () => {
-  it('shows the px hint on both fields', () => {
+  it('shows the px unit on both fields', () => {
     renderForm();
     expect(screen.getByLabelText('Width')).toBeTruthy();
     expect(screen.getByLabelText('Height')).toBeTruthy();
@@ -88,12 +86,13 @@ describe('ExportForm dimensions', () => {
     expect(screen.queryByText('Must be at least 64 px.')).toBeNull();
   });
 
-  it('rejects a width below the minimum with the rule message', () => {
+  it.for(['Width', 'Height'])('rejects a small %s and keeps the px unit', (label) => {
     const { dispatch } = renderForm();
-    const width = screen.getByLabelText<HTMLInputElement>('Width');
-    fireEvent.change(width, { target: { value: '10' } });
+    const field = screen.getByLabelText<HTMLInputElement>(label);
+    fireEvent.change(field, { target: { value: '10' } });
     expect(screen.getByText('Must be at least 64 px.')).toBeTruthy();
-    expect(width.getAttribute('aria-invalid')).toBe('true');
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(field.parentElement?.querySelector('.field-unit')?.textContent).toBe('px');
     expect(dispatch).not.toHaveBeenCalled();
   });
 });
@@ -103,7 +102,7 @@ describe('ExportForm encoding', () => {
     renderForm({ encode: { codec: 'h265', quality: 'low', preset: 'veryfast' } });
     expect(screen.getByLabelText<HTMLSelectElement>('Codec').value).toBe('h265');
     expect(screen.getByLabelText<HTMLSelectElement>('Quality').value).toBe('low');
-    expect(screen.getByLabelText<HTMLSelectElement>('Encode speed').value).toBe('veryfast');
+    expect(screen.getByLabelText<HTMLSelectElement>('Encoding preset').value).toBe('veryfast');
     expect(screen.getByRole('option', { name: 'H.265' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Near-lossless' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Balanced' })).toBeTruthy();
@@ -116,28 +115,18 @@ describe('ExportForm encoding', () => {
     expect(onEncoderChange).toHaveBeenLastCalledWith({ codec: 'h265' });
     fireEvent.change(screen.getByLabelText('Quality'), { target: { value: 'near-lossless' } });
     expect(onEncoderChange).toHaveBeenLastCalledWith({ quality: 'near-lossless' });
-    fireEvent.change(screen.getByLabelText('Encode speed'), { target: { value: 'veryfast' } });
+    fireEvent.change(screen.getByLabelText('Encoding preset'), { target: { value: 'veryfast' } });
     expect(onEncoderChange).toHaveBeenLastCalledWith({ preset: 'veryfast' });
   });
 });
 
-describe('ExportForm actions', () => {
-  it('offers Cancel and Start export', () => {
-    const onClose = vi.fn();
-    const onStart = vi.fn();
-    renderForm({ onClose, onStart });
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
-    expect(onStart).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows a failure message above the actions', () => {
+describe('ExportForm notices', () => {
+  it('shows a failure message', () => {
     renderForm({ error: 'the app backend went away' });
     expect(screen.getByText('the app backend went away')).toBeTruthy();
   });
 
-  it('shows the outcome notice as a status message above the actions', () => {
+  it('shows the outcome notice as a status message', () => {
     renderForm({ notice: 'Export canceled; its unfinished file was removed.' });
     const notice = screen
       .getByText('Export canceled; its unfinished file was removed.')
@@ -152,7 +141,7 @@ describe('ExportForm scan hierarchy', () => {
     renderForm({ segment: SEGMENT });
     const how = screen.getByRole('group', { name: 'Output and encoding' });
     const labels = [...how.querySelectorAll('.settings-label')].map((el) => el.textContent);
-    expect(labels).toEqual(['Width', 'Height', 'Codec', 'Quality', 'Encode speed']);
+    expect(labels).toEqual(['Width', 'Height', 'Codec', 'Quality', 'Encoding preset']);
   });
 
   it('renders the range choices as one choice set', () => {

@@ -18,7 +18,7 @@ interface OpeningEndingStripProps {
 }
 
 /**
- * The opening & ending strip: the structure bar names the three phases (its
+ * The intro & outro strip: the structure bar names the three phases (its
  * segments also pick the preview frame, so both eases become visible), and
  * the steppers set the ease length on one baseline.
  */
@@ -40,7 +40,7 @@ export function OpeningEndingStrip({
   const willShorten = introSec + outroSec > flightSec / 2;
   return (
     <fieldset className="settings-group opening-ending">
-      <legend>Opening &amp; ending</legend>
+      <legend>Intro &amp; outro</legend>
       <div className="structure-bar" role="group" aria-label="Flight structure">
         {segments.map(({ id, grow, label }) => (
           <button
@@ -50,7 +50,7 @@ export function OpeningEndingStrip({
             style={{ flexGrow: grow }}
             aria-pressed={selected === id}
             aria-label={`${label} segment`}
-            title={`Preview the ${id === 'flight' ? 'flight' : id === 'intro' ? 'opening' : 'ending'}`}
+            title={`Preview the ${id} segment`}
             onClick={() => onSelect(id)}
           >
             {label}
@@ -59,7 +59,7 @@ export function OpeningEndingStrip({
       </div>
       <div className="opening-ending-steppers">
         <NumberField
-          label="Intro zoom"
+          label="Intro length"
           value={introSec}
           min={0}
           step={0.5}
@@ -69,7 +69,7 @@ export function OpeningEndingStrip({
         />
         <p className="hint">the camera eases in and out · 0 s disables it</p>
         <NumberField
-          label="Outro zoom"
+          label="Outro length"
           value={outroSec}
           min={0}
           step={0.5}

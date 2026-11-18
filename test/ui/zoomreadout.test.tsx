@@ -28,9 +28,9 @@ describe('ZoomReadout (#287)', () => {
     expect(queryByText('auto')).toBeNull();
   });
 
-  it('shows auto while auto-fit', () => {
+  it('shows auto-fit while auto-fit', () => {
     const { getByText, queryByText } = renderReadout(0, 15);
-    expect(getByText('auto')).toBeTruthy();
+    expect(getByText('auto-fit')).toBeTruthy();
     expect(queryByText('15')).toBeNull();
   });
 

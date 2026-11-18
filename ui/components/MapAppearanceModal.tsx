@@ -126,7 +126,7 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
             <p className="hint">Click a chip here or in the preview — both stay in sync.</p>
             {altUnavailable ? (
               <Notice tone="warning">
-                This recording has no altitude telemetry, so the ALT chip stays off and the map
+                This recording has no altitude telemetry, so the Altitude chip stays off and the map
                 strip shows no Altitude value.
               </Notice>
             ) : null}
@@ -143,7 +143,7 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
           Restore defaults
         </button>
         <button type="button" className="dialog-primary" onClick={onClose}>
-          Close
+          Done
         </button>
       </div>
     </DialogShell>

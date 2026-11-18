@@ -46,11 +46,13 @@ describe('pickReducer', () => {
     expect(pickReducer({ kind: 'error', message: 'boom' }, { type: 'pick' })).toEqual({ kind: 'picking' });
   });
 
-  it('dismisses a failure back to idle', () => {
-    expect(pickReducer({ kind: 'error', message: 'boom' }, { type: 'dismiss' })).toEqual({ kind: 'idle' });
-  });
+  it.for<PickState>([{ kind: 'error', message: 'boom' }, { kind: 'canceled' }])(
+    'dismisses the $kind notice back to idle',
+    (state) => {
+      expect(pickReducer(state, { type: 'dismiss' })).toEqual({ kind: 'idle' });
+    },
+  );
 });
-
 describe.each<PickState>([{ kind: 'picking' }, PREPARING])('a second pick while $kind', (state) => {
   it('is ignored, so one Open never starts two dialogs', () => {
     expect(pickReducer(state, { type: 'pick' })).toBe(state);
@@ -85,9 +87,8 @@ describe.each<PickState>([
   { kind: 'picking' },
   PREPARING,
   { kind: 'ready' },
-  { kind: 'canceled' },
 ])('dismiss from $kind', (state) => {
-  it('leaves the state unchanged: only a failure can be dismissed', () => {
+  it('leaves the state unchanged: only transient notices can be dismissed', () => {
     expect(pickReducer(state, { type: 'dismiss' })).toBe(state);
   });
 });

@@ -70,7 +70,7 @@ describe('MenuBar', () => {
     const viewNames = within(screen.getByRole('menu', { name: 'View' }))
       .getAllByRole('menuitem')
       .map((row) => row.textContent);
-    expect(viewNames).toEqual(['Map appearance…', 'Toggle PiPP']);
+    expect(viewNames).toEqual(['Map appearance…', 'Picture in pictureP']);
   });
 
   it('marks disabled rows with aria-disabled', () => {
@@ -109,11 +109,11 @@ describe('MenuBar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Map appearance…' }));
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Toggle PiP' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Picture in picture' }));
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(
-      within(screen.getByRole('menu', { name: 'Help' })).getByRole('menuitem', { name: 'Help' }),
+      within(screen.getByRole('menu', { name: 'Help' })).getByRole('menuitem', { name: 'User manual' }),
     );
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
@@ -143,7 +143,7 @@ describe('MenuBar', () => {
       screen.getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
     ).toBeNull();
     expect(
-      screen.getByRole('menuitem', { name: 'Toggle PiP' }).getAttribute('aria-disabled'),
+      screen.getByRole('menuitem', { name: 'Picture in picture' }).getAttribute('aria-disabled'),
     ).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     expect(screen.getByRole('menuitem', { name: 'About' }).getAttribute('aria-disabled')).toBeNull();

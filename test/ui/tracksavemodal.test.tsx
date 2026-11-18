@@ -33,12 +33,17 @@ function actions(): HTMLElement | null {
 }
 
 describe('TrackSaveModal saving phase', () => {
-  it('says the write is in flight in the status line and offers no action yet', () => {
+  it('shows indeterminate progress and keeps Reveal in folder disabled', () => {
     renderModal({ phase: { kind: 'saving' } });
     const status = document.querySelector('.phase-status') as HTMLElement;
     expect(status.getAttribute('role')).toBe('status');
     expect(status.textContent).toBe('Exporting telemetry…');
-    expect(actions()).toBeNull();
+    const progress = screen.getByRole('progressbar', { name: 'Telemetry export progress' });
+    expect(progress.getAttribute('aria-valuenow')).toBeNull();
+    expect(progress.firstElementChild?.classList.contains('progress-shimmer')).toBe(true);
+    expect(status.previousElementSibling).toBe(progress);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Reveal in folder' }).disabled)
+      .toBe(true);
   });
 
   it('names the dialog', () => {
@@ -61,7 +66,7 @@ describe('TrackSaveModal done phase', () => {
     renderModal();
     expect(screen.getByText('Telemetry exported.')).toBeTruthy();
     expect(screen.getByText('/exports/flight.telemetry.json')).toBeTruthy();
-    expect(screen.getByText('Covers the In–Out segment (0:04–0:10 · 181 frames)')).toBeTruthy();
+    expect(screen.getByText('Covers the In–Out segment (0:04–0:10 · 181 frames)').className).toBe('hint');
   });
 
   it('keeps the file name visible and carries the full path as its tooltip', () => {

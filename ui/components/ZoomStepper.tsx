@@ -5,7 +5,7 @@ import { zoomLimits } from '../../src/plan.js';
 import { ZoomReadout } from './ZoomReadout.js';
 
 export interface ZoomStepperProps {
-  /** The pinned "Zoom" setting: 0 is auto-fit. */
+  /** The pinned "Zoom level" setting: 0 is auto-fit. */
   zoom: number;
   /** The level the map currently shows, as planned for the preview. */
   visibleZoom: number;
@@ -23,7 +23,7 @@ export function ZoomStepper({ zoom, visibleZoom, style, onStep, notice = '' }: Z
   // keyboard highlight and the reason in the title get announced (#271).
   // The stepper is bare: no pill container and no button borders (#272).
   return (
-    <div className="map-zoom-stepper" role="group" aria-label="Map zoom">
+    <div className="map-zoom-stepper" role="group" aria-label="Zoom level">
       <button
         type="button"
         aria-label="Zoom out"

@@ -37,9 +37,9 @@ function segments(): HTMLButtonElement[] {
 }
 
 describe('OpeningEndingStrip', () => {
-  it('carries the visible Opening & ending heading of the fourth group', () => {
+  it('carries the visible Intro & outro heading of the fourth group', () => {
     renderStrip();
-    const heading = screen.getByText('Opening & ending');
+    const heading = screen.getByText('Intro & outro');
     expect(heading.tagName).toBe('LEGEND');
   });
 
@@ -90,9 +90,9 @@ describe('OpeningEndingStrip', () => {
     expect(
       screen.getByText('the camera eases in and out · 0 s disables it'),
     ).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Intro zoom'), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByLabelText('Intro length'), { target: { value: '1.5' } });
     expect(onChange).toHaveBeenLastCalledWith({ introSec: 1.5 });
-    fireEvent.change(screen.getByLabelText('Outro zoom'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Outro length'), { target: { value: '0' } });
     expect(onChange).toHaveBeenLastCalledWith({ outroSec: 0 });
     expect(screen.getAllByText('s')).toHaveLength(2);
   });
@@ -100,7 +100,7 @@ describe('OpeningEndingStrip', () => {
   it('refuses a negative ease length with its rule', () => {
     const onChange = vi.fn(() => true);
     renderStrip({ onChange });
-    fireEvent.change(screen.getByLabelText('Intro zoom'), { target: { value: '-1' } });
+    fireEvent.change(screen.getByLabelText('Intro length'), { target: { value: '-1' } });
     expect(screen.getByText('Must be at least 0.')).toBeTruthy();
     expect(onChange).not.toHaveBeenCalled();
   });

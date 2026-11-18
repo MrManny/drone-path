@@ -6,6 +6,7 @@ import type { TrackSavePhase } from '../lib/tracksave.js';
 import { trackPhaseText } from '../lib/tracksave.js';
 import { DialogShell } from './DialogShell.js';
 import { ErrorNotice } from './ErrorNotice.js';
+import { ProgressBar } from './ProgressBar.js';
 
 export interface TrackSaveModalProps {
   phase: TrackSavePhase;
@@ -20,8 +21,7 @@ export function TrackSaveModal({
   onReveal,
   onClose,
 }: TrackSaveModalProps) {
-  // A phase change unmounts the old phase's action; focus follows the flow to
-  // the new primary action (or the dialog) so it never lands on <body>.
+  // Focus follows completion or failure to the available action or dialog.
   const bodyRef = useRef<HTMLDivElement>(null);
   const seenKind = useRef(phase.kind);
   useEffect(() => {
@@ -41,6 +41,9 @@ export function TrackSaveModal({
       blockedReason={dismissible ? undefined : 'Exporting telemetry. Wait for it to finish.'}
     >
       <div ref={bodyRef}>
+        {phase.kind === 'saving' ? (
+          <ProgressBar label="Telemetry export progress" percent={null} />
+        ) : null}
         <p className="phase-status" role="status">
           {trackPhaseText(phase)}
         </p>
@@ -51,16 +54,24 @@ export function TrackSaveModal({
             <p className="export-path" title={phase.path}>
               {phase.path}
             </p>
-            <p className="export-path">{`Covers the ${phase.scope}`}</p>
-            <div className="dialog-actions">
-              <button type="button" className="dialog-primary" data-phase-focus onClick={onReveal}>
-                Reveal in folder
-              </button>
-            </div>
+            <p className="hint">{`Covers the ${phase.scope}`}</p>
           </>
         ) : null}
 
         {phase.kind === 'error' ? <ErrorNotice message={phase.message} /> : null}
+        {phase.kind === 'saving' || phase.kind === 'done' ? (
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="dialog-primary"
+              data-phase-focus
+              disabled={phase.kind === 'saving'}
+              onClick={onReveal}
+            >
+              Reveal in folder
+            </button>
+          </div>
+        ) : null}
       </div>
     </DialogShell>
   );

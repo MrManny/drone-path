@@ -98,7 +98,7 @@ describe('PlayerChrome workspace structure', () => {
       expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
     }
     openMenu('View');
-    for (const name of ['Map appearance…', 'Toggle PiP']) {
+    for (const name of ['Map appearance…', 'Picture in picture']) {
       expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
     }
     expect(screen.getByRole('button', { name: 'Jump to start' })).toBeTruthy();
@@ -133,7 +133,7 @@ describe('PlayerChrome workspace structure', () => {
         onHelp={onHelp}
       />,
     );
-    clickMenuItem('Help');
+    clickMenuItem('User manual');
     expect(onHelp).toHaveBeenCalledTimes(1);
   });
 
@@ -176,7 +176,7 @@ describe('PlayerChrome workspace structure', () => {
   it('shows the video and the flight map side by side by default', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('View');
-    expect(within(menuBar()).getByRole('menuitem', { name: 'Toggle PiP' })).toBeTruthy();
+    expect(within(menuBar()).getByRole('menuitem', { name: 'Picture in picture' })).toBeTruthy();
     const video = document.querySelector('video');
     expect(video?.getAttribute('src')).toBe('/video');
     const card = document.querySelector('.map-card') as HTMLElement;
@@ -241,9 +241,9 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const card = document.querySelector('.map-card') as HTMLElement;
     expect(card.className).toContain('map-card-split');
-    clickMenuItem('Toggle PiP');
+    clickMenuItem('Picture in picture');
     expect(card.className).toContain('map-card-overlay');
-    clickMenuItem('Toggle PiP');
+    clickMenuItem('Picture in picture');
     expect(card.className).toContain('map-card-split');
   });
 
@@ -251,17 +251,17 @@ describe('PlayerChrome view swap', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const stage = document.querySelector('.stage') as HTMLElement;
     expect(stage.className).toContain('stage-split');
-    clickMenuItem('Toggle PiP');
+    clickMenuItem('Picture in picture');
     expect(stage.className).toContain('stage-overlay');
-    clickMenuItem('Toggle PiP');
+    clickMenuItem('Picture in picture');
     expect(stage.className).toContain('stage-split');
   });
 
   it('keeps the map island mounted across the swap, so playback stays synchronized', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const island = screen.getByTestId('map-island');
-    clickMenuItem('Toggle PiP');
-    clickMenuItem('Toggle PiP');
+    clickMenuItem('Picture in picture');
+    clickMenuItem('Picture in picture');
     expect(screen.getByTestId('map-island')).toBe(island);
   });
 
@@ -375,8 +375,8 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Export telemetry…': 'File',
   'Map appearance…': 'View',
   Exit: 'File',
-  'Toggle PiP': 'View',
-  'Help': 'Help',
+  'Picture in picture': 'View',
+  'User manual': 'Help',
   About: 'Help',
 };
 
@@ -603,17 +603,17 @@ describe('PlayerChrome map zoom (#270)', () => {
     renderZoom({ ...SETTINGS, zoom: 14 });
     expect(screen.getByText('14')).toBeTruthy();
     clickMenuItem('Map appearance…');
-    expect(screen.getByLabelText<HTMLInputElement>('Zoom level').value).toBe('14');
+    expect(screen.getByRole<HTMLInputElement>('slider', { name: 'Zoom level' }).value).toBe('14');
   });
 
-  it('reads auto in the stepper while the zoom is auto-fit', () => {
+  it('reads auto-fit in the stepper while the zoom is auto-fit', () => {
     renderZoom(SETTINGS);
-    expect(screen.getByText('auto')).toBeTruthy();
+    expect(screen.getByText('auto-fit')).toBeTruthy();
     clickMenuItem('Map appearance…');
     expect(
       (screen.getByRole<HTMLInputElement>('checkbox', { name: 'Auto-fit zoom' })).checked,
     ).toBe(true);
-    expect(screen.getByLabelText<HTMLInputElement>('Zoom level').disabled).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>('slider', { name: 'Zoom level' }).disabled).toBe(true);
   });
 
   it('steps the zoom with the + and - keys and pins the level', () => {
@@ -648,14 +648,14 @@ describe('PlayerChrome map zoom (#270)', () => {
   it('keeps the zoom keys inert while typing in a field', () => {
     const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
     clickMenuItem('Map appearance…');
-    key(screen.getByLabelText('Intro zoom'), { key: '+' });
+    key(screen.getByLabelText('Intro length'), { key: '+' });
     expect(onSettingsChange).not.toHaveBeenCalled();
   });
 
   it('keeps the zoom keys live in the PiP overlay', () => {
     const onSettingsChange = renderZoom({ ...SETTINGS, zoom: 14 });
     key(window, { key: 'p' });
-    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Zoom level' })).toBeNull();
     key(window, { key: '+' });
     expect(onSettingsChange).toHaveBeenCalledWith({ ...SETTINGS, zoom: 15 });
   });
@@ -699,7 +699,7 @@ describe('PlayerChrome map zoom (#270)', () => {
   it('keeps the zoom slider inside the usable range so the stepper cannot desync (#271)', () => {
     renderZoom({ ...SETTINGS, zoom: 14 });
     clickMenuItem('Map appearance…');
-    const slider = screen.getByLabelText<HTMLInputElement>('Zoom level');
+    const slider = screen.getByRole<HTMLInputElement>('slider', { name: 'Zoom level' });
     expect(slider.min).toBe('2');
     expect(slider.max).toBe('19');
     expect(slider.step).toBe('1');
@@ -720,7 +720,7 @@ describe('PlayerChrome map zoom (#270)', () => {
     render(<ZoomChrome initial={{ ...SETTINGS, zoom: 14 }} />);
     const readout = () => document.querySelector('.map-zoom-level') as HTMLElement;
     clickMenuItem('Map appearance…');
-    fireEvent.change(screen.getByLabelText('Zoom level'), { target: { value: '17' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Zoom level' }), { target: { value: '17' } });
     expect(readout().textContent).toBe('Zoom level 17');
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     expect(readout().textContent).toBe('Zoom level 18');
@@ -744,12 +744,12 @@ describe('PlayerChrome map zoom (#270)', () => {
     expect(readout().textContent).toBe('Zoom level 19. Already zoomed all the way in');
 
     clickMenuItem('Map appearance…');
-    fireEvent.change(screen.getByLabelText('Zoom level'), { target: { value: '14' } });
+    fireEvent.change(screen.getByRole('slider', { name: 'Zoom level' }), { target: { value: '14' } });
     expect(readout().textContent).toBe('Zoom level 14');
     expect(readout().textContent).not.toContain('Already zoomed');
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-fit zoom' }));
-    expect(readout().textContent).toBe('Zoom level auto');
+    expect(readout().textContent).toBe('Zoom level auto-fit');
     expect(readout().textContent).not.toContain('Already zoomed');
   });
 });
@@ -776,7 +776,7 @@ describe('PlayerChrome PiP zoom readout (#287)', () => {
     key(window, { key: 'p' });
     expect(screen.getByText('Zoom')).toBeTruthy();
     expect(zoomReadout().textContent).toBe('Zoom level 14');
-    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Zoom level' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
   });
@@ -1007,7 +1007,7 @@ describe('PlayerChrome shortcut guard rails', () => {
     const onOpen = vi.fn();
     const fake = await renderPlayer(onOpen);
     clickMenuItem('Map appearance…');
-    const field = screen.getByLabelText('Intro zoom');
+    const field = screen.getByLabelText('Intro length');
     key(field, { key: '3' });
     key(field, { key: ' ' });
     expect(fake.state.playbackRate).toBe(1);

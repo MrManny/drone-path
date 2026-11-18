@@ -27,9 +27,9 @@ describe('HudChips', () => {
       />,
     );
     const [heading, alt, speed] = chips();
-    expect(heading.textContent).toContain('HDG');
-    expect(alt.textContent).toBe('ALT11m');
-    expect(speed.textContent).toBe('SPD2.6m/s');
+    expect(heading.textContent).toContain('Heading');
+    expect(alt.textContent).toBe('Altitude11m');
+    expect(speed.textContent).toBe('Speed2.6m/s');
   });
 
   it.for([
@@ -39,6 +39,7 @@ describe('HudChips', () => {
   ])('abbreviates the $pill pill on-screen but names it in full (#283)', ({ pill, name }) => {
     render(
       <HudChips
+        abbreviated
         hud={{ heading: true, alt: true, speed: true }}
         readouts={READOUTS}
         altUnavailable={false}

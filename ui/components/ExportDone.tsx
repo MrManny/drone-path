@@ -8,11 +8,9 @@ import { Notice } from './Notice.js';
 export interface ExportDoneProps {
   result: RecordingSummary;
   error: string | null;
-  onReveal: () => void;
-  onOpen: () => void;
 }
 
-export function ExportDone({ result, error, onReveal, onOpen }: ExportDoneProps) {
+export function ExportDone({ result, error }: ExportDoneProps) {
   return (
     <>
       {error ? <ErrorNotice message={error} /> : null}
@@ -20,14 +18,6 @@ export function ExportDone({ result, error, onReveal, onOpen }: ExportDoneProps)
       <p className="export-path" title={result.out}>
         {result.out}
       </p>
-      <div className="dialog-actions">
-        <button type="button" onClick={onOpen}>
-          Open video
-        </button>
-        <button type="button" className="dialog-primary" data-phase-focus onClick={onReveal}>
-          Reveal in folder
-        </button>
-      </div>
     </>
   );
 }
