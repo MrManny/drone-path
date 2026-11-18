@@ -91,6 +91,33 @@ describe('PlayerChrome export form memory', () => {
 });
 
 describe('PlayerChrome workspace structure', () => {
+  it.for(['loadedData', 'error'] as const)('clears the video status on %s', (event) => {
+    const { container } = render(
+      <Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />,
+    );
+    const pane = container.querySelector<HTMLElement>('.pane-video')!;
+    expect(within(pane).getByRole('status').textContent).toBe('Preparing video…');
+    fireEvent[event](pane.querySelector('video')!);
+    expect(within(pane).queryByRole('status')).toBeNull();
+  });
+
+  it('does not bring back the first-frame status when playback stalls and pauses', () => {
+    const { container } = render(
+      <Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />,
+    );
+    const pane = container.querySelector<HTMLElement>('.pane-video')!;
+    const video = pane.querySelector('video')!;
+    const paused = vi.spyOn(video, 'paused', 'get').mockReturnValue(false);
+    fireEvent.loadedData(video);
+    fireEvent.play(video);
+    fireEvent.waiting(video);
+    expect(within(pane).queryByRole('status')).toBeNull();
+
+    paused.mockReturnValue(true);
+    fireEvent.pause(video);
+    expect(within(pane).queryByRole('status')).toBeNull();
+  });
+
   it('keeps the menu, transport and timeline actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('File');
@@ -1096,10 +1123,9 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'cancel
           openState={openState}
         />,
       );
-      // The map busy state is a status line of its own until the map settles.
       await waitFor(() => expect(screen.queryByText('Preparing map…')).toBeNull());
       expect(screen.queryByRole('alert')).toBeNull();
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(document.querySelector('.player-notices')).toBeNull();
       openMenu('File');
       expect(
         within(menuBar()).getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled'),

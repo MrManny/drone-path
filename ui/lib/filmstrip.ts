@@ -34,6 +34,7 @@ interface FillRun {
   readonly frames: readonly number[];
   readonly listeners: Set<(frame: number, url: string) => void>;
   readonly pending: Set<number>;
+  readonly onSettled: Set<() => void>;
 }
 
 const NO_FRAMES: ReadonlySet<number> = new Set();
@@ -55,7 +56,11 @@ export class FilmstripCache {
     return this.#thumbs.size;
   }
 
-  load(frames: readonly number[], onThumb: (frame: number, url: string) => void): void {
+  load(
+    frames: readonly number[],
+    onThumb: (frame: number, url: string) => void,
+    onSettled: () => void = () => {},
+  ): void {
     const run = this.#run;
     const missing = frames.filter((frame) => !this.#thumbs.has(frame));
     if (
@@ -65,14 +70,20 @@ export class FilmstripCache {
     ) {
       this.#replay(frames, onThumb, run.pending);
       run.listeners.add(onThumb);
+      run.onSettled.add(onSettled);
       return;
     }
     this.#replay(frames, onThumb, NO_FRAMES);
-    if (missing.length === 0) return;
+    if (missing.length === 0) {
+      this.cancel();
+      onSettled();
+      return;
+    }
     const active: FillRun = {
       frames,
       listeners: new Set([onThumb]),
       pending: new Set(missing),
+      onSettled: new Set([onSettled]),
     };
     this.#run = active;
     void (async () => {
@@ -80,7 +91,10 @@ export class FilmstripCache {
         if (this.#run !== active) return;
         await this.#fill(active, frame);
       }
-      if (this.#run === active) this.#run = null;
+      if (this.#run === active) {
+        this.#run = null;
+        for (const settle of active.onSettled) settle();
+      }
     })();
   }
 

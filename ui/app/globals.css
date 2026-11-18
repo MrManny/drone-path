@@ -15,6 +15,12 @@
   --text: #e8e8e8;
   --text-2: rgba(232, 232, 232, 0.75);
   --text-3: rgba(232, 232, 232, 0.68);
+  --type-title: 16px;
+  --type-label: 12px;
+  --type-readout: 13px;
+  --type-readout-emphasis: 14px;
+  --type-hint: 13px;
+  --choice-gap: 8px;
   --accent: #e87f54;
   --accent-hover: #f0a967;
   --accent-press: #c96640;
@@ -173,7 +179,7 @@ button.primary {
 }
 
 .hint {
-  font-size: 13px;
+  font-size: var(--type-hint);
   line-height: 1.5;
   color: var(--text-3);
 }
@@ -282,22 +288,21 @@ button.primary {
 .header-project {
   min-width: 0;
 }
-.header-project strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-}
+
 .header-project small {
   display: block;
   font-size: 12px;
   color: var(--text-3);
 }
 
-/* Caption rows: the timeline heading and the export preview's caption share
-   the title style and the .readout meta style. */
+/* Workspace, timeline, and preview headings share the surface title tier. */
 .preview-title {
-  font-size: 14px;
+  font-size: var(--type-title);
   font-weight: 600;
+  color: var(--text);
+}
+.header-project .preview-title {
+  display: block;
 }
 
 /* The stage: the video pane beside the bare flight map rail (split), or with
@@ -408,7 +413,7 @@ button.primary {
 .map-readout .label,
 .map-strip-zoom .label {
   grid-row: 1;
-  font-size: 11px;
+  font-size: var(--type-label);
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-2);
@@ -418,7 +423,7 @@ button.primary {
   /* One 30px line box shared with the stepper buttons: every value and the
      stepper glyphs sit on the same text baseline (#272 feedback). */
   line-height: 30px;
-  font-size: 16px;
+  font-size: var(--type-readout-emphasis);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text);
@@ -454,8 +459,9 @@ button.primary {
   font-weight: 500;
   color: var(--text-3);
 }
-/* A disabled chip keeps its column and holds the dimmed "--" placeholder. */
-.map-readout-off .value {
+/* Off readouts use a dimmed "--" placeholder. */
+.map-readout-off .value,
+.readout.readout-off {
   font-weight: 500;
   color: var(--text-3);
 }
@@ -491,7 +497,8 @@ button.primary {
   min-width: 40px;
   margin: 0 2px;
   text-align: center;
-  font-size: 16px;
+  font-size: var(--type-readout-emphasis);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text);
   white-space: nowrap;
@@ -537,26 +544,39 @@ button.primary {
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-panel);
 }
-/* Map loading: the quiet busy state over the map. The label sits above the
-   center where the drone marker and the track draw, and stacks above every
-   map layer, so the load text is always legible and never occluded. */
-.map-card-busy {
+/* Media status is legible over the image and leaves pointer controls usable. */
+.busy-status {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(50% + 56px);
-  z-index: 1300;
   display: flex;
   justify-content: center;
   padding: 0 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--type-hint);
   color: var(--text-3);
   pointer-events: none;
 }
+.map-card > .busy-status,
+.pane-video > .busy-status {
+  bottom: calc(50% + 56px);
+}
+.map-card > .busy-status {
+  z-index: 1300;
+}
+.track > .busy-status {
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+}
+.track > .busy-status span {
+  padding: 2px 8px;
+  border-radius: var(--radius-control);
+  background: var(--bar);
+}
 /* The compact overlay card crowds its furniture: the label tucks under the
    layout tag and right of the chips, still clear of the center marker. */
-.map-card-overlay .map-card-busy {
+.map-card-overlay > .busy-status {
   top: 34px;
   bottom: auto;
   justify-content: flex-end;
@@ -719,7 +739,7 @@ button.primary {
 }
 
 .readout {
-  font-size: 13px;
+  font-size: var(--type-readout);
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
   white-space: nowrap;
@@ -757,6 +777,7 @@ button.primary {
   flex-direction: column;
   padding: 12px 16px;
   background: var(--surface-1);
+  border-top: 1px solid var(--hairline);
   overflow: hidden;
 }
 .timeline-header {
@@ -903,7 +924,7 @@ button.primary {
   align-items: center;
   gap: 2px;
   height: var(--menu-h);
-  padding: 0 8px;
+  padding: 0 6px;
   box-sizing: border-box;
   background: var(--page);
   border-bottom: 1px solid var(--hairline);
@@ -1060,7 +1081,7 @@ button.primary {
 .group-label {
   display: block;
   margin: 10px 0 4px;
-  font-size: 13px;
+  font-size: var(--type-label);
   color: var(--text-2);
 }
 .map-appearance-frame {
@@ -1076,13 +1097,6 @@ button.primary {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
-  font-size: 13px;
-}
-.map-appearance-state {
-  color: var(--text-2);
-}
-.map-appearance-dims {
-  color: var(--text-3);
 }
 /* The chip toggles over the preview stand in for the export frame's HUD
    pills, so they use its placement and stacking: a top-left column (#283). */
@@ -1167,7 +1181,7 @@ button.primary {
 /* Map style: two thumbnail tiles, selected by an accent frame plus label. */
 .map-style-tiles {
   display: flex;
-  gap: 12px;
+  gap: var(--choice-gap);
 }
 .map-style-tile {
   display: flex;
@@ -1187,8 +1201,9 @@ button.primary {
   border-radius: 4px;
   border: 1px solid var(--hairline);
 }
-.map-style-label {
-  font-size: 12px;
+.map-style-label,
+.trail-swatch-label {
+  font-size: var(--type-label);
   color: var(--text-2);
 }
 .map-style-tile[aria-pressed='true'] {
@@ -1208,7 +1223,7 @@ button.primary {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--choice-gap);
 }
 .trail-swatch {
   display: inline-flex;
@@ -1233,8 +1248,6 @@ button.primary {
     10px 10px;
 }
 .trail-swatch-label {
-  font-size: 11px;
-  color: var(--text-3);
   white-space: nowrap;
 }
 .trail-swatch[aria-pressed='true'] {
@@ -1495,9 +1508,15 @@ button.primary {
   background: var(--surface-1);
 }
 .field-message {
-  font-size: 13px;
+  font-size: var(--type-hint);
   white-space: nowrap;
   color: var(--danger-text);
+}
+.map-zoom-message {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  justify-self: end;
+  white-space: normal;
 }
 .settings-group {
   min-width: 0;
@@ -1507,8 +1526,9 @@ button.primary {
 }
 .settings-group legend {
   padding: 0 0 4px;
-  font-size: 13px;
-  color: var(--text-3);
+  font-size: var(--type-label);
+  font-weight: 600;
+  color: var(--text-2);
 }
 .settings-row .hint {
   white-space: nowrap;

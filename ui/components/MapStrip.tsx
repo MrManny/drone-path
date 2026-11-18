@@ -42,6 +42,11 @@ export function MapStrip({ hudHostRef, layout, zoomControls, visibleZoom }: MapS
               notice={zoomControls.notice}
             />
           )}
+          {zoomControls.notice ? (
+            <span className="field-message map-zoom-message" aria-hidden="true">
+              {zoomControls.notice}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

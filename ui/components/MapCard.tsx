@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';
+import { BusyStatus } from './BusyStatus.js';
 import { MapIsland } from './MapIsland.js';
 import { MapStrip } from './MapStrip.js';
 
@@ -71,11 +72,7 @@ export function MapCard(props: MapCardProps) {
             zoomControls={withScene.zoomControls}
             visibleZoom={withScene.data.zoom}
           />
-          {mapReady ? null : (
-            <div className="map-card-busy" role="status">
-              Preparing map…
-            </div>
-          )}
+          {mapReady ? null : <BusyStatus>Preparing map…</BusyStatus>}
           <div className="map-overlay-tag">Map</div>
         </>
       )}

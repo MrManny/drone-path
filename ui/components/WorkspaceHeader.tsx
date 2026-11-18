@@ -16,7 +16,7 @@ export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
       </div>
       <div className="header-divider" />
       <div className="header-project">
-        <strong>Flight workspace</strong>
+        <strong className="preview-title">Flight workspace</strong>
         {durationSec === null ? null : <small>{`Recording · ${formatTime(durationSec)}`}</small>}
       </div>
     </header>
