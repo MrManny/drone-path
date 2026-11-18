@@ -11,7 +11,7 @@ The review player in the desktop app is fully keyboard-operable, including the m
 | `Home` / `End` | Jump to the start / end |
 | `I` / `O` | Set the in / out point |
 | `Esc` | Close the open menu or dialog, or clear the in and out points |
-| `P` | Toggle PiP — switch the map into a corner overlay and back |
+| `P` | Switch the map into picture-in-picture mode and back |
 | `+` / `-` | Zoom the map in / out one level and pin it as the [zoom level](desktop-app.md#map-appearance); the character and numpad keys both work |
 | `Ctrl+O` | Open a recording — works in the empty workspace and while typing |
 

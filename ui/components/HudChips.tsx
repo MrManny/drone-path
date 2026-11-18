@@ -2,10 +2,12 @@
 
 import type { HudLayout } from '../../src/config.js';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
-import { chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
+import { CHIP_NAMES, chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
 
 export interface HudChipsProps {
   hud: HudLayout;
+  /** The preview mirrors the abbreviations used in the rendered HUD. */
+  abbreviated?: boolean;
   /** Values at the preview frame; a missing value shows "--". */
   readouts: ChipReadouts;
   /** The ALT chip cannot render without altitude telemetry and stays off. */
@@ -26,7 +28,13 @@ const CHIP_UNITS: Record<HudChipId, string> = {
 };
 
 /** The on-frame readouts as the chips themselves; clicking one toggles it. */
-export function HudChips({ hud, readouts, altUnavailable, onToggle }: HudChipsProps) {
+export function HudChips({
+  hud,
+  abbreviated = false,
+  readouts,
+  altUnavailable,
+  onToggle,
+}: HudChipsProps) {
   return (
     <div className="hud-chips" role="group" aria-label="On-frame readouts">
       {(['heading', 'alt', 'speed'] as const).map((chip) => {
@@ -47,7 +55,7 @@ export function HudChips({ hud, readouts, altUnavailable, onToggle }: HudChipsPr
             disabled={disabled}
             onClick={() => onToggle(chip)}
           >
-            <span className="label">{CHIP_LABELS[chip]}</span>
+            <span className="label">{abbreviated ? CHIP_LABELS[chip] : CHIP_NAMES[chip]}</span>
             {chip === 'heading' && on && readouts.headingDeg !== null ? (
               <span
                 className="chip-arrow"

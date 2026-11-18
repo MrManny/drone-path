@@ -139,18 +139,18 @@ describe('EmptyWorkspace skeleton', () => {
     }
   });
 
-  it('keeps Map appearance and Help live while Toggle PiP stays disabled', () => {
+  it('keeps Map appearance and Help live while Picture in picture stays disabled', () => {
     const { onHelp, onExit } = renderWorkspace();
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(
       within(menu()).getByRole('menuitem', { name: 'Map appearance…' }).getAttribute('aria-disabled'),
     ).toBeNull();
     expect(
-      within(menu()).getByRole('menuitem', { name: 'Toggle PiP' }).getAttribute('aria-disabled'),
+      within(menu()).getByRole('menuitem', { name: 'Picture in picture' }).getAttribute('aria-disabled'),
     ).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
     fireEvent.click(
-      within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Help' }),
+      within(screen.getByRole('menu')).getByRole('menuitem', { name: 'User manual' }),
     );
     expect(onHelp).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));

@@ -21,16 +21,16 @@ describe('MENU_BAR', () => {
     ]);
   });
 
-  it('lives Map appearance under View, ahead of Toggle PiP (#274)', () => {
+  it('lives Map appearance under View, ahead of Picture in picture (#274)', () => {
     expect(menuOf('view').items).toEqual([
       { id: 'settings', label: 'Map appearance…', icon: 'settings' },
-      { id: 'swap', label: 'Toggle PiP', icon: 'swap', hint: 'P' },
+      { id: 'swap', label: 'Picture in picture', icon: 'swap', hint: 'P' },
     ]);
   });
 
   it('offers Help and About in the Help menu, About under a separator', () => {
     expect(menuOf('help').items).toEqual([
-      { id: 'documentation', label: 'Help', icon: 'help' },
+      { id: 'documentation', label: 'User manual', icon: 'help' },
       { id: 'about', label: 'About', icon: 'info', separatorBefore: true },
     ]);
   });

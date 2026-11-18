@@ -21,7 +21,11 @@ export function OpenNotice({ state, onDismiss }: OpenNoticeProps) {
         </div>
       );
     case 'canceled':
-      return <Notice tone="info">No recording picked.</Notice>;
+      return (
+        <Notice tone="info" onDismiss={onDismiss}>
+          No recording picked.
+        </Notice>
+      );
     case 'error':
       return (
         <ErrorNotice

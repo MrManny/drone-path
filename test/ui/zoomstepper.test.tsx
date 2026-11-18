@@ -29,7 +29,7 @@ function renderStepper(zoom: number, visibleZoom: number, onStep = vi.fn(), noti
 describe('ZoomStepper (#270)', () => {
   it('renders the step buttons in a labeled group', () => {
     renderStepper(0, 15);
-    expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Zoom level' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeTruthy();
   });
@@ -48,9 +48,9 @@ describe('ZoomStepper (#270)', () => {
     expect(screen.queryByText('auto')).toBeNull();
   });
 
-  it('shows auto while auto-fit', () => {
+  it('shows auto-fit while auto-fit', () => {
     renderStepper(0, 15);
-    expect(screen.getByText('auto')).toBeTruthy();
+    expect(screen.getByText('auto-fit')).toBeTruthy();
     expect(screen.queryByText('15')).toBeNull();
   });
 

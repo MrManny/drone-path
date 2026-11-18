@@ -96,14 +96,14 @@ export function ExportModal({
 
   // A phase change unmounts the old phase's action; focus follows the flow to
   // the new primary action (or the dialog) so it never lands on <body>.
-  const phaseColumnRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const seenPhase = useRef(phase);
   useEffect(() => {
     if (seenPhase.current === phase) return;
     seenPhase.current = phase;
-    const column = phaseColumnRef.current;
-    const target = column?.querySelector<HTMLElement>('[data-phase-focus]');
-    const fallback = column?.closest('[role="dialog"]') as HTMLElement | null;
+    const actions = actionsRef.current;
+    const target = actions?.querySelector<HTMLElement>('[data-phase-focus]');
+    const fallback = actions?.closest('[role="dialog"]') as HTMLElement | null;
     (target ?? fallback)?.focus();
   }, [phase]);
 
@@ -148,7 +148,7 @@ export function ExportModal({
           frame={previewFrame(previewRange, video.frames)}
           note={phase === 'form'}
         />
-        <div className="export-phase" ref={phaseColumnRef}>
+        <div className="export-phase">
           <p className="phase-status" role="status">
             {exportPhaseText(state)}
           </p>
@@ -162,43 +162,72 @@ export function ExportModal({
               notice={notice}
               dispatch={dispatch}
               onEncoderChange={changeEncoder}
-              onClose={onClose}
-              onStart={() =>
-                void chooseAndExport(flowDeps(), { settings, form, segment }, dispatch)
-              }
             />
           ) : null}
 
           {phase === 'running' ? (
-            <ExportRunning
-              fraction={captureFraction(state.capture)}
-              canceling={canceling}
-              error={error}
-              onCancel={() => cancelExport(flowDeps(), dispatch)}
-            />
+            <ExportRunning fraction={captureFraction(state.capture)} error={error} />
           ) : null}
 
-          {phase === 'done' && result ? (
-            <ExportDone
-              result={result}
-              error={error}
-              onReveal={() =>
-                runDoneAction(
-                  flowDeps(),
-                  (deps) => deps.revealExportOutput({ out: result.out }),
-                  dispatch,
-                )
-              }
-              onOpen={() =>
+          {phase === 'done' && result ? <ExportDone result={result} error={error} /> : null}
+        </div>
+      </div>
+      <div className="dialog-actions" ref={actionsRef}>
+        {phase === 'form' ? (
+          <>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="dialog-primary"
+              data-phase-focus
+              onClick={() => void chooseAndExport(flowDeps(), { settings, form, segment }, dispatch)}
+            >
+              Start export
+            </button>
+          </>
+        ) : null}
+        {phase === 'running' ? (
+          <button
+            type="button"
+            data-phase-focus
+            disabled={canceling}
+            onClick={() => cancelExport(flowDeps(), dispatch)}
+          >
+            Cancel export
+          </button>
+        ) : null}
+        {phase === 'done' && result ? (
+          <>
+            <button
+              type="button"
+              onClick={() =>
                 runDoneAction(
                   flowDeps(),
                   (deps) => deps.openExportOutput({ out: result.out }),
                   dispatch,
                 )
               }
-            />
-          ) : null}
-        </div>
+            >
+              Open video
+            </button>
+            <button
+              type="button"
+              className="dialog-primary"
+              data-phase-focus
+              onClick={() =>
+                runDoneAction(
+                  flowDeps(),
+                  (deps) => deps.revealExportOutput({ out: result.out }),
+                  dispatch,
+                )
+              }
+            >
+              Reveal in folder
+            </button>
+          </>
+        ) : null}
       </div>
     </DialogShell>
   );

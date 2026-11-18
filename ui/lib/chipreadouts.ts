@@ -29,7 +29,7 @@ export function formatChipValue(chip: HudChipId, readouts: ChipReadouts): string
   return chip === 'alt' ? String(Math.round(value)) : value.toFixed(1);
 }
 
-const CHIP_NAMES: Record<HudChipId, string> = {
+export const CHIP_NAMES: Record<HudChipId, string> = {
   heading: 'Heading',
   alt: 'Altitude',
   speed: 'Speed',

@@ -142,8 +142,8 @@ const MENU_OF_ITEM: Record<string, 'File' | 'View' | 'Help'> = {
   'Export telemetry…': 'File',
   'Map appearance…': 'View',
   Exit: 'File',
-  'Toggle PiP': 'View',
-  'Help': 'Help',
+  'Picture in picture': 'View',
+  'User manual': 'Help',
   About: 'Help',
 };
 
@@ -210,9 +210,9 @@ describe('the empty workspace at launch', () => {
     ).toBe(true);
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     expect(menuItem('Map appearance…').getAttribute('aria-disabled')).toBeNull();
-    expect(menuItem('Toggle PiP').getAttribute('aria-disabled')).toBe('true');
+    expect(menuItem('Picture in picture').getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Help' }));
-    expect(menuItem('Help').getAttribute('aria-disabled')).toBeNull();
+    expect(menuItem('User manual').getAttribute('aria-disabled')).toBeNull();
     expect(screen.getByText('No flight path yet.')).toBeTruthy();
     expect(screen.queryByText('No recording loaded')).toBeNull();
     expect(screen.queryByText(/SRT sidecar/)).toBeNull();
@@ -466,6 +466,9 @@ describe.each([
     expect(stageCta().disabled).toBe(false);
     expect(stageCta().textContent).toContain('Open…');
     expect(document.querySelectorAll('button.primary')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText(text)).toBeNull();
+    expect(stageCta().disabled).toBe(false);
   });
 });
 
@@ -559,7 +562,7 @@ describe('map zoom reset on open (#270)', () => {
     expect(harness.bridge.pickRecording).toHaveBeenCalledWith({
       settings: expect.objectContaining({ zoom: 0 }),
     });
-    expect(screen.getByText('auto')).toBeTruthy();
+    expect(screen.getByText('auto-fit')).toBeTruthy();
     clickMenuItem('Map appearance…');
     expect(
       (screen.getByRole<HTMLInputElement>('checkbox', { name: 'Auto-fit zoom' })).checked,
@@ -584,7 +587,7 @@ describe('update prompt', () => {
     openWorkspace();
     harness.updateReady();
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toContain('A new version is ready to install.');
+    expect(screen.getByText(/^A new version is ready to install\./).closest('[role="status"]')).toBeTruthy();
   });
 
   it('waits out another dialog and then prompts exactly once', async () => {
@@ -592,7 +595,7 @@ describe('update prompt', () => {
     openWorkspace();
     await commitLoaded(harness);
 
-    clickMenuItem('Help');
+    clickMenuItem('User manual');
     harness.updateReady();
     expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
 
@@ -643,7 +646,8 @@ describe('update prompt', () => {
     openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
-    expect(screen.getByRole('button', { name: 'Restarting…' })).toBeTruthy();
+    expect(screen.getByText('Restarting…').getAttribute('role')).toBe('status');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Restart now' }).disabled).toBe(true);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
   });

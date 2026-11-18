@@ -193,7 +193,7 @@ describe('MapCard zoom column (#270, #272)', () => {
     const zoomColumn = strip.querySelector('.map-strip-zoom') as HTMLElement;
     expect(zoomColumn.querySelector('.map-zoom-stepper')).toBeTruthy();
     expect(zoomColumn.querySelector('.label')?.textContent).toBe('Zoom');
-    expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Zoom level' })).toBeTruthy();
   });
 
   it('renders the zoom readout but no stepper in the compact PiP card (#287)', () => {
@@ -203,7 +203,7 @@ describe('MapCard zoom column (#270, #272)', () => {
     const zoomColumn = container.querySelector('.map-strip-zoom') as HTMLElement;
     expect(zoomColumn.querySelector('.map-zoom-level')).toBeTruthy();
     expect(zoomColumn.querySelector('.map-zoom-stepper')).toBeNull();
-    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Zoom level' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
   });

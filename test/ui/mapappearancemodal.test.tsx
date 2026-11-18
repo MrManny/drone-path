@@ -90,7 +90,7 @@ describe('MapAppearanceModal structure', () => {
     const dialog = screen.getByRole('dialog', { name: 'Map appearance' });
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByText('Every change shows in the preview at once.')).toBeTruthy();
-    for (const legend of ['Map look', 'Camera', 'On-frame readouts', 'Opening & ending']) {
+    for (const legend of ['Map look', 'Camera', 'On-frame readouts', 'Intro & outro']) {
       expect(screen.getByText(legend)).toBeTruthy();
     }
     expect(screen.getByRole('group', { name: 'Flight structure' })).toBeTruthy();
@@ -101,8 +101,9 @@ describe('MapAppearanceModal structure', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
     const footer = document.querySelector('.dialog-actions') as HTMLElement;
-    const close = within(footer).getByRole('button', { name: 'Close' });
+    const close = within(footer).getByRole('button', { name: 'Done' });
     expect(close.className).toBe('dialog-primary');
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
     fireEvent.click(close);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(within(footer).getByRole('button', { name: 'Restore defaults' })).toBeTruthy();
@@ -157,13 +158,13 @@ const CONTROL_CASES: ControlCase[] = [
     {
       name: 'intro stepper',
       initial: DEFAULT_CONFIG,
-      act: () => fireEvent.change(screen.getByLabelText('Intro zoom'), { target: { value: '3' } }),
+      act: () => fireEvent.change(screen.getByLabelText('Intro length'), { target: { value: '3' } }),
       want: { introSec: 3 },
     },
     {
       name: 'outro stepper',
       initial: DEFAULT_CONFIG,
-      act: () => fireEvent.change(screen.getByLabelText('Outro zoom'), { target: { value: '0' } }),
+      act: () => fireEvent.change(screen.getByLabelText('Outro length'), { target: { value: '0' } }),
       want: { outroSec: 0 },
     },
     {
@@ -235,7 +236,7 @@ describe('MapAppearanceModal chips', () => {
     expect(previewChip.getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(previewChip);
     for (const chip of chipsIn('.preview-chips').concat(chipsIn('.map-appearance-cards'))) {
-      if (chip.textContent?.includes('ALT')) {
+      if (chip.getAttribute('aria-label')?.startsWith('Altitude')) {
         expect(chip.getAttribute('aria-pressed')).toBe('true');
       }
     }
@@ -245,7 +246,7 @@ describe('MapAppearanceModal chips', () => {
     renderModal();
     await waitFor(() => expect(boot.calls).toHaveLength(1));
     const cardChip = chipsIn('.map-appearance-cards').find((b) =>
-      b.textContent?.includes('SPD'),
+      b.textContent?.includes('Speed'),
     ) as HTMLButtonElement;
     fireEvent.click(cardChip);
     const previewChip = chipsIn('.preview-chips').find((b) =>
@@ -258,14 +259,14 @@ describe('MapAppearanceModal chips', () => {
   it('keeps the ALT chip off with a text notice when the telemetry has none', () => {
     renderModal({ session: NO_ALT_SESSION });
     for (const chip of chipsIn('.preview-chips').concat(chipsIn('.map-appearance-cards'))) {
-      if (chip.textContent?.includes('ALT')) {
+      if (chip.getAttribute('aria-label')?.startsWith('Altitude')) {
         expect(chip.disabled).toBe(true);
         expect(chip.textContent).toContain('--');
       }
     }
     expect(
       screen.getByText(
-        'This recording has no altitude telemetry, so the ALT chip stays off and the map strip shows no Altitude value.',
+        'This recording has no altitude telemetry, so the Altitude chip stays off and the map strip shows no Altitude value.',
       ),
     ).toBeTruthy();
   });

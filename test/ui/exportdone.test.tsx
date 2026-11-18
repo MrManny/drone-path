@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ExportDoneProps } from '../../ui/components/ExportDone.js';
 import { ExportDone } from '../../ui/components/ExportDone.js';
@@ -20,12 +20,7 @@ const RESULT: RecordingSummary = {
 };
 
 function renderDone(overrides: Partial<ExportDoneProps> = {}) {
-  const onReveal = overrides.onReveal ?? vi.fn();
-  const onOpen = overrides.onOpen ?? vi.fn();
-  render(
-    <ExportDone result={RESULT} error={null} {...overrides} onReveal={onReveal} onOpen={onOpen} />,
-  );
-  return { onReveal, onOpen };
+  render(<ExportDone result={RESULT} error={null} {...overrides} />);
 }
 
 describe('ExportDone outcome', () => {
@@ -51,26 +46,5 @@ describe('ExportDone outcome', () => {
     renderDone({ error: 'the app backend went away' });
     expect(screen.getByText('the app backend went away')).toBeTruthy();
     expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
-  });
-});
-
-describe('ExportDone actions', () => {
-  it('offers Reveal in folder and Open video', () => {
-    const { onReveal, onOpen } = renderDone();
-    fireEvent.click(screen.getByRole('button', { name: 'Reveal in folder' }));
-    expect(onReveal).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Open video' }));
-    expect(onOpen).toHaveBeenCalledTimes(1);
-  });
-
-  it('makes Reveal in folder the one accent primary', () => {
-    renderDone();
-    expect(screen.getByRole('button', { name: 'Reveal in folder' }).className).toBe('dialog-primary');
-    expect(screen.getByRole('button', { name: 'Open video' }).className).toBe('');
-  });
-
-  it('carries no footer dismissal; the header ✕ closes the dialog', () => {
-    renderDone();
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
   });
 });

@@ -23,8 +23,6 @@ export interface ExportFormProps {
   notice: string | null;
   dispatch: (event: ExportEvent) => void;
   onEncoderChange: (patch: Partial<EncodeSettings>) => void;
-  onClose: () => void;
-  onStart: () => void;
 }
 
 const CODEC_LABELS: Record<Codec, string> = {
@@ -51,8 +49,6 @@ export function ExportForm({
   notice,
   dispatch,
   onEncoderChange,
-  onClose,
-  onStart,
 }: ExportFormProps) {
   return (
     <>
@@ -90,7 +86,7 @@ export function ExportForm({
             value={form.width}
             min={MIN_DIMENSION}
             rule={`at least ${MIN_DIMENSION} px`}
-            hint="px"
+            unit="px"
             onValue={(width) => {
               if (!isValidDimensions(width, form.height)) return false;
               dispatch({ type: 'setWidth', width });
@@ -102,7 +98,7 @@ export function ExportForm({
             value={form.height}
             min={MIN_DIMENSION}
             rule={`at least ${MIN_DIMENSION} px`}
-            hint="px"
+            unit="px"
             onValue={(height) => {
               if (!isValidDimensions(form.width, height)) return false;
               dispatch({ type: 'setHeight', height });
@@ -124,7 +120,7 @@ export function ExportForm({
             onValue={(quality) => onEncoderChange({ quality: quality as Quality })}
           />
           <SelectField
-            label="Encode speed"
+            label="Encoding preset"
             value={encode.preset}
             options={ENCODER_PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
             onValue={(preset) => onEncoderChange({ preset: preset as EncoderPreset })}
@@ -134,14 +130,6 @@ export function ExportForm({
 
       {error ? <ErrorNotice message={error} /> : null}
       {notice ? <Notice tone="info">{notice}</Notice> : null}
-      <div className="dialog-actions">
-        <button type="button" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="dialog-primary" data-phase-focus onClick={onStart}>
-          Start export
-        </button>
-      </div>
     </>
   );
 }

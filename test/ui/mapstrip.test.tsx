@@ -52,7 +52,7 @@ describe('MapStrip (#272, #287)', () => {
   it('mounts the labeled bare zoom stepper in split view', () => {
     renderStrip('split', CONTROLS);
     expect(screen.getByText('Zoom')).toBeTruthy();
-    expect(screen.getByRole('group', { name: 'Map zoom' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Zoom level' })).toBeTruthy();
   });
 
   it('renders the zoom readout column in the PiP layout (#287)', () => {
@@ -66,7 +66,7 @@ describe('MapStrip (#272, #287)', () => {
   it('keeps the stepper controls out of the PiP layout (#287)', () => {
     const { container } = renderStrip('overlay', CONTROLS);
     expect(container.querySelector('.map-zoom-stepper')).toBeNull();
-    expect(screen.queryByRole('group', { name: 'Map zoom' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Zoom level' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
   });

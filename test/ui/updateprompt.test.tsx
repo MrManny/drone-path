@@ -22,14 +22,14 @@ function renderPrompt(overrides: Partial<Parameters<typeof UpdatePrompt>[0]> = {
 }
 
 describe('UpdatePrompt', () => {
-  it('opens as the Update dialog with the message and one footer action', () => {
+  it('opens as the Update dialog with Restart now and Later in the footer', () => {
     renderPrompt();
     expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toContain(
+    expect(document.querySelector('.notice[role="status"]')?.textContent).toContain(
       'A new version is ready to install. Restart now to finish updating, or keep working and the update installs when you quit.',
     );
     expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Later' }).closest('.dialog-actions')).toBeTruthy();
   });
 
   it('makes Restart now the primary action', () => {
@@ -38,7 +38,7 @@ describe('UpdatePrompt', () => {
     expect(restart.className).toBe('dialog-primary');
   });
 
-  it('keeps exactly one dismissal control, the header ✕', () => {
+  it('keeps exactly one button named Close in the header ✕', () => {
     renderPrompt();
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
   });
@@ -46,6 +46,13 @@ describe('UpdatePrompt', () => {
   it('postpones the update on the header ✕', () => {
     const { onRestart, onLater } = renderPrompt();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onLater).toHaveBeenCalledTimes(1);
+    expect(onRestart).not.toHaveBeenCalled();
+  });
+
+  it('postpones the update on Later', () => {
+    const { onRestart, onLater } = renderPrompt();
+    fireEvent.click(screen.getByRole('button', { name: 'Later' }));
     expect(onLater).toHaveBeenCalledTimes(1);
     expect(onRestart).not.toHaveBeenCalled();
   });
@@ -60,8 +67,15 @@ describe('UpdatePrompt', () => {
   it('locks the actions and says it is restarting once the restart runs', () => {
     renderPrompt({ restarting: true });
     expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Restarting…' }).disabled,
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Restart now' }).disabled,
     ).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Later' }).disabled).toBe(true);
+    const progress = screen.getByRole('progressbar', { name: 'Restart progress' });
+    expect(progress.getAttribute('aria-valuenow')).toBeNull();
+    expect(progress.firstElementChild?.classList.contains('progress-shimmer')).toBe(true);
+    const status = screen.getByText('Restarting…');
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.previousElementSibling).toBe(progress);
     const close = screen.getByRole<HTMLButtonElement>('button', { name: 'Close' });
     expect(close.disabled).toBe(true);
     expect(close.getAttribute('title')).toBe('The app is restarting.');
@@ -75,7 +89,7 @@ describe('UpdatePrompt', () => {
       'The restart failed. Try again, or install the update when you quit.',
     );
     expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy();
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 
   it('keeps the backend message under Technical details, never as the message', () => {

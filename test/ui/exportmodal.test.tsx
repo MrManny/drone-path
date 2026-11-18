@@ -8,6 +8,7 @@ import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { EncodeSettings, ExportRequest, RenderConfig } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
+import type { CaptureProgress } from '../../src/render.js';
 import type { ExportOutputPayload } from '../../ui/lib/backend.js';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
 import type { DialogEvent } from '../../ui/lib/dialogstate.js';
@@ -78,7 +79,10 @@ const OUTCOME_FOOTERS: Record<Outcome, string[]> = {
 };
 
 function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
-  const listeners: { done?: (outcome: ExportOutcome) => void } = {};
+  const listeners: {
+    capture?: (progress: CaptureProgress) => void;
+    done?: (outcome: ExportOutcome) => void;
+  } = {};
   const bridge = {
     pickExportOutput: vi.fn(async () => ({ ok: true, path: '/exports/a.mp4' })),
     startExport: vi.fn(async (_request: ExportRequest) => ({ ok: true })),
@@ -86,7 +90,10 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
     revealExportOutput: vi.fn(async (_payload: ExportOutputPayload) => ({ ok: true })),
     openExportOutput: vi.fn(async (_payload: ExportOutputPayload) => ({ ok: true })),
     onExportProgress: vi.fn(() => () => {}),
-    onExportCapture: vi.fn(() => () => {}),
+    onExportCapture: vi.fn((cb: (progress: CaptureProgress) => void) => {
+      listeners.capture = cb;
+      return () => {};
+    }),
     onExportDone: vi.fn((cb: (outcome: ExportOutcome) => void) => {
       listeners.done = cb;
       return () => {};
@@ -96,6 +103,11 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
   (window as { dronepath?: unknown }).dronepath = bridge;
   return {
     bridge,
+    emitCapture: (progress: CaptureProgress) => {
+      act(() => {
+        listeners.capture?.(progress);
+      });
+    },
     emitDone: (outcome: ExportOutcome) => {
       act(() => {
         listeners.done?.(outcome);
@@ -238,7 +250,7 @@ describe('ExportModal encoder choices', () => {
     );
     expect(screen.getByLabelText<HTMLSelectElement>('Codec').value).toBe('h265');
     expect(screen.getByLabelText<HTMLSelectElement>('Quality').value).toBe('low');
-    expect(screen.getByLabelText<HTMLSelectElement>('Encode speed').value).toBe('veryfast');
+    expect(screen.getByLabelText<HTMLSelectElement>('Encoding preset').value).toBe('veryfast');
   });
 
   it('reports encoder edits for the page to persist', () => {
@@ -345,6 +357,15 @@ describe.each<Phase>(['form', 'running', 'done'])(
         ? [...footer.querySelectorAll('button')].map((b) => b.textContent?.trim())
         : [];
       expect(labels).toEqual(FOOTERS[phase]);
+      const dialog = screen.getByRole('dialog', { name: 'Export video' });
+      expect(footer).toBe(dialog.lastElementChild);
+      expect(footer?.previousElementSibling?.classList.contains('export-body')).toBe(true);
+      const primaryLabels = [...(footer?.querySelectorAll('.dialog-primary') ?? [])].map(
+        (button) => button.textContent?.trim(),
+      );
+      expect(primaryLabels).toEqual(
+        phase === 'form' ? ['Start export'] : phase === 'done' ? ['Reveal in folder'] : [],
+      );
     });
   },
 );
@@ -376,6 +397,19 @@ describe.each<Scenario>(['form', 'done', 'error', 'canceled'])(
 );
 
 describe('ExportModal while an export runs', () => {
+  it('requests cancellation once and keeps the last progress level while waiting', async () => {
+    const { bridge, emitCapture, emitDone } = installBridge();
+    await reachPhase('running', emitDone);
+    emitCapture({ done: 1, total: 2 });
+    const cancel = screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' });
+    fireEvent.click(cancel);
+
+    expect(bridge.cancelExport).toHaveBeenCalledTimes(1);
+    expect(cancel.disabled).toBe(true);
+    expect(screen.getByText('Canceling…')).toBeTruthy();
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('50');
+  });
+
   it('disables the header Close and says why', async () => {
     const { emitDone } = installBridge();
     await reachPhase('running', emitDone);
@@ -384,7 +418,13 @@ describe('ExportModal while an export runs', () => {
   });
 });
 
-describe('ExportModal backdrop dismissal', () => {
+describe('ExportModal dismissal', () => {
+  it('closes the form through Cancel', () => {
+    renderModal({ in: null, out: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
+  });
+
   it('ignores a backdrop click while the job runs', async () => {
     const { emitDone } = installBridge();
     await reachPhase('running', emitDone);

@@ -41,6 +41,6 @@ export function pickReducer(state: PickState, event: PickEvent): PickState {
     case 'failed':
       return { kind: 'error', message: event.message };
     case 'dismiss':
-      return state.kind === 'error' ? { kind: 'idle' } : state;
+      return state.kind === 'error' || state.kind === 'canceled' ? { kind: 'idle' } : state;
   }
 }

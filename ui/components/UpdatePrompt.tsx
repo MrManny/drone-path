@@ -2,6 +2,7 @@
 
 import { DialogShell } from './DialogShell.js';
 import { Notice } from './Notice.js';
+import { ProgressBar } from './ProgressBar.js';
 
 interface UpdatePromptProps {
   restarting: boolean;
@@ -29,14 +30,23 @@ export function UpdatePrompt({ restarting, failure, onRestart, onLater }: Update
           working and the update installs when you quit.
         </Notice>
       )}
+      <div className={restarting ? 'dialog-busy' : undefined}>
+        {restarting ? <ProgressBar label="Restart progress" percent={null} /> : null}
+        <p className="phase-status" role="status">
+          {restarting ? 'Restarting…' : ''}
+        </p>
+      </div>
       <div className="dialog-actions">
+        <button type="button" onClick={onLater} disabled={restarting}>
+          Later
+        </button>
         <button
           type="button"
           className="dialog-primary"
           onClick={onRestart}
           disabled={restarting}
         >
-          {restarting ? 'Restarting…' : 'Restart now'}
+          Restart now
         </button>
       </div>
     </DialogShell>

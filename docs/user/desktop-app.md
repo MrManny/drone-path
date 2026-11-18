@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## The menu bar
 
-Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…** and **Toggle PiP** (`P`); **Help**, at the right edge, opens the Help overlay — this manual — and lists **About** under a separator. Items that cannot act right now — export, telemetry and Toggle PiP without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…** and **Picture in picture** (`P`); **Help**, at the right edge, contains **User manual** and **About**. Items that cannot act right now — export, telemetry and Picture in picture without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
 
 ## Loading a recording
 
@@ -24,7 +24,7 @@ Picking a drone recording opens the player as soon as the recording is read, its
 
 The review workspace shows the recording and the synchronized flight map at once: the recording fills the preview beside the map pane, which keeps the flight trail, drone position and the compact readout strip and shares the playhead with the recording.
 
-**View → Toggle PiP** in the menu bar (or `P`) turns the map into a corner overlay on the recording when you want the full frame. Play, pause and scrubbing drive both panes from one timeline, so the map and the recording never drift apart. Every playback control has a [keyboard shortcut](keyboard-shortcuts.md).
+**View → Picture in picture** (or `P`) turns the map into a corner overlay on the recording when you want the full frame. Play, pause and scrubbing drive both panes from one timeline, so the map and the recording never drift apart. Every playback control has a [keyboard shortcut](keyboard-shortcuts.md).
 
 ![Recording and synchronized flight map side by side in the review workspace](../images/app-review-split.jpg)
 
@@ -57,7 +57,7 @@ The **Export video…** item in the File menu is the export entry point; it stay
 The form groups into *Export range* and *Output and encoding*:
 
 - *Export range* — *Full recording* or the *In–Out segment*. Mark the in or out point with `I` / `O` first; once one is marked, the segment comes preselected — a lone in point exports to the end of the recording, a lone out point from its start.
-- *Output and encoding* — the output size and the encoding: codec (H.264 or H.265), quality (*Near-lossless* down to *Low*) and encode speed (*Balanced* or *Faster*).
+- *Output and encoding* — the output size and the encoding: codec (H.264 or H.265), quality (*Near-lossless* down to *Low*) and encoding preset (*Balanced* or *Faster*).
 
 Without an In–Out segment, the form just sets size and encoding.
 
@@ -103,12 +103,12 @@ The settings on the right are grouped:
 
 - **Map look** — the map style as two thumbnail tiles (Satellite, Topographic), and the trail color as a swatch row: *Style default* keeps the map style's own trail color; Coral, White and Black pin one of those; **Custom…** reveals a hex field for any RGB or RGBA color like `#e63946` or `#e63946cc`.
 - **Camera** — *Overview* shows the whole track at once; *Follow* keeps the drone centered with the map sliding under it. **Auto-fit zoom** frames the flight path automatically: while it is on, the zoom level slider is disabled and shows the level auto-fit resolves to (like *auto-fit → 13*); turning it off pins that level, and the slider sets any whole level from 2 to 19. **Frame padding** pulls the auto-fit camera back that many levels.
-- **On-frame readouts** — the HUD chips (HDG, ALT, SPD) rendered as the chips themselves. Clicking a chip here or over the preview toggles it, and both stay in sync; a turned-off chip shows a dimmed **--**. Altitude and speed are off by default, and the ALT chip stays off with a text notice when the recording's telemetry has no altitude.
-- **Opening & ending** — the structure bar under the preview shows the `[intro | flight | outro]` shape and its segments pick which end of the flight the preview shows. *Intro zoom* and *Outro zoom* set how long the camera eases in and out; the hint reads *the camera eases in and out · 0 s disables it*.
+- **On-frame readouts** — the Heading, Altitude, and Speed controls. The preview abbreviates these as HDG, ALT, and SPD. Clicking a chip here or over the preview toggles it, and both stay in sync; a turned-off chip shows a dimmed **--**. Altitude and speed are off by default, and the Altitude chip stays off with a text notice when the recording's telemetry has no altitude.
+- **Intro & outro** — the structure bar under the preview shows the `[intro | flight | outro]` shape and its segments pick which end of the flight the preview shows. *Intro length* and *Outro length* set how long the camera eases in and out; the hint reads *the camera eases in and out · 0 s disables it*.
 
 **Restore defaults** resets the map look settings to their defaults. **Close** — or `Esc` — dismisses the dialog. The dialog is modal, so the [player shortcuts](keyboard-shortcuts.md) pause while it is open and keystrokes in a field never reach the player.
 
-Below the flight map in the split view sits one compact strip with three labeled columns: **Speed**, **Altitude** and **Zoom**. The columns are always there — a readout streams live values while its HUD chip is on and shows a dimmed **--** otherwise, including Altitude when the telemetry has none. The bare `−` and `+` buttons around the level step one zoom level and show the level they pinned — or *auto* while auto-fit. Every step pins that level as the zoom level (the *Zoom level* slider in [Map appearance](#map-appearance)), so the stepper, the slider and the export all show exactly that zoom level, and switching **Auto-fit zoom** back on restores automatic framing. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The PiP overlay keeps every readout — including the zoom level and the announcement of a refused step — but not the `−` and `+` buttons; the keyboard shortcuts still step the zoom there.
+Below the flight map in the split view sits one compact strip with three labeled columns: **Speed**, **Altitude** and **Zoom**. The columns are always there — a readout streams live values while its HUD chip is on and shows a dimmed **--** otherwise, including Altitude when the telemetry has none. The bare `−` and `+` buttons around the level step one zoom level and show the level they pinned or *auto-fit* while automatic framing is on. Every step pins that level as the zoom level (the *Zoom level* slider in [Map appearance](#map-appearance)), so the stepper, the slider and the export all show exactly that zoom level, and switching **Auto-fit zoom** back on restores automatic framing. Zooming clamps at the map's usable levels (2 to 19); at either end the matching button dims and says why, and a refused step is announced instead of doing nothing. The `+` / `-` [keyboard shortcuts](keyboard-shortcuts.md) do the same from the keyboard, in both views. The PiP overlay keeps every readout — including the zoom level and the announcement of a refused step — but not the `−` and `+` buttons; the keyboard shortcuts still step the zoom there.
 
 ![The compact readout strip below the flight map: Speed and Altitude readouts beside the zoom stepper](../images/app-map-strip.jpg)
 
@@ -118,15 +118,15 @@ Every change applies at once to the preview and the next export. The app remembe
 
 ![The Map appearance dialog: live export-frame preview beside the grouped map look, camera and readout settings](../images/app-review-map-appearance.jpg)
 
-*The Map appearance dialog: the live preview and the opening & ending strip on the left, the grouped settings on the right.*
+*The Map appearance dialog: the live preview and the intro & outro strip on the left, the grouped settings on the right.*
 
 ## Updates
 
-Packaged builds update themselves: when a newer [release](https://github.com/MrManny/drone-path/releases) exists, the app downloads it in the background and asks once whether to **Restart now** into it; closing the dialog keeps working, and the update installs when you quit. Should the restart fail, the dialog says so and the update still installs when you quit.
+Packaged builds update themselves: when a newer [release](https://github.com/MrManny/drone-path/releases) exists, the app downloads it in the background and asks once whether to **Restart now**. Choose **Later** to keep working and install the update when you quit. Should the restart fail, the dialog says so and the update still installs when you quit.
 
 ## Help
 
-The **Help** menu's first item opens the Help overlay — this manual — inside the app. It is bundled with the app, so it works offline.
+**Help → User manual** opens the manual inside the app. It is bundled with the app, so it works offline.
 
 **Help → About** opens a small dialog with the app's identity: the *drone / path* lockup, the installed version below it, the MIT license line and a link to the project repository, which opens in the default browser. The version reads `MAJOR.MINOR.PATCH` in a release build (like `0.8.1`) and adds `+` with the short commit (like `0.8.1+cb40df32`) in every other build, so a support answer names the exact build; release builds never carry the commit suffix.
 

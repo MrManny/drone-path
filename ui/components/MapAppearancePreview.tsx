@@ -48,6 +48,7 @@ export function MapAppearancePreview({
         <div className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />
         <div className="preview-chips">
           <HudChips
+            abbreviated
             hud={hud}
             readouts={readouts}
             altUnavailable={altUnavailable}
