@@ -254,14 +254,14 @@ describe('TransportBar disabled mode', () => {
     }
   });
 
-  it('keeps the row intact with a quiet zero readout', () => {
+  it('keeps the row intact with a dimmed off-state readout', () => {
     const { timeRef } = renderBar({ disabled: true, ready: false, fps: 0, durationSec: 0 });
-    expect(timeRef.current?.textContent).toBe('0:00 / 0:00');
+    expect(timeRef.current?.textContent).toBe('--');
     const regions = [...(document.querySelector('.transport') as HTMLElement).children].map(
       (region) => region.className,
     );
     expect(regions).toEqual([
-      'readout transport-time',
+      'readout transport-time readout-off',
       'transport-group transport-cluster',
       'transport-group transport-speed',
     ]);

@@ -155,7 +155,7 @@ describe('MapCard chip strip (#236)', () => {
     const { container } = render(<MapCard data={DATA} onScene={() => {}} layout="split" />);
     const card = container.querySelector('.map-card') as HTMLElement;
     expect(card.querySelector('.map-card-map [data-testid="map-island"]')).toBeTruthy();
-    expect(card.querySelector('.map-card-busy')?.parentElement).toBe(card);
+    expect(card.querySelector('.busy-status')?.parentElement).toBe(card);
   });
 
   it('renders no strip on the quiet placeholder', () => {
@@ -244,9 +244,9 @@ describe('MapCard style contract (#236)', () => {
   });
 
   it('stacks the strip labels above dimmable values', () => {
-    expect(cssText).toMatch(/\.map-readout \.label,[^}]*font-size: 11px/);
-    expect(cssText).toMatch(/\.map-readout \.value \{[^}]*font-size: 16px/);
-    expect(cssText).toMatch(/\.map-readout-off \.value \{[^}]*color: var\(--text-3\)/);
+    expect(cssText).toMatch(/\.map-readout \.label,[^}]*font-size: var\(--type-label\)/);
+    expect(cssText).toMatch(/\.map-readout \.value \{[^}]*font-size: var\(--type-readout-emphasis\)/);
+    expect(cssText).toMatch(/\.map-readout-off \.value,\s*\.readout\.readout-off \{[^}]*color: var\(--text-3\)/);
   });
 
   it('aligns labels and values on two shared grid rows (#272 feedback)', () => {
@@ -314,11 +314,11 @@ describe('MapCard style contract (#236)', () => {
     expect(cssText).toMatch(/\.map-card\.map-card-overlay #attr a \{[^}]*pointer-events: none/);
   });
 
-  it('leaves the map-loading busy label rules untouched (#234)', () => {
-    const rule = /\.map-card-busy \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
+  it('keeps media status clear of the split and PiP map markers', () => {
+    const rule = /\.map-card > \.busy-status \{([^}]*)\}/.exec(cssText)?.[1] ?? '';
     expect(rule).toContain('z-index: 1300');
-    expect(rule).toContain('bottom: calc(50% + 56px)');
-    expect(cssText).toMatch(/\.map-card-overlay \.map-card-busy \{[^}]*top: 34px/);
-    expect(cssText).toMatch(/\.map-card-overlay \.map-card-busy \{[^}]*bottom: auto/);
+    expect(cssText).toMatch(/\.pane-video > \.busy-status \{[^}]*bottom: calc\(50% \+ 56px\)/);
+    expect(cssText).toMatch(/\.map-card-overlay > \.busy-status \{[^}]*top: 34px/);
+    expect(cssText).toMatch(/\.map-card-overlay > \.busy-status \{[^}]*bottom: auto/);
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { FilmstripCache, sameFrames, thumbPlan } from '../lib/filmstrip.js';
@@ -19,6 +19,7 @@ interface FilmstripStrip {
   hostRef: RefObject<HTMLDivElement | null>;
   cells: readonly number[];
   thumbs: ReadonlyMap<number, string>;
+  busy: boolean;
 }
 
 export function useFilmstrip({
@@ -65,18 +66,28 @@ export function useFilmstrip({
     };
   }, [src, fps, sampler, createSampler]);
 
+  const request = useMemo(
+    () => ({ cells, src, fps, sampler, createSampler }),
+    [cells, src, fps, sampler, createSampler],
+  );
+  const [settled, setSettled] = useState<typeof request | null>(null);
+
   useEffect(() => {
-    cacheRef.current?.load(cells, (frame, url) =>
-      setBatch((prev) => {
-        const next = new Map(prev.src === src ? prev.thumbs : []);
-        next.set(frame, url);
-        return { src, thumbs: next };
-      }),
+    cacheRef.current?.load(
+      request.cells,
+      (frame, url) => {
+        setBatch((prev) => {
+          const next = new Map(prev.src === request.src ? prev.thumbs : []);
+          next.set(frame, url);
+          return { src: request.src, thumbs: next };
+        });
+      },
+      () => setSettled(request),
     );
-  }, [cells, src, fps, sampler, createSampler]);
+  }, [request]);
 
   const thumbs = batch.src === src ? batch.thumbs : EMPTY_THUMBS;
-  return { hostRef, cells, thumbs };
+  return { hostRef, cells, thumbs, busy: cells.length > 0 && request !== settled };
 }
 
 const EMPTY_THUMBS: ReadonlyMap<number, string> = new Map();

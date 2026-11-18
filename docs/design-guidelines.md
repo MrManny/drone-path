@@ -26,8 +26,8 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--scrim` | `rgba(10, 10, 10, 0.6)` | Dialog backdrop |
 | `--frame-bg` | `#000` | Letterbox fill behind footage and preview media |
 | `--hairline` / `--hairline-strong` / `--hairline-hover` | `#e8e8e8` at 12% / 24% / 42% | Decorative separators / control, dialog and map card borders / hover borders |
-| `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 68% | Primary text / labels, readouts, paths / hints, legends, "Technical details" |
-| `--accent` (hover `--accent-hover`, pressed `--accent-press`) | `#e87f54` (`#f0a967`, `#c96640`) | Primary fill, selected speed, checked toggle, played timeline range, progress fill, flight trail |
+| `--text` / `--text-2` / `--text-3` | `#e8e8e8` / 75% / 68% | Primary text, titles and emphasized readouts / labels, readouts and paths / hints and "Technical details" |
+| `--accent` (hover `--accent-hover`, pressed `--accent-press`) | `#e87f54` (`#f0a967`, `#c96640`) | Primary fill, selected speed, checked toggle, playhead, progress fill, flight trail |
 | `--accent-ink` | `#2b1207` | Text and check mark on accent |
 | `--accent-text` | `#f0a967` | Accent-colored text and icons on surfaces (links, current page) |
 | `--menu-open-tint` / `--menu-active-tint` | `rgba(232, 127, 84, 0.16)` / `rgba(232, 127, 84, 0.14)` | Menu state fills (see [Menu bar](#menu-bar)) |
@@ -37,20 +37,31 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--warning` / `--info` | `#f0a967` / `#7fa3c4` | Warning and info notices only |
 | `--loop` / `--loop-text` | `#ecc9a8` / `#f4e2d2` | Loop band and ring / loop readout |
 
-- **Accent** marks the primary action, the selected segment, a checked toggle, the playhead, the played part of the timeline and the progress fills. In the menu bar accent additionally carries menu state: the open top-level label and the hovered or keyboard-focused row (see [Menu bar](#menu-bar)). **Loop** colors mark only the loop band, its handles and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
+- **Accent** marks the primary action, the selected segment, a checked toggle, the playhead and the progress fills. In the menu bar accent additionally carries menu state: the open top-level label and the hovered or keyboard-focused row (see [Menu bar](#menu-bar)). **Loop** colors mark only the loop band, its handles and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
 - **The flight trail is the accent:** `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent` and derives the trail glow.
 - **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
 - **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on `--surface-1` and `--surface-2`.
 - **Documented deviation — control borders (WCAG 1.4.11):** interactive-control borders measure 1.94:1 against their control fill, where non-text contrast wants 3:1. The 2026-11-13 WCAG 2.2 AA review accepted this as a design deviation: the hairline border language is deliberate, and control boundaries stay perceivable through fill contrast and layout. Do not tighten the borders toward 3:1 without a new design review.
 
+## Type scale
+
+| Tier | Size and weight | Tone | Use |
+|---|---|---|---|
+| Title | 16px, 600 | `--text` | Flight workspace, Timeline, and preview headings |
+| Label | 12px, 400 or 600 | `--text-2` | Choice captions and inner group labels at 400, fieldset legends and map-strip labels at 600 |
+| Readout | 13px, 400 or 14px, 600 | `--text-2` or `--text` for emphasis | Preview metadata and transport time at 13px, map-strip values at 14px. Numerals are tabular. |
+| Hint | 13px, 400 | `--text-3` or `--danger-text` for field messages | Explanations, loading text, validation, and refused steps |
+
+Tiles and swatches use 8px between choices and 4px between each visual and its label. Selected captions may take the accent. Disabled readouts replace the value with a dimmed `--`. The PiP strip uses 9px labels and units and 12px readouts to fit the smaller card. The split-view map units use 10px.
+
 ## Player workspace
 
-Rows are flush, one column: menu bar, header, stage, transport, and timeline.
+Rows are flush in one column with a 1px hairline at each seam. Menu labels, header content, transport, and timeline share a 16px left edge. The video, map, and filmstrip show a quiet status line while their media loads.
 
 ## Menu bar
 
-The top row of every workspace is a slim menu bar — window chrome, not a control row: 32px plus a 1px `--hairline` bottom border on `--page`, flat 14px text labels ("File" and "View" left, "Help" right) as 24px pills (`--radius-control`, 0 10px padding). It owns every workspace command; the header keeps only brand and project identity.
+The top row of every workspace is a slim menu bar — window chrome, not a control row: 32px plus a 1px `--hairline` bottom border on `--page`, 6px bar side padding and flat 14px text labels ("File" and "View" left, "Help" right) as 24px pills (`--radius-control`, 0 10px padding). It owns every workspace command; the header keeps only brand and project identity.
 
 Dropdowns reuse the map-popover floating-panel anatomy: `--surface-1` fill, 1px `--hairline-strong` border, `--radius-panel`, `--shadow-float`, hung directly under their label. Item rows are 32px high — a deliberate deviation from the 36px `--control-h` recipe, matching Windows menu density — borderless at `--radius-control` with 8px side padding: 16px icon, 12px gap, 14px `--text` label, right-aligned 13px shortcut hint. Separators sit on the `--hairline` tier; disabled rows use the `button:disabled` look through `aria-disabled` (the row stays focusable so the keyboard highlight is announced, see [Keyboard](#keyboard)); menus open instantly, with no motion.
 
@@ -77,9 +88,11 @@ disabled rows hold focus through `aria-disabled`, and Tab closes an open menu.
 
 ## Components, copy and errors
 
-- **Controls:** 36px buttons and fields, 8px radii (pills for segmented groups), 1 px `--hairline-strong` borders on `--surface-2`; hover lightens, pressed darkens and shifts 1px down, `:focus-visible` shows a 2px `--focus` outline at 2px offset, disabled drops to 0.45 opacity. Exact recipes live in `ui/components/`.
-- **Notices** (`Notice`, `ErrorNotice`): info, warning and danger tones over `--surface-1`, with a "Technical details" disclosure; danger is an alert, the others status messages.
-- **Dialogs:** top edge 56px below the window, `--shadow-float` panel over the scrim blur; the export dialog locks dismissal while it runs. Dialogs are modal — the player shortcuts pause while one is open — and must fit without scrolling at the default window size (1600×950).
-- **Settings around a live preview** (the Map appearance dialog is the reference): one preview of the output beside grouped setting cards; every change shows in the preview at once. Values get explicit controls — enum styles with a visual identity as thumbnail tiles, colors as a swatch row whose first entry names the fallback (*Style default*, never an empty hex), magic values as toggles (*Auto-fit zoom* instead of `0`), durations as steppers with their unit, zoom as a slider with a readout; readouts double as toggles (the HUD chips), and off states show the dimmed `--` of the map strip. Groups fit the reference window without scrolling.
-- **Copy:** verb-first actions ("Open…", "Start export"), nouns for toggles and destinations; sentence case; American English; "…" for dialogs and work in progress; no exclamation marks; one name per action.
+- **Controls:** 36px buttons and fields, 8px radii (pills for segmented groups), 1 px `--hairline-strong` borders on `--surface-2`; hover lightens, pressed darkens and shifts 1px down, `:focus-visible` shows a 2px `--focus` outline at 2px offset, disabled drops to 0.45 opacity. Segments, HUD chips, and the strip stepper use 30px controls. Sliders and toggle hit areas use 20px. The menu has a 32px structure bar plus its seam. Small details such as checkboxes, thumbs, the loop band, thumbnail corners, and inline code may use a 4px micro-radius. The HUD mirror pills use white on translucent navy to match the rendered HUD. Exact recipes live in `ui/components/`.
+- **Notices** (`Notice`, `ErrorNotice`): info, warning and danger tones over `--surface-1`, with a "Technical details" disclosure; danger is an alert, the others status messages. When the workspace is empty, Open notices sit in the CTA stack. With footage loaded, they sit top-center over the stage.
+- **Dialogs:** top edge 56px below the window, `--shadow-float` panel over the scrim blur; the export dialog locks dismissal while it runs. Player shortcuts pause while a modal is open. Settings and decision dialogs fit without scrolling at the default window size (1600×950). The Help manual scrolls its navigation and content independently. Footer actions sit at the bottom on the shared 16px rhythm. The header uses “Close,” task dismissal uses “Cancel,” and live-apply settings use “Done.” Reserve the accent for the forward or commit action.
+- **Settings around a live preview** (the Map appearance dialog is the reference): one preview of the output beside grouped setting cards; every change shows in the preview at once. Values get explicit controls — enum styles with a visual identity as thumbnail tiles, colors as a swatch row whose first entry names the fallback (*Style default*, never an empty hex), name special values in their readouts or supporting hints, such as *auto-fit* for map zoom and *0 s disables it* for segment duration. Use number fields with persistent units for durations and a slider with a readout where a continuous zoom control is provided. Readouts double as toggles (the HUD chips), and off states show the dimmed `--` of the map strip. Groups fit the reference window without scrolling.
+- **Copy:** verb-first actions ("Open…", "Start export"), nouns for toggles and destinations; sentence case; American English; "…" for dialogs and work in progress; no exclamation marks. Use a consistent term for the same concept and name dialog actions by role.
+- **Selection:** use a fill for compact choice buttons, an outline for tiles and diagram elements, and a tint for menu state.
+- **Action groups:** pills indicate membership in a set, standalone buttons handle media commands, and the map strip stepper uses bare buttons.
 - **Errors:** failures read as sentences — what happened and what to do next. Node codes, stack text and paths stay under "Technical details" (`ui/lib/errortext.ts`); field validation uses "Must be {rule}.".

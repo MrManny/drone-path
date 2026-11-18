@@ -30,8 +30,8 @@ export function TransportBar({
 }: TransportBarProps) {
   return (
     <div className="transport">
-      <span className="readout transport-time" ref={timeRef}>
-        {formatTimeReadout(0, fps, durationSec)}
+      <span className={`readout transport-time${disabled ? ' readout-off' : ''}`} ref={timeRef}>
+        {disabled ? '--' : formatTimeReadout(0, fps, durationSec)}
       </span>
       <div className="transport-group transport-cluster">
         <button

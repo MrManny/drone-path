@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { Filmstrip } from '../../ui/components/Filmstrip.js';
@@ -48,6 +48,38 @@ afterEach(() => {
 });
 
 describe('Filmstrip', () => {
+  it.for(['success', 'missing', 'error'] as const)('clears busy after the last sample: %s', async (outcome) => {
+    let finish!: () => void;
+    const sampler: ThumbSampler = {
+      grab: () => new Promise((resolve, reject) => {
+        finish = () => {
+          if (outcome === 'error') reject(new Error('sample unavailable'));
+          else resolve(outcome === 'success' ? 'blob:thumb' : null);
+        };
+      }),
+      dispose: () => {},
+    };
+    render(<Filmstrip src="/video" frames={1} fps={30} sampler={sampler} />);
+    expect(screen.getByRole('status').textContent).toBe('Preparing filmstrip…');
+    await act(async () => finish());
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(document.querySelectorAll('.film-cell img')).toHaveLength(outcome === 'success' ? 1 : 0);
+  });
+
+  it('keeps the new recording busy when the old sample finishes', async () => {
+    const finish: Array<(value: null) => void> = [];
+    const sampler: ThumbSampler = {
+      grab: () => new Promise((resolve) => finish.push(resolve)),
+      dispose: () => {},
+    };
+    const view = render(<Filmstrip src="/old" frames={1} fps={30} sampler={sampler} />);
+    view.rerender(<Filmstrip src="/new" frames={1} fps={30} sampler={sampler} />);
+    await act(async () => finish[0](null));
+    expect(screen.getByRole('status').textContent).toBe('Preparing filmstrip…');
+    await act(async () => finish[1](null));
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
   it('is decorative for assistive technology', () => {
     const sampler = fakeSampler();
     render(<Filmstrip src="/video" frames={90} fps={30} sampler={sampler} />);

@@ -79,8 +79,8 @@ describe('MapStrip (#272, #287)', () => {
     expect(readout().textContent).toBe('Zoom level 15');
   });
 
-  it('announces a refused step through the PiP live region (#287 regression)', () => {
-    const { container } = renderStrip('overlay', {
+  it.for(['split', 'overlay'] as const)('shows and announces a refused step in %s', (layout) => {
+    const { container } = renderStrip(layout, {
       ...CONTROLS,
       zoom: 14,
       notice: 'Already zoomed all the way in',
@@ -88,6 +88,9 @@ describe('MapStrip (#272, #287)', () => {
     const readout = container.querySelector('.map-zoom-level') as HTMLElement;
     expect(readout.getAttribute('aria-live')).toBe('polite');
     expect(readout.textContent).toBe('Zoom level 14. Already zoomed all the way in');
+    const message = container.querySelector('.map-zoom-message');
+    expect(message?.textContent).toBe('Already zoomed all the way in');
+    expect(message?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it.for(['split', 'overlay'] as const)(

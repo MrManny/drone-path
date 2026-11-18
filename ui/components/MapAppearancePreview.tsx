@@ -36,10 +36,10 @@ export function MapAppearancePreview({
   return (
     <div>
       <div className="map-appearance-head">
-        <span className="map-appearance-state">
+        <span className="preview-title">
           {isExample ? EXAMPLE_STATE_LABEL : RECORDING_STATE_LABEL}
         </span>
-        <span className="map-appearance-dims">export frame · 16:9</span>
+        <span className="readout">export frame · 16:9</span>
       </div>
       <div
         className="map-appearance-frame"
