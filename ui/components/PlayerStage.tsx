@@ -31,7 +31,7 @@ export function PlayerStage({
   notice,
   zoomControls,
 }: PlayerStageProps) {
-  const [videoBusy, setVideoBusy] = useState(true);
+  const [videoLoading, setVideoLoading] = useState(true);
 
   return (
     <div className={`stage stage-${layout}`}>
@@ -41,18 +41,14 @@ export function PlayerStage({
           src={video.src}
           preload="auto"
           playsInline
-          onCanPlay={() => setVideoBusy(false)}
-          onLoadedData={() => setVideoBusy(false)}
-          onPlaying={() => setVideoBusy(false)}
-          onWaiting={(event) => {
-            if (!event.currentTarget.paused) setVideoBusy(true);
-          }}
-          onError={() => setVideoBusy(false)}
+          onCanPlay={() => setVideoLoading(false)}
+          onLoadedData={() => setVideoLoading(false)}
+          onError={() => setVideoLoading(false)}
           onPlay={() => onPlayState(true)}
           onPause={() => onPlayState(false)}
           onEnded={() => onPlayState(false)}
         />
-        {videoBusy ? <BusyStatus>Preparing video…</BusyStatus> : null}
+        {videoLoading ? <BusyStatus>Preparing video…</BusyStatus> : null}
       </div>
       <MapCard data={sceneData} onScene={onScene} layout={layout} zoomControls={zoomControls} />
       {notice ? <div className="player-notices">{notice}</div> : null}
