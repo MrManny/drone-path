@@ -7,10 +7,11 @@ interface SelectFieldProps {
   value: string;
   options: ReadonlyArray<{ value: string; label: string }>;
   hint?: string;
+  disabled?: boolean;
   onValue: (value: string) => void;
 }
 
-export function SelectField({ label, value, options, hint, onValue }: SelectFieldProps) {
+export function SelectField({ label, value, options, hint, disabled, onValue }: SelectFieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   return (
@@ -21,6 +22,7 @@ export function SelectField({ label, value, options, hint, onValue }: SelectFiel
       <select
         id={id}
         value={value}
+        disabled={disabled}
         aria-describedby={hint ? hintId : undefined}
         onChange={(e) => onValue(e.target.value)}
       >

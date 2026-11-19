@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
@@ -52,6 +53,7 @@ export function PlayerChrome({
   openState = IDLE_OPEN,
   onDismissOpenState,
 }: PlayerChromeProps) {
+  const t = useTranslation();
   const { video, durationSec } = session;
   const {
     ready,
@@ -92,7 +94,7 @@ export function PlayerChrome({
   // One step pins the level the map shows as the fixed "Zoom" setting (#270).
   // A refusal reason is keyed to the level it was announced at, so it can
   // never speak for a level that arrived through another entry point (#271).
-  const [zoomNotice, setZoomNotice] = useState<{ level: number; text: string } | null>(null);
+  const [zoomNotice, setZoomNotice] = useState<{ level: number; direction: 1 | -1 } | null>(null);
   const stepZoom = useCallback(
     (delta: 1 | -1) => {
       const pinned = stepPinnedZoom(sceneData.zoom, delta, style);
@@ -102,7 +104,7 @@ export function PlayerChrome({
         // reason available either way.
         setZoomNotice({
           level: sceneData.zoom,
-          text: delta > 0 ? 'Already zoomed all the way in' : 'Already zoomed all the way out',
+          direction: delta,
         });
         return;
       }
@@ -112,7 +114,9 @@ export function PlayerChrome({
     [settings, style, sceneData.zoom, onSettingsChange],
   );
   const zoomNoticeText =
-    zoomNotice !== null && zoomNotice.level === sceneData.zoom ? zoomNotice.text : '';
+    zoomNotice !== null && zoomNotice.level === sceneData.zoom
+      ? zoomNotice.direction > 0 ? t('zoomStepper.alreadyAtMaximum') : t('zoomStepper.alreadyAtMinimum')
+      : '';
 
   const dispatch = usePlayerHotkeys(
     {
@@ -139,7 +143,7 @@ export function PlayerChrome({
 
   const loopPoints = resolveLoop(loop, maxFrame);
   const trackRange = loopPoints ? frameRangeOf(loopPoints) : null;
-  const scope = trackScope(trackRange, video.fps, durationSec);
+  const scope = trackScope(trackRange, video.fps, durationSec, t);
   const {
     phase: trackSave,
     save: saveTrack,
@@ -150,6 +154,7 @@ export function PlayerChrome({
     open: onOpen,
     exportVideo: () => dispatchDialog({ type: 'openExport' }),
     exportTelemetry: saveTrack,
+    appSettings: () => dispatchDialog({ type: 'openSettings' }),
     settings: toggleMapAppearance,
     swap,
     documentation: onHelp,
@@ -163,7 +168,7 @@ export function PlayerChrome({
         hasRecording
         opening={opening}
         modalOpen={modalOpen}
-        itemTitles={{ exportTelemetry: `Export telemetry for the ${scope}` }}
+        itemTitles={{ exportTelemetry: t('playerChrome.telemetryScope', { scope }) }}
         onActivate={(item) => menuActions[item]()}
         onMenuOpenChange={setMenuOpen}
       />

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as GeneratedCatalogs from '../../src/desktop-i18n/generated/catalogs.js';
+
 import type { PickResult } from '../../src/appsession.js';
 import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
@@ -13,6 +15,22 @@ import type { PrepareProgress } from '../../src/pipeline.js';
 import type { Scene } from '../../src/renderer/scene.js';
 import Page from '../../ui/app/page.js';
 import { SESSION, flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
+
+vi.mock('../../src/desktop-i18n/generated/catalogs.js', async (importOriginal) => {
+  const { catalogs } = await importOriginal<typeof GeneratedCatalogs>();
+  return {
+    catalogs: {
+      en: catalogs.en,
+      de: {
+        'app.title': 'Deutscher Fenstertitel',
+        'emptyStage.open': 'Öffnen…',
+        'settings.title': 'Einstellungen',
+        'settings.language': 'Sprache',
+        'settings.system': 'Systemstandard',
+      },
+    },
+  };
+});
 
 vi.mock('../../ui/components/MapIsland.js', async () => {
   const { createFakeScene, delayedMapIslandMock } = await import('./harness.js');
@@ -56,6 +74,12 @@ function installBridge() {
     restartFailed?: (message: string) => void;
   } = {};
   const bridge = {
+    getLanguage: vi.fn(async () => ({ preference: null as string | null, locale: 'en' })),
+    saveLanguage: vi.fn(async (preference: string | null) => ({
+      ok: true,
+      preference,
+      locale: preference ?? 'en',
+    })),
     getSettings: vi.fn(async () => DEFAULT_CONFIG),
     saveSettings: vi.fn(async () => ({ ok: true })),
     getSession: vi.fn(async () => SESSION),
@@ -684,5 +708,52 @@ describe('update prompt', () => {
     harness.bridge.getUpdateState.mockResolvedValueOnce({ ready: true });
     openWorkspace();
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy());
+  });
+});
+
+
+describe('desktop language selector', () => {
+  function openSettings() {
+    fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Settings…' }));
+  }
+
+  it('updates the open dialog, the workspace, and the document language without a restart', async () => {
+    const { bridge } = installBridge();
+    render(<Page />);
+
+    openSettings();
+    const language = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Language' });
+    expect(language.value).toBe('');
+    expect(within(language).getByRole('option', { name: 'Deutsch' })).toBeTruthy();
+    fireEvent.change(language, { target: { value: 'de' } });
+
+    const settings = await screen.findByRole('dialog', { name: 'Einstellungen' });
+    const localized = within(settings).getByRole<HTMLSelectElement>('combobox', { name: 'Sprache' });
+    expect(localized.value).toBe('de');
+    expect(bridge.saveLanguage).toHaveBeenCalledWith('de');
+    expect(screen.getByRole('button', { name: 'Öffnen…' })).toBeTruthy();
+    expect(document.documentElement.lang).toBe('de');
+    expect(document.title).toBe('Deutscher Fenstertitel');
+
+    fireEvent.change(localized, { target: { value: '' } });
+    expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy();
+    expect(bridge.saveLanguage).toHaveBeenLastCalledWith(null);
+  });
+
+  it('loads the effective system language and keeps it if saving fails', async () => {
+    const { bridge } = installBridge();
+    bridge.getLanguage.mockResolvedValue({ preference: null, locale: 'de' });
+    bridge.saveLanguage.mockResolvedValue({ ok: false, preference: null, locale: 'de' });
+    render(<Page />);
+    expect(await screen.findByRole('button', { name: 'Öffnen…' })).toBeTruthy();
+
+    openSettings();
+    const language = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Sprache' });
+    expect(language.value).toBe('');
+    fireEvent.change(language, { target: { value: 'en' } });
+    expect((await screen.findByRole('alert')).textContent).toContain('The language setting could not be saved.');
+    expect(language.value).toBe('');
+    expect(document.documentElement.lang).toBe('de');
   });
 });

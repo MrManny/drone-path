@@ -76,6 +76,7 @@ export function EmptyWorkspace({
   // Recording-only items stay disabled with nothing loaded, so they need no handler.
   const menuActions: Partial<Record<MenuItemId, () => void>> = {
     open: onPick,
+    appSettings: () => dispatchDialog({ type: 'openSettings' }),
     settings: toggleMapAppearance,
     documentation: onHelp,
     about: () => dispatchDialog({ type: 'openAbout' }),

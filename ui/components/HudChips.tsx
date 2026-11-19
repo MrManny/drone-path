@@ -1,8 +1,9 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { HudLayout } from '../../src/config.js';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
-import { CHIP_NAMES, chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
+import { chipNames, chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
 
 export interface HudChipsProps {
   hud: HudLayout;
@@ -14,12 +15,6 @@ export interface HudChipsProps {
   altUnavailable: boolean;
   onToggle: (chip: HudChipId) => void;
 }
-
-const CHIP_LABELS: Record<HudChipId, string> = {
-  heading: 'HDG',
-  alt: 'ALT',
-  speed: 'SPD',
-};
 
 const CHIP_UNITS: Record<HudChipId, string> = {
   heading: '',
@@ -35,8 +30,15 @@ export function HudChips({
   altUnavailable,
   onToggle,
 }: HudChipsProps) {
+  const t = useTranslation();
+  const names = chipNames(t);
+  const abbreviations = {
+    heading: t('hudChips.headingAbbreviation'),
+    alt: t('hudChips.altitudeAbbreviation'),
+    speed: t('hudChips.speedAbbreviation'),
+  };
   return (
-    <div className="hud-chips" role="group" aria-label="On-frame readouts">
+    <div className="hud-chips" role="group" aria-label={t('hudChips.onFrameReadouts')}>
       {(['heading', 'alt', 'speed'] as const).map((chip) => {
         const disabled = chip === 'alt' && altUnavailable;
         const on = hud[chip] && !disabled;
@@ -44,7 +46,7 @@ export function HudChips({
         // On-video pills abbreviate (HDG/ALT/SPD), so the aria-label carries
         // the full readout name and its value; the heading arrow encodes the
         // heading as rotation only (WCAG 1.1.1).
-        const ariaLabel = chipAriaLabel(chip, readouts, on);
+        const ariaLabel = chipAriaLabel(chip, readouts, on, t);
         return (
           <button
             key={chip}
@@ -55,7 +57,7 @@ export function HudChips({
             disabled={disabled}
             onClick={() => onToggle(chip)}
           >
-            <span className="label">{abbreviated ? CHIP_LABELS[chip] : CHIP_NAMES[chip]}</span>
+            <span className="label">{abbreviated ? abbreviations[chip] : names[chip]}</span>
             {chip === 'heading' && on && readouts.headingDeg !== null ? (
               <span
                 className="chip-arrow"

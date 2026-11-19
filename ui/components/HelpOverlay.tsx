@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { MouseEvent } from 'react';
@@ -14,6 +15,7 @@ interface HelpOverlayProps {
 }
 
 export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
+  const t = useTranslation();
   const startSlug = bundle.pages['index'] ? 'index' : (bundle.nav[0]?.slug ?? '');
   const [slug, setSlug] = useState(startSlug);
   const [anchor, setAnchor] = useState<{ id: string } | null>(null);
@@ -49,9 +51,9 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
   );
 
   return (
-    <DialogShell title="Help" panelClass="help-panel" onClose={onClose}>
+    <DialogShell title={t('helpOverlay.help')} panelClass="help-panel" onClose={onClose}>
       <div className="help-body">
-        <nav className="help-nav" aria-label="Manual pages">
+        <nav className="help-nav" aria-label={t('helpOverlay.manualPages')}>
           {bundle.nav.map((entry) => (
             <a
               key={entry.slug}
@@ -63,13 +65,14 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
                 setSlug(entry.slug);
               }}
             >
-              {entry.label}
+              <span lang="en">{entry.label}</span>
             </a>
           ))}
         </nav>
         <article
           ref={articleRef}
           className="help-content"
+          lang="en"
           onClick={onContentClick}
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />

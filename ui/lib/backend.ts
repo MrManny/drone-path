@@ -7,6 +7,7 @@ import type {
 } from '../../src/appsession.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
 import { ERR_APP_BRIDGE_UNAVAILABLE } from '../../src/errors.js';
+import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { PrepareProgress } from '../../src/pipeline.js';
@@ -29,6 +30,8 @@ interface AppBridge {
   pickRecording(request: PickRequest): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
   getSettings(): Promise<RenderConfig>;
+  getLanguage(): Promise<LanguageSettings | { ok: false }>;
+  saveLanguage(preference: Locale | null): Promise<(LanguageSettings & { ok: true }) | { ok: false }>;
   saveSettings(patch: SettingsPatch): Promise<ExportAck>;
   pickExportOutput(): Promise<PickOutputResult>;
   pickTrackOutput(): Promise<PickOutputResult>;

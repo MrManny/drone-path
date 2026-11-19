@@ -1,8 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { RefObject } from 'react';
 
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import { chipNames } from '../lib/chipreadouts.js';
+import { useTranslation } from '../lib/i18n.js';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import 'leaflet/dist/leaflet.css';
 
@@ -14,7 +17,13 @@ interface MapIslandProps {
 }
 
 export function MapIsland({ data, onScene, hudHostRef }: MapIslandProps) {
-  const hostRef = useSceneIsland({ data, onScene, hudHostRef });
+  const t = useTranslation();
+  const localizedData = useMemo(() => {
+    if (!hudHostRef) return data;
+    const labels = chipNames(t);
+    return { ...data, stripLabels: { speed: labels.speed, altitude: labels.alt } };
+  }, [data, hudHostRef, t]);
+  const hostRef = useSceneIsland({ data: localizedData, onScene, hudHostRef });
 
   return <div id="scene-host" className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />;
 }

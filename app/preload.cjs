@@ -11,6 +11,8 @@ function subscribe(channel, adapt) {
 contextBridge.exposeInMainWorld('dronepath', {
   pickRecording: (request) => ipcRenderer.invoke('dronepath:pick', request),
   getSession: () => ipcRenderer.invoke('dronepath:session'),
+  getLanguage: () => ipcRenderer.invoke('dronepath:language'),
+  saveLanguage: (preference) => ipcRenderer.invoke('dronepath:language:save', preference),
   getSettings: () => ipcRenderer.invoke('dronepath:settings'),
   saveSettings: (patch) => ipcRenderer.invoke('dronepath:settings:save', patch),
   pickExportOutput: () => ipcRenderer.invoke('dronepath:export:pick-output'),

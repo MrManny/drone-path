@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { PickState } from '../lib/pickstate.js';
 import { FolderOpen } from 'lucide-react';
 import { MapCard } from './MapCard.js';
@@ -12,6 +13,7 @@ interface EmptyStageProps {
 }
 
 export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
+  const t = useTranslation();
   const preparing = state.kind === 'preparing';
   const notice =
     state.kind === 'preparing' || state.kind === 'canceled' || state.kind === 'error' ? (
@@ -23,12 +25,11 @@ export function EmptyStage({ state, onPick, onDismiss }: EmptyStageProps) {
         <div className="stage-empty">
           <button type="button" className="primary" onClick={onPick} disabled={preparing}>
             <FolderOpen size={16} />
-            {preparing ? 'Preparing…' : 'Open…'}
+            {preparing ? t('emptyStage.preparing') : t('emptyStage.open')}
           </button>
           {notice}
           <p>
-            Pick a drone recording to watch its flight path on the map in sync as
-            you play.
+            {t('emptyStage.prompt')}
           </p>
         </div>
       </div>

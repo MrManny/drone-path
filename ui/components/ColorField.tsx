@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useId, useState } from 'react';
 
 export interface ColorFieldProps {
@@ -12,6 +13,7 @@ export interface ColorFieldProps {
 }
 
 export function ColorField({ label, value, parse, rule, hint, onValue }: ColorFieldProps) {
+  const t = useTranslation();
   const id = useId();
   const messageId = `${id}-message`;
   const hintId = `${id}-hint`;
@@ -52,7 +54,7 @@ export function ColorField({ label, value, parse, rule, hint, onValue }: ColorFi
       />
       {invalid ? (
         <span className="field-message" id={messageId}>
-          {`Must be ${rule}.`}
+          {t('field.mustBe', { rule })}
         </span>
       ) : hint ? (
         <span className="hint" id={hintId}>

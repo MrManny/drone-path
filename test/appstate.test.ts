@@ -35,7 +35,7 @@ const PATCH: SettingsPatch = {
 };
 
 function stateFixture(overrides: Partial<AppState> = {}): AppState {
-  return { settings: PATCH, lastOpenDir: null, ...overrides };
+  return { settings: PATCH, lastOpenDir: null, language: null, ...overrides };
 }
 
 const HUD_CASES: Array<[string, HudLayout]> = [

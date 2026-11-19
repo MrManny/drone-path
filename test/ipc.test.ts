@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerIpcHandlers, resolveSavePath } from '../app/ipc.mjs';
 import type { IpcState, IpcWindow } from '../app/ipc.mjs';
 import { APP_ORIGIN } from '../src/apppaths.js';
-import { emptyAppState } from '../src/appstate.js';
+import { emptyAppState, readAppState } from '../src/appstate.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { RenderConfig } from '../src/config.js';
 import { cleanupTmpDirs, tmpDir } from './fixtures.js';
@@ -55,6 +55,7 @@ function fakeState(options: {
     },
     config: { ...DEFAULT_CONFIG, ...options.config },
     appState: emptyAppState(),
+    systemLanguages: ['en-US'],
     win: options.win ?? null,
     exportRunner: {
       start: vi.fn(
@@ -90,7 +91,58 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-afterEach(cleanupTmpDirs);
+afterEach(() => {
+  vi.unstubAllEnvs();
+  cleanupTmpDirs();
+});
+
+describe('desktop language settings', () => {
+  it('persists the explicit language alongside the other desktop settings', async () => {
+    const local = tmpDir();
+    vi.stubEnv('LOCALAPPDATA', local);
+    const state = fakeState();
+    state.appState.lastOpenDir = local;
+    setup(state);
+
+    expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
+    expect(await invoke('dronepath:language:save', 'en')).toEqual({
+      ok: true,
+      preference: 'en',
+      locale: 'en',
+    });
+    const file = path.join(local, 'drone-path', 'state.json');
+    const restored = readAppState(file);
+    expect(restored).toEqual({ ...state.appState, language: 'en', lastOpenDir: local });
+
+    setup({ ...state, appState: restored });
+    expect(await invoke('dronepath:language')).toEqual({ preference: 'en', locale: 'en' });
+    expect(await invoke('dronepath:language:save', null)).toEqual({
+      ok: true,
+      preference: null,
+      locale: 'en',
+    });
+    expect(readAppState(file).language).toBeNull();
+  });
+
+  it('rejects unsupported values before changing the preference', async () => {
+    const state = fakeState();
+    setup(state);
+    expect(await invoke('dronepath:language:save', 'und')).toEqual({
+      ok: false,
+      error: 'invalid app language',
+    });
+    expect(state.appState.language).toBeNull();
+  });
+
+  it('keeps the previous preference when the settings file cannot be saved', async () => {
+    const blocker = writeFile(path.join(tmpDir(), 'unwritable'));
+    vi.stubEnv('LOCALAPPDATA', blocker);
+    const state = fakeState();
+    setup(state);
+    expect(await invoke('dronepath:language:save', 'en')).toMatchObject({ ok: false });
+    expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
+  });
+});
 
 describe('dronepath:export:pick-output', () => {
   it('offers the CLI default name in the out dir anchored at the recording', async () => {

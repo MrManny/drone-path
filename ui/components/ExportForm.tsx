@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { Codec, EncodeSettings, FrameRange, EncoderPreset, Quality } from '../../src/config.js';
 import {
   CODEC_VALUES,
@@ -29,16 +30,6 @@ const CODEC_LABELS: Record<Codec, string> = {
   h264: 'H.264',
   h265: 'H.265',
 };
-const QUALITY_LABELS: Record<Quality, string> = {
-  'near-lossless': 'Near-lossless',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-};
-const PRESET_LABELS: Record<EncoderPreset, string> = {
-  medium: 'Balanced',
-  veryfast: 'Faster',
-};
 
 export function ExportForm({
   form,
@@ -50,11 +41,22 @@ export function ExportForm({
   dispatch,
   onEncoderChange,
 }: ExportFormProps) {
+  const t = useTranslation();
+  const qualities: Record<Quality, string> = {
+    'near-lossless': t('exportForm.nearLossless'),
+    high: t('exportForm.highQuality'),
+    medium: t('exportForm.mediumQuality'),
+    low: t('exportForm.lowQuality'),
+  };
+  const presets: Record<EncoderPreset, string> = {
+    medium: t('exportForm.balanced'),
+    veryfast: t('exportForm.faster'),
+  };
   return (
     <>
       {segment ? (
         <fieldset className="settings-group">
-          <legend>Export range</legend>
+          <legend>{t('exportForm.exportRange')}</legend>
           <div className="export-range">
             <label className="settings-row export-choice">
               <input
@@ -63,7 +65,7 @@ export function ExportForm({
                 checked={form.range === null}
                 onChange={() => dispatch({ type: 'setRange', range: null })}
               />
-              <span>Full recording ({totalText})</span>
+              <span>{t('exportForm.fullRecording', { duration: totalText })}</span>
             </label>
             <label className="settings-row export-choice">
               <input
@@ -72,21 +74,21 @@ export function ExportForm({
                 checked={form.range !== null}
                 onChange={() => dispatch({ type: 'setRange', range: segment.range })}
               />
-              <span>In–Out segment ({segment.label})</span>
+              <span>{t('exportForm.inOutSegment', { range: segment.label })}</span>
             </label>
           </div>
         </fieldset>
       ) : null}
 
       <fieldset className="settings-group">
-        <legend>Output and encoding</legend>
+        <legend>{t('exportForm.outputAndEncoding')}</legend>
         <div className="export-size">
           <NumberField
-            label="Width"
+            label={t('exportForm.width')}
             value={form.width}
             min={MIN_DIMENSION}
-            rule={`at least ${MIN_DIMENSION} px`}
-            unit="px"
+            rule={t('exportForm.minimumDimension', { minimum: MIN_DIMENSION })}
+            unit={t('exportForm.px')}
             onValue={(width) => {
               if (!isValidDimensions(width, form.height)) return false;
               dispatch({ type: 'setWidth', width });
@@ -94,11 +96,11 @@ export function ExportForm({
             }}
           />
           <NumberField
-            label="Height"
+            label={t('exportForm.height')}
             value={form.height}
             min={MIN_DIMENSION}
-            rule={`at least ${MIN_DIMENSION} px`}
-            unit="px"
+            rule={t('exportForm.minimumDimension', { minimum: MIN_DIMENSION })}
+            unit={t('exportForm.px')}
             onValue={(height) => {
               if (!isValidDimensions(form.width, height)) return false;
               dispatch({ type: 'setHeight', height });
@@ -108,21 +110,21 @@ export function ExportForm({
         </div>
         <div className="export-encode">
           <SelectField
-            label="Codec"
+            label={t('exportForm.codec')}
             value={encode.codec}
             options={CODEC_VALUES.map((value) => ({ value, label: CODEC_LABELS[value] }))}
             onValue={(codec) => onEncoderChange({ codec: codec as Codec })}
           />
           <SelectField
-            label="Quality"
+            label={t('exportForm.quality')}
             value={encode.quality}
-            options={QUALITY_VALUES.map((value) => ({ value, label: QUALITY_LABELS[value] }))}
+            options={QUALITY_VALUES.map((value) => ({ value, label: qualities[value] }))}
             onValue={(quality) => onEncoderChange({ quality: quality as Quality })}
           />
           <SelectField
-            label="Encoding preset"
+            label={t('exportForm.encodingPreset')}
             value={encode.preset}
-            options={ENCODER_PRESET_VALUES.map((value) => ({ value, label: PRESET_LABELS[value] }))}
+            options={ENCODER_PRESET_VALUES.map((value) => ({ value, label: presets[value] }))}
             onValue={(preset) => onEncoderChange({ preset: preset as EncoderPreset })}
           />
         </div>

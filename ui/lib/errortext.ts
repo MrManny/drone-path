@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import {
   ERR_APP_BRIDGE_UNAVAILABLE,
   ERR_COULD_NOT_REPLACE,
@@ -24,7 +26,9 @@ interface ErrorText {
 // One cancel sentence for every surface — the form notice after a canceled
 // run and the ERR_RENDER_CANCELED mapping below — so one event never reads
 // two ways (#282).
-export const CANCELED_SENTENCE = 'Export canceled; its unfinished file was removed.';
+export function canceledSentence(t: Translate): string {
+  return t('errors.exportCanceled');
+}
 
 const NODE_CODE = /^(EEXIST|ENOENT|EACCES|EPERM|ENOSPC|EBUSY|EISDIR): /;
 
@@ -37,40 +41,13 @@ function leafName(filePath: string): string {
   return filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
 }
 
-interface NodeSentence {
-  lead: (name: string | null) => string;
-  advice: string;
-}
-
-const NODE_SENTENCES: Record<string, NodeSentence> = {
-  EEXIST: {
-    lead: (name) => (name ? `A file named "${name}" is in the way.` : 'A file is in the way.'),
-    advice: 'Choose another folder or file name.',
-  },
-  ENOENT: {
-    lead: (name) => (name ? `"${name}" was not found.` : 'The file or folder was not found.'),
-    advice: 'Check that it still exists.',
-  },
-  EACCES: {
-    lead: (name) => (name ? `Access to "${name}" was denied.` : 'Access was denied.'),
-    advice: 'Choose a location you can write to.',
-  },
-  EPERM: {
-    lead: (name) => (name ? `Access to "${name}" was denied.` : 'Access was denied.'),
-    advice: 'Choose a location you can write to.',
-  },
-  ENOSPC: {
-    lead: () => 'The disk is full.',
-    advice: 'Free some space or choose another drive.',
-  },
-  EBUSY: {
-    lead: (name) => (name ? `"${name}" is in use by another program.` : 'The file is in use by another program.'),
-    advice: 'Close it and try again.',
-  },
-  EISDIR: {
-    lead: (name) => (name ? `"${name}" is a folder, not a file.` : 'A folder is in the way.'),
-    advice: 'Choose a different file name.',
-  },
+const NODE_SENTENCES: Record<string, (t: Translate, name: string | null) => string> = {
+  EEXIST: (t, name) => name ? t('errors.fileExistsNamed', { name }) : t('errors.fileExists'),
+  ENOENT: (t, name) => name ? t('errors.fileNotFoundNamed', { name }) : t('errors.fileNotFound'),
+  EACCES: (t, name) => name ? t('errors.accessDeniedNamed', { name }) : t('errors.accessDenied'),
+  ENOSPC: (t, _name) => t('errors.diskFull'),
+  EBUSY: (t, name) => name ? t('errors.fileInUseNamed', { name }) : t('errors.fileInUse'),
+  EISDIR: (t, name) => name ? t('errors.isDirectoryNamed', { name }) : t('errors.isDirectory'),
 };
 
 // Patterns derive from the src/errors.ts message vocabulary so the backend
@@ -79,28 +56,28 @@ const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\
 const exactMessage = (message: string): RegExp => new RegExp(`^${escaped(message)}$`);
 const messagePrefix = (prefix: string): RegExp => new RegExp(`^${escaped(prefix)}`);
 
-const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) => string]> = [
-  [exactMessage(ERR_NO_RECORDING), () => 'No recording is loaded. Open a recording first.'],
-  [exactMessage(ERR_EXPORT_ALREADY_RUNNING), () => 'An export is already running. Wait for it to finish or cancel it.'],
-  [exactMessage(ERR_EXPORT_COULD_NOT_START), () => 'The export could not start. Try again.'],
-  [exactMessage(ERR_EXPORT_COULD_NOT_BE_CANCELED), () => 'The export could not be canceled. Try again.'],
+const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray, t: Translate) => string]> = [
+  [exactMessage(ERR_NO_RECORDING), (_match, t) => t('errors.noRecording')],
+  [exactMessage(ERR_EXPORT_ALREADY_RUNNING), (_match, t) => t('errors.exportRunning')],
+  [exactMessage(ERR_EXPORT_COULD_NOT_START), (_match, t) => t('errors.exportStart')],
+  [exactMessage(ERR_EXPORT_COULD_NOT_BE_CANCELED), (_match, t) => t('errors.exportCancel')],
   [
     exactMessage(ERR_OUTPUT_OVERWRITES_SOURCE),
-    () => 'The export would replace the source recording. Choose another file name.',
+    (_match, t) => t('errors.overwriteSource'),
   ],
   [
     messagePrefix(ERR_OUTPUT_PATH_ABSOLUTE),
-    () => 'The export needs a full path to its destination. Choose the destination again.',
+    (_match, t) => t('errors.absolutePath'),
   ],
-  [exactMessage(ERR_APP_BRIDGE_UNAVAILABLE), () => 'The app cannot reach its own services. Restart the app.'],
-  [exactMessage(ERR_RENDER_CANCELED), () => CANCELED_SENTENCE],
+  [exactMessage(ERR_APP_BRIDGE_UNAVAILABLE), (_match, t) => t('errors.bridgeUnavailable')],
+  [exactMessage(ERR_RENDER_CANCELED), (_match, t) => canceledSentence(t)],
   [
     new RegExp(`^${escaped(ERR_NOT_READABLE_MP4)}(.+)$`),
-    (m) => `"${leafName(m[1])}" is not a readable .mp4 recording. Choose a different .mp4 file.`,
+    (m, t) => t('errors.invalidRecording', { name: leafName(m[1]) }),
   ],
   [
     messagePrefix(ERR_NO_TELEMETRY),
-    () => 'This recording has no GPS flight data. Choose a recording that was flown with GPS.',
+    (_match, t) => t('errors.noTelemetry'),
   ],
   [
     // The verification message carries the got-vs-expected numbers; surface
@@ -108,50 +85,48 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray) =>
     new RegExp(
       `^${escaped(ERR_OUTPUT_VERIFICATION)}got (\\d+) frames @ ([^,]+), expected (\\d+) @ (.+)$`,
     ),
-    (m) =>
-      `The finished file has ${m[1]} frames at ${m[2]} fps, but ${m[3]} at ${m[4]} fps ` +
-      'were expected. Try exporting again.',
+    (m, t) =>
+      t('errors.verificationMismatch', { frames: m[1], fps: m[2], expectedFrames: m[3], expectedFps: m[4] }),
   ],
   [
     messagePrefix(ERR_OUTPUT_VERIFICATION),
-    () => 'The finished file does not match the recording frame count or frame rate. Try exporting again.',
+    (_match, t) => t('errors.verification'),
   ],
   [
     new RegExp(`^${escaped(ERR_COULD_NOT_REPLACE)}.*\\(${escaped(ERR_RENDER_KEPT_AT)}(.+)\\)$`),
-    (m) =>
-      `The export finished, but its file could not replace the destination. ` +
-      `The exported file is kept at ${m[1]}. Move it to the destination yourself.`,
+    (m, t) =>
+      t('errors.replaceExport', { path: m[1] }),
   ],
   [
     exactMessage(ERR_NO_FRAME_RATE),
-    () => "The recording's frame rate could not be read. Choose a different recording.",
+    (_match, t) => t('errors.noFrameRate'),
   ],
-  [exactMessage(ERR_UNKNOWN), () => 'Something went wrong. Try again.'],
+  [exactMessage(ERR_UNKNOWN), (_match, t) => t('errors.unknown')],
   // The UI fallbacks for a refused bridge call that carries no backend message
   // (ui/lib/exportflow.ts, ui/lib/tracksave.ts, ui/hooks/useTrackSave.ts)
   // live in the error-message slot, so they map here to sentences instead of
   // surfacing as fragments.
-  [exactMessage('action failed'), () => 'The action could not be completed. Try again.'],
+  [exactMessage('action failed'), (_match, t) => t('errors.actionFailed')],
   [
     exactMessage('track file could not be saved'),
-    () => 'The telemetry file could not be saved. Try again.',
+    (_match, t) => t('errors.trackSave'),
   ],
-  [exactMessage('the file could not be revealed'), () => 'The file could not be revealed. Try again.'],
+  [exactMessage('the file could not be revealed'), (_match, t) => t('errors.reveal')],
 ];
 
-export function describeError(message: string): ErrorText {
+export function describeError(message: string, t: Translate = tEnglish): ErrorText {
   const node = NODE_CODE.exec(message);
   if (node) {
-    const sentence = NODE_SENTENCES[node[1]];
+    const sentence = NODE_SENTENCES[node[1] === 'EPERM' ? 'EACCES' : node[1]];
     const path = quotedPath(message);
     const name = path === null ? null : leafName(path);
-    return { text: `${sentence.lead(name)} ${sentence.advice}`, technical: message };
+    return { text: sentence(t, name), technical: message };
   }
   for (const [pattern, render] of APP_SENTENCES) {
     const match = pattern.exec(message);
-    if (match) return { text: render(match), technical: message };
+    if (match) return { text: render(match, t), technical: message };
   }
   // Unmatched raw text never surfaces as the message: it goes to "Technical
   // details" behind a generic sentence with a next step.
-  return { text: 'Something went wrong. Try again.', technical: message === '' ? null : message };
+  return { text: t('errors.unknown'), technical: message === '' ? null : message };
 }

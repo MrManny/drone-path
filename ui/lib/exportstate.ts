@@ -1,9 +1,10 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import type { ExportRequest, FrameRange } from '../../src/config.js';
 import { normalizeDimensions } from '../../src/config.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { RecordingSummary } from '../../src/pipeline.js';
-import { CANCELED_SENTENCE } from './errortext.js';
 
 type ExportPhase = 'form' | 'running' | 'done';
 
@@ -14,22 +15,22 @@ export function captureFraction(capture: CaptureProgress | null): number | null 
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
 }
 
-export function runningPhaseText(fraction: number | null, canceling: boolean): string {
-  if (canceling) return 'Canceling…';
-  return fraction === null ? 'Preparing…' : `Exporting ${Math.round(fraction * 100)}%`;
+export function runningPhaseText(fraction: number | null, canceling: boolean, t: Translate = tEnglish): string {
+  if (canceling) return t('exportstate.canceling');
+  return fraction === null ? t('exportstate.preparing') : t('exportstate.exporting', { percent: Math.round(fraction * 100) });
 }
 
 // The persistent phase line carries the running progress and the success
 // sentence; the form and its outcome notices announce themselves, so the
 // form leaves it empty.
-export function exportPhaseText(state: ExportState): string {
+export function exportPhaseText(state: ExportState, t: Translate = tEnglish): string {
   switch (state.phase) {
     case 'form':
       return '';
     case 'running':
-      return runningPhaseText(captureFraction(state.capture), state.canceling);
+      return runningPhaseText(captureFraction(state.capture), state.canceling, t);
     case 'done':
-      return 'Export finished.';
+      return t('exportstate.finished');
   }
 }
 
@@ -56,7 +57,7 @@ export interface ExportState {
   error: string | null;
   // The outcome sentence of a canceled run, shown by the form as an info
   // notice; a failure's sentence travels in `error` instead (#282).
-  notice: string | null;
+  notice: 'canceled' | null;
   canceling: boolean;
 }
 
@@ -183,7 +184,7 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
           phase: 'form',
           request: null,
           error: null,
-          notice: CANCELED_SENTENCE,
+          notice: 'canceled',
           canceling: false,
         };
       }

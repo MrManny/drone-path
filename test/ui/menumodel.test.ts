@@ -21,10 +21,11 @@ describe('MENU_BAR', () => {
     ]);
   });
 
-  it('lives Map appearance under View, ahead of Picture in picture (#274)', () => {
+  it('offers Map appearance, Picture in picture, and Settings under View', () => {
     expect(menuOf('view').items).toEqual([
       { id: 'settings', label: 'Map appearance…', icon: 'settings' },
       { id: 'swap', label: 'Picture in picture', icon: 'swap', hint: 'P' },
+      { id: 'appSettings', label: 'Settings…', icon: 'settings', separatorBefore: true },
     ]);
   });
 

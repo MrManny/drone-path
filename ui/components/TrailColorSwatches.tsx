@@ -1,9 +1,10 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useState } from 'react';
 
 import { asTrailColor } from '../../src/config.js';
-import { CUSTOM_SWATCH, TRAIL_SWATCHES, swatchIdFor } from '../lib/trailcolor.js';
+import { customSwatch, trailSwatches, swatchIdFor } from '../lib/trailcolor.js';
 import { ColorField } from './ColorField.js';
 
 interface TrailColorSwatchesProps {
@@ -13,6 +14,7 @@ interface TrailColorSwatchesProps {
 
 /** Trail color as a swatch row; Custom… reveals the hex field. */
 export function TrailColorSwatches({ value, onChange }: TrailColorSwatchesProps) {
+  const t = useTranslation();
   const [customOpen, setCustomOpen] = useState(() => swatchIdFor(value) === 'custom');
   const [prevValue, setPrevValue] = useState(value);
   // A value reset from outside (Restore defaults) ends custom mode too, so the
@@ -23,8 +25,8 @@ export function TrailColorSwatches({ value, onChange }: TrailColorSwatchesProps)
   }
   return (
     <div>
-      <div className="trail-swatches" role="group" aria-label="Trail color">
-        {TRAIL_SWATCHES.map((swatch) => (
+      <div className="trail-swatches" role="group" aria-label={t('trailColorSwatches.trailColor')}>
+        {trailSwatches(t).map((swatch) => (
           <button
             key={swatch.id}
             type="button"
@@ -51,15 +53,15 @@ export function TrailColorSwatches({ value, onChange }: TrailColorSwatchesProps)
           aria-pressed={customOpen}
           onClick={() => setCustomOpen(true)}
         >
-          {CUSTOM_SWATCH.label}
+          {customSwatch(t).label}
         </button>
       </div>
       {customOpen ? (
         <ColorField
-          label="Hex"
+          label={t('trailColorSwatches.hex')}
           value={value}
           parse={(raw) => asTrailColor(raw, 'trail color')}
-          rule="hex like #e63946"
+          rule={t('trailColorSwatches.hexRule')}
           onValue={(next) => {
             // Clearing the field means the style default, so custom mode ends.
             if (next === null) setCustomOpen(false);

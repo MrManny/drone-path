@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { CSSProperties } from 'react';
 import { useMemo } from 'react';
 
@@ -21,6 +22,7 @@ interface ExportPreviewProps {
 }
 
 export function ExportPreview({ session, config, size, frame, note = false }: ExportPreviewProps) {
+  const t = useTranslation();
   const { width, height } = size;
   const data = useMemo(
     () =>
@@ -37,7 +39,7 @@ export function ExportPreview({ session, config, size, frame, note = false }: Ex
   return (
     <div className="export-preview">
       <div className="export-preview-head">
-        <span className="preview-title">Output preview</span>
+        <span className="preview-title">{t('exportPreview.outputPreview')}</span>
         <span className="readout">{`${width}×${height}`}</span>
       </div>
       <div
@@ -52,7 +54,7 @@ export function ExportPreview({ session, config, size, frame, note = false }: Ex
         <div className="scene-host" style={{ isolation: 'isolate' }} ref={hostRef} />
       </div>
       {note ? (
-        <p className="export-preview-note">Export captures the map, not the source recording.</p>
+        <p className="export-preview-note">{t('exportPreview.mapOnly')}</p>
       ) : null}
     </div>
   );

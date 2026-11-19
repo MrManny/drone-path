@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useMemo, useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
@@ -35,6 +36,7 @@ interface MapAppearanceModalProps {
 /** Map appearance as a modal around a live preview: every change shows in
     the preview at once and applies to the map and future exports. */
 export function MapAppearanceModal({ session, config, onChange, onClose }: MapAppearanceModalProps) {
+  const t = useTranslation();
   const [segment, setSegment] = useState<PreviewSegment>('flight');
 
   const appearance = useMemo(() => appearanceOf(config), [config]);
@@ -71,8 +73,8 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
   };
 
   return (
-    <DialogShell title="Map appearance" onClose={onClose} panelClass="map-appearance-panel">
-      <p className="map-appearance-desc">Every change shows in the preview at once.</p>
+    <DialogShell title={t('mapAppearanceModal.mapAppearance')} onClose={onClose} panelClass="map-appearance-panel">
+      <p className="map-appearance-desc">{t('mapAppearanceModal.livePreviewHint')}</p>
       <div className="map-appearance-body">
         <div className="map-appearance-main">
           <MapAppearancePreview
@@ -95,17 +97,17 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
         </div>
         <div className="map-appearance-cards">
           <fieldset className="settings-group">
-            <legend>Map look</legend>
-            <span className="group-label">Map style</span>
+            <legend>{t('mapAppearanceModal.mapLook')}</legend>
+            <span className="group-label">{t('mapAppearanceModal.mapStyle')}</span>
             <MapStyleTiles value={config.style} onChange={(style) => apply({ style })} />
-            <span className="group-label">Trail color</span>
+            <span className="group-label">{t('mapAppearanceModal.trailColor')}</span>
             <TrailColorSwatches
               value={config.trailColor}
               onChange={(trailColor) => apply({ trailColor })}
             />
           </fieldset>
           <fieldset className="settings-group">
-            <legend>Camera</legend>
+            <legend>{t('mapAppearanceModal.camera')}</legend>
             <CameraControls
               view={config.view}
               zoom={config.zoom}
@@ -116,18 +118,17 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
             />
           </fieldset>
           <fieldset className="settings-group">
-            <legend>On-frame readouts</legend>
+            <legend>{t('mapAppearanceModal.onFrameReadouts')}</legend>
             <HudChips
               hud={config.hud}
               readouts={readouts}
               altUnavailable={altUnavailable}
               onToggle={toggleChip}
             />
-            <p className="hint">Click a chip here or in the preview — both stay in sync.</p>
+            <p className="hint">{t('mapAppearanceModal.chipHint')}</p>
             {altUnavailable ? (
               <Notice tone="warning">
-                This recording has no altitude telemetry, so the Altitude chip stays off and the map
-                strip shows no Altitude value.
+                {t('mapAppearanceModal.altitudeUnavailable')}
               </Notice>
             ) : null}
           </fieldset>
@@ -140,10 +141,10 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
             onChange({ ...config, ...defaultAppearance() });
           }}
         >
-          Restore defaults
+          {t('mapAppearanceModal.restoreDefaults')}
         </button>
         <button type="button" className="dialog-primary" onClick={onClose}>
-          Done
+          {t('mapAppearanceModal.done')}
         </button>
       </div>
     </DialogShell>

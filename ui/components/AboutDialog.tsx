@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { AboutContent } from '../lib/abouttext.js';
 import { GitHubIcon } from '../icons/GitHubIcon.js';
 import { DialogShell } from './DialogShell.js';
@@ -10,8 +11,9 @@ interface AboutDialogProps {
 }
 
 export function AboutDialog({ content, onClose }: AboutDialogProps) {
+  const t = useTranslation();
   return (
-    <DialogShell title="About" onClose={onClose} panelClass="about-panel">
+    <DialogShell title={t('aboutDialog.about')} onClose={onClose} panelClass="about-panel">
       <div className="about-body">
         <div className="brand">
           <span>drone</span>

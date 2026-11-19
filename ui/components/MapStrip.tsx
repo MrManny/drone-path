@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { RefObject } from 'react';
 
 import type { StageLayout } from '../lib/layout.js';
@@ -21,12 +22,13 @@ export interface MapStripProps {
     stepper in split view and only its readout in the compact PiP card — the
     level and its live region stay mounted in both layouts (#287). */
 export function MapStrip({ hudHostRef, layout, zoomControls, visibleZoom }: MapStripProps) {
+  const t = useTranslation();
   return (
     <div className="map-card-strip">
       <div className="map-strip-readouts" ref={hudHostRef} />
       {zoomControls ? (
         <div className="map-strip-zoom">
-          <span className="label">Zoom</span>
+          <span className="label">{t('mapStrip.zoom')}</span>
           {layout === 'split' ? (
             <ZoomStepper
               zoom={zoomControls.zoom}
