@@ -19,10 +19,11 @@ export const APP_STATE_VERSION = 1;
 export interface AppState {
   settings: SettingsPatch | null;
   lastOpenDir: string | null;
+  language: string | null;
 }
 
 export function emptyAppState(): AppState {
-  return { settings: null, lastOpenDir: null };
+  return { settings: null, lastOpenDir: null, language: null };
 }
 
 function fillMissingSettings(raw: unknown): unknown {
@@ -38,6 +39,7 @@ const APP_STATE_SHAPE = {
   version: z.unknown().optional(),
   settings: z.unknown().optional(),
   lastOpenDir: z.unknown().optional(),
+  language: z.unknown().optional(),
 } as z.ZodRawShape;
 
 const LAST_OPEN_DIR = z
@@ -69,7 +71,11 @@ export function parseAppState(raw: unknown): AppState {
     state.settings === undefined || state.settings === null
       ? null
       : parseSettingsPatch(fillMissingSettings(state.settings), 'app state');
-  return { settings, lastOpenDir: parseValue(LAST_OPEN_DIR, state.lastOpenDir) };
+  return {
+    settings,
+    lastOpenDir: parseValue(LAST_OPEN_DIR, state.lastOpenDir),
+    language: typeof state.language === 'string' ? state.language : null,
+  };
 }
 
 export function serializeAppState(state: AppState): string {
@@ -83,6 +89,7 @@ export function serializeAppState(state: AppState): string {
     out.settings = settings;
   }
   if (state.lastOpenDir !== null) out.lastOpenDir = state.lastOpenDir;
+  if (state.language !== null) out.language = state.language;
   return `${JSON.stringify(out, null, 2)}\n`;
 }
 

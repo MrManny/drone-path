@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
@@ -31,6 +32,7 @@ export function PlayerStage({
   notice,
   zoomControls,
 }: PlayerStageProps) {
+  const t = useTranslation();
   const [videoLoading, setVideoLoading] = useState(true);
 
   return (
@@ -48,7 +50,7 @@ export function PlayerStage({
           onPause={() => onPlayState(false)}
           onEnded={() => onPlayState(false)}
         />
-        {videoLoading ? <BusyStatus>Preparing video…</BusyStatus> : null}
+        {videoLoading ? <BusyStatus>{t('playerStage.preparingVideo')}</BusyStatus> : null}
       </div>
       <MapCard data={sceneData} onScene={onScene} layout={layout} zoomControls={zoomControls} />
       {notice ? <div className="player-notices">{notice}</div> : null}

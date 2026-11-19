@@ -10,6 +10,7 @@ import { parsePickRequest, parseTrackSaveRequest } from '../dist/appsession.js';
 import { applyAppState, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
+import { isLocale, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
 import { ERR_NO_RECORDING, errorMessage } from '../dist/errors.js';
 import { videoBaseName } from '../dist/recordings.js';
 import { outputPathFor } from '../dist/pipeline.js';
@@ -59,12 +60,13 @@ function knownOutputOf(state, payload) {
 // existing file is never replaced without a confirmation.
 async function confirmReplace(state, chosen) {
   if (!fs.existsSync(chosen)) return true;
+  const t = translator(languageSettings(state).locale);
   const box = {
     type: 'warning',
-    buttons: ['Replace', 'Cancel'],
+    buttons: [t('native.replace'), t('native.cancel')],
     defaultId: 1,
     cancelId: 1,
-    message: `Replace ${path.basename(chosen)}?`,
+    message: t('native.replaceFile', { name: path.basename(chosen) }),
     detail: chosen,
   };
   const confirm = state.win
@@ -126,13 +128,30 @@ function registerSettingsHandlers(state, devUrl, log) {
   });
 }
 
+function languageSettings(state) {
+  const preference = isLocale(state.appState.language) ? state.appState.language : null;
+  return { preference, locale: resolveLocale(preference, state.systemLanguages) };
+}
+
+function registerLanguageHandlers(state, devUrl) {
+  handle(devUrl, 'dronepath:language', () => languageSettings(state));
+  handle(devUrl, 'dronepath:language:save', (preference) => {
+    if (preference !== null && !isLocale(preference)) throw new Error('invalid app language');
+    const appState = { ...state.appState, language: preference };
+    writeAppState(appStateFile(), appState);
+    state.appState = appState;
+    return { ok: true, ...languageSettings(state) };
+  });
+}
+
 function registerExportHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:export:pick-output', async () => {
     const video = requireVideo(state);
+    const t = translator(languageSettings(state).locale);
     return pickSavePath(state, {
-      title: 'Export video',
+      title: t('native.exportVideo'),
       defaultPath: exportDefaultFor(state, video),
-      filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
+      filters: [{ name: t('native.mp4Video'), extensions: ['mp4'] }],
       extensions: ['mp4'],
       defaultExtension: 'mp4',
     });
@@ -163,15 +182,16 @@ function registerTrackHandlers(state, devUrl, log) {
     // (<basename>.telemetry.json); the typed name selects the format by its
     // extension, with the telemetry document as the bare-name default.
     const exportDefault = exportDefaultFor(state, video);
+    const t = translator(languageSettings(state).locale);
     return pickSavePath(state, {
-      title: 'Export telemetry',
+      title: t('native.exportTelemetry'),
       defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
       filters: [
-        { name: 'Telemetry document (JSON)', extensions: ['json'] },
-        { name: 'GPX track', extensions: ['gpx'] },
-        { name: 'GeoJSON track', extensions: ['geojson'] },
-        { name: 'KML track', extensions: ['kml'] },
-        { name: 'KMZ track', extensions: ['kmz'] },
+        { name: t('native.telemetryJson'), extensions: ['json'] },
+        { name: t('native.gpx'), extensions: ['gpx'] },
+        { name: t('native.geojson'), extensions: ['geojson'] },
+        { name: t('native.kml'), extensions: ['kml'] },
+        { name: t('native.kmz'), extensions: ['kmz'] },
       ],
       extensions: [...TRACK_FORMAT_VALUES],
       defaultExtension: 'json',
@@ -209,6 +229,7 @@ function registerWindowHandlers(state, devUrl) {
 export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
   registerSessionHandlers(state, devUrl);
   registerSettingsHandlers(state, devUrl, log);
+  registerLanguageHandlers(state, devUrl);
   registerExportHandlers(state, devUrl);
   registerTrackHandlers(state, devUrl, log);
   registerUpdateHandlers(state, devUrl, sendToWindow);

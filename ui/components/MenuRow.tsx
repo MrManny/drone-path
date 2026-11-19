@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { ReactNode, Ref } from 'react';
 
 export interface MenuRowProps {
@@ -27,6 +28,7 @@ export function MenuRow({
   onActivate,
   buttonRef,
 }: MenuRowProps) {
+  const t = useTranslation();
   // aria-disabled instead of the disabled attribute: a disabled button cannot
   // hold focus, but the APG menu pattern keeps the highlight's focus on the
   // row so it is announced. Activation stays guarded in the handlers.
@@ -48,7 +50,7 @@ export function MenuRow({
       <span className="menu-item-label">{label}</span>
       {hint ? (
         <span className="menu-item-hint" aria-hidden="true">
-          {hint}
+          {hint === 'Ctrl+O' ? t('menuBar.openShortcut') : hint}
         </span>
       ) : null}
     </button>

@@ -22,6 +22,7 @@ import {
 } from '../dist/appstate.js';
 import { createAppSession } from '../dist/appsession.js';
 import { resolveConfig } from '../dist/configfile.js';
+import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
 import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
 import { createExportRunner } from '../dist/exportjob.js';
 import { requireFfmpegTools } from '../dist/ffmpeg.js';
@@ -63,6 +64,7 @@ function createShellState() {
     session: null,
     config: null,
     appState: emptyAppState(),
+    systemLanguages: app.getPreferredSystemLanguages(),
     tileTraffic: null,
     // The one tile prefetch entry point every in-process lane drives.
     tilePrefetch: null,
@@ -80,10 +82,15 @@ function createShellState() {
   };
 }
 
+function translationFor(state) {
+  return translator(resolveLocale(state.appState.language, state.systemLanguages));
+}
+
 async function pickRecording(state) {
+  const t = translationFor(state);
   const options = {
-    title: 'Choose a drone recording',
-    filters: [{ name: 'DJI recordings', extensions: ['mp4'] }],
+    title: t('native.chooseRecording'),
+    filters: [{ name: t('native.djiRecordings'), extensions: ['mp4'] }],
     properties: ['openFile'],
     // Back where the last recording came from, when that folder still exists.
     defaultPath: rememberedOpenDir(state) ?? undefined,
@@ -111,10 +118,14 @@ function rememberPicked(state, filePath) {
   }
 }
 
-function fail(error) {
+function fail(state, error) {
   const message = errorMessage(error);
   process.stderr.write(`${ERROR_PREFIX}${message}\n`);
-  dialog.showErrorBox('Drone Path', message);
+  const locale = resolveLocale(state.appState.language, state.systemLanguages);
+  const t = translator(locale);
+  dialog.showErrorBox(t('app.title'), locale === DEFAULT_LOCALE
+    ? message
+    : t('native.startupFailure', { details: message }));
   app.quit();
 }
 
@@ -192,8 +203,8 @@ async function handleRequest(state, request) {
 // The backing services behind the window: tool check, config, tile cache and
 // the recording session.
 async function initServices(state) {
-  const resolved = resolveConfig({});
   state.appState = readAppState(appStateFile());
+  const resolved = resolveConfig({});
   state.config = applyAppState(resolved.config, state.appState);
   await requireFfmpegTools(resolveFfmpegTools(state.config));
   // One polite tile queue for the whole app: on-demand tiles and the export
@@ -244,6 +255,7 @@ function createWindow(state) {
   // The in-app menu bar owns all workspace commands; a native Alt/F10 menu
   // would compete with it, so none is installed (Windows and Linux).
   Menu.setApplicationMenu(null);
+  const t = translationFor(state);
   state.win = new BrowserWindow({
     width: 1600,
     height: 950,
@@ -254,7 +266,7 @@ function createWindow(state) {
     // Match --page in ui/app/globals.css so startup shows one background.
     backgroundColor: '#232323',
     // The loaded page's <title> takes over after load (ui/app/layout.tsx).
-    title: 'Drone Path',
+    title: t('app.title'),
     // Windows renders an ICO best, Linux a PNG (Electron docs); both are
     // derived from build/icon-master.png (see build/README.md).
     icon:
@@ -291,13 +303,14 @@ function installCloseGuard(state) {
     }
     e.preventDefault();
     state.closePromptOpen = true;
+    const t = translationFor(state);
     const box = {
       type: 'warning',
-      buttons: ['Stop Export and Close', 'Keep Exporting'],
+      buttons: [t('native.stopExport'), t('native.keepExporting')],
       defaultId: 1,
       cancelId: 1,
-      message: 'An export is in progress',
-      detail: 'Closing the window stops the export and removes its unfinished file.',
+      message: t('native.exportInProgress'),
+      detail: t('native.closeExportDetail'),
     };
     void (state.win ? dialog.showMessageBox(state.win, box) : dialog.showMessageBox(box)).then(
       ({ response }) => {
@@ -349,7 +362,7 @@ async function startup() {
     installCloseGuard(state);
     await loadUi(state);
   } catch (e) {
-    fail(e);
+    fail(state, e);
   }
 }
 

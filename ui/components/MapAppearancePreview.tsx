@@ -1,14 +1,13 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { HudLayout } from '../../src/config.js';
 import type { SceneData } from '../../src/renderer/scene.js';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
-import { EXAMPLE_STATE_LABEL } from '../lib/exampleflight.js';
+import { exampleStateLabel } from '../lib/exampleflight.js';
 import { HudChips } from './HudChips.js';
 import 'leaflet/dist/leaflet.css';
-
-const RECORDING_STATE_LABEL = 'Recording — the preview shows your flight';
 
 interface MapAppearancePreviewProps {
   data: SceneData;
@@ -32,14 +31,15 @@ export function MapAppearancePreview({
   altUnavailable,
   onToggleChip,
 }: MapAppearancePreviewProps) {
+  const t = useTranslation();
   const hostRef = useSceneIsland({ data, frame });
   return (
     <div>
       <div className="map-appearance-head">
         <span className="preview-title">
-          {isExample ? EXAMPLE_STATE_LABEL : RECORDING_STATE_LABEL}
+          {isExample ? exampleStateLabel(t) : t('mapAppearancePreview.recording')}
         </span>
-        <span className="readout">export frame · 16:9</span>
+        <span className="readout">{t('mapAppearancePreview.exportFrame')}</span>
       </div>
       <div
         className="map-appearance-frame"

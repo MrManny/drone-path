@@ -70,7 +70,7 @@ describe('MenuBar', () => {
     const viewNames = within(screen.getByRole('menu', { name: 'View' }))
       .getAllByRole('menuitem')
       .map((row) => row.textContent);
-    expect(viewNames).toEqual(['Map appearance…', 'Picture in pictureP']);
+    expect(viewNames).toEqual(['Map appearance…', 'Picture in pictureP', 'Settings…']);
   });
 
   it('marks disabled rows with aria-disabled', () => {

@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import type { SceneData } from '../../src/renderer/scene.js';
 
 /** The three on-frame readouts, in the order the chips appear. */
@@ -29,23 +31,25 @@ export function formatChipValue(chip: HudChipId, readouts: ChipReadouts): string
   return chip === 'alt' ? String(Math.round(value)) : value.toFixed(1);
 }
 
-export const CHIP_NAMES: Record<HudChipId, string> = {
-  heading: 'Heading',
-  alt: 'Altitude',
-  speed: 'Speed',
-};
+export function chipNames(t: Translate): Record<HudChipId, string> {
+  return {
+    heading: t('chipreadouts.heading'),
+    alt: t('chipreadouts.altitude'),
+    speed: t('chipreadouts.speed'),
+  };
+}
 
 /** The chip's accessible name: the full readout name with its value, so
     screen readers hear "Heading, 90°" where the pill reads "HDG" (#283). */
-export function chipAriaLabel(chip: HudChipId, readouts: ChipReadouts, on: boolean): string {
-  const name = CHIP_NAMES[chip];
+export function chipAriaLabel(chip: HudChipId, readouts: ChipReadouts, on: boolean, t: Translate = tEnglish): string {
+  const name = chipNames(t)[chip];
   if (!on) return name;
   if (chip === 'heading') {
     return readouts.headingDeg === null
       ? name
-      : `${name}, ${Math.round(readouts.headingDeg)}°`;
+      : t('chipreadouts.headingValue', { name, value: Math.round(readouts.headingDeg) });
   }
   const value = chip === 'alt' ? readouts.alt : readouts.speed;
   if (value === null) return name;
-  return chip === 'alt' ? `${name}, ${Math.round(value)} m` : `${name}, ${value.toFixed(1)} m/s`;
+  return chip === 'alt' ? t('chipreadouts.altitudeValue', { name, value: Math.round(value) }) : t('chipreadouts.speedValue', { name, value: value.toFixed(1) });
 }

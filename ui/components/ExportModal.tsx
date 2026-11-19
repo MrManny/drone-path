@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useEffect, useReducer, useRef } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
@@ -15,6 +16,7 @@ import {
   initialExportState,
   previewFrame,
 } from '../lib/exportstate.js';
+import { canceledSentence } from '../lib/errortext.js';
 import { formatFrameRange, formatTime } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
@@ -47,6 +49,7 @@ export function ExportModal({
   initialSizes = null,
   onSizesChange,
 }: ExportModalProps) {
+  const t = useTranslation();
   const { video, durationSec } = session;
   const loopPoints = resolveLoop(loop, video.frames - 1);
   const [state, dispatch] = useReducer(exportReducer, undefined, () =>
@@ -113,7 +116,7 @@ export function ExportModal({
   const segment: { range: FrameRange; label: string } | null = loopPoints
     ? {
         range: frameRangeOf(loopPoints),
-        label: formatFrameRange(loopPoints, video.fps),
+        label: formatFrameRange(loopPoints, video.fps, t),
       }
     : null;
 
@@ -134,11 +137,11 @@ export function ExportModal({
 
   return (
     <DialogShell
-      title="Export video"
+      title={t('exportModal.exportVideo')}
       panelClass="export-panel"
       onClose={onClose}
       closeOnBackdrop={dismissible}
-      blockedReason={dismissible ? undefined : 'Export is running. Cancel it to close.'}
+      blockedReason={dismissible ? undefined : t('exportModal.busyClose')}
     >
       <div className="export-body">
         <ExportPreview
@@ -150,7 +153,7 @@ export function ExportModal({
         />
         <div className="export-phase">
           <p className="phase-status" role="status">
-            {exportPhaseText(state)}
+            {exportPhaseText(state, t)}
           </p>
           {phase === 'form' ? (
             <ExportForm
@@ -159,7 +162,7 @@ export function ExportModal({
               totalText={totalText}
               encode={{ codec: settings.codec, quality: settings.quality, preset: settings.preset }}
               error={error}
-              notice={notice}
+              notice={notice ? canceledSentence(t) : null}
               dispatch={dispatch}
               onEncoderChange={changeEncoder}
             />
@@ -176,7 +179,7 @@ export function ExportModal({
         {phase === 'form' ? (
           <>
             <button type="button" onClick={onClose}>
-              Cancel
+              {t('exportModal.cancel')}
             </button>
             <button
               type="button"
@@ -184,7 +187,7 @@ export function ExportModal({
               data-phase-focus
               onClick={() => void chooseAndExport(flowDeps(), { settings, form, segment }, dispatch)}
             >
-              Start export
+              {t('exportModal.startExport')}
             </button>
           </>
         ) : null}
@@ -195,7 +198,7 @@ export function ExportModal({
             disabled={canceling}
             onClick={() => cancelExport(flowDeps(), dispatch)}
           >
-            Cancel export
+            {t('exportModal.cancelExport')}
           </button>
         ) : null}
         {phase === 'done' && result ? (
@@ -210,7 +213,7 @@ export function ExportModal({
                 )
               }
             >
-              Open video
+              {t('exportModal.openVideo')}
             </button>
             <button
               type="button"
@@ -224,7 +227,7 @@ export function ExportModal({
                 )
               }
             >
-              Reveal in folder
+              {t('exportModal.revealInFolder')}
             </button>
           </>
         ) : null}

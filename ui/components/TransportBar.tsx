@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { RefObject } from 'react';
 
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react';
@@ -28,6 +29,7 @@ export function TransportBar({
   durationSec,
   timeRef,
 }: TransportBarProps) {
+  const t = useTranslation();
   return (
     <div className="transport">
       <span className={`readout transport-time${disabled ? ' readout-off' : ''}`} ref={timeRef}>
@@ -37,8 +39,8 @@ export function TransportBar({
         <button
           type="button"
           className="transport-step"
-          aria-label="Jump to start"
-          title="Jump to start (Home)"
+          aria-label={t('transportBar.jumpToStart')}
+          title={t('transportBar.jumpToStartHome')}
           disabled={disabled}
           onClick={() => dispatch({ type: 'seekStart' })}
         >
@@ -47,8 +49,8 @@ export function TransportBar({
         <button
           type="button"
           className="transport-step"
-          aria-label={ready && playing ? 'Pause' : 'Play'}
-          title={ready && playing ? 'Pause (Space / K)' : 'Play (Space / K)'}
+          aria-label={ready && playing ? t('transportBar.pause') : t('transportBar.play')}
+          title={ready && playing ? t('transportBar.pauseHint') : t('transportBar.playHint')}
           onClick={() => dispatch({ type: 'togglePlay' })}
           disabled={disabled || !ready}
         >
@@ -57,8 +59,8 @@ export function TransportBar({
         <button
           type="button"
           className="transport-step"
-          aria-label="Jump to end"
-          title="Jump to end (End)"
+          aria-label={t('transportBar.jumpToEnd')}
+          title={t('transportBar.jumpToEndEnd')}
           disabled={disabled}
           onClick={() => dispatch({ type: 'seekEnd' })}
         >
@@ -66,15 +68,15 @@ export function TransportBar({
         </button>
       </div>
       <div className="transport-group transport-speed">
-        <span className="transport-label">Playback speed</span>
-        <div className="segmented" role="group" aria-label="Playback speed">
+        <span className="transport-label">{t('transportBar.playbackSpeed')}</span>
+        <div className="segmented" role="group" aria-label={t('transportBar.playbackSpeed')}>
           {([1, 2, 3, 4] as const).map((rate) => (
             <button
               key={rate}
               type="button"
               className="segment"
               aria-pressed={speed === rate}
-              title={`Playback speed ${rate}× (key ${rate})`}
+              title={t('transportBar.speedHint', { rate })}
               disabled={disabled}
               onClick={() => dispatch({ type: 'speed', rate })}
             >

@@ -179,6 +179,7 @@ describe('PlayerChrome workspace structure', () => {
           helpOpen: false,
           aboutOpen: false,
           mapAppearanceOpen: false,
+          settingsOpen: false,
           exportOpen: false,
           trackSaveOpen: false,
           updateOpen: false,

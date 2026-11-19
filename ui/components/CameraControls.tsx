@@ -1,10 +1,11 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useId } from 'react';
 
 import type { ConfigOverrides, MapStyle, ViewMode } from '../../src/config.js';
 import { zoomLimits } from '../../src/plan.js';
-import { VIEW_LABELS } from '../lib/settings.js';
+import { viewLabels } from '../lib/settings.js';
 
 interface CameraControlsProps {
   view: ViewMode;
@@ -17,10 +18,7 @@ interface CameraControlsProps {
   onChange: (patch: ConfigOverrides) => boolean;
 }
 
-const VIEW_CHOICES: ReadonlyArray<{ value: ViewMode; label: string }> = [
-  { value: 'overview', label: VIEW_LABELS.overview },
-  { value: 'follow', label: VIEW_LABELS.follow },
-];
+const VIEW_CHOICES: readonly ViewMode[] = ['overview', 'follow'];
 
 /** Camera framing: view, auto-fit zoom, the zoom level and frame padding. */
 export function CameraControls({
@@ -31,6 +29,8 @@ export function CameraControls({
   style,
   onChange,
 }: CameraControlsProps) {
+  const t = useTranslation();
+  const labels = viewLabels(t);
   const zoomId = useId();
   const paddingId = useId();
   const autoFit = zoom === 0;
@@ -42,9 +42,9 @@ export function CameraControls({
   return (
     <div>
       <div className="settings-row">
-        <span className="settings-label">View</span>
-        <div className="segmented" role="group" aria-label="View">
-          {VIEW_CHOICES.map(({ value, label }) => (
+        <span className="settings-label">{t('cameraControls.view')}</span>
+        <div className="segmented" role="group" aria-label={t('cameraControls.view')}>
+          {VIEW_CHOICES.map((value) => (
             <button
               key={value}
               type="button"
@@ -52,7 +52,7 @@ export function CameraControls({
               aria-pressed={view === value}
               onClick={() => onChange({ view: value })}
             >
-              {label}
+              {labels[value]}
             </button>
           ))}
         </div>
@@ -64,11 +64,11 @@ export function CameraControls({
           checked={autoFit}
           onChange={(e) => onChange({ zoom: e.target.checked ? 0 : resolvedZoom })}
         />
-        <span>Auto-fit zoom</span>
+        <span>{t('cameraControls.autoFitZoom')}</span>
       </label>
       <div className="settings-row">
         <label className="settings-label" htmlFor={zoomId}>
-          Zoom level
+          {t('cameraControls.zoomLevel')}
         </label>
         <input
           id={zoomId}
@@ -78,17 +78,17 @@ export function CameraControls({
           step={1}
           value={autoFit ? resolvedZoom : zoom}
           disabled={autoFit}
-          aria-valuetext={autoFit ? `auto-fit → ${resolvedZoom}` : String(zoom)}
+          aria-valuetext={autoFit ? t('cameraControls.resolvedZoom', { zoom: resolvedZoom }) : String(zoom)}
           aria-describedby={`${zoomId}-readout`}
           onChange={(e) => onChange({ zoom: Number(e.target.value) })}
         />
         <span className="range-readout" id={`${zoomId}-readout`}>
-          {autoFit ? `auto-fit → ${resolvedZoom}` : String(zoom)}
+          {autoFit ? t('cameraControls.resolvedZoom', { zoom: resolvedZoom }) : String(zoom)}
         </span>
       </div>
       <div className="settings-row">
         <label className="settings-label" htmlFor={paddingId}>
-          Frame padding
+          {t('cameraControls.framePadding')}
         </label>
         <input
           id={paddingId}
@@ -98,18 +98,18 @@ export function CameraControls({
           step={1}
           value={framePadding}
           disabled={!autoFit}
-          aria-valuetext={`${framePadding} ${framePadding === 1 ? 'level' : 'levels'}`}
+          aria-valuetext={t('cameraControls.paddingLevels', { count: framePadding })}
           aria-describedby={
             autoFit ? `${paddingId}-readout` : `${paddingId}-readout ${paddingId}-hint`
           }
           onChange={(e) => onChange({ zoomOut: Number(e.target.value) })}
         />
         <span className="range-readout" id={`${paddingId}-readout`}>
-          {`${framePadding} ${framePadding === 1 ? 'level' : 'levels'}`}
+          {t('cameraControls.paddingLevels', { count: framePadding })}
         </span>
         {autoFit ? null : (
           <span className="hint" id={`${paddingId}-hint`}>
-            auto-fit only
+            {t('cameraControls.autoFitOnly')}
           </span>
         )}
       </div>

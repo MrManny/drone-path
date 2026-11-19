@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import { timeAt } from '../../src/frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
 import { hasLoop } from './loop.js';
@@ -34,15 +36,15 @@ export function formatFrameSpan(start: number, end: number, fps: number): string
   return `${formatPoint(start, fps)}–${formatPoint(end, fps)}`;
 }
 
-export function formatFrameRange(points: LoopPoints, fps: number): string {
-  return `${formatFrameSpan(points.in, points.out, fps)} · ${points.out - points.in + 1} frames`;
+export function formatFrameRange(points: LoopPoints, fps: number, t: Translate = tEnglish): string {
+  return t('frametime.range', { span: formatFrameSpan(points.in, points.out, fps), count: points.out - points.in + 1 });
 }
 
 // The readout names the passage the band shows (#245): a lone point reads to
 // the clip boundary, so the label and the visualization never disagree.
-export function formatLoopReadout(loop: LoopState, fps: number, maxFrame: number): string {
+export function formatLoopReadout(loop: LoopState, fps: number, maxFrame: number, t: Translate = tEnglish): string {
   return hasLoop(loop)
-    ? `in ${formatPoint(loop.in ?? 0, fps)} · out ${formatPoint(loop.out ?? maxFrame, fps)}`
+    ? t('frametime.loop', { start: formatPoint(loop.in ?? 0, fps), end: formatPoint(loop.out ?? maxFrame, fps) })
     : '';
 }
 

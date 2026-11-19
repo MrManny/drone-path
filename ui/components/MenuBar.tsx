@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useMenuKeys } from '../hooks/useMenuKeys.js';
 import type { MenuFlags, MenuItemId, MenuId } from '../lib/menumodel.js';
-import { MENU_BAR } from '../lib/menumodel.js';
+import { useTranslation } from '../lib/i18n.js';
+import { menuBar } from '../lib/menumodel.js';
 import { MenuPanel } from './MenuPanel.js';
 
 export interface MenuBarProps {
@@ -26,6 +27,8 @@ export function MenuBar({
   onActivate,
   onMenuOpenChange,
 }: MenuBarProps) {
+  const t = useTranslation();
+  const menus = useMemo(() => menuBar(t), [t]);
   const flags = useMemo<MenuFlags>(
     () => ({ hasRecording, opening }),
     [hasRecording, opening],
@@ -60,8 +63,8 @@ export function MenuBar({
     const moved = wasLabel.current !== state.label;
     wasLabel.current = state.label;
     if (!moved || state.open !== null) return;
-    labelRefs.current[MENU_BAR[state.label]?.id]?.focus();
-  }, [state.label, state.open]);
+    labelRefs.current[menus[state.label]?.id]?.focus();
+  }, [menus, state.label, state.open]);
 
   // Closing must not strand focus on a removed row: return it to the label of
   // the menu that closed, unless an outside click already moved it away.
@@ -85,7 +88,7 @@ export function MenuBar({
     <div
       className="menu-bar"
       role="menubar"
-      aria-label="Main menu"
+      aria-label={t('menuBar.mainMenu')}
       ref={rootRef}
       tabIndex={-1}
       onKeyDown={(e) => {
@@ -103,7 +106,7 @@ export function MenuBar({
         }
       }}
     >
-      {MENU_BAR.map((menu, index) => {
+      {menus.map((menu, index) => {
         const open = state.open === menu.id;
         return (
           <div

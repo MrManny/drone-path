@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useRef } from 'react';
 import type { RefObject } from 'react';
 
@@ -40,10 +41,11 @@ export function TimelinePanel({
   playheadRef,
   src,
 }: TimelinePanelProps) {
+  const t = useTranslation();
   const trackRef = useRef<HTMLDivElement>(null);
   const bandPct = (i: number): number => (maxFrame > 0 ? (i / maxFrame) * 100 : 0);
   const loopPoints = resolveLoop(loop, maxFrame);
-  const loopReadout = formatLoopReadout(loop, fps, maxFrame);
+  const loopReadout = formatLoopReadout(loop, fps, maxFrame, t);
   const clearable = hasLoop(loop);
 
   // A boundary on the track's edge must keep a visible, draggable footprint:
@@ -78,18 +80,18 @@ export function TimelinePanel({
     <section className="timeline">
       <div className="timeline-header">
         <div className="timeline-heading">
-          <span className="preview-title">Timeline</span>
+          <span className="preview-title">{t('timelinePanel.timeline')}</span>
         </div>
         <div className="timeline-actions">
           <span className="readout loop-readout" aria-live="polite" aria-atomic="true">
             {loopReadout}
           </span>
-          <div className="segmented" role="group" aria-label="In and out points">
+          <div className="segmented" role="group" aria-label={t('timelinePanel.inAndOutPoints')}>
             <button
               type="button"
               className="segment segment-icon"
-              aria-label="Set in point"
-              title="Set in point (I)"
+              aria-label={t('timelinePanel.setInPoint')}
+              title={t('timelinePanel.setInPointI')}
               disabled={disabled}
               onClick={() => dispatch({ type: 'setLoopIn' })}
             >
@@ -98,8 +100,8 @@ export function TimelinePanel({
             <button
               type="button"
               className="segment segment-icon"
-              aria-label="Set out point"
-              title="Set out point (O)"
+              aria-label={t('timelinePanel.setOutPoint')}
+              title={t('timelinePanel.setOutPointO')}
               disabled={disabled}
               onClick={() => dispatch({ type: 'setLoopOut' })}
             >
@@ -108,8 +110,8 @@ export function TimelinePanel({
             <button
               type="button"
               className="segment segment-icon"
-              aria-label="Clear in and out points"
-              title={clearable ? 'Clear in and out points (Esc)' : 'No in or out point to clear'}
+              aria-label={t('timelinePanel.clearInAndOutPoints')}
+              title={clearable ? t('timelinePanel.clearHint') : t('timelinePanel.clearUnavailable')}
               disabled={disabled || !clearable}
               onClick={() => dispatch({ type: 'clearLoop' })}
             >
@@ -150,14 +152,14 @@ export function TimelinePanel({
             {loop.in !== null ? (
               <span
                 className="loop-handle loop-handle-in"
-                title="In point (I)"
+                title={t('timelinePanel.inPointI')}
                 onPointerDown={() => startDrag('in')}
               />
             ) : null}
             {loop.out !== null ? (
               <span
                 className="loop-handle loop-handle-out"
-                title="Out point (O)"
+                title={t('timelinePanel.outPointO')}
                 onPointerDown={() => startDrag('out')}
               />
             ) : null}
@@ -167,7 +169,7 @@ export function TimelinePanel({
         <input
           ref={scrubRef}
           type="range"
-          aria-label="Playback position"
+          aria-label={t('timelinePanel.playbackPosition')}
           min={0}
           max={maxFrame}
           step={1}

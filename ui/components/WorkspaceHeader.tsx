@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { formatTime } from '../lib/frametime.js';
 
 interface WorkspaceHeaderProps {
@@ -8,6 +9,7 @@ interface WorkspaceHeaderProps {
 }
 
 export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
+  const t = useTranslation();
   return (
     <header className="workspace-header">
       <div className="brand">
@@ -16,8 +18,8 @@ export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
       </div>
       <div className="header-divider" />
       <div className="header-project">
-        <strong className="preview-title">Flight workspace</strong>
-        {durationSec === null ? null : <small>{`Recording · ${formatTime(durationSec)}`}</small>}
+        <strong className="preview-title">{t('workspaceHeader.flightWorkspace')}</strong>
+        {durationSec === null ? null : <small>{t('workspaceHeader.recordingDuration', { duration: formatTime(durationSec) })}</small>}
       </div>
     </header>
   );

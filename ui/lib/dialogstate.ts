@@ -3,6 +3,7 @@ export type DialogState =
   | 'help'
   | 'about'
   | 'map-appearance'
+  | 'settings'
   | 'export-form'
   | 'export-running'
   | 'track-save'
@@ -13,6 +14,7 @@ export type DialogEvent =
   | { type: 'openHelp' }
   | { type: 'openAbout' }
   | { type: 'openMapAppearance' }
+  | { type: 'openSettings' }
   | { type: 'openExport' }
   | { type: 'openTrackSave' }
   | { type: 'runStarted' }
@@ -34,6 +36,8 @@ export function dialogReducer(state: DialogState, event: DialogEvent): DialogSta
       return pinned(state) ? state : 'help';
     case 'openAbout':
       return pinned(state) ? state : 'about';
+    case 'openSettings':
+      return pinned(state) ? state : 'settings';
     case 'openMapAppearance':
       return pinned(state) ? state : 'map-appearance';
     case 'openExport':

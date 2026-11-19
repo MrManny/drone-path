@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import type { BuildGit } from './buildversion.js';
 import { formatVersion } from './buildversion.js';
 
@@ -9,10 +11,10 @@ export interface AboutContent {
   repoUrl: string;
 }
 
-export function aboutContent(version: string, git: BuildGit | null): AboutContent {
+export function aboutContent(version: string, git: BuildGit | null, t: Translate = tEnglish): AboutContent {
   return {
-    versionLine: `Version ${formatVersion(version, git)}`,
-    licenseLine: 'MIT license',
+    versionLine: t('abouttext.version', { version: formatVersion(version, git) }),
+    licenseLine: t('abouttext.license'),
     repoLabel: 'MrManny/drone-path',
     repoUrl: 'https://github.com/MrManny/drone-path',
   };
