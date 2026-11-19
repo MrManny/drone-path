@@ -2,6 +2,7 @@
 
 import { useTranslation } from '../lib/i18n.js';
 import type { HudLayout } from '../../src/config.js';
+import { EXPORT_HUD_LABELS } from '../../src/renderer/dom.js';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
 import { chipNames, chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
 
@@ -32,11 +33,6 @@ export function HudChips({
 }: HudChipsProps) {
   const t = useTranslation();
   const names = chipNames(t);
-  const abbreviations = {
-    heading: t('hudChips.headingAbbreviation'),
-    alt: t('hudChips.altitudeAbbreviation'),
-    speed: t('hudChips.speedAbbreviation'),
-  };
   return (
     <div className="hud-chips" role="group" aria-label={t('hudChips.onFrameReadouts')}>
       {(['heading', 'alt', 'speed'] as const).map((chip) => {
@@ -57,7 +53,7 @@ export function HudChips({
             disabled={disabled}
             onClick={() => onToggle(chip)}
           >
-            <span className="label">{abbreviated ? abbreviations[chip] : names[chip]}</span>
+            <span className="label">{abbreviated ? EXPORT_HUD_LABELS[chip] : names[chip]}</span>
             {chip === 'heading' && on && readouts.headingDeg !== null ? (
               <span
                 className="chip-arrow"

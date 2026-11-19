@@ -137,21 +137,27 @@ export function sceneCss(
   );
 }
 
+export const EXPORT_HUD_LABELS = {
+  heading: 'HDG',
+  alt: 'ALT',
+  speed: 'SPD',
+} as const;
+
 export function hudMarkup(hud: HudLayout): string {
   const chips: string[] = [];
   if (hud.heading) {
     chips.push(
-      '<div class="chip" id="chip-heading"><span class="label">HDG</span><span class="chip-arrow">▲</span><span class="num">--</span></div>',
+      `<div class="chip" id="chip-heading"><span class="label">${EXPORT_HUD_LABELS.heading}</span><span class="chip-arrow">▲</span><span class="num">--</span></div>`,
     );
   }
   if (hud.alt) {
     chips.push(
-      '<div class="chip" id="chip-alt"><span class="label">ALT</span><span class="num">--</span><span class="unit">m</span></div>',
+      `<div class="chip" id="chip-alt"><span class="label">${EXPORT_HUD_LABELS.alt}</span><span class="num">--</span><span class="unit">m</span></div>`,
     );
   }
   if (hud.speed) {
     chips.push(
-      '<div class="chip" id="chip-speed"><span class="label">SPD</span><span class="num">--</span><span class="unit">m/s</span></div>',
+      `<div class="chip" id="chip-speed"><span class="label">${EXPORT_HUD_LABELS.speed}</span><span class="num">--</span><span class="unit">m/s</span></div>`,
     );
   }
   return chips.map((chip) => `  ${chip}`).join('\n');
