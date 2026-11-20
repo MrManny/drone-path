@@ -1,8 +1,13 @@
+import os from 'node:os';
 import path from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { pathKey, samePath, uniquePath } from '../src/paths.js';
+import { pathKey, samePath, uniquePath, userDataDir } from '../src/paths.js';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe.for(['win32', 'darwin', 'linux'] as const)(
   'path identity on %s',
@@ -68,5 +73,22 @@ describe('uniquePath', () => {
     expect(uniquePath('/out', 'clip-2', '.mp4', taken('clip-2.mp4'))).toBe(
       path.join('/out', 'clip-2-2.mp4'),
     );
+  });
+});
+
+describe('userDataDir', () => {
+  it('prefers LOCALAPPDATA', () => {
+    vi.stubEnv('LOCALAPPDATA', 'C:\\Users\\me\\AppData\\Local');
+    expect(userDataDir()).toBe(path.join('C:\\Users\\me\\AppData\\Local', 'drone-path'));
+  });
+
+  it('falls back to the home cache directory', () => {
+    const saved = process.env['LOCALAPPDATA'];
+    delete process.env['LOCALAPPDATA'];
+    try {
+      expect(userDataDir()).toBe(path.join(os.homedir(), '.cache', 'drone-path'));
+    } finally {
+      if (saved !== undefined) process.env['LOCALAPPDATA'] = saved;
+    }
   });
 });

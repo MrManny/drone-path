@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { ExportRequest } from './config.js';
+import type { ExportRequest } from 'drone-path-engine/config';
 import {
   ERR_COULD_NOT_REPLACE,
   ERR_EXPORT_ALREADY_RUNNING,
@@ -10,11 +10,11 @@ import {
   ERR_RENDER_KEPT_AT,
   errorMessage,
 } from 'drone-path-core/errors';
-import { samePath, uniquePath } from './paths.js';
-import type { CaptureProgress } from './render.js';
-import { processRecording } from './pipeline.js';
-import type { LogFn } from './logging.js';
-import type { PipelineDeps, RecordingSummary } from './pipeline.js';
+import { samePath, uniquePath } from 'drone-path-engine/paths';
+import type { CaptureProgress } from 'drone-path-engine/render';
+import { processRecording } from 'drone-path-engine/pipeline';
+import type { LogFn } from 'drone-path-engine/logging';
+import type { PipelineDeps, RecordingSummary } from 'drone-path-engine/pipeline';
 
 export type ExportOutcome =
   | { status: 'ok'; summary: RecordingSummary }

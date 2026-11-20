@@ -1,5 +1,5 @@
-import { INITIAL_PREPARE_PROGRESS } from '../../src/plan.js';
-import type { PrepareProgress } from '../../src/plan.js';
+import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
+import type { PrepareProgress } from 'drone-path-engine/plan';
 
 export const START_PREPARE_PROGRESS: PrepareProgress = INITIAL_PREPARE_PROGRESS;
 

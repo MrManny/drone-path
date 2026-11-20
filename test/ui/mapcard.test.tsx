@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Scene } from '../../src/renderer/scene.js';
-import type { SceneData } from '../../src/renderer/scene.js';
+import type { Scene } from 'drone-path-engine/renderer/scene';
+import type { SceneData } from 'drone-path-engine/renderer/scene';
 import { MapCard } from '../../ui/components/MapCard.js';
 import { createDeferredScene } from './harness.js';
 

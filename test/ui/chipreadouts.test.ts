@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SceneData } from '../../src/renderer/scene.js';
+import type { SceneData } from 'drone-path-engine/renderer/scene';
 import { chipAriaLabel, chipReadoutsAt, formatChipValue } from '../../ui/lib/chipreadouts.js';
 
 type Channels = Pick<SceneData, 'alt' | 'speed' | 'headingDeg'>;

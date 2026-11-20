@@ -7,13 +7,15 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 
 - Node.js 24 or 26, npm. Use `npm ci` at the root for the shared lockfile.
 - `packages/core` owns telemetry extraction. Import its modules as
-  `drone-path-core/<module>`. Root build and test commands include the workspace.
+  `drone-path-core/<module>`. The render engine and option vocabulary live in
+  `packages/engine` and are imported as `drone-path-engine/<module>`. Root build
+  and test commands include both workspaces.
 - `npm run build` compiles the CLI (`dist/`), compiles the user manual into
   the UI (`npm run build:manual`), injects the build identity shown by
   Help → About (`npm run build:info`), and builds the UI export (`ui/out/`);
   `npm run app` starts the Electron desktop app against it (packaging uses
   `electron-builder`). `npm run docs:reference` regenerates the checked-in
-  `docs/user/cli-reference.md` from the option vocabulary in `src/config.ts`.
+  `docs/user/cli-reference.md` from the option vocabulary in `packages/engine/src/config.ts`.
 - `npm run app:pack` packages the desktop app with `electron-builder`.
 - When adding a new dependency, pin it to a patch-level range (i.e. `~1.2.3`);
   new dependencies **must not** have high or critical security issues on
@@ -59,7 +61,7 @@ vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 - One job per function; long flows as compose-method stages.
 - Pure core, imperative shell: parsing, geometry, planning and config merging
   are pure; I/O lives in dedicated modules.
-- `src/config.ts` owns the option vocabulary; one home per concern.
+- `packages/engine/src/config.ts` owns the option vocabulary; one home per concern.
 - Outputs must be deterministic and idempotent.
 
 ## UI design

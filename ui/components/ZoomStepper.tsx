@@ -1,8 +1,8 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { MapStyle } from '../../src/config.js';
-import { zoomLimits } from '../../src/plan.js';
+import type { MapStyle } from 'drone-path-engine/config';
+import { zoomLimits } from 'drone-path-engine/plan';
 import { ZoomReadout } from './ZoomReadout.js';
 
 export interface ZoomStepperProps {

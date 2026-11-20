@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTileTraffic, prefetchTiles } from '../src/tiles.js';
-import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../core/test/fixtures.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();

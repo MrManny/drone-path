@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { RecordingSummary } from '../../src/pipeline.js';
+import type { RecordingSummary } from 'drone-path-engine/pipeline';
 import { formatExportSummary } from '../lib/exportsummary.js';
 import { ErrorNotice } from './ErrorNotice.js';
 import { Notice } from './Notice.js';

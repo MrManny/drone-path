@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
 import type { PageVideo } from '../../src/appsession.js';
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';
 import { BusyStatus } from './BusyStatus.js';

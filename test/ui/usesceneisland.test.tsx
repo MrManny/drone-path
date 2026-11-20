@@ -2,7 +2,7 @@
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import type { SceneIslandOptions } from '../../ui/hooks/useSceneIsland.js';
 import { useSceneIsland } from '../../ui/hooks/useSceneIsland.js';
 import type { FakeObserver } from './harness.js';
@@ -14,7 +14,7 @@ const boot = vi.hoisted(() => ({
   hudHosts: [] as Array<HTMLElement | undefined>,
 }));
 
-vi.mock('../../src/renderer/boot.js', async () => {
+vi.mock('drone-path-engine/renderer/boot', async () => {
   const { createFakeScene } = await import('./harness.js');
   return {
     bootScene: (...args: unknown[]): Scene => {

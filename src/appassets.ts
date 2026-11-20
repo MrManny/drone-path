@@ -1,10 +1,10 @@
 import path from 'node:path';
 
-import { mimeFor } from './assets.js';
+import { mimeFor } from 'drone-path-engine/assets';
 import { MEDIA_PATH } from './apppaths.js';
-import type { MapStyle } from './config.js';
-import type { TileCoord } from './plan.js';
-import { parseTilePathname } from './tilecache.js';
+import type { MapStyle } from 'drone-path-engine/config';
+import type { TileCoord } from 'drone-path-engine/plan';
+import { parseTilePathname } from 'drone-path-engine/tilecache';
 
 export interface AppRoutes {
   exportRoot: string;

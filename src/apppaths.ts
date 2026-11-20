@@ -1,5 +1,6 @@
-import os from 'node:os';
 import path from 'node:path';
+
+import { userDataDir } from 'drone-path-engine/paths';
 
 export const APP_ORIGIN = 'app://bundle';
 export const MEDIA_PATH = '/media/video';
@@ -13,11 +14,6 @@ export function mediaUrlFor(videoPath: string): string {
 
 export function uiExportRoot(shellDir: string): string {
   return path.join(shellDir, '..', 'ui', 'out');
-}
-
-export function userDataDir(): string {
-  const base = process.env['LOCALAPPDATA'] ?? path.join(os.homedir(), '.cache');
-  return path.join(base, 'drone-path');
 }
 
 export function appStateFile(): string {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ExportRequest } from '../../src/config.js';
-import { DEFAULT_CONFIG } from '../../src/config.js';
+import type { ExportRequest } from 'drone-path-engine/config';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import {
   captureFraction,

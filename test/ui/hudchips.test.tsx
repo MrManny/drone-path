@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type * as GeneratedCatalogs from '../../src/desktop-i18n/generated/catalogs.js';
 import { resolveLocale } from '../../src/desktop-i18n/messages.js';
-import { hudMarkup } from '../../src/renderer/dom.js';
+import { hudMarkup } from 'drone-path-engine/renderer/dom';
 import { LanguageProvider } from '../../ui/lib/i18n.js';
 import { HudChips } from '../../ui/components/HudChips.js';
 import type { ChipReadouts } from '../../ui/lib/chipreadouts.js';

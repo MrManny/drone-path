@@ -9,15 +9,15 @@ import {
   OVERRIDE_NORMALIZERS,
   TELEMETRY_JSON_ALIAS,
   cliDefaultOf,
-} from './config.js';
-import { resolveConfig } from './configfile.js';
-import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from './config.js';
-import { collectRecordings } from './recordings.js';
+} from 'drone-path-engine/config';
+import { resolveConfig } from 'drone-path-engine/configfile';
+import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from 'drone-path-engine/config';
+import { collectRecordings } from 'drone-path-engine/recordings';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
 import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
-import { runBatch } from './pipeline.js';
-import type { LogFn } from './logging.js';
-import type { RecordingSummary } from './pipeline.js';
+import { runBatch } from 'drone-path-engine/pipeline';
+import type { LogFn } from 'drone-path-engine/logging';
+import type { RecordingSummary } from 'drone-path-engine/pipeline';
 
 interface ParsedCli {
   inputs: string[];

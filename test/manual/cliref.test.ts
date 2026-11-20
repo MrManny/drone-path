@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { CONFIG_OPTIONS } from '../../src/config.js';
+import { CONFIG_OPTIONS } from 'drone-path-engine/config';
 import { generateCliReference } from '../../src/manual/cliref.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -45,7 +45,7 @@ describe('generateCliReference', () => {
 });
 
 describe('the checked-in CLI reference', () => {
-  it('matches the generator; run "npm run docs:reference" after changing src/config.ts', () => {
+  it('matches the generator; run "npm run docs:reference" after changing the engine option vocabulary', () => {
     const checkedIn = fs.readFileSync(path.join(root, 'docs', 'user', 'cli-reference.md'), 'utf8');
     expect(
       checkedIn,

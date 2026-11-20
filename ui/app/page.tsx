@@ -4,8 +4,8 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { translator } from '../../src/desktop-i18n/messages.js';
 import type { UiSession } from '../../src/appsession.js';
-import { DEFAULT_CONFIG, settingsPatchOf } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
+import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
 import { AboutDialog } from '../components/AboutDialog.js';
 import { EmptyWorkspace } from '../components/EmptyWorkspace.js';
 import { HelpOverlay } from '../components/HelpOverlay.js';

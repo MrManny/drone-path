@@ -12,7 +12,7 @@ import {
 } from '../src/configfile.js';
 import { DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
 import { ODD_DIMENSIONS } from './fixtures.js';
-import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../core/test/fixtures.js';
 
 afterEach(cleanupTmpDirs);
 

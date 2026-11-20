@@ -3,8 +3,8 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
-import { bootScene } from '../../src/renderer/boot.js';
-import type { LeafletApi, Scene, SceneData } from '../../src/renderer/scene.js';
+import { bootScene } from 'drone-path-engine/renderer/boot';
+import type { LeafletApi, Scene, SceneData } from 'drone-path-engine/renderer/scene';
 
 export interface SceneIslandOptions {
   data: SceneData;

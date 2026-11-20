@@ -1,5 +1,5 @@
 import type { Translate } from '../../src/desktop-i18n/messages.js';
-import { DEFAULT_CONFIG, appearanceOf, isValidRenderConfig, normalizeDimensions } from '../../src/config.js';
+import { DEFAULT_CONFIG, appearanceOf, isValidRenderConfig, normalizeDimensions } from 'drone-path-engine/config';
 import type {
   AppearanceSettings,
   ConfigOverrides,
@@ -7,7 +7,7 @@ import type {
   RenderConfig,
   MapStyle,
   ViewMode,
-} from '../../src/config.js';
+} from 'drone-path-engine/config';
 
 export function patchConfig(
   config: RenderConfig,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_CONFIG } from '../../src/config.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import { patchConfig, setHudChip } from '../../ui/lib/settings.js';
-import { ODD_DIMENSIONS } from '../fixtures.js';
+import { ODD_DIMENSIONS } from '../../packages/engine/test/fixtures.js';
 
 describe('patchConfig', () => {
   it('applies a valid patch', () => {

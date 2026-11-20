@@ -7,8 +7,8 @@ import { registerIpcHandlers, resolveSavePath } from '../app/ipc.mjs';
 import type { IpcState, IpcWindow } from '../app/ipc.mjs';
 import { APP_ORIGIN } from '../src/apppaths.js';
 import { emptyAppState, readAppState } from '../src/appstate.js';
-import { DEFAULT_CONFIG } from '../src/config.js';
-import type { RenderConfig } from '../src/config.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
 import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;

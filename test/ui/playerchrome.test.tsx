@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
-import { restyleSceneData } from '../../src/restyle.js';
-import type { Scene } from '../../src/renderer/scene.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
+import { restyleSceneData } from 'drone-path-engine/restyle';
+import type { Scene } from 'drone-path-engine/renderer/scene';
 import { MapAppearanceModal } from '../../ui/components/MapAppearanceModal.js';
 import { PlayerChrome } from '../../ui/components/PlayerChrome.js';
 import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
@@ -29,7 +29,7 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
   return delayedMapIslandMock(fakeScene);
 });
 
-vi.mock('../../src/renderer/boot.js', () => ({
+vi.mock('drone-path-engine/renderer/boot', () => ({
   bootScene: (): Scene => ({
     setFrame: vi.fn(() => Promise.resolve()),
     relayout: vi.fn(),

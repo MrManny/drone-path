@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { EncodeSettings } from '../../src/config.js';
+import type { EncodeSettings } from 'drone-path-engine/config';
 import type { ExportFormProps } from '../../ui/components/ExportForm.js';
 import { ExportForm } from '../../ui/components/ExportForm.js';
 import type { ExportForm as ExportFormState } from '../../ui/lib/exportstate.js';

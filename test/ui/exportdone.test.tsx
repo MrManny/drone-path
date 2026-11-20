@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ExportDoneProps } from '../../ui/components/ExportDone.js';
 import { ExportDone } from '../../ui/components/ExportDone.js';
-import type { RecordingSummary } from '../../src/pipeline.js';
+import type { RecordingSummary } from 'drone-path-engine/pipeline';
 
 afterEach(cleanup);
 

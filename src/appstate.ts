@@ -8,8 +8,8 @@ import {
   SETTINGS_KEYS,
   formatHud,
   parseSettingsPatch,
-} from './config.js';
-import type { RenderConfig, SettingsPatch } from './config.js';
+} from 'drone-path-engine/config';
+import type { RenderConfig, SettingsPatch } from 'drone-path-engine/config';
 import { errorMessage } from 'drone-path-core/errors';
 import { parseValue, strictShape } from 'drone-path-core/validation';
 

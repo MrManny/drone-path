@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
 
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import { chipNames } from '../lib/chipreadouts.js';
 import { useTranslation } from '../lib/i18n.js';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';

@@ -1,6 +1,6 @@
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
-import type { PrepareProgress } from '../../src/pipeline.js';
+import type { PrepareProgress } from 'drone-path-engine/pipeline';
 
 export function prepareNoticeText(progress: PrepareProgress, t: Translate = tEnglish): string {
   switch (progress.stage) {

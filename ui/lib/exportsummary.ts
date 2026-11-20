@@ -1,7 +1,7 @@
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
 import { formatFps, parseRate } from 'drone-path-core/frametime';
-import type { RecordingSummary } from '../../src/pipeline.js';
+import type { RecordingSummary } from 'drone-path-engine/pipeline';
 
 // The spec line reads as media specs only: the encode wall time between them
 // would read as a wrong media duration (#284).

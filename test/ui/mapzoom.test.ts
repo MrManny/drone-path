@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import { TILE_SOURCES } from '../../src/renderer/tilesources.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import { TILE_SOURCES } from 'drone-path-engine/renderer/tilesources';
 import {
   isZoomPinValue,
   normalizePinnedZoom,

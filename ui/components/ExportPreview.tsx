@@ -5,9 +5,9 @@ import type { CSSProperties } from 'react';
 import { useMemo } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import { appearanceOf } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
-import { restyleSceneData } from '../../src/restyle.js';
+import { appearanceOf } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
+import { restyleSceneData } from 'drone-path-engine/restyle';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import { restyleMeta } from '../lib/restylemeta.js';
 import 'leaflet/dist/leaflet.css';

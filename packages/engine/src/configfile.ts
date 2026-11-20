@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { userDataDir } from './apppaths.js';
+import { userDataDir } from './paths.js';
 import {
   CONFIG_FILE_NAME,
   DEFAULT_CONFIG,

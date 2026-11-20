@@ -1,9 +1,9 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { MAP_STYLE_VALUES } from '../../src/config.js';
-import type { MapStyle } from '../../src/config.js';
-import { TILE_CREDITS } from '../../src/renderer/tilesources.js';
+import { MAP_STYLE_VALUES } from 'drone-path-engine/config';
+import type { MapStyle } from 'drone-path-engine/config';
+import { TILE_CREDITS } from 'drone-path-engine/renderer/tilesources';
 import { styleLabels } from '../lib/settings.js';
 import satelliteThumb from '../assets/map-style/satellite.jpg';
 import topoThumb from '../assets/map-style/topo.jpg';
