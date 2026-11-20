@@ -2,8 +2,8 @@ import { catalogs } from './generated/catalogs.js';
 
 export const DEFAULT_LOCALE = 'en';
 export type Locale = keyof typeof catalogs;
-export type MessageKey = keyof typeof catalogs.en;
-export type MessageValues = Readonly<Record<string, string | number>>;
+type MessageKey = keyof typeof catalogs.en;
+type MessageValues = Readonly<Record<string, string | number>>;
 export type Translate = (key: MessageKey, values?: MessageValues) => string;
 export interface LanguageSettings {
   preference: string | null;
