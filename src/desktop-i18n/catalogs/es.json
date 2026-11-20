@@ -234,7 +234,7 @@
   "updatePrompt.update": "Actualizar",
   "workspaceHeader.flightWorkspace": "Espacio de vuelo",
   "workspaceHeader.recordingDuration": "Grabación · {duration}",
-  "zoomReadout.autoFit": "ajuste automático",
+  "zoomReadout.autoFit": "auto",
   "zoomReadout.zoomLabel": "Nivel de zoom ",
   "zoomStepper.alreadyAtMaximum": "Ya alcanzaste el zoom máximo",
   "zoomStepper.alreadyAtMinimum": "Ya alcanzaste el zoom mínimo",
