@@ -9,17 +9,6 @@ export function videoBaseName(filePath: string): string {
   return path.basename(filePath).replace(/\.[^.]+$/, '');
 }
 
-export function findSrtSidecar(videoPath: string): string | null {
-  const dir = path.dirname(videoPath);
-  const base = videoBaseName(videoPath);
-  for (const f of fs.readdirSync(dir)) {
-    if (f.toLowerCase() === `${base.toLowerCase()}.srt`) {
-      return path.join(dir, f);
-    }
-  }
-  return null;
-}
-
 function listMp4(dir: string, recurse: boolean): string[] {
   const found: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

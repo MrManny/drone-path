@@ -1,10 +1,10 @@
 import { ERR_NO_TELEMETRY } from './errors.js';
 import { parseSrt } from './srt.js';
 import type { SrtCue } from './srt.js';
+import { findSrtSidecar } from './srt-sidecar.js';
 import { parseCamMeta } from './cammeta.js';
 import type { CamSample, GimbalDeviceConstants } from './cammeta-decode.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
-import { findSrtSidecar } from './recordings.js';
 import { computeTelemetry } from './telemetry-math.js';
 import type { Telemetry, TelemetrySamples } from './telemetry-math.js';
 import type { TelemetryFrameInput } from './telemetry-json.js';
