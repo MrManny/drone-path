@@ -15,7 +15,13 @@ const ITEMS_QUERY = `query ($id: ID!, $endCursor: String) {
     ... on ProjectV2 {
       items(first: 100, after: $endCursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { id content { ... on Issue { number } ... on PullRequest { number } } }
+        nodes {
+          id
+          content {
+            __typename
+            ... on Issue { number repository { nameWithOwner } }
+          }
+        }
       }
     }
   }
@@ -25,19 +31,22 @@ function ghJson(args) {
   return JSON.parse(execOrThrow('gh', args));
 }
 
-// All items of one project, following pagination to the end.
-function projectItems(projectId) {
-  const items = [];
+function* projectItemPages(projectId) {
   let cursor;
-  do {
+  for (;;) {
     const args = ['api', 'graphql', '-f', `query=${ITEMS_QUERY}`, '-f', `id=${projectId}`];
     if (cursor !== undefined) args.push('-f', `endCursor=${cursor}`);
     const page = ghJson(args).data?.node?.items;
-    if (!page) return items;
-    items.push(...page.nodes);
-    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : undefined;
-  } while (cursor !== undefined);
-  return items;
+    if (!page && cursor === undefined) return;
+    if (!Array.isArray(page?.nodes)) throw new Error('project items unavailable');
+    yield page.nodes;
+    if (!page.pageInfo.hasNextPage) return;
+    const nextCursor = page.pageInfo.endCursor;
+    if (typeof nextCursor !== 'string' || !nextCursor || nextCursor === cursor) {
+      throw new Error('project items pagination did not advance');
+    }
+    cursor = nextCursor;
+  }
 }
 
 // Applies the named Status option to one project item. The project was
@@ -73,23 +82,34 @@ function updateItemStatus(project, item, owner, issueNumber, optionName) {
 // field ids are looked up at runtime because GitHub mints them per project.
 // Returns true only when the status was actually updated; never throws.
 export function setIssueStatus(issueNumber, optionName) {
+  let readable = false;
   try {
-    const owner = ghJson(['repo', 'view', '--json', 'owner']).owner.login;
+    const repo = ghJson(['repo', 'view', '--json', 'nameWithOwner,owner']);
+    const { nameWithOwner } = repo;
+    if (typeof nameWithOwner !== 'string' || !nameWithOwner) return false;
+    const owner = repo.owner.login;
     const projects = ghJson(['project', 'list', '--owner', owner, '--format', 'json']).projects;
-    let readable = false;
     for (const project of projects) {
-      const items = projectItems(project.id);
-      readable = true;
-      const item = items.find((entry) => entry.content?.number === Number(issueNumber));
-      if (!item) continue;
-      return updateItemStatus(project, item, owner, issueNumber, optionName);
+      for (const items of projectItemPages(project.id)) {
+        readable = true;
+        const item = items.find((entry) => {
+          const content = entry?.content;
+          return typeof entry?.id === 'string' && entry.id &&
+            content?.__typename === 'Issue' &&
+            content.repository?.nameWithOwner === nameWithOwner &&
+            content.number === Number(issueNumber);
+        });
+        if (item) return updateItemStatus(project, item, owner, issueNumber, optionName);
+      }
     }
     if (readable) {
       console.error(`Issue ${issueNumber} project item not found; status not set`);
     }
     return false;
-  } catch {
-    // No project access (or gh cannot see the repo) is not an error here.
+  } catch (error) {
+    if (readable) {
+      console.error(`Issue ${issueNumber} project status could not be set: ${error.message}`);
+    }
     return false;
   }
 }
