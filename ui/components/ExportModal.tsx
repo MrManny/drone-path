@@ -73,14 +73,10 @@ export function ExportModal({
   }, [busy, dispatchDialog]);
 
   useEffect(() => {
-    let offProgress: (() => void) | null = null;
     let offCapture: (() => void) | null = null;
     let offDone: (() => void) | null = null;
     try {
       const bridge = appBridge();
-      offProgress = bridge.onExportProgress((message) =>
-        dispatch({ type: 'progress', message }),
-      );
       offCapture = bridge.onExportCapture((progress) =>
         dispatch({ type: 'capture', progress }),
       );
@@ -89,7 +85,6 @@ export function ExportModal({
       // Outside the app shell there is no backend: the form still renders.
     }
     return () => {
-      offProgress?.();
       offCapture?.();
       offDone?.();
     };

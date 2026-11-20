@@ -8,8 +8,6 @@ import type { RecordingSummary } from '../../src/pipeline.js';
 
 type ExportPhase = 'form' | 'running' | 'done';
 
-const LOG_CAP = 50;
-
 export function captureFraction(capture: CaptureProgress | null): number | null {
   if (!capture) return null;
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
@@ -41,7 +39,6 @@ export function previewFrame(range: FrameRange | null, frames: number): number {
 }
 
 export interface ExportForm {
-  outPath: string | null;
   width: number;
   height: number;
   range: FrameRange | null;
@@ -51,7 +48,6 @@ export interface ExportState {
   phase: ExportPhase;
   form: ExportForm;
   request: ExportRequest | null;
-  messages: string[];
   capture: CaptureProgress | null;
   result: RecordingSummary | null;
   error: string | null;
@@ -62,14 +58,12 @@ export interface ExportState {
 }
 
 export type ExportEvent =
-  | { type: 'choose'; path: string }
   | { type: 'setWidth'; width: number }
   | { type: 'setHeight'; height: number }
   | { type: 'setRange'; range: FrameRange | null }
   | { type: 'failed'; error: string }
   | { type: 'start'; request: ExportRequest }
   | { type: 'startFailed'; error: string }
-  | { type: 'progress'; message: string }
   | { type: 'capture'; progress: CaptureProgress }
   | { type: 'cancelRequested' }
   | { type: 'cancelFailed'; error: string }
@@ -83,9 +77,8 @@ export function initialExportState(
 ): ExportState {
   return {
     phase: 'form',
-    form: { outPath: null, ...normalizeDimensions(width, height), range },
+    form: { ...normalizeDimensions(width, height), range },
     request: null,
-    messages: [],
     capture: null,
     result: null,
     error: null,
@@ -96,10 +89,6 @@ export function initialExportState(
 
 export function exportReducer(state: ExportState, event: ExportEvent): ExportState {
   switch (event.type) {
-    case 'choose':
-      return state.phase === 'form'
-        ? { ...state, form: { ...state.form, outPath: event.path }, error: null, notice: null }
-        : state;
     case 'setWidth':
       return state.phase === 'form'
         ? {
@@ -130,7 +119,6 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
             ...state,
             phase: 'running',
             request: event.request,
-            messages: [],
             capture: null,
             result: null,
             error: null,
@@ -141,13 +129,6 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
     case 'startFailed':
       return state.phase === 'running'
         ? { ...state, phase: 'form', request: null, error: event.error, notice: null }
-        : state;
-    case 'progress':
-      return state.phase === 'running'
-        ? {
-            ...state,
-            messages: [...state.messages, event.message].slice(-LOG_CAP),
-          }
         : state;
     case 'capture':
       return state.phase === 'running'

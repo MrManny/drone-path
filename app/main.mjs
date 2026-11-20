@@ -224,10 +224,7 @@ async function initServices(state) {
 
 function initExportRunner(state) {
   state.exportRunner = createExportRunner({
-    log: (msg) => {
-      log(msg);
-      sendToWindow(state, 'dronepath:export:progress', msg);
-    },
+    log,
     onCapture: (progress) =>
       sendToWindow(state, 'dronepath:export:capture', progress),
     onDone: (outcome) => handleExportDone(state, outcome),

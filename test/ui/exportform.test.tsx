@@ -9,7 +9,7 @@ import type { ExportForm as ExportFormState } from '../../ui/lib/exportstate.js'
 
 afterEach(cleanup);
 
-const FORM: ExportFormState = { outPath: null, width: 768, height: 768, range: null };
+const FORM: ExportFormState = { width: 768, height: 768, range: null };
 const SEGMENT = { range: { start: 300, end: 360 }, label: '0:10–0:12 · 61 frames' };
 const ENCODE: EncodeSettings = { codec: 'h264', quality: 'high', preset: 'medium' };
 

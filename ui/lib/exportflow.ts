@@ -84,7 +84,6 @@ export async function chooseAndExport(
 ): Promise<void> {
   const outPath = await pickDestination(deps, emit);
   if (outPath === null) return;
-  emit({ type: 'choose', path: outPath });
   await startJob(deps, buildRequest(input, outPath), emit);
 }
 

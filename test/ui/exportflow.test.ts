@@ -36,7 +36,7 @@ function flowRun(overrides: Partial<ReturnType<typeof makeDeps>> = {}) {
 
 const INPUT: ExportFlowInput = {
   settings: { ...DEFAULT_CONFIG, width: 768, height: 768 },
-  form: { outPath: null, width: 768, height: 768, range: null },
+  form: { width: 768, height: 768, range: null },
   segment: null,
 };
 
@@ -53,11 +53,10 @@ describe('chooseAndExport event ordering', () => {
     expect(run.deps.startExport).not.toHaveBeenCalled();
   });
 
-  it('emits choose before start and starts the export with the chosen path', async () => {
+  it('emits start and starts the export with the chosen path', async () => {
     const run = flowRun();
     await chooseAndExport(run.deps, INPUT, run.emit);
-    expect(run.events.map((event) => event.type)).toEqual(['choose', 'start']);
-    expect(run.events[0]).toEqual({ type: 'choose', path: '/exports/a.mp4' });
+    expect(run.events.map((event) => event.type)).toEqual(['start']);
     expect(run.deps.startExport).toHaveBeenCalledTimes(1);
     expect(run.deps.startExport.mock.calls[0][0]).toMatchObject({
       outPath: '/exports/a.mp4',
@@ -110,7 +109,7 @@ describe('chooseAndExport event ordering', () => {
     const run = flowRun();
     const input: ExportFlowInput = {
       ...INPUT,
-      form: { outPath: null, width: 768, height: 764, range: null },
+      form: { width: 768, height: 764, range: null },
     };
     await chooseAndExport(run.deps, input, run.emit);
     expect(run.deps.startExport.mock.calls[0][0].config).toMatchObject({
@@ -119,7 +118,7 @@ describe('chooseAndExport event ordering', () => {
     });
   });
 
-  it('reports a refused start with its own error after choose and start', async () => {
+  it('reports a refused start with its own error after start', async () => {
     const run = flowRun({
       startExport: vi.fn(async (): Promise<ExportAck> => ({
         ok: false,
@@ -127,8 +126,8 @@ describe('chooseAndExport event ordering', () => {
       })),
     });
     await chooseAndExport(run.deps, INPUT, run.emit);
-    expect(run.events.map((event) => event.type)).toEqual(['choose', 'start', 'startFailed']);
-    expect(run.events[2]).toEqual({
+    expect(run.events.map((event) => event.type)).toEqual(['start', 'startFailed']);
+    expect(run.events[1]).toEqual({
       type: 'startFailed',
       error: 'an export is already running',
     });
@@ -139,7 +138,7 @@ describe('chooseAndExport event ordering', () => {
       startExport: vi.fn(async (): Promise<ExportAck> => ({ ok: false })),
     });
     await chooseAndExport(run.deps, INPUT, run.emit);
-    expect(run.events[2]).toEqual({ type: 'startFailed', error: 'export could not start' });
+    expect(run.events[1]).toEqual({ type: 'startFailed', error: 'export could not start' });
   });
 
   it('reports a failed pick without starting anything', async () => {

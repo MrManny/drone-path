@@ -29,14 +29,13 @@ const OK_SUMMARY = {
 };
 
 function running(): ExportState {
-  const form = exportReducer(initialExportState(768, 768), { type: 'choose', path: '/exports/a.mp4' });
-  return exportReducer(form, { type: 'start', request: REQUEST });
+  return exportReducer(initialExportState(768, 768), { type: 'start', request: REQUEST });
 }
 
 describe('export form', () => {
-  it('starts with the settings dimensions and no destination', () => {
+  it('starts with the settings dimensions', () => {
     const state = initialExportState(1280, 720);
-    expect(state.form).toEqual({ outPath: null, width: 1280, height: 720, range: null });
+    expect(state.form).toEqual({ width: 1280, height: 720, range: null });
     expect(state.phase).toBe('form');
   });
 
@@ -45,14 +44,12 @@ describe('export form', () => {
     expect(state.form.range).toEqual({ start: 4, end: 9 });
   });
 
-  it('records the chosen destination, dimensions and range', () => {
+  it('records the chosen dimensions and range', () => {
     let state = initialExportState(768, 768);
-    state = exportReducer(state, { type: 'choose', path: '/exports/b.mp4' });
     state = exportReducer(state, { type: 'setWidth', width: 1024 });
     state = exportReducer(state, { type: 'setHeight', height: 576 });
     state = exportReducer(state, { type: 'setRange', range: { start: 3, end: 9 } });
     expect(state.form).toEqual({
-      outPath: '/exports/b.mp4',
       width: 1024,
       height: 576,
       range: { start: 3, end: 9 },
@@ -62,9 +59,6 @@ describe('export form', () => {
   it('ignores form edits while a job runs', () => {
     const state = running();
     expect(exportReducer(state, { type: 'setWidth', width: 2000 }).form.width).toBe(768);
-    expect(exportReducer(state, { type: 'choose', path: '/elsewhere.mp4' }).form.outPath).toBe(
-      '/exports/a.mp4',
-    );
   });
 });
 
@@ -103,7 +97,7 @@ describe('effective dimension commits (#94)', () => {
 
   it('starts with the effective sizes of odd settings dimensions', () => {
     const state = initialExportState(769, 501);
-    expect(state.form).toEqual({ outPath: null, width: 768, height: 500, range: null });
+    expect(state.form).toEqual({ width: 768, height: 500, range: null });
   });
 });
 
@@ -112,14 +106,6 @@ describe('export lifecycle', () => {
     const state = running();
     expect(state.phase).toBe('running');
     expect(state.request).toBe(REQUEST);
-    expect(state.messages).toEqual([]);
-  });
-
-  it('accumulates progress lines', () => {
-    let state = running();
-    state = exportReducer(state, { type: 'progress', message: 'source: flight.mp4' });
-    state = exportReducer(state, { type: 'progress', message: 'frames: 100/120 captured' });
-    expect(state.messages).toEqual(['source: flight.mp4', 'frames: 100/120 captured']);
   });
 
   it('finishes to done with the summary on success', () => {
@@ -171,14 +157,6 @@ describe('stale events', () => {
     const late = exportReducer(done, { type: 'finish', outcome: { status: 'error', error: 'late' } });
     expect(late.phase).toBe('done');
     expect(late.result).toEqual(OK_SUMMARY);
-  });
-
-  it('ignores progress that arrives after the job finished', () => {
-    const done = exportReducer(running(), {
-      type: 'finish',
-      outcome: { status: 'canceled' },
-    });
-    expect(exportReducer(done, { type: 'progress', message: 'late' }).messages).toEqual([]);
   });
 
   it('ignores a cancel request outside a running job', () => {
@@ -353,7 +331,6 @@ describe('outcome notices', () => {
   });
 
   it.for<{ name: string; event: ExportEvent }>([
-    { name: 'a chosen destination', event: { type: 'choose', path: '/exports/b.mp4' } },
     { name: 'a width edit', event: { type: 'setWidth', width: 1024 } },
     { name: 'a height edit', event: { type: 'setHeight', height: 576 } },
     { name: 'a range edit', event: { type: 'setRange', range: { start: 3, end: 9 } } },

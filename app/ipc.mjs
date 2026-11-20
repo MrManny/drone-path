@@ -16,10 +16,18 @@ import { videoBaseName } from '../dist/recordings.js';
 import { outputPathFor } from '../dist/pipeline.js';
 import { TRACK_FORMAT_VALUES } from '../dist/track-format.js';
 
+function sameOrigin(url, target) {
+  try {
+    return new URL(url).origin === new URL(target).origin;
+  } catch {
+    return false;
+  }
+}
+
 // Only this app's window may drive the session state machine.
 function assertTrusted(event, devUrl) {
   const url = (event.senderFrame && event.senderFrame.url) || '';
-  const devOk = devUrl !== null && url.startsWith(devUrl);
+  const devOk = devUrl !== null && sameOrigin(url, devUrl);
   if (!url.startsWith(APP_ORIGIN + '/') && !devOk) {
     throw new Error('untrusted ipc sender');
   }
@@ -35,6 +43,15 @@ function handle(devUrl, channel, fn) {
     } catch (e) {
       return { ok: false, error: errorMessage(e) };
     }
+  });
+}
+
+// Query/void channels return raw payloads rather than { ok } envelopes, so
+// unexpected throws reject the IPC promise instead of leaking { ok: false }.
+function handleQuery(devUrl, channel, fn) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    assertTrusted(event, devUrl);
+    return await fn(...args);
   });
 }
 
@@ -109,11 +126,11 @@ async function pickSavePath(state, { title, defaultPath, filters, extensions, de
 
 function registerSessionHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:pick', (raw) => state.session.pick(parsePickRequest(raw)));
-  handle(devUrl, 'dronepath:session', () => state.session.getSession());
+  handleQuery(devUrl, 'dronepath:session', () => state.session.getSession());
 }
 
 function registerSettingsHandlers(state, devUrl, log) {
-  handle(devUrl, 'dronepath:settings', () => state.config);
+  handleQuery(devUrl, 'dronepath:settings', () => state.config);
   handle(devUrl, 'dronepath:settings:save', (raw) => {
     const settings = parseSettingsPatch(raw, 'settings');
     state.appState = { ...state.appState, settings };
@@ -134,7 +151,7 @@ function languageSettings(state) {
 }
 
 function registerLanguageHandlers(state, devUrl) {
-  handle(devUrl, 'dronepath:language', () => languageSettings(state));
+  handleQuery(devUrl, 'dronepath:language', () => languageSettings(state));
   handle(devUrl, 'dronepath:language:save', (preference) => {
     if (preference !== null && !isLocale(preference)) throw new Error('invalid app language');
     const appState = { ...state.appState, language: preference };
@@ -216,11 +233,11 @@ function registerUpdateHandlers(state, devUrl, sendToWindow) {
       onError: (message) => sendToWindow(state, 'dronepath:update:restart-failed', message),
     });
   });
-  handle(devUrl, 'dronepath:update:state', () => ({ ready: state.updateReady }));
+  handleQuery(devUrl, 'dronepath:update:state', () => ({ ready: state.updateReady }));
 }
 
 function registerWindowHandlers(state, devUrl) {
-  handle(devUrl, 'dronepath:window:close', () => {
+  handleQuery(devUrl, 'dronepath:window:close', () => {
     // The window's close handler runs the running-export guard.
     if (state.win && !state.win.isDestroyed()) state.win.close();
   });

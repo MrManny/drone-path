@@ -16,10 +16,12 @@ export function useLanguageSettings() {
 
   useEffect(() => {
     let canceled = false;
-    if (window.dronepath) {
-      void window.dronepath.getLanguage?.().then((resolved) => {
-        if (!canceled && !('ok' in resolved)) setLanguage(resolved);
+    try {
+      void appBridge().getLanguage?.().then((resolved) => {
+        if (!canceled) setLanguage(resolved);
       }).catch(() => {});
+    } catch {
+      // Outside the app shell there is no backend: keep the default locale.
     }
     return () => { canceled = true; };
   }, []);
