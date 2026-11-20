@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTileTraffic, prefetchTiles } from '../src/tiles.js';
-import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../core/test/fixtures.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -52,6 +52,19 @@ describe('createTileTraffic ensure', () => {
     expect(file).toBe(path.join(dir, 'esri-imagery', '1', '2', '3.png'));
     expect(fs.existsSync(file)).toBe(true);
     expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the supplied app version in the tile User-Agent', async () => {
+    const fetchStub = okFetch();
+    vi.stubGlobal('fetch', fetchStub);
+
+    await createTileTraffic(tmpDir(), '0.13.0-pre-abc1234').ensure('satellite', T0);
+
+    expect(fetchStub).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      headers: {
+        'User-Agent': 'drone-path/0.13.0-pre-abc1234 (flight-path map renderer; https://github.com/MrManny/drone-path)',
+      },
+    }));
   });
 
   it('writes a placeholder and serves it when the download fails', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RecordingSummary } from '../../src/pipeline.js';
+import type { RecordingSummary } from 'drone-path-engine/pipeline';
 import { formatExportSummary } from '../../ui/lib/exportsummary.js';
 
 function summary(overrides: Partial<RecordingSummary> = {}): RecordingSummary {

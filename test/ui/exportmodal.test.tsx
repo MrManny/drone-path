@@ -5,10 +5,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { EncodeSettings, ExportRequest, RenderConfig } from '../../src/config.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import type { EncodeSettings, ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import type { ExportOutcome } from '../../src/exportjob.js';
-import type { CaptureProgress } from '../../src/render.js';
+import type { CaptureProgress } from 'drone-path-engine/render';
 import type { ExportOutputPayload } from '../../ui/lib/backend.js';
 import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
 import type { DialogEvent } from '../../ui/lib/dialogstate.js';

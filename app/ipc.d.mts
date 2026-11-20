@@ -1,6 +1,6 @@
 import type { AppSession } from '../src/appsession.js';
 import type { AppState } from '../src/appstate.js';
-import type { ExportRequest, RenderConfig } from '../src/config.js';
+import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import type { UpdateController } from './update.mjs';
 
 export interface IpcWindow {

@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 
 export function pathKey(
@@ -27,4 +28,9 @@ export function uniquePath(
     const candidate = path.join(dir, name);
     if (!isTaken(candidate)) return candidate;
   }
+}
+
+export function userDataDir(): string {
+  const base = process.env['LOCALAPPDATA'] ?? path.join(os.homedir(), '.cache');
+  return path.join(base, 'drone-path');
 }

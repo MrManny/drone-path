@@ -1,8 +1,8 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { HudLayout } from '../../src/config.js';
-import type { SceneData } from '../../src/renderer/scene.js';
+import type { HudLayout } from 'drone-path-engine/config';
+import type { SceneData } from 'drone-path-engine/renderer/scene';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
 import { exampleStateLabel } from '../lib/exampleflight.js';

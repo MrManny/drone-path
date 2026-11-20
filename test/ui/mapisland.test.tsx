@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LatLngExpression } from 'leaflet';
 
-import type { LeafletApi, Scene, SceneData } from '../../src/renderer/scene.js';
+import type { LeafletApi, Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import { MapIsland } from '../../ui/components/MapIsland.js';
 import type { FakeObserver } from './harness.js';
 import { flushRaf, installRafStub, installResizeObserverStub } from './harness.js';

@@ -1,4 +1,4 @@
-import type { ExportRequest, RenderConfig } from '../../src/config.js';
+import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import {
   ERR_EXPORT_COULD_NOT_BE_CANCELED,

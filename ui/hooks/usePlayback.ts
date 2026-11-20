@@ -4,7 +4,7 @@ import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PageVideo } from '../../src/appsession.js';
-import type { Scene } from '../../src/renderer/scene.js';
+import type { Scene } from 'drone-path-engine/renderer/scene';
 import { createFrameDriver } from '../lib/framedriver.js';
 import { clampFrame, formatTimeReadout } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';

@@ -4,7 +4,7 @@ import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import type { PipelineDeps } from '../src/pipeline.js';
 import type { Telemetry } from 'drone-path-core/telemetry-math';
 import type { RecordingTelemetry } from 'drone-path-core/telemetry';
-import { loadedTelemetry, probeFixture, telemetryFixture, tmpDir } from '../packages/core/test/fixtures.js';
+import { loadedTelemetry, probeFixture, telemetryFixture, tmpDir } from '../../core/test/fixtures.js';
 
 type StubDepsOptions = Partial<PipelineDeps> & {
   probe?: VideoProbe;

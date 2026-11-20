@@ -13,6 +13,9 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
   optionalDependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 };
+const engine = JSON.parse(fs.readFileSync(path.join(root, 'packages', 'engine', 'package.json'), 'utf8')) as {
+  dependencies: Record<string, string>;
+};
 const builderConfig = fs.readFileSync(path.join(root, 'electron-builder.yml'), 'utf8');
 
 afterEach(cleanupTmpDirs);
@@ -34,6 +37,7 @@ describe('the npm package stays Electron-free', () => {
     const files = [
       ...sourceFiles(path.join(root, 'src')),
       ...sourceFiles(path.join(root, 'packages', 'core', 'src')),
+      ...sourceFiles(path.join(root, 'packages', 'engine', 'src')),
       ...sourceFiles(path.join(root, 'bin')),
     ];
     const importPattern = /from ['"]electron(?:-updater)?['"]|require\(['"]electron(?:-updater)?['"]\)/;
@@ -93,7 +97,7 @@ describe('the packaged desktop app embeds ffmpeg/ffprobe', () => {
 
 describe('the packaged desktop app ships playwright-core', () => {
   it('keeps playwright-core a normal runtime dependency', () => {
-    expect(pkg.dependencies['playwright-core']).toMatch(/^~\d+\.\d+\.\d+$/);
+    expect(engine.dependencies['playwright-core']).toMatch(/^~\d+\.\d+\.\d+$/);
     expect(pkg.devDependencies['playwright-core']).toBeUndefined();
   });
 

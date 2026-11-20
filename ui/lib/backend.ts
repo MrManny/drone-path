@@ -5,12 +5,12 @@ import type {
   TrackSaveRequest,
   UiSession,
 } from '../../src/appsession.js';
-import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
+import type { ExportRequest, RenderConfig, SettingsPatch } from 'drone-path-engine/config';
 import { ERR_APP_BRIDGE_UNAVAILABLE } from 'drone-path-core/errors';
 import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
-import type { CaptureProgress } from '../../src/render.js';
-import type { PrepareProgress } from '../../src/pipeline.js';
+import type { CaptureProgress } from 'drone-path-engine/render';
+import type { PrepareProgress } from 'drone-path-engine/pipeline';
 
 export interface PickOutputResult extends IpcResult {
   path?: string;

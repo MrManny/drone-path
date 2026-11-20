@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { Codec, EncodeSettings, EncoderPreset, Quality } from '../../src/config.js';
+import type { Codec, EncodeSettings, EncoderPreset, Quality } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import {
   CODEC_VALUES,
@@ -9,7 +9,7 @@ import {
   ENCODER_PRESET_VALUES,
   QUALITY_VALUES,
   isValidDimensions,
-} from '../../src/config.js';
+} from 'drone-path-engine/config';
 import type { ExportEvent, ExportForm as ExportFormState } from '../lib/exportstate.js';
 import { ErrorNotice } from './ErrorNotice.js';
 import { Notice } from './Notice.js';

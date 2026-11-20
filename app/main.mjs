@@ -21,14 +21,14 @@ import {
   writeAppState,
 } from '../dist/appstate.js';
 import { createAppSession } from '../dist/appsession.js';
-import { resolveConfig } from '../dist/configfile.js';
+import { resolveConfig } from 'drone-path-engine/configfile';
 import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { createExportRunner } from '../dist/exportjob.js';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
 import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
-import { planByteRange } from '../dist/range.js';
-import { createTileTraffic } from '../dist/tiles.js';
+import { planByteRange } from 'drone-path-engine/range';
+import { createTileTraffic } from 'drone-path-engine/tiles';
 import { registerIpcHandlers } from './ipc.mjs';
 import { initUpdates } from './update.mjs';
 
@@ -209,7 +209,7 @@ async function initServices(state) {
   // One polite tile queue for the whole app: on-demand tiles and the export
   // prefetch share its request budget, and on-demand tiles the player needs
   // right now jump the queue.
-  state.tileTraffic = createTileTraffic(state.config.tileCache);
+  state.tileTraffic = createTileTraffic(state.config.tileCache, app.isPackaged ? app.getVersion() : undefined);
   state.tilePrefetch = (options) => state.tileTraffic.stream(options);
   state.session = createAppSession({
     config: state.config,

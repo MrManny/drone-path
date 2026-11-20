@@ -1,5 +1,5 @@
-import type { MapStyle, RenderConfig } from '../../src/config.js';
-import { zoomLimits } from '../../src/plan.js';
+import type { MapStyle, RenderConfig } from 'drone-path-engine/config';
+import { zoomLimits } from 'drone-path-engine/plan';
 
 /** What the zoom stepper needs from the settings side; the map card knows the visible level. */
 export interface ZoomControls {

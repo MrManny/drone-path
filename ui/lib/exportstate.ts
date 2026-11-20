@@ -1,11 +1,11 @@
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
-import type { ExportRequest } from '../../src/config.js';
-import { normalizeDimensions } from '../../src/config.js';
+import type { ExportRequest } from 'drone-path-engine/config';
+import { normalizeDimensions } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import type { ExportOutcome } from '../../src/exportjob.js';
-import type { CaptureProgress } from '../../src/render.js';
-import type { RecordingSummary } from '../../src/pipeline.js';
+import type { CaptureProgress } from 'drone-path-engine/render';
+import type { RecordingSummary } from 'drone-path-engine/pipeline';
 
 type ExportPhase = 'form' | 'running' | 'done';
 

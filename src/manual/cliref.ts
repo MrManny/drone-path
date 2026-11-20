@@ -3,8 +3,8 @@ import {
   CONFIG_OPTIONS,
   TELEMETRY_JSON_ALIAS,
   cliDefaultOf,
-} from '../config.js';
-import type { ConfigOption, RenderConfig } from '../config.js';
+} from 'drone-path-engine/config';
+import type { ConfigOption, RenderConfig } from 'drone-path-engine/config';
 import { escapeAngleBrackets } from './markdown.js';
 
 function defaultCell(key: keyof RenderConfig): string {

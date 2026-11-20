@@ -13,13 +13,13 @@ import type {
   PrepareUiSessionFn,
   UiSession,
 } from '../src/appsession.js';
-import type { RenderConfig } from '../src/config.js';
-import { processRecording } from '../src/pipeline.js';
-import type { PrepareProgress } from '../src/pipeline.js';
+import type { RenderConfig } from 'drone-path-engine/config';
+import { processRecording } from 'drone-path-engine/pipeline';
+import type { PrepareProgress } from 'drone-path-engine/pipeline';
 import { TelemetryDocumentSchema } from 'drone-path-core/telemetry-json';
 import type { TelemetryDocumentInput } from 'drone-path-core/telemetry-json';
-import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
-import { stubDeps, testConfig } from './fixtures.js';
+import type { PrefetchStats, WarmOptions } from 'drone-path-engine/tiles';
+import { stubDeps, testConfig } from '../packages/engine/test/fixtures.js';
 import {
   cleanupTmpDirs,
   loadedTelemetry,

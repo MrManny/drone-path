@@ -1,6 +1,6 @@
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
-import type { SceneData } from '../../src/renderer/scene.js';
+import type { SceneData } from 'drone-path-engine/renderer/scene';
 
 /** The three on-frame readouts, in the order the chips appear. */
 export type HudChipId = 'heading' | 'alt' | 'speed';

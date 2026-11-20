@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PrepareProgress } from '../../src/pipeline.js';
+import type { PrepareProgress } from 'drone-path-engine/pipeline';
 import { prepareNoticeText, preparePercent } from '../../ui/lib/preparetext.js';
 
 function progress(overrides: Partial<PrepareProgress> = {}): PrepareProgress {

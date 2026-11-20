@@ -4,9 +4,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
+import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import { MapAppearanceModal } from '../../ui/components/MapAppearanceModal.js';
 import type { FakeObserver } from './harness.js';
 import { SESSION, createFakeScene, installResizeObserverStub } from './harness.js';
@@ -16,7 +16,7 @@ const boot = vi.hoisted(() => ({
   scenes: [] as Scene[],
 }));
 
-vi.mock('../../src/renderer/boot.js', () => ({
+vi.mock('drone-path-engine/renderer/boot', () => ({
   bootScene: (host: HTMLElement, data: SceneData): Scene => {
     boot.calls.push({ host, data });
     const scene = createFakeScene();

@@ -9,10 +9,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type * as GeneratedCatalogs from '../../src/desktop-i18n/generated/catalogs.js';
 
 import type { PickResult } from '../../src/appsession.js';
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
-import type { PrepareProgress } from '../../src/pipeline.js';
-import type { Scene } from '../../src/renderer/scene.js';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
+import type { PrepareProgress } from 'drone-path-engine/pipeline';
+import type { Scene } from 'drone-path-engine/renderer/scene';
 import Page from '../../ui/app/page.js';
 import { SESSION, flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
 
@@ -37,7 +37,7 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
   return delayedMapIslandMock(createFakeScene());
 });
 
-vi.mock('../../src/renderer/boot.js', async () => {
+vi.mock('drone-path-engine/renderer/boot', async () => {
   const { createFakeScene } = await import('./harness.js');
   return {
     bootScene: (): Scene => createFakeScene(),

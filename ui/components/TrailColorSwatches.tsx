@@ -3,7 +3,7 @@
 import { useTranslation } from '../lib/i18n.js';
 import { useState } from 'react';
 
-import { asTrailColor } from '../../src/config.js';
+import { asTrailColor } from 'drone-path-engine/config';
 import { customSwatch, trailSwatches, swatchIdFor } from '../lib/trailcolor.js';
 import { ColorField } from './ColorField.js';
 

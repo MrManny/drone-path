@@ -4,9 +4,9 @@ import { useTranslation } from '../lib/i18n.js';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import { appearanceOf } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
-import { restyleSceneData } from '../../src/restyle.js';
+import { appearanceOf } from 'drone-path-engine/config';
+import type { RenderConfig } from 'drone-path-engine/config';
+import { restyleSceneData } from 'drone-path-engine/restyle';
 import { restyleMeta } from '../lib/restylemeta.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayback } from '../hooks/usePlayback.js';

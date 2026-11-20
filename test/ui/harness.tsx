@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
-import type { Scene } from '../../src/renderer/scene.js';
+import type { Scene } from 'drone-path-engine/renderer/scene';
 
 type FrameCallback = (now: number) => void;
 

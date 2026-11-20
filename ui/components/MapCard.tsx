@@ -3,7 +3,7 @@
 import { useTranslation } from '../lib/i18n.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { Scene, SceneData } from '../../src/renderer/scene.js';
+import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';
 import { BusyStatus } from './BusyStatus.js';

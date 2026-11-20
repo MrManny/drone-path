@@ -9,11 +9,11 @@ import { dialog, ipcMain, shell } from 'electron';
 import { parsePickRequest, parseTrackSaveRequest } from '../dist/appsession.js';
 import { applyAppState, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
-import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
+import { parseExportRequest, parseSettingsPatch } from 'drone-path-engine/config';
 import { isLocale, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
 import { ERR_NO_RECORDING, errorMessage } from 'drone-path-core/errors';
-import { videoBaseName } from '../dist/recordings.js';
-import { outputPathFor } from '../dist/pipeline.js';
+import { videoBaseName } from 'drone-path-engine/recordings';
+import { outputPathFor } from 'drone-path-engine/pipeline';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
 
 function sameOrigin(url, target) {

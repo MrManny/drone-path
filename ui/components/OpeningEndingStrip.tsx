@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { ConfigOverrides } from '../../src/config.js';
+import type { ConfigOverrides } from 'drone-path-engine/config';
 import { formatTime } from '../lib/frametime.js';
 import { NumberField } from './NumberField.js';
 

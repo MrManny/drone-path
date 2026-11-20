@@ -38,7 +38,7 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--loop` / `--loop-text` | `#ecc9a8` / `#f4e2d2` | Loop band and ring / loop readout |
 
 - **Accent** marks the primary action, the selected segment, a checked toggle, the playhead and the progress fills. In the menu bar accent additionally carries menu state: the open top-level label and the hovered or keyboard-focused row (see [Menu bar](#menu-bar)). **Loop** colors mark only the loop band, its handles and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
-- **The flight trail is the accent:** `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent` and derives the trail glow.
+- **The flight trail is the accent:** `TRAIL_COLOR` in `packages/engine/src/renderer/theme.ts` mirrors `--accent` and derives the trail glow.
 - **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
 - **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on `--surface-1` and `--surface-2`.

@@ -27,7 +27,7 @@ import {
   probeFixture,
   telemetryFixture,
   tmpDir,
-} from '../packages/core/test/fixtures.js';
+} from '../../core/test/fixtures.js';
 
 describe('planOutputs', () => {
   const config = { ...DEFAULT_CONFIG, outDir: path.join('out', 'maps') };

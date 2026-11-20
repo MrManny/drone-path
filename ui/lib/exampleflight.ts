@@ -1,11 +1,11 @@
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
-import { DEFAULT_CONFIG, appearanceOf } from '../../src/config.js';
+import { DEFAULT_CONFIG, appearanceOf } from 'drone-path-engine/config';
 import type { Bbox } from 'drone-path-core/geo';
-import { buildSceneData, planPageOpts } from '../../src/render-page.js';
-import { smoothstep } from '../../src/renderer/framemath.js';
-import type { SceneData } from '../../src/renderer/scene.js';
-import type { RestyleMeta } from '../../src/restyle.js';
+import { buildSceneData, planPageOpts } from 'drone-path-engine/render-page';
+import { smoothstep } from 'drone-path-engine/renderer/framemath';
+import type { SceneData } from 'drone-path-engine/renderer/scene';
+import type { RestyleMeta } from 'drone-path-engine/restyle';
 import type { FrameChannels } from 'drone-path-core/telemetry-math';
 
 /**

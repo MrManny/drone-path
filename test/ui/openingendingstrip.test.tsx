@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ConfigOverrides } from '../../src/config.js';
+import type { ConfigOverrides } from 'drone-path-engine/config';
 import { OpeningEndingStrip } from '../../ui/components/OpeningEndingStrip.js';
 import type { PreviewSegment } from '../../ui/components/OpeningEndingStrip.js';
 

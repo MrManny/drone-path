@@ -3,8 +3,8 @@
 import { useTranslation } from '../lib/i18n.js';
 import { useId } from 'react';
 
-import type { ConfigOverrides, MapStyle, ViewMode } from '../../src/config.js';
-import { zoomLimits } from '../../src/plan.js';
+import type { ConfigOverrides, MapStyle, ViewMode } from 'drone-path-engine/config';
+import { zoomLimits } from 'drone-path-engine/plan';
 import { viewLabels } from '../lib/settings.js';
 
 interface CameraControlsProps {

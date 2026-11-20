@@ -1,8 +1,8 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { HudLayout } from '../../src/config.js';
-import { EXPORT_HUD_LABELS } from '../../src/renderer/dom.js';
+import type { HudLayout } from 'drone-path-engine/config';
+import { EXPORT_HUD_LABELS } from 'drone-path-engine/renderer/dom';
 import type { ChipReadouts, HudChipId } from '../lib/chipreadouts.js';
 import { chipNames, chipAriaLabel, formatChipValue } from '../lib/chipreadouts.js';
 

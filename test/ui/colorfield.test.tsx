@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { asTrailColor } from '../../src/config.js';
+import { asTrailColor } from 'drone-path-engine/config';
 import { ColorField } from '../../ui/components/ColorField.js';
 import type { ColorFieldProps } from '../../ui/components/ColorField.js';
 

@@ -3,14 +3,14 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExportRequest } from '../src/config.js';
-import { DEFAULT_CONFIG } from '../src/config.js';
+import type { ExportRequest } from 'drone-path-engine/config';
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import { createExportRunner } from '../src/exportjob.js';
 import type { ExportOutcome, RunExportJobFn } from '../src/exportjob.js';
-import type { PipelineDeps, RecordingSummary } from '../src/pipeline.js';
-import { createTileTraffic } from '../src/tiles.js';
-import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
-import { stubDeps } from './fixtures.js';
+import type { PipelineDeps, RecordingSummary } from 'drone-path-engine/pipeline';
+import { createTileTraffic } from 'drone-path-engine/tiles';
+import type { PrefetchStats, WarmOptions } from 'drone-path-engine/tiles';
+import { stubDeps } from '../packages/engine/test/fixtures.js';
 import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 afterEach(() => {
