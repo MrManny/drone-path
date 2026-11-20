@@ -21,9 +21,9 @@
   },
   "scripts": {
     "app": "electron app/main.mjs",
-    "app:dev": "npm run build:manual && npm run build:info && concurrently -k \"next dev ui --webpack -p 3210\" \"wait-on http://127.0.0.1:3210 && electron app/main.mjs --dev-url http://localhost:3210\"",
+    "app:dev": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && concurrently -k \"next dev ui --webpack -p 3210\" \"wait-on http://127.0.0.1:3210 && electron app/main.mjs --dev-url http://localhost:3210\"",
     "app:pack": "electron-builder --publish never",
-    "build": "npm run build:manual && npm run build:info && npm run build:ui",
+    "build": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && npm run build:ui",
     "build:cli": "node scripts/build-desktop-catalogs.mjs && tsc -p tsconfig.json",
     "build:info": "npm run build:cli && node dist/buildinfo.js",
     "build:manual": "npm run build:cli && node dist/manual/build.js",
@@ -32,7 +32,7 @@
     "docs:schema": "npm run build:cli && node dist/telemetry-json-schema.js",
     "changeset": "changeset",
     "changeset:version": "changeset version && npm install --package-lock-only",
-    "test": "npm run build:manual && npm run build:info && npm run typecheck:test && vitest run",
+    "test": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && npm run typecheck:test && vitest run",
     "typecheck:test": "tsc --noEmit -p test/tsconfig.json",
     "lint": "eslint .",
     "prepare": "npm run build"
