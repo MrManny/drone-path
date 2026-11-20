@@ -165,4 +165,18 @@ describe('useDialogs', () => {
     send({ type: 'close' });
     expect(result.current.modalOpen).toBe(false);
   });
+
+  it('pins the update prompt while restarting and releases it if restart fails', () => {
+    const { result, send } = mountDialogs();
+    send({ type: 'updateReady' });
+    send({ type: 'runStarted' });
+    expect(result.current.updateOpen).toBe(true);
+    expect(result.current.dismissible).toBe(false);
+    send({ type: 'close' });
+    expect(result.current.updateOpen).toBe(true);
+    send({ type: 'runFinished' });
+    expect(result.current.dismissible).toBe(true);
+    send({ type: 'close' });
+    expect(result.current.modalOpen).toBe(false);
+  });
 });

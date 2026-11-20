@@ -1,14 +1,16 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
+import { normalizeDimensions } from '../../src/config.js';
 import type { EncodeSettings, FrameRange, RenderConfig } from '../../src/config.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
 import type { ExportFlowDeps } from '../lib/exportflow.js';
 import { cancelExport, chooseAndExport, runDoneAction } from '../lib/exportflow.js';
+import type { ExportEvent } from '../lib/exportstate.js';
 import {
   captureFraction,
   exportPhaseText,
@@ -52,7 +54,7 @@ export function ExportModal({
   const t = useTranslation();
   const { video, durationSec } = session;
   const loopPoints = resolveLoop(loop, video.frames - 1);
-  const [state, dispatch] = useReducer(exportReducer, undefined, () =>
+  const [state, dispatchRaw] = useReducer(exportReducer, undefined, () =>
     initialExportState(
       initialSizes?.width ?? settings.width,
       initialSizes?.height ?? settings.height,
@@ -61,9 +63,20 @@ export function ExportModal({
   );
   const busy = state.phase === 'running';
 
-  useEffect(() => {
-    onSizesChange?.({ width: state.form.width, height: state.form.height });
-  }, [state.form.width, state.form.height, onSizesChange]);
+  const dispatch = useCallback(
+    (event: ExportEvent) => {
+      if (state.phase === 'form' && (event.type === 'setWidth' || event.type === 'setHeight')) {
+        onSizesChange?.(
+          normalizeDimensions(
+            event.type === 'setWidth' ? event.width : state.form.width,
+            event.type === 'setHeight' ? event.height : state.form.height,
+          ),
+        );
+      }
+      dispatchRaw(event);
+    },
+    [state.phase, state.form.width, state.form.height, onSizesChange],
+  );
 
   useEffect(() => {
     if (busy) dispatchDialog({ type: 'runStarted' });
@@ -78,9 +91,9 @@ export function ExportModal({
     try {
       const bridge = appBridge();
       offCapture = bridge.onExportCapture((progress) =>
-        dispatch({ type: 'capture', progress }),
+        dispatchRaw({ type: 'capture', progress }),
       );
-      offDone = bridge.onExportDone((outcome) => dispatch({ type: 'finish', outcome }));
+      offDone = bridge.onExportDone((outcome) => dispatchRaw({ type: 'finish', outcome }));
     } catch {
       // Outside the app shell there is no backend: the form still renders.
     }
@@ -91,19 +104,6 @@ export function ExportModal({
   }, []);
 
   const { phase, form, result, error, notice, canceling } = state;
-
-  // A phase change unmounts the old phase's action; focus follows the flow to
-  // the new primary action (or the dialog) so it never lands on <body>.
-  const actionsRef = useRef<HTMLDivElement>(null);
-  const seenPhase = useRef(phase);
-  useEffect(() => {
-    if (seenPhase.current === phase) return;
-    seenPhase.current = phase;
-    const actions = actionsRef.current;
-    const target = actions?.querySelector<HTMLElement>('[data-phase-focus]');
-    const fallback = actions?.closest('[role="dialog"]') as HTMLElement | null;
-    (target ?? fallback)?.focus();
-  }, [phase]);
 
   const previewConfig = state.request?.config ?? settings;
   const previewRange = state.request ? state.request.range : form.range;
@@ -137,6 +137,7 @@ export function ExportModal({
       onClose={onClose}
       closeOnBackdrop={dismissible}
       blockedReason={dismissible ? undefined : t('exportModal.busyClose')}
+      focusKey={phase}
     >
       <div className="export-body">
         <ExportPreview
@@ -170,7 +171,7 @@ export function ExportModal({
           {phase === 'done' && result ? <ExportDone result={result} error={error} /> : null}
         </div>
       </div>
-      <div className="dialog-actions" ref={actionsRef}>
+      <div className="dialog-actions">
         {phase === 'form' ? (
           <>
             <button type="button" onClick={onClose}>

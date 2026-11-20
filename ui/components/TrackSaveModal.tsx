@@ -1,7 +1,6 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { useEffect, useRef } from 'react';
 
 import type { TrackSavePhase } from '../lib/tracksave.js';
 import { trackPhaseText } from '../lib/tracksave.js';
@@ -23,17 +22,6 @@ export function TrackSaveModal({
   onClose,
 }: TrackSaveModalProps) {
   const t = useTranslation();
-  // Focus follows completion or failure to the available action or dialog.
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const seenKind = useRef(phase.kind);
-  useEffect(() => {
-    if (seenKind.current === phase.kind) return;
-    seenKind.current = phase.kind;
-    const body = bodyRef.current;
-    const target = body?.querySelector<HTMLElement>('[data-phase-focus]');
-    const fallback = body?.closest('[role="dialog"]') as HTMLElement | null;
-    (target ?? fallback)?.focus();
-  }, [phase.kind]);
 
   return (
     <DialogShell
@@ -41,8 +29,9 @@ export function TrackSaveModal({
       onClose={onClose}
       closeOnBackdrop={dismissible}
       blockedReason={dismissible ? undefined : t('trackSaveModal.busyClose')}
+      focusKey={phase.kind}
     >
-      <div ref={bodyRef}>
+      <div>
         {phase.kind === 'saving' ? (
           <ProgressBar label={t('trackSaveModal.telemetryExportProgress')} percent={null} />
         ) : null}

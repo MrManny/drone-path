@@ -2,14 +2,12 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-import type { RenderConfig } from '../../src/config.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { LoopState } from '../lib/loop.js';
 import type { MenuItemId } from '../lib/menumodel.js';
 import type { PickState } from '../lib/pickstate.js';
 import { EmptyStage } from './EmptyStage.js';
-import { MapAppearanceModal } from './MapAppearanceModal.js';
 import { MenuBar } from './MenuBar.js';
 import { TimelinePanel } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
@@ -17,9 +15,6 @@ import { WorkspaceHeader } from './WorkspaceHeader.js';
 
 interface EmptyWorkspaceProps {
   state: PickState;
-  /** Map appearance applies to future exports, so it is live from startup. */
-  settings: RenderConfig;
-  onSettingsChange: (config: RenderConfig) => void;
   onPick: () => void;
   onHelp: () => void;
   onExit: () => void;
@@ -32,8 +27,6 @@ const NO_LOOP: LoopState = { in: null, out: null };
 
 export function EmptyWorkspace({
   state,
-  settings,
-  onSettingsChange,
   onPick,
   onHelp,
   onExit,
@@ -118,14 +111,6 @@ export function EmptyWorkspace({
         playheadRef={playheadRef}
         src=""
       />
-      {mapAppearanceOpen ? (
-        <MapAppearanceModal
-          session={null}
-          config={settings}
-          onChange={onSettingsChange}
-          onClose={() => dispatchDialog({ type: 'close' })}
-        />
-      ) : null}
     </div>
   );
 }

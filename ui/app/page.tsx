@@ -9,6 +9,7 @@ import type { RenderConfig } from '../../src/config.js';
 import { AboutDialog } from '../components/AboutDialog.js';
 import { EmptyWorkspace } from '../components/EmptyWorkspace.js';
 import { HelpOverlay } from '../components/HelpOverlay.js';
+import { MapAppearanceModal } from '../components/MapAppearanceModal.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';
 import { SettingsDialog } from '../components/SettingsDialog.js';
 import { UpdatePrompt } from '../components/UpdatePrompt.js';
@@ -18,7 +19,6 @@ import { useDialogs } from '../hooks/useDialogs.js';
 import { aboutContent } from '../lib/abouttext.js';
 import { appBridge } from '../lib/backend.js';
 import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';
-import type { DialogEvent } from '../lib/dialogstate.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
 import { normalizeZoom, resetZoom } from '../lib/mapzoom.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
@@ -37,17 +37,9 @@ export default function Page() {
   const [settings, setSettings] = useState<RenderConfig>(DEFAULT_CONFIG);
   const dialogs = useDialogs();
   const language = useLanguageSettings();
-  const { modalOpen, helpOpen, dispatchDialog: dispatchDialogRaw } = dialogs;
+  const { modalOpen, helpOpen, dispatchDialog } = dialogs;
   const [update, dispatchUpdate] = useReducer(updateReducer, INITIAL_UPDATE);
   const { phase: updatePhase, failure: updateFailure } = update;
-  const dispatchDialog = useCallback(
-    (event: DialogEvent) => {
-      if (updatePhase === 'restarting' && event.type === 'close') return;
-      dispatchDialogRaw(event);
-    },
-    [updatePhase, dispatchDialogRaw],
-  );
-  const sharedDialogs = { ...dialogs, dispatchDialog };
   const nextId = useRef(0);
   const picking = useRef(false);
 
@@ -101,9 +93,10 @@ export default function Page() {
     let offFailed: (() => void) | null = null;
     try {
       offReady = appBridge().onUpdateReady(() => dispatchUpdate({ type: 'ready' }));
-      offFailed = appBridge().onUpdateRestartFailed((message) =>
-        dispatchUpdate({ type: 'restartFailed', message }),
-      );
+      offFailed = appBridge().onUpdateRestartFailed((message) => {
+        dispatchUpdate({ type: 'restartFailed', message });
+        dispatchDialog({ type: 'runFinished' });
+      });
       void appBridge()
         .getUpdateState()
         .then((state) => {
@@ -118,7 +111,7 @@ export default function Page() {
       offReady?.();
       offFailed?.();
     };
-  }, []);
+  }, [dispatchDialog]);
 
   useEffect(() => {
     if (!shouldPrompt(updatePhase, modalOpen)) return;
@@ -154,7 +147,11 @@ export default function Page() {
 
   const restartUpdate = useCallback(() => {
     dispatchUpdate({ type: 'restart' });
-    const failed = (message: string) => dispatchUpdate({ type: 'restartFailed', message });
+    dispatchDialog({ type: 'runStarted' });
+    const failed = (message: string) => {
+      dispatchUpdate({ type: 'restartFailed', message });
+      dispatchDialog({ type: 'runFinished' });
+    };
     try {
       void appBridge()
         .restartToUpdate()
@@ -165,7 +162,7 @@ export default function Page() {
     } catch {
       failed(ERR_UNKNOWN);
     }
-  }, []);
+  }, [dispatchDialog]);
 
   const postponeUpdate = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
@@ -195,22 +192,28 @@ export default function Page() {
           onOpen={handlePick}
           onHelp={openHelp}
           onExit={handleExit}
-          dialogs={sharedDialogs}
+          dialogs={dialogs}
           openState={pickState}
           onDismissOpenState={dismissOpen}
         />
       ) : (
         <EmptyWorkspace
           state={pickState}
-          settings={settings}
-          onSettingsChange={handleSettingsChange}
           onPick={handlePick}
           onHelp={openHelp}
           onExit={handleExit}
           onDismiss={dismissOpen}
-          dialogs={sharedDialogs}
+          dialogs={dialogs}
         />
       )}
+      {dialogs.mapAppearanceOpen ? (
+        <MapAppearanceModal
+          session={loaded?.value ?? null}
+          config={settings}
+          onChange={handleSettingsChange}
+          onClose={closeOverlay}
+        />
+      ) : null}
       {dialogs.settingsOpen ? (
         <SettingsDialog
           preference={language.preference}
