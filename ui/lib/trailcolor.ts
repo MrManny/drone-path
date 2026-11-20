@@ -23,8 +23,7 @@ export function customSwatch(t: Translate = tEnglish): TrailSwatch {
   return { id: 'custom', label: t('trailcolor.custom'), value: null };
 }
 
-export const TRAIL_SWATCHES = trailSwatches();
-export const CUSTOM_SWATCH = customSwatch();
+const TRAIL_SWATCHES = trailSwatches();
 
 /** Which swatch a stored trail color selects; anything unknown is custom. */
 export function swatchIdFor(value: string | null): TrailSwatchId {
