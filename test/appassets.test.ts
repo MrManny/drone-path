@@ -11,7 +11,6 @@ function routes(overrides: Partial<AppRoutes> = {}): AppRoutes {
   const root = tmpDir();
   return {
     exportRoot: path.join(root, 'out'),
-    tileCache: path.join(root, 'tiles'),
     videoPath: null,
     ...overrides,
   };
@@ -54,21 +53,9 @@ describe('resolveAppAsset (export files)', () => {
 });
 
 describe('resolveAppAsset (tiles)', () => {
-  it.for([
-    { style: 'satellite', cacheKey: 'esri-imagery' },
-    { style: 'topo', cacheKey: 'opentopomap' },
-  ])('maps a $style tile to the cache with its placeholder', ({ style, cacheKey }) => {
-    const r = routes();
-    const asset = resolveAppAsset(`/tiles/${style}/1/2/3.png`, r);
-    expect(asset.kind).toBe('tile');
-    if (asset.kind === 'tile') {
-      expect(asset.filePath).toBe(path.join(r.tileCache, cacheKey, '1', '2', '3.png'));
-      expect(asset.placeholderPath).toBe(
-        path.join(r.tileCache, cacheKey, '1', '2', '3.placeholder.png'),
-      );
-      expect(asset.style).toBe(style);
-      expect(asset.tile).toEqual({ z: 1, x: 2, y: 3 });
-    }
+  it.for(['satellite', 'topo'] as const)('parses a %s tile request', (style) => {
+    const asset = resolveAppAsset(`/tiles/${style}/1/2/3.png`, routes());
+    expect(asset).toEqual({ kind: 'tile', style, tile: { z: 1, x: 2, y: 3 } });
   });
 
   it('treats unknown tile styles and non-png tile paths as plain export paths', () => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // open_pr <title> <body_path> [base]: verify, push and open a pull request
-// against [base] (defaults to main). Runs safe_push first, then fails fast
-// when a feat:/fix: title would open without a new .changeset/*.md fragment.
+// against [base] (defaults to main). Fails fast via evaluateGate when a
+// feat:/fix:/release: title lacks its required artifact, then runs safe_push.
 // The PR gets the labels of the first issue the body references ("Refs #42",
 // "Closes #42", "Fixes #42"), is assigned to you ("Assigned PR to @me"), and
 // that issue moves to "In review" ("Issue 42 set to 'in review'"). Assignment
@@ -10,20 +10,13 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { hasChangesetFragment, prNeedsChangeset } from '../src/changeset-gate.ts';
+import { evaluateGate, prNeedsArtifact } from '../src/changeset-gate.ts';
+import { listChangedFiles } from './check-changeset.mjs';
 import { setIssueStatus } from './lib/project.mjs';
 import { exec, execOrThrow } from './lib/exec.mjs';
 import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
 
 const ISSUE_REFERENCE = /\b(?:refs?|close[sd]?|fix(?:es|ed)?)\s+#(\d+)\b/i;
-
-function listChanged(base) {
-  const output = execOrThrow(
-    'git',
-    ['diff', '--name-only', '--diff-filter=ACMR', '-z', `${base}...HEAD`],
-  );
-  return output.split('\0').filter(Boolean);
-}
 
 function issueLabels(issue) {
   const json = execOrThrow('gh', ['issue', 'view', issue, '--json', 'labels']);
@@ -47,18 +40,21 @@ function runOpenPr(argv) {
     console.error(`${ERROR_PREFIX}usage: node scripts/open-pr.mjs <title> <body_path> [base]`);
     return 1;
   }
-  const push = exec(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'safe-push.mjs')], {
-    stdio: 'inherit',
-  });
-  if (push.status !== 0) return 1;
 
   try {
-    // The gate runs after safe_push so a missing fragment fails before any
-    // half-written PR exists.
-    if (prNeedsChangeset(title) && !hasChangesetFragment(listChanged(base))) {
-      console.error(`${ERROR_PREFIX}'${title}' must add a .changeset/*.md fragment (see .changeset/README.md)`);
-      return 1;
+    // Fail fast locally before running the full verification and push pipeline.
+    if (prNeedsArtifact(title)) {
+      const outcome = evaluateGate(title, listChangedFiles(base, 'HEAD'));
+      if (!outcome.ok) {
+        console.error(`${ERROR_PREFIX}${outcome.error}`);
+        return 1;
+      }
     }
+    const push = exec(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'safe-push.mjs')], {
+      stdio: 'inherit',
+    });
+    if (push.status !== 0) return 1;
+
     const issue = ISSUE_REFERENCE.exec(readFileSync(bodyPath, 'utf8'))?.[1];
     const args = ['pr', 'create', '--title', title, '--body-file', bodyPath, '--base', base];
     for (const label of issue ? issueLabels(issue) : []) args.push('--label', label);

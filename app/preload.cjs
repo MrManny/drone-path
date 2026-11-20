@@ -22,7 +22,6 @@ contextBridge.exposeInMainWorld('dronepath', {
   cancelExport: () => ipcRenderer.invoke('dronepath:export:cancel'),
   revealExportOutput: (payload) => ipcRenderer.invoke('dronepath:export:reveal', payload),
   openExportOutput: (payload) => ipcRenderer.invoke('dronepath:export:open', payload),
-  onExportProgress: (cb) => subscribe('dronepath:export:progress', cb),
   onExportCapture: (cb) => subscribe('dronepath:export:capture', cb),
   onExportDone: (cb) => subscribe('dronepath:export:done', cb),
   onPreparing: (cb) => subscribe('dronepath:preparing', () => cb()),

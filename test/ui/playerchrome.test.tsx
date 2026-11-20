@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG } from '../../src/config.js';
 import type { RenderConfig } from '../../src/config.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import type { Scene } from '../../src/renderer/scene.js';
+import { MapAppearanceModal } from '../../ui/components/MapAppearanceModal.js';
 import { PlayerChrome } from '../../ui/components/PlayerChrome.js';
 import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
 import { useDialogs } from '../../ui/hooks/useDialogs.js';
@@ -56,7 +57,19 @@ function Chrome({
   onExit?: () => void;
 }) {
   const dialogs = useDialogs();
-  return <PlayerChrome {...props} onHelp={onHelp} onExit={onExit} dialogs={dialogs} />;
+  return (
+    <>
+      <PlayerChrome {...props} onHelp={onHelp} onExit={onExit} dialogs={dialogs} />
+      {dialogs.mapAppearanceOpen ? (
+        <MapAppearanceModal
+          session={props.session}
+          config={props.settings}
+          onChange={props.onSettingsChange}
+          onClose={() => dialogs.dispatchDialog({ type: 'close' })}
+        />
+      ) : null}
+    </>
+  );
 }
 
 beforeEach(() => {

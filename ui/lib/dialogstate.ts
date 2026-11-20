@@ -8,7 +8,8 @@ export type DialogState =
   | 'export-running'
   | 'track-save'
   | 'track-saving'
-  | 'update-prompt';
+  | 'update-prompt'
+  | 'update-restarting';
 
 export type DialogEvent =
   | { type: 'openHelp' }
@@ -23,7 +24,11 @@ export type DialogEvent =
   | { type: 'close' };
 
 function busy(state: DialogState): boolean {
-  return state === 'export-running' || state === 'track-saving';
+  return (
+    state === 'export-running' ||
+    state === 'track-saving' ||
+    state === 'update-restarting'
+  );
 }
 
 function pinned(state: DialogState): boolean {
@@ -49,13 +54,17 @@ export function dialogReducer(state: DialogState, event: DialogEvent): DialogSta
         ? 'export-running'
         : state === 'track-save'
           ? 'track-saving'
-          : state;
+          : state === 'update-prompt'
+            ? 'update-restarting'
+            : state;
     case 'runFinished':
       return state === 'export-running'
         ? 'export-form'
         : state === 'track-saving'
           ? 'track-save'
-          : state;
+          : state === 'update-restarting'
+            ? 'update-prompt'
+            : state;
     case 'updateReady':
       return state === 'closed' ? 'update-prompt' : state;
     case 'close':

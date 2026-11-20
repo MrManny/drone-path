@@ -9,4 +9,5 @@ export interface RunCheckDeps {
   log?: (line: string) => void;
 }
 
+export function listChangedFiles(baseSha: string, headSha: string): string[];
 export function runCheck(env: RunCheckEnv, deps?: RunCheckDeps): number;

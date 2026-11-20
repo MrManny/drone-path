@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { useModalFocus } from '../hooks/useModalFocus.js';
@@ -12,6 +12,8 @@ interface DialogShellProps {
   blockedReason?: string;
   closeOnBackdrop?: boolean;
   panelClass?: string;
+  /** When this key changes, focus moves to [data-phase-focus] or back to the panel. */
+  focusKey?: string;
   children: ReactNode;
 }
 
@@ -21,6 +23,7 @@ export function DialogShell({
   blockedReason,
   closeOnBackdrop = true,
   panelClass,
+  focusKey,
   children,
 }: DialogShellProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -28,6 +31,17 @@ export function DialogShell({
   // Focus belongs on the dialog, not the opener behind the scrim; closing
   // returns it. Tab stays inside the panel for the same reason.
   useModalFocus(panelRef);
+
+  // A phase change unmounts the old phase's action; focus follows to the new
+  // primary action (or the panel) so it never lands on <body>.
+  const seenFocusKey = useRef(focusKey);
+  useEffect(() => {
+    if (focusKey === undefined || seenFocusKey.current === focusKey) return;
+    seenFocusKey.current = focusKey;
+    const panel = panelRef.current;
+    const target = panel?.querySelector<HTMLElement>('[data-phase-focus]');
+    (target ?? panel)?.focus();
+  }, [focusKey]);
 
   return (
     <div

@@ -89,7 +89,6 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
     cancelExport: vi.fn(async () => ({ ok: true })),
     revealExportOutput: vi.fn(async (_payload: ExportOutputPayload) => ({ ok: true })),
     openExportOutput: vi.fn(async (_payload: ExportOutputPayload) => ({ ok: true })),
-    onExportProgress: vi.fn(() => () => {}),
     onExportCapture: vi.fn((cb: (progress: CaptureProgress) => void) => {
       listeners.capture = cb;
       return () => {};

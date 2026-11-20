@@ -30,8 +30,8 @@ interface AppBridge {
   pickRecording(request: PickRequest): Promise<PickResult>;
   getSession(): Promise<UiSession | null>;
   getSettings(): Promise<RenderConfig>;
-  getLanguage(): Promise<LanguageSettings | { ok: false }>;
-  saveLanguage(preference: Locale | null): Promise<(LanguageSettings & { ok: true }) | { ok: false }>;
+  getLanguage(): Promise<LanguageSettings>;
+  saveLanguage(preference: Locale | null): Promise<(LanguageSettings & { ok: true }) | { ok: false; error?: string }>;
   saveSettings(patch: SettingsPatch): Promise<ExportAck>;
   pickExportOutput(): Promise<PickOutputResult>;
   pickTrackOutput(): Promise<PickOutputResult>;
@@ -40,7 +40,6 @@ interface AppBridge {
   cancelExport(): Promise<ExportAck>;
   revealExportOutput(payload: ExportOutputPayload): Promise<ExportAck>;
   openExportOutput(payload: ExportOutputPayload): Promise<ExportAck>;
-  onExportProgress(cb: (message: string) => void): () => void;
   onExportCapture(cb: (progress: CaptureProgress) => void): () => void;
   onExportDone(cb: (outcome: ExportOutcome) => void): () => void;
   onPreparing(cb: () => void): () => void;

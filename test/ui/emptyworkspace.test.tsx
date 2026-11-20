@@ -2,10 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Scene } from '../../src/renderer/scene.js';
 import { EmptyWorkspace } from '../../ui/components/EmptyWorkspace.js';
-import { DEFAULT_CONFIG } from '../../src/config.js';
-import type { RenderConfig } from '../../src/config.js';
 import type { Dialogs } from '../../ui/hooks/useDialogs.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 import { installResizeObserverStub } from './harness.js';
@@ -14,15 +11,6 @@ vi.mock('../../ui/components/MapIsland.js', async () => {
   const { createFakeScene, immediateMapIslandMock } = await import('./harness.js');
   return immediateMapIslandMock(createFakeScene());
 });
-
-vi.mock('../../src/renderer/boot.js', async () => {
-  const { createFakeScene } = await import('./harness.js');
-  return {
-    bootScene: (): Scene => createFakeScene(),
-  };
-});
-
-vi.mock('leaflet', () => ({ default: {} }));
 
 afterEach(() => {
   cleanup();
@@ -52,7 +40,6 @@ function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
 function renderWorkspace(
   state: PickState = { kind: 'idle' },
   dialogs = fakeDialogs(),
-  onSettingsChange: (config: RenderConfig) => void = vi.fn(),
 ) {
   const onPick = vi.fn();
   const onHelp = vi.fn();
@@ -61,8 +48,6 @@ function renderWorkspace(
   render(
     <EmptyWorkspace
       state={state}
-      settings={DEFAULT_CONFIG}
-      onSettingsChange={onSettingsChange}
       onPick={onPick}
       onHelp={onHelp}
       onExit={onExit}
@@ -70,7 +55,7 @@ function renderWorkspace(
       dialogs={dialogs}
     />,
   );
-  return { onPick, onHelp, onExit, onDismiss, dialogs, onSettingsChange };
+  return { onPick, onHelp, onExit, onDismiss, dialogs };
 }
 
 function menu(): HTMLElement {
@@ -244,36 +229,6 @@ describe('EmptyWorkspace map appearance', () => {
     const { dialogs } = renderWorkspace();
     openMapAppearance();
     expect(dialogs.dispatchDialog).toHaveBeenCalledWith({ type: 'openMapAppearance' });
-  });
-
-  it('opens the modal with the example flight and live chips (#274)', () => {
-    renderWorkspace(
-      { kind: 'idle' },
-      fakeDialogs({ mapAppearanceOpen: true, modalOpen: true }),
-    );
-    const dialog = screen.getByRole('dialog', { name: 'Map appearance' });
-    expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(
-      screen.getByText('Example flight — open a recording to preview yours'),
-    ).toBeTruthy();
-    expect(screen.queryByText(/No recording is loaded/)).toBeNull();
-    const alt = [...document.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('ALT'),
-    ) as HTMLButtonElement;
-    expect(alt.disabled).toBe(false);
-  });
-
-  it('applies map look changes with no recording loaded', () => {
-    const onSettingsChange = vi.fn();
-    renderWorkspace(
-      { kind: 'idle' },
-      fakeDialogs({ mapAppearanceOpen: true, modalOpen: true }),
-      onSettingsChange,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));
-    expect(onSettingsChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ style: 'topo' }),
-    );
   });
 
   it('closes with Escape through the dialog state machine', () => {

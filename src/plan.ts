@@ -181,3 +181,19 @@ export function planIntroOutroFrames(
   }
   return { introN, outroN, clamped };
 }
+
+export const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
+
+export type PrepareStage = (typeof PREPARE_STAGE_ORDER)[number];
+
+export interface PrepareProgress {
+  stage: PrepareStage;
+  done: number;
+  total: number;
+}
+
+export const INITIAL_PREPARE_PROGRESS: PrepareProgress = {
+  stage: PREPARE_STAGE_ORDER[0],
+  done: 0,
+  total: PREPARE_STAGE_ORDER.length,
+};

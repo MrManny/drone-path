@@ -18,8 +18,7 @@ import { stepPinnedZoom } from '../lib/mapzoom.js';
 import type { MenuItemId } from '../lib/menumodel.js';
 import type { PickState } from '../lib/pickstate.js';
 import { trackScope } from '../lib/tracksave.js';
-import { ExportHost } from './ExportHost.js';
-import { MapAppearanceModal } from './MapAppearanceModal.js';
+import { ExportModal } from './ExportModal.js';
 import { MenuBar } from './MenuBar.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
@@ -78,6 +77,7 @@ export function PlayerChrome({
     dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exportSizes, setExportSizes] = useState<{ width: number; height: number } | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
   const toggleMapAppearance = useCallback(() => {
     dispatchDialog({ type: mapAppearanceOpen ? 'close' : 'openMapAppearance' });
@@ -205,30 +205,25 @@ export function PlayerChrome({
         playheadRef={playheadRef}
         src={video.src}
       />
-      {mapAppearanceOpen ? (
-        <MapAppearanceModal
+      {exportOpen ? (
+        <ExportModal
           session={session}
-          config={settings}
-          onChange={onSettingsChange}
-          onClose={() => dispatchDialog({ type: 'close' })}
+          settings={settings}
+          loop={loop}
+          onClose={closeOverlay}
+          dismissible={dismissible}
+          dispatchDialog={dispatchDialog}
+          onEncoderChange={(encode) => onSettingsChange({ ...settings, ...encode })}
+          initialSizes={exportSizes}
+          onSizesChange={setExportSizes}
         />
       ) : null}
-      <ExportHost
-        session={session}
-        settings={settings}
-        loop={loop}
-        open={exportOpen}
-        dismissible={dismissible}
-        onClose={() => dispatchDialog({ type: 'close' })}
-        dispatchDialog={dispatchDialog}
-        onSettingsChange={onSettingsChange}
-      />
       {trackSaveOpen && trackSave ? (
         <TrackSaveModal
           phase={trackSave}
           dismissible={dismissible}
           onReveal={revealTrack}
-          onClose={() => dispatchDialog({ type: 'close' })}
+          onClose={closeOverlay}
         />
       ) : null}
     </div>

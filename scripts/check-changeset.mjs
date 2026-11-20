@@ -6,7 +6,7 @@ import { evaluateGate, prNeedsArtifact } from '../src/changeset-gate.ts';
 import { execOrThrow } from './lib/exec.mjs';
 import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
 
-function listChangedFiles(baseSha, headSha) {
+export function listChangedFiles(baseSha, headSha) {
   // -z keeps non-ASCII and space-bearing paths unquoted; ACMR drops pure
   // deletions so removing a stale fragment never counts as having one.
   const output = execOrThrow(

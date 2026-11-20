@@ -96,6 +96,35 @@ afterEach(() => {
   cleanupTmpDirs();
 });
 
+describe('IPC sender trust and query channels', () => {
+  it('checks devUrl by origin rather than raw prefix', async () => {
+    registerIpcHandlers(fakeState(), {
+      devUrl: 'http://localhost:3210',
+      log: vi.fn(),
+      sendToWindow: vi.fn(),
+    });
+    const handler = harness.handlers.get('dronepath:update:state')!;
+    await expect(
+      handler({ senderFrame: { url: 'http://localhost:3210/' } }),
+    ).resolves.toEqual({ ready: false });
+    await expect(
+      handler({ senderFrame: { url: 'http://localhost:3210.evil.test/' } }),
+    ).rejects.toThrow('untrusted ipc sender');
+  });
+
+  it('rejects query channels on unexpected throws instead of resolving { ok: false }', async () => {
+    const state = fakeState();
+    state.session = {
+      ...state.session!,
+      getSession: () => {
+        throw new Error('boom');
+      },
+    };
+    setup(state);
+    await expect(invoke('dronepath:session')).rejects.toThrow('boom');
+  });
+});
+
 describe('desktop language settings', () => {
   it('persists the explicit language alongside the other desktop settings', async () => {
     const local = tmpDir();

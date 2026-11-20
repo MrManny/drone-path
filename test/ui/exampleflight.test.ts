@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TILE_BASE } from '../../src/apppaths.js';
 import {
-  EXAMPLE_FLIGHT,
+  getExampleFlight,
   EXAMPLE_FRAMES,
   EXAMPLE_FPS,
   EXAMPLE_STATE_LABEL,
 } from '../../ui/lib/exampleflight.js';
 
-const { channels, bbox, baseScene, meta, durationSec } = EXAMPLE_FLIGHT;
+const { channels, bbox, baseScene, meta, durationSec } = getExampleFlight();
 
 describe('the bundled example flight', () => {
   it('covers every frame with one sample per channel', () => {
@@ -68,10 +68,11 @@ describe('the bundled example flight', () => {
     expect(meta.fps).toBe(EXAMPLE_FPS);
   });
 
-  it('builds identically on every launch', async () => {
+  it('memoizes within a session and builds identically on every launch', async () => {
+    expect(getExampleFlight()).toBe(getExampleFlight());
     vi.resetModules();
     const again = await import('../../ui/lib/exampleflight.js');
-    expect(again.EXAMPLE_FLIGHT.channels).toEqual(EXAMPLE_FLIGHT.channels);
-    expect(again.EXAMPLE_FLIGHT.bbox).toEqual(EXAMPLE_FLIGHT.bbox);
+    expect(again.getExampleFlight().channels).toEqual(channels);
+    expect(again.getExampleFlight().bbox).toEqual(bbox);
   });
 });

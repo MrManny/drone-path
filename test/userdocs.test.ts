@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { pageSlugOf, validateCorpus } from '../src/manual/links.js';
 import { compileMarkdown } from '../src/manual/markdown.js';
 import type { CompiledPage } from '../src/manual/markdown.js';
-import { navFromIndex } from '../src/manual/nav.js';
+import { navFromIndex } from '../src/manual/build.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const userDir = path.join(root, 'docs', 'user');

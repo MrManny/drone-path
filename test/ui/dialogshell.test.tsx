@@ -23,6 +23,28 @@ describe('DialogShell focus management', () => {
     expect(document.activeElement).toBe(opener);
     opener.remove();
   });
+
+  it('moves focus to [data-phase-focus] or back to the panel when focusKey changes', () => {
+    const view = render(
+      <DialogShell title="Export" onClose={() => {}} focusKey="form">
+        <button data-phase-focus>Start</button>
+      </DialogShell>,
+    );
+    const panel = screen.getByRole('dialog', { name: 'Export' });
+    expect(document.activeElement).toBe(panel);
+    view.rerender(
+      <DialogShell title="Export" onClose={() => {}} focusKey="running">
+        <button data-phase-focus>Cancel</button>
+      </DialogShell>,
+    );
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+    view.rerender(
+      <DialogShell title="Export" onClose={() => {}} focusKey="error">
+        <p>Failed</p>
+      </DialogShell>,
+    );
+    expect(document.activeElement).toBe(panel);
+  });
 });
 
 describe('DialogShell panel class', () => {

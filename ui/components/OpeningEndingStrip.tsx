@@ -12,6 +12,8 @@ interface OpeningEndingStripProps {
   outroSec: number;
   /** The flight length the intro and outro ease around. */
   flightSec: number;
+  /** Whether the planner shortens both eases to fit the clip. */
+  shortened: boolean;
   /** Which end of the flight the preview currently shows. */
   selected: PreviewSegment;
   onSelect: (segment: PreviewSegment) => void;
@@ -27,6 +29,7 @@ export function OpeningEndingStrip({
   introSec,
   outroSec,
   flightSec,
+  shortened,
   selected,
   onSelect,
   onChange,
@@ -55,9 +58,6 @@ export function OpeningEndingStrip({
       hint: t('openingEndingStrip.previewOutro'),
     },
   ];
-  // The planner shortens both eases together when they exceed half the clip;
-  // the strip says so instead of silently disagreeing with the fields.
-  const willShorten = introSec + outroSec > flightSec / 2;
   return (
     <fieldset className="settings-group opening-ending">
       <legend>{t('openingEndingStrip.introOutro')}</legend>
@@ -98,7 +98,7 @@ export function OpeningEndingStrip({
           onValue={(outroSec) => onChange({ outroSec })}
         />
       </div>
-      {willShorten ? <p className="hint">{t('openingEndingStrip.shortened')}</p> : null}
+      {shortened ? <p className="hint">{t('openingEndingStrip.shortened')}</p> : null}
     </fieldset>
   );
 }

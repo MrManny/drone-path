@@ -11,13 +11,14 @@ import { app } from 'electron';
 import electronUpdater from 'electron-updater';
 
 import { errorMessage } from '../dist/errors.js';
-import { shouldCheckForUpdates } from './update-policy.mjs';
 
 const { autoUpdater } = electronUpdater;
 
 export function initUpdates({ log, onReady }) {
+  // Only packaged builds carrying electron-builder's update metadata talk to
+  // the feed: NSIS and AppImage ship app-update.yml, portable and dev runs do not.
   const hasUpdateMetadata = fs.existsSync(path.join(process.resourcesPath, 'app-update.yml'));
-  if (!shouldCheckForUpdates({ packaged: app.isPackaged, hasUpdateMetadata })) return null;
+  if (!app.isPackaged || !hasUpdateMetadata) return null;
 
   autoUpdater.autoDownload = true;
   // A postponed prompt must still install the update on the next regular quit.

@@ -14,6 +14,7 @@ const STATES: DialogState[] = [
   'track-save',
   'track-saving',
   'update-prompt',
+  'update-restarting',
 ];
 
 const EVENTS: DialogEvent[] = [
@@ -30,7 +31,11 @@ const EVENTS: DialogEvent[] = [
 ];
 
 function busy(state: DialogState): boolean {
-  return state === 'export-running' || state === 'track-saving';
+  return (
+    state === 'export-running' ||
+    state === 'track-saving' ||
+    state === 'update-restarting'
+  );
 }
 
 function pinned(state: DialogState): boolean {
@@ -56,13 +61,17 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
         ? 'export-running'
         : state === 'track-save'
           ? 'track-saving'
-          : state;
+          : state === 'update-prompt'
+            ? 'update-restarting'
+            : state;
     case 'runFinished':
       return state === 'export-running'
         ? 'export-form'
         : state === 'track-saving'
           ? 'track-save'
-          : state;
+          : state === 'update-restarting'
+            ? 'update-prompt'
+            : state;
     case 'updateReady':
       return state === 'closed' ? 'update-prompt' : state;
     case 'close':
@@ -95,11 +104,14 @@ describe.each<DialogState>([
   });
 });
 
-describe.each<DialogState>(['export-running', 'track-saving'])('canDismiss(%s)', (state) => {
-  it('is false, so the running work keeps its dialog on screen', () => {
-    expect(canDismiss(state)).toBe(false);
-  });
-});
+describe.each<DialogState>(['export-running', 'track-saving', 'update-restarting'])(
+  'canDismiss(%s)',
+  (state) => {
+    it('is false, so the running work keeps its dialog on screen', () => {
+      expect(canDismiss(state)).toBe(false);
+    });
+  },
+);
 
 describe('the export run round trip', () => {
   it('pins the dialog from start to finish and lets close through afterwards', () => {
@@ -148,12 +160,19 @@ describe('the map appearance dialog round trip', () => {
 });
 
 describe('the update prompt round trip', () => {
-  it('waits for a quiet UI and then dismisses like any dialog', () => {
+  it('waits for a quiet UI, pins during restart, and dismisses once settled', () => {
     let state: DialogState = 'help';
     state = dialogReducer(state, { type: 'updateReady' });
     expect(state).toBe('help');
     state = dialogReducer(state, { type: 'close' });
     state = dialogReducer(state, { type: 'updateReady' });
+    expect(state).toBe('update-prompt');
+    expect(canDismiss(state)).toBe(true);
+    state = dialogReducer(state, { type: 'runStarted' });
+    expect(state).toBe('update-restarting');
+    expect(canDismiss(state)).toBe(false);
+    expect(dialogReducer(state, { type: 'close' })).toBe('update-restarting');
+    state = dialogReducer(state, { type: 'runFinished' });
     expect(state).toBe('update-prompt');
     expect(canDismiss(state)).toBe(true);
     expect(dialogReducer(state, { type: 'close' })).toBe('closed');

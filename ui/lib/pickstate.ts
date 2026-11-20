@@ -1,11 +1,7 @@
-import type { PrepareProgress } from '../../src/pipeline.js';
+import { INITIAL_PREPARE_PROGRESS } from '../../src/plan.js';
+import type { PrepareProgress } from '../../src/plan.js';
 
-// Mirrors prepareSession's first report, before any stage has finished.
-export const START_PREPARE_PROGRESS: PrepareProgress = {
-  stage: 'probe',
-  done: 0,
-  total: 3,
-};
+export const START_PREPARE_PROGRESS: PrepareProgress = INITIAL_PREPARE_PROGRESS;
 
 export type PickState =
   | { kind: 'idle' }

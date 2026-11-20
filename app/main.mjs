@@ -179,7 +179,6 @@ async function handleRequest(state, request) {
   }
   const plan = resolveAppAsset(pathname, {
     exportRoot,
-    tileCache: state.config.tileCache,
     videoPath: state.session ? state.session.videoPath() : null,
   });
   switch (plan.kind) {
@@ -224,10 +223,7 @@ async function initServices(state) {
 
 function initExportRunner(state) {
   state.exportRunner = createExportRunner({
-    log: (msg) => {
-      log(msg);
-      sendToWindow(state, 'dronepath:export:progress', msg);
-    },
+    log,
     onCapture: (progress) =>
       sendToWindow(state, 'dronepath:export:capture', progress),
     onDone: (outcome) => handleExportDone(state, outcome),

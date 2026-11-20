@@ -28,7 +28,7 @@ export function useDialogs(): Dialogs {
     settingsOpen: dialog === 'settings',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
     trackSaveOpen: dialog === 'track-save' || dialog === 'track-saving',
-    updateOpen: dialog === 'update-prompt',
+    updateOpen: dialog === 'update-prompt' || dialog === 'update-restarting',
     dismissible: canDismiss(dialog),
     dispatchDialog,
   };
