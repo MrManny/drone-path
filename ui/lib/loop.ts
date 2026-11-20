@@ -1,4 +1,4 @@
-import type { FrameRange } from '../../src/config.js';
+import type { FrameRange } from '../../src/frame-range.js';
 
 export interface LoopPoints {
   in: number;

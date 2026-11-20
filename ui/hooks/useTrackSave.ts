@@ -2,7 +2,7 @@
 
 import { useCallback, useReducer } from 'react';
 
-import type { FrameRange } from '../../src/config.js';
+import type { FrameRange } from '../../src/frame-range.js';
 import { errorMessage } from '../../src/errors.js';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';

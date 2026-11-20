@@ -4,8 +4,8 @@
 // per-source-frame records as the telemetry JSON document, so the CLI and the
 // desktop app export byte-identical tracks for the same records.
 
-import { resolveFrameRange } from './config.js';
-import type { FrameRange } from './config.js';
+import { resolveFrameRange } from './frame-range.js';
+import type { FrameRange } from './frame-range.js';
 import type { TelemetryFrameInput } from './telemetry-json.js';
 
 export interface TrackVertex {
