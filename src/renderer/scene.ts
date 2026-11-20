@@ -2,6 +2,7 @@ import type { HudLayout, MapStyle, ViewMode } from '../config.js';
 import type { LatLon } from '../geo.js';
 import { TILE_SOURCES } from './tilesources.js';
 import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss, stripReadoutMarkup } from './dom.js';
+import type { StripLabels } from './dom.js';
 import type * as Leaflet from 'leaflet';
 import { computeScale, introOutroScale, metersPerPixel, scaleBarMeters } from './framemath.js';
 import type { FrameChannels } from '../telemetry-math.js';
@@ -30,6 +31,7 @@ export interface SceneData extends FrameChannels {
   /** Whether this viewer draws the in-frame HUD pills; a caller that overlays
       its own toggles (the Map appearance preview) sets this to false. */
   hudPills?: boolean;
+  stripLabels?: StripLabels;
   trailLat: number[];
   trailLon: number[];
   trailFrame: number[];
@@ -356,7 +358,7 @@ class SceneState implements Scene {
     // (the export preview) can never cross-write. A scene whose caller
     // overlays its own pills draws none of its own (#283).
     this.hudRoot.innerHTML = this.externalHud
-      ? stripReadoutMarkup(this.data.hud)
+      ? stripReadoutMarkup(this.data.hud, this.data.stripLabels)
       : this.data.hudPills === false
         ? ''
         : hudMarkup(this.data.hud);
@@ -471,7 +473,12 @@ class SceneState implements Scene {
       next.width !== prev.width ||
       next.height !== prev.height;
     if (decorInvalidated) this.rebuildDecor();
-    if (!hudEq(prev.hud, next.hud) || next.hudPills !== prev.hudPills) this.rebuildHud();
+    if (
+      !hudEq(prev.hud, next.hud) ||
+      next.hudPills !== prev.hudPills ||
+      next.stripLabels?.speed !== prev.stripLabels?.speed ||
+      next.stripLabels?.altitude !== prev.stripLabels?.altitude
+    ) this.rebuildHud();
     this.layoutMap();
     return this.setFrame(this.curIdx);
   }

@@ -8,6 +8,7 @@ const STATES: DialogState[] = [
   'help',
   'about',
   'map-appearance',
+  'settings',
   'export-form',
   'export-running',
   'track-save',
@@ -19,6 +20,7 @@ const EVENTS: DialogEvent[] = [
   { type: 'openHelp' },
   { type: 'openAbout' },
   { type: 'openMapAppearance' },
+  { type: 'openSettings' },
   { type: 'openExport' },
   { type: 'openTrackSave' },
   { type: 'runStarted' },
@@ -41,6 +43,8 @@ function expected(state: DialogState, event: DialogEvent): DialogState {
       return pinned(state) ? state : 'help';
     case 'openAbout':
       return pinned(state) ? state : 'about';
+    case 'openSettings':
+      return pinned(state) ? state : 'settings';
     case 'openMapAppearance':
       return pinned(state) ? state : 'map-appearance';
     case 'openExport':
@@ -81,6 +85,7 @@ describe.each<DialogState>([
   'help',
   'about',
   'map-appearance',
+  'settings',
   'export-form',
   'track-save',
   'update-prompt',

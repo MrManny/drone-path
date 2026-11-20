@@ -65,7 +65,7 @@ The app shows the recording and the synchronized flight map side by side —
 togglable to a corner map overlay — on one shared timeline;
 [the manual](docs/user/desktop-app.md) walks through loading a recording,
 reviewing a flight, marking a passage, exporting, and saving the per-frame
-telemetry JSON. The look settings carry over between launches.
+telemetry JSON. The look and language settings carry over between launches.
 
 ![Desktop app: a drone recording beside the synchronized flight map](docs/images/app-main-window.jpg)
 

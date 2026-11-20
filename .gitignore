@@ -8,6 +8,7 @@ ui/.next/
 ui/next-env.d.ts
 ui/lib/buildinfo/generated/
 ui/lib/manual/generated/
+src/desktop-i18n/generated/
 ui/public/
 *.tsbuildinfo
 

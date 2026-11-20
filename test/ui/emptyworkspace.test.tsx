@@ -39,6 +39,7 @@ function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
     helpOpen: false,
     aboutOpen: false,
     mapAppearanceOpen: false,
+    settingsOpen: false,
     exportOpen: false,
     trackSaveOpen: false,
     updateOpen: false,

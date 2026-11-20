@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import { DEFAULT_CONFIG, appearanceOf } from '../../src/config.js';
 import type { Bbox } from '../../src/geo.js';
 import { buildSceneData, planPageOpts } from '../../src/render-page.js';
@@ -20,7 +22,11 @@ import type { FrameChannels } from '../../src/telemetry-math.js';
 export const EXAMPLE_FPS = 25;
 export const EXAMPLE_FRAMES = 3450;
 const EXAMPLE_DURATION_SEC = EXAMPLE_FRAMES / EXAMPLE_FPS;
-export const EXAMPLE_STATE_LABEL = 'Example flight — open a recording to preview yours';
+export function exampleStateLabel(t: Translate = tEnglish): string {
+  return t('exampleflight.preview');
+}
+
+export const EXAMPLE_STATE_LABEL = exampleStateLabel();
 /** Mirrors TILE_BASE in src/apppaths.ts, which cannot load in the browser. */
 const EXAMPLE_TILE_BASE = 'app://bundle/tiles';
 const PREVIEW_WIDTH = 1280;

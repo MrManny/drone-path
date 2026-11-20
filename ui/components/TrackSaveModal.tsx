@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useEffect, useRef } from 'react';
 
 import type { TrackSavePhase } from '../lib/tracksave.js';
@@ -21,6 +22,7 @@ export function TrackSaveModal({
   onReveal,
   onClose,
 }: TrackSaveModalProps) {
+  const t = useTranslation();
   // Focus follows completion or failure to the available action or dialog.
   const bodyRef = useRef<HTMLDivElement>(null);
   const seenKind = useRef(phase.kind);
@@ -35,17 +37,17 @@ export function TrackSaveModal({
 
   return (
     <DialogShell
-      title="Export telemetry"
+      title={t('trackSaveModal.exportTelemetry')}
       onClose={onClose}
       closeOnBackdrop={dismissible}
-      blockedReason={dismissible ? undefined : 'Exporting telemetry. Wait for it to finish.'}
+      blockedReason={dismissible ? undefined : t('trackSaveModal.busyClose')}
     >
       <div ref={bodyRef}>
         {phase.kind === 'saving' ? (
-          <ProgressBar label="Telemetry export progress" percent={null} />
+          <ProgressBar label={t('trackSaveModal.telemetryExportProgress')} percent={null} />
         ) : null}
         <p className="phase-status" role="status">
-          {trackPhaseText(phase)}
+          {trackPhaseText(phase, t)}
         </p>
 
         {phase.kind === 'done' ? (
@@ -54,7 +56,7 @@ export function TrackSaveModal({
             <p className="export-path" title={phase.path}>
               {phase.path}
             </p>
-            <p className="hint">{`Covers the ${phase.scope}`}</p>
+            <p className="hint">{t('trackSaveModal.covers', { scope: phase.scope })}</p>
           </>
         ) : null}
 
@@ -68,7 +70,7 @@ export function TrackSaveModal({
               disabled={phase.kind === 'saving'}
               onClick={onReveal}
             >
-              Reveal in folder
+              {t('trackSaveModal.revealInFolder')}
             </button>
           </div>
         ) : null}

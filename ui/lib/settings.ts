@@ -1,3 +1,4 @@
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import { DEFAULT_CONFIG, appearanceOf, isValidRenderConfig, normalizeDimensions } from '../../src/config.js';
 import type {
   AppearanceSettings,
@@ -27,15 +28,19 @@ export function setHudChip(
   return next;
 }
 
-export const STYLE_LABELS: Record<MapStyle, string> = {
-  satellite: 'Satellite',
-  topo: 'Topographic',
-};
+export function styleLabels(t: Translate): Record<MapStyle, string> {
+  return {
+    satellite: t('settings.satellite'),
+    topo: t('settings.topographic'),
+  };
+}
 
-export const VIEW_LABELS: Record<ViewMode, string> = {
-  follow: 'Follow',
-  overview: 'Overview',
-};
+export function viewLabels(t: Translate): Record<ViewMode, string> {
+  return {
+    follow: t('settings.follow'),
+    overview: t('settings.overview'),
+  };
+}
 
 /** The map look settings Map appearance owns; Restore defaults resets only these. */
 export function defaultAppearance(): AppearanceSettings {

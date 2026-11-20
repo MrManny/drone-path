@@ -1,13 +1,15 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import type { PrepareProgress } from '../../src/pipeline.js';
 
-export function prepareNoticeText(progress: PrepareProgress): string {
+export function prepareNoticeText(progress: PrepareProgress, t: Translate = tEnglish): string {
   switch (progress.stage) {
     case 'probe':
-      return 'Reading the recording…';
+      return t('preparetext.probe');
     case 'telemetry':
-      return 'Loading telemetry…';
+      return t('preparetext.telemetry');
     case 'plan':
-      return 'Setting up the map…';
+      return t('preparetext.plan');
   }
 }
 

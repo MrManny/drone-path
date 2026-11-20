@@ -1,9 +1,10 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { MAP_STYLE_VALUES } from '../../src/config.js';
 import type { MapStyle } from '../../src/config.js';
 import { TILE_CREDITS } from '../../src/renderer/tilesources.js';
-import { STYLE_LABELS } from '../lib/settings.js';
+import { styleLabels } from '../lib/settings.js';
 import satelliteThumb from '../assets/map-style/satellite.jpg';
 import topoThumb from '../assets/map-style/topo.jpg';
 
@@ -27,9 +28,11 @@ const THUMBS: Record<MapStyle, Thumb> = {
 
 /** Map style as two thumbnail tiles instead of a dropdown. */
 export function MapStyleTiles({ value, onChange }: MapStyleTilesProps) {
+  const t = useTranslation();
+  const labels = styleLabels(t);
   return (
     <div>
-      <div className="map-style-tiles" role="group" aria-label="Map style">
+      <div className="map-style-tiles" role="group" aria-label={t('mapStyleTiles.mapStyle')}>
         {MAP_STYLE_VALUES.map((style) => (
           <button
             key={style}
@@ -40,7 +43,7 @@ export function MapStyleTiles({ value, onChange }: MapStyleTilesProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="map-style-thumb" src={thumbSrc(THUMBS[style])} alt="" />
-            <span className="map-style-label">{STYLE_LABELS[style]}</span>
+            <span className="map-style-label">{labels[style]}</span>
           </button>
         ))}
       </div>

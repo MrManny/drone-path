@@ -10,6 +10,7 @@ export interface Dialogs {
   helpOpen: boolean;
   aboutOpen: boolean;
   mapAppearanceOpen: boolean;
+  settingsOpen: boolean;
   exportOpen: boolean;
   trackSaveOpen: boolean;
   updateOpen: boolean;
@@ -24,6 +25,7 @@ export function useDialogs(): Dialogs {
     helpOpen: dialog === 'help',
     aboutOpen: dialog === 'about',
     mapAppearanceOpen: dialog === 'map-appearance',
+    settingsOpen: dialog === 'settings',
     exportOpen: dialog === 'export-form' || dialog === 'export-running',
     trackSaveOpen: dialog === 'track-save' || dialog === 'track-saving',
     updateOpen: dialog === 'update-prompt',

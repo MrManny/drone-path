@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Scene, SceneData } from '../../src/renderer/scene.js';
@@ -24,6 +25,7 @@ interface SceneDelivery {
 }
 
 export function MapCard(props: MapCardProps) {
+  const t = useTranslation();
   const { layout } = props;
   const withScene = props.data === null ? null : props;
   const [delivery, setDelivery] = useState<SceneDelivery | null>(null);
@@ -60,7 +62,7 @@ export function MapCard(props: MapCardProps) {
   return (
     <div className={`map-card map-card-${layout}`}>
       {withScene === null ? (
-        <div className="map-card-empty">No flight path yet.</div>
+        <div className="map-card-empty">{t('mapCard.noFlightPathYet')}</div>
       ) : (
         <>
           <div className="map-card-map">
@@ -72,8 +74,8 @@ export function MapCard(props: MapCardProps) {
             zoomControls={withScene.zoomControls}
             visibleZoom={withScene.data.zoom}
           />
-          {mapReady ? null : <BusyStatus>Preparing map…</BusyStatus>}
-          <div className="map-overlay-tag">Map</div>
+          {mapReady ? null : <BusyStatus>{t('mapCard.preparingMap')}</BusyStatus>}
+          <div className="map-overlay-tag">{t('mapCard.map')}</div>
         </>
       )}
     </div>

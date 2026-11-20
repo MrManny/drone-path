@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import { formatFps, parseRate } from '../../src/frametime.js';
 import type { RecordingSummary } from '../../src/pipeline.js';
 
@@ -10,9 +12,9 @@ function mediaSeconds(frames: number | undefined, fps: string | undefined): numb
   return (frames * den) / rate.num;
 }
 
-export function formatExportSummary(summary: RecordingSummary): string {
+export function formatExportSummary(summary: RecordingSummary, t: Translate = tEnglish): string {
   const rate = summary.fps ? ` @ ${formatFps(summary.fps)}` : '';
   const seconds = mediaSeconds(summary.frames, summary.fps);
-  const duration = seconds === null ? '' : ` · ${seconds < 1 ? '<1 s' : `${Math.round(seconds)} s`}`;
-  return `${summary.frames} frames${rate}${duration} · ${summary.width}×${summary.height}`;
+  const duration = seconds === null ? '' : ` · ${seconds < 1 ? t('exportsummary.underSecond') : t('exportsummary.seconds', { duration: Math.round(seconds) })}`;
+  return t('exportsummary.specs', { count: summary.frames ?? 'undefined', rate, duration, width: String(summary.width), height: String(summary.height) });
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import type { PickState } from '../lib/pickstate.js';
 import { prepareNoticeText, preparePercent } from '../lib/preparetext.js';
 import { ErrorNotice } from './ErrorNotice.js';
@@ -12,25 +13,26 @@ interface OpenNoticeProps {
 }
 
 export function OpenNotice({ state, onDismiss }: OpenNoticeProps) {
+  const t = useTranslation();
   switch (state.kind) {
     case 'preparing':
       return (
         <div className="prepare-status">
-          <ProgressBar label="Preparation progress" percent={preparePercent(state.progress)} />
-          <Notice tone="info">{prepareNoticeText(state.progress)}</Notice>
+          <ProgressBar label={t('openNotice.preparationProgress')} percent={preparePercent(state.progress)} />
+          <Notice tone="info">{prepareNoticeText(state.progress, t)}</Notice>
         </div>
       );
     case 'canceled':
       return (
         <Notice tone="info" onDismiss={onDismiss}>
-          No recording picked.
+          {t('openNotice.noRecordingPicked')}
         </Notice>
       );
     case 'error':
       return (
         <ErrorNotice
           message={state.message}
-          lead="Could not open the recording:"
+          lead={t('openNotice.couldNotOpenTheRecording')}
           onDismiss={onDismiss}
         />
       );

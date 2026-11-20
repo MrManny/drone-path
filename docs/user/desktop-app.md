@@ -6,7 +6,11 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## The menu bar
 
-Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…** and **Picture in picture** (`P`); **Help**, at the right edge, contains **User manual** and **About**. Items that cannot act right now — export, telemetry and Picture in picture without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…**, **Picture in picture** (`P`) and **Settings…**; **Help**, at the right edge, contains **User manual** and **About**. Items that cannot act right now — export, telemetry and Picture in picture without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+
+## Changing the app language
+
+Open **View → Settings…** and choose a **Language**. **System default** uses your operating system’s preferred language when it is available, with English as the fallback. An explicit selection takes effect immediately and is saved for the next launch. The offline user manual is available in English.
 
 ## Loading a recording
 

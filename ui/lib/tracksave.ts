@@ -1,3 +1,5 @@
+import { tEnglish } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../src/desktop-i18n/messages.js';
 import type { TrackSaveRequest } from '../../src/appsession.js';
 import type { FrameRange } from '../../src/config.js';
 import { ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
@@ -27,12 +29,12 @@ type TrackSaveAction =
 
 // The persistent phase line; the failure phase announces through its alert
 // notice, so it leaves the line empty.
-export function trackPhaseText(phase: TrackSavePhase): string {
+export function trackPhaseText(phase: TrackSavePhase, t: Translate = tEnglish): string {
   switch (phase.kind) {
     case 'saving':
-      return 'Exporting telemetry…';
+      return t('tracksave.saving');
     case 'done':
-      return 'Telemetry exported.';
+      return t('tracksave.finished');
     case 'error':
       return '';
   }
@@ -63,10 +65,11 @@ export function trackScope(
   range: FrameRange | null,
   fps: number,
   durationSec: number,
+  t: Translate = tEnglish,
 ): string {
   return range
-    ? `In–Out segment (${formatFrameRange({ in: range.start, out: range.end }, fps)})`
-    : `full recording (${formatTime(durationSec)})`;
+    ? t('tracksave.segment', { range: formatFrameRange({ in: range.start, out: range.end }, fps, t) })
+    : t('tracksave.fullRecording', { duration: formatTime(durationSec) });
 }
 
 export async function trackSaveFlow(

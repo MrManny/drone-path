@@ -137,21 +137,27 @@ export function sceneCss(
   );
 }
 
+export const EXPORT_HUD_LABELS = {
+  heading: 'HDG',
+  alt: 'ALT',
+  speed: 'SPD',
+} as const;
+
 export function hudMarkup(hud: HudLayout): string {
   const chips: string[] = [];
   if (hud.heading) {
     chips.push(
-      '<div class="chip" id="chip-heading"><span class="label">HDG</span><span class="chip-arrow">▲</span><span class="num">--</span></div>',
+      `<div class="chip" id="chip-heading"><span class="label">${EXPORT_HUD_LABELS.heading}</span><span class="chip-arrow">▲</span><span class="num">--</span></div>`,
     );
   }
   if (hud.alt) {
     chips.push(
-      '<div class="chip" id="chip-alt"><span class="label">ALT</span><span class="num">--</span><span class="unit">m</span></div>',
+      `<div class="chip" id="chip-alt"><span class="label">${EXPORT_HUD_LABELS.alt}</span><span class="num">--</span><span class="unit">m</span></div>`,
     );
   }
   if (hud.speed) {
     chips.push(
-      '<div class="chip" id="chip-speed"><span class="label">SPD</span><span class="num">--</span><span class="unit">m/s</span></div>',
+      `<div class="chip" id="chip-speed"><span class="label">${EXPORT_HUD_LABELS.speed}</span><span class="num">--</span><span class="unit">m/s</span></div>`,
     );
   }
   return chips.map((chip) => `  ${chip}`).join('\n');
@@ -163,15 +169,24 @@ export function hudMarkup(hud: HudLayout): string {
  * the dimmed "--" placeholder instead of a value. The ids and .num/.unit spans
  * match the export HUD contract, so the scene's value queries work for both.
  */
-export function stripReadoutMarkup(hud: HudLayout): string {
+export interface StripLabels {
+  speed: string;
+  altitude: string;
+}
+
+function escapeText(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+export function stripReadoutMarkup(hud: HudLayout, labels?: StripLabels): string {
   const column = (id: string, label: string, unit: string, live: boolean): string =>
     `<div class="map-readout${live ? '' : ' map-readout-off'}" id="chip-${id}">` +
-    `<span class="label">${label}</span>` +
+    `<span class="label">${escapeText(label)}</span>` +
     `<span class="value"><span class="num">--</span><span class="unit">${unit}</span></span>` +
     `</div>`;
   return [
-    column('speed', 'Speed', 'm/s', hud.speed),
-    column('alt', 'Altitude', 'm', hud.alt),
+    column('speed', labels?.speed ?? 'Speed', 'm/s', hud.speed),
+    column('alt', labels?.altitude ?? 'Altitude', 'm', hud.alt),
   ]
     .map((col) => `  ${col}`)
     .join('\n');

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { DialogShell } from './DialogShell.js';
 import { Notice } from './Notice.js';
 import { ProgressBar } from './ProgressBar.js';
@@ -13,32 +14,32 @@ interface UpdatePromptProps {
 }
 
 export function UpdatePrompt({ restarting, failure, onRestart, onLater }: UpdatePromptProps) {
+  const t = useTranslation();
   return (
     <DialogShell
-      title="Update"
+      title={t('updatePrompt.update')}
       onClose={onLater}
-      blockedReason={restarting ? 'The app is restarting.' : undefined}
+      blockedReason={restarting ? t('updatePrompt.busyClose') : undefined}
       closeOnBackdrop={!restarting}
     >
       {failure ? (
         <Notice tone="danger" details={failure}>
-          The restart failed. Try again, or install the update when you quit.
+          {t('updatePrompt.restartFailure')}
         </Notice>
       ) : (
         <Notice tone="info">
-          A new version is ready to install. Restart now to finish updating, or keep
-          working and the update installs when you quit.
+          {t('updatePrompt.ready')}
         </Notice>
       )}
       <div className={restarting ? 'dialog-busy' : undefined}>
-        {restarting ? <ProgressBar label="Restart progress" percent={null} /> : null}
+        {restarting ? <ProgressBar label={t('updatePrompt.restartProgress')} percent={null} /> : null}
         <p className="phase-status" role="status">
-          {restarting ? 'Restarting…' : ''}
+          {restarting ? t('updatePrompt.restarting') : ''}
         </p>
       </div>
       <div className="dialog-actions">
         <button type="button" onClick={onLater} disabled={restarting}>
-          Later
+          {t('updatePrompt.later')}
         </button>
         <button
           type="button"
@@ -46,7 +47,7 @@ export function UpdatePrompt({ restarting, failure, onRestart, onLater }: Update
           onClick={onRestart}
           disabled={restarting}
         >
-          Restart now
+          {t('updatePrompt.restartNow')}
         </button>
       </div>
     </DialogShell>

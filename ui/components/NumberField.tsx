@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from '../lib/i18n.js';
 import { useId, useState } from 'react';
 
 export interface NumberFieldProps {
@@ -15,6 +16,7 @@ export interface NumberFieldProps {
 }
 
 export function NumberField({ label, value, min, rule, step, unit, hint, onValue }: NumberFieldProps) {
+  const t = useTranslation();
   const id = useId();
   const messageId = `${id}-message`;
   const hintId = `${id}-hint`;
@@ -51,7 +53,7 @@ export function NumberField({ label, value, min, rule, step, unit, hint, onValue
       {unit ? <span className="field-unit">{unit}</span> : null}
       {invalid ? (
         <span className="field-message" id={messageId}>
-          {`Must be ${rule}.`}
+          {t('field.mustBe', { rule })}
         </span>
       ) : hint ? (
         <span className="hint" id={hintId}>

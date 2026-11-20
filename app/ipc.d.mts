@@ -12,6 +12,7 @@ export interface IpcState {
   session: AppSession | null;
   config: RenderConfig;
   appState: AppState;
+  systemLanguages: readonly string[];
   win: IpcWindow | null;
   exportRunner: {
     start(videoPath: string, request: ExportRequest): void;

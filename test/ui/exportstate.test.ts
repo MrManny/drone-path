@@ -148,7 +148,7 @@ describe('export lifecycle', () => {
     expect(cancelling.canceling).toBe(true);
     const state = exportReducer(cancelling, { type: 'finish', outcome: { status: 'canceled' } });
     expect(state.phase).toBe('form');
-    expect(state.notice).toBe('Export canceled; its unfinished file was removed.');
+    expect(state.notice).toBe('canceled');
     expect(state.error).toBeNull();
     expect(state.request).toBeNull();
     expect(state.canceling).toBe(false);
