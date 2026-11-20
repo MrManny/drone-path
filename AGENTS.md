@@ -5,7 +5,9 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 
 ## Setup & commands
 
-- Node.js 24 or 26, npm. Use `npm ci` to install dependencies.
+- Node.js 24 or 26, npm. Use `npm ci` at the root for the shared lockfile.
+- `packages/core` owns telemetry extraction. Import its modules as
+  `drone-path-core/<module>`. Root build and test commands include the workspace.
 - `npm run build` compiles the CLI (`dist/`), compiles the user manual into
   the UI (`npm run build:manual`), injects the build identity shown by
   Help → About (`npm run build:info`), and builds the UI export (`ui/out/`);

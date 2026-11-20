@@ -2,8 +2,6 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-import type { RenderConfig } from './config.js';
-
 export const FFMPEG_TOOL_NAMES = ['ffmpeg', 'ffprobe'] as const;
 export type FfmpegToolName = (typeof FFMPEG_TOOL_NAMES)[number];
 
@@ -12,7 +10,7 @@ export interface FfmpegToolPaths {
   ffprobe: string;
 }
 
-type FfmpegToolOverrides = Pick<RenderConfig, 'ffmpeg' | 'ffprobe'>;
+export type FfmpegToolOverrides = Record<FfmpegToolName, string | null>;
 
 interface FfmpegToolEnv {
   exists: (file: string) => boolean;

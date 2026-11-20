@@ -11,7 +11,8 @@ import {
   resolveConfig,
 } from '../src/configfile.js';
 import { DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
-import { ODD_DIMENSIONS, cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { ODD_DIMENSIONS } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 afterEach(cleanupTmpDirs);
 

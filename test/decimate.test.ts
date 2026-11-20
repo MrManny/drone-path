@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { decimateTrack } from '../src/decimate.js';
-import { project, unproject } from '../src/geo.js';
-import type { MercatorPixel } from '../src/geo.js';
+import { project, unproject } from 'drone-path-core/geo';
+import type { MercatorPixel } from 'drone-path-core/geo';
 
 const ZOOM = 17;
 

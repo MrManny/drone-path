@@ -6,10 +6,10 @@ import type { Writable } from 'node:stream';
 import type { Browser, Page } from 'playwright-core';
 
 import { MIME } from './assets.js';
-import { ERR_RENDER_CANCELED, errorMessage } from './errors.js';
+import { ERR_RENDER_CANCELED, errorMessage } from 'drone-path-core/errors';
 import { RENDERER_DIR, serveAsset } from './serve.js';
 import type { CaptureFormat, Codec, EncodeSettings, Quality, MapStyle, RenderConfig } from './config.js';
-import type { FfmpegToolPaths } from './ffmpeg-tools.js';
+import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { LogFn } from './logging.js';
 
 const PAGE_LOAD_TIMEOUT_MS = 60000;

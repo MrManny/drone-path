@@ -6,13 +6,13 @@ import { z } from 'zod';
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
 import { parseAppearanceSettings } from './config.js';
 import type { AppearanceSettings, RenderConfig } from './config.js';
-import { parseFrameRange } from './frame-range.js';
-import type { FrameRange } from './frame-range.js';
-import { parseValue, strictShape } from './validation.js';
-import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from './errors.js';
-import type { VideoProbe } from './ffmpeg.js';
-import { timeAt } from './frametime.js';
-import type { Bbox } from './geo.js';
+import { parseFrameRange } from 'drone-path-core/frame-range';
+import type { FrameRange } from 'drone-path-core/frame-range';
+import { parseValue, strictShape } from 'drone-path-core/validation';
+import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from 'drone-path-core/errors';
+import type { VideoProbe } from 'drone-path-core/ffmpeg';
+import { timeAt } from 'drone-path-core/frametime';
+import type { Bbox } from 'drone-path-core/geo';
 import { isRecordingName } from './recordings.js';
 import { buildSceneData } from './render-page.js';
 import type { SceneData } from './renderer/scene.js';
@@ -24,10 +24,10 @@ import {
 } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { PipelineDeps, PrepareProgressFn } from './pipeline.js';
-import type { TelemetryDocumentInput } from './telemetry-json.js';
-import { trackFormatOf } from './track-format.js';
-import { writeTrackFile } from './track-write.js';
-import type { TrackStream } from './track.js';
+import type { TelemetryDocumentInput } from 'drone-path-core/telemetry-json';
+import { trackFormatOf } from 'drone-path-core/track-format';
+import { writeTrackFile } from 'drone-path-core/track-write';
+import type { TrackStream } from 'drone-path-core/track';
 
 export interface PageVideo {
   src: string;

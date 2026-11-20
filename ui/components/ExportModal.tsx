@@ -6,7 +6,7 @@ import { useCallback, useEffect, useReducer } from 'react';
 import type { UiSession } from '../../src/appsession.js';
 import { normalizeDimensions } from '../../src/config.js';
 import type { EncodeSettings, RenderConfig } from '../../src/config.js';
-import type { FrameRange } from '../../src/frame-range.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
 import type { ExportFlowDeps } from '../lib/exportflow.js';

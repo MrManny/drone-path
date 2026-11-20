@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runToolMain } from '../errors.js';
+import { runToolMain } from 'drone-path-core/errors';
 import type { CompiledPage } from './markdown.js';
 import { compileMarkdown } from './markdown.js';
 import type { ManualBundle, ManualNavEntry } from './model.js';

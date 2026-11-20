@@ -9,7 +9,7 @@ import { APP_ORIGIN } from '../src/apppaths.js';
 import { emptyAppState, readAppState } from '../src/appstate.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
 import type { RenderConfig } from '../src/config.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
 

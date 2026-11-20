@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
-import { parseFrameRange } from './frame-range.js';
-import type { FrameRange } from './frame-range.js';
-import { numberValue, parseValue, strictShape } from './validation.js';
+import type { FfmpegToolOverrides } from 'drone-path-core/ffmpeg-tools';
+import { parseFrameRange } from 'drone-path-core/frame-range';
+import type { FrameRange } from 'drone-path-core/frame-range';
+import { numberValue, parseValue, strictShape } from 'drone-path-core/validation';
 
 export const MAP_STYLE_VALUES = ['satellite', 'topo'] as const;
 export type MapStyle = (typeof MAP_STYLE_VALUES)[number];
@@ -23,7 +24,7 @@ export interface HudLayout {
   speed: boolean;
 }
 
-export interface RenderConfig {
+export interface RenderConfig extends FfmpegToolOverrides {
   outDir: string | null;
   outSuffix: string;
   width: number;
@@ -43,8 +44,6 @@ export interface RenderConfig {
   preset: EncoderPreset;
   tileCache: string;
   browser: string | null;
-  ffmpeg: string | null;
-  ffprobe: string | null;
   skipExisting: boolean;
   recurse: boolean;
   trackOut: string | null;

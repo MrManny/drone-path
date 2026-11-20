@@ -14,7 +14,7 @@ import { evaluateGate, prNeedsArtifact } from '../src/changeset-gate.ts';
 import { listChangedFiles } from './check-changeset.mjs';
 import { setIssueStatus } from './lib/project.mjs';
 import { exec, execOrThrow } from './lib/exec.mjs';
-import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
+import { ERROR_PREFIX, errorMessage } from '../packages/core/src/errors.ts';
 
 const ISSUE_REFERENCE = /\b(?:refs?|close[sd]?|fix(?:es|ed)?)\s+#(\d+)\b/i;
 

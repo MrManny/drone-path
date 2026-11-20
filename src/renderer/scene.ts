@@ -1,11 +1,11 @@
 import type { HudLayout, MapStyle, ViewMode } from '../config.js';
-import type { LatLon } from '../geo.js';
+import type { LatLon } from 'drone-path-core/geo';
 import { TILE_SOURCES } from './tilesources.js';
 import { droneMarkerMarkup, el, hudMarkup, mapMarkup, quietAttributionLinks, sceneCss, stripReadoutMarkup } from './dom.js';
 import type { StripLabels } from './dom.js';
 import type * as Leaflet from 'leaflet';
 import { computeScale, introOutroScale, metersPerPixel, scaleBarMeters } from './framemath.js';
-import type { FrameChannels } from '../telemetry-math.js';
+import type { FrameChannels } from 'drone-path-core/telemetry-math';
 import type { Theme } from './theme.js';
 import { themeFor } from './theme.js';
 import { createTrailController } from './trail.js';

@@ -11,10 +11,10 @@ import { applyAppState, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from '../dist/config.js';
 import { isLocale, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
-import { ERR_NO_RECORDING, errorMessage } from '../dist/errors.js';
+import { ERR_NO_RECORDING, errorMessage } from 'drone-path-core/errors';
 import { videoBaseName } from '../dist/recordings.js';
 import { outputPathFor } from '../dist/pipeline.js';
-import { TRACK_FORMAT_VALUES } from '../dist/track-format.js';
+import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
 
 function sameOrigin(url, target) {
   try {

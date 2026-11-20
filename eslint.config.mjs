@@ -34,6 +34,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/',
+      'packages/*/dist/',
       // Packaging output from npm run app:pack.
       'dist-electron/',
       'node_modules/',
@@ -105,7 +106,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['test/**/*.ts'],
+    files: ['test/**/*.ts', 'packages/*/test/**/*.ts'],
     rules: {
       'no-restricted-syntax': ['error', noProcessExit, noTestGating],
     },

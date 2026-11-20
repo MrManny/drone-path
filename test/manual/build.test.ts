@@ -12,7 +12,7 @@ import {
 import type { ManualBuildPaths } from '../../src/manual/build.js';
 import { compileMarkdown } from '../../src/manual/markdown.js';
 import type { ManualBundle } from '../../src/manual/model.js';
-import { cleanupTmpDirs, tmpDir } from '../fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../packages/core/test/fixtures.js';
 
 afterEach(cleanupTmpDirs);
 

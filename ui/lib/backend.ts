@@ -6,7 +6,7 @@ import type {
   UiSession,
 } from '../../src/appsession.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from '../../src/config.js';
-import { ERR_APP_BRIDGE_UNAVAILABLE } from '../../src/errors.js';
+import { ERR_APP_BRIDGE_UNAVAILABLE } from 'drone-path-core/errors';
 import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';

@@ -1,20 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, errorMessage } from './errors.js';
-import type { Bbox } from './geo.js';
-import { outputMatchesSource, probeVideo, verifyOutput } from './ffmpeg.js';
-import { resolveFfmpegTools } from './ffmpeg-tools.js';
-import type { FfmpegToolPaths } from './ffmpeg-tools.js';
-import type { VideoProbe } from './ffmpeg.js';
-import type { GimbalDeviceConstants } from './cammeta-decode.js';
+import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, errorMessage } from 'drone-path-core/errors';
+import type { Bbox } from 'drone-path-core/geo';
+import { probeVideo } from 'drone-path-core/ffmpeg';
+import { outputMatchesSource, verifyOutput } from './ffmpeg-output.js';
+import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
+import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
+import type { VideoProbe } from 'drone-path-core/ffmpeg';
+import type { GimbalDeviceConstants } from 'drone-path-core/cammeta-decode';
 import { videoBaseName } from './recordings.js';
 import { pathKey, uniquePath } from './paths.js';
-import { loadTelemetry } from './telemetry.js';
-import type { FrameChannels, Telemetry } from './telemetry-math.js';
-import type { TelemetryDocumentInput, TelemetryFrameInput } from './telemetry-json.js';
-import { writeTrackFile } from './track-write.js';
-import type { TrackRecord, TrackStream } from './track.js';
+import { loadTelemetry } from 'drone-path-core/telemetry';
+import type { FrameChannels, Telemetry } from 'drone-path-core/telemetry-math';
+import type { TelemetryDocumentInput, TelemetryFrameInput } from 'drone-path-core/telemetry-json';
+import { writeTrackFile } from 'drone-path-core/track-write';
+import type { TrackRecord, TrackStream } from 'drone-path-core/track';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats } from './tiles.js';
 import {
@@ -30,15 +31,15 @@ import { renderVideo } from './render.js';
 import type { CaptureProgress } from './render.js';
 import type { HudLayout, RenderConfig } from './config.js';
 import { effectiveZoomOut, hasAltitude, resolveHudLayout } from './config.js';
-import { resolveFrameRange } from './frame-range.js';
-import type { FrameRange } from './frame-range.js';
+import { resolveFrameRange } from 'drone-path-core/frame-range';
+import type { FrameRange } from 'drone-path-core/frame-range';
 import {
   fixCountLabel,
   noLockCountLabel,
   telemetrySummary,
   trackDistanceLabel,
-} from './telemetry-summary.js';
-import type { TelemetrySummary } from './telemetry-summary.js';
+} from 'drone-path-core/telemetry-summary';
+import type { TelemetrySummary } from 'drone-path-core/telemetry-summary';
 import type { LogFn } from './logging.js';
 
 export { INITIAL_PREPARE_PROGRESS };

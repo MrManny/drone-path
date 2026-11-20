@@ -23,10 +23,10 @@ import {
 import { createAppSession } from '../dist/appsession.js';
 import { resolveConfig } from '../dist/configfile.js';
 import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
-import { ERROR_PREFIX, errorMessage } from '../dist/errors.js';
+import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { createExportRunner } from '../dist/exportjob.js';
-import { requireFfmpegTools } from '../dist/ffmpeg.js';
-import { resolveFfmpegTools } from '../dist/ffmpeg-tools.js';
+import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
+import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 import { planByteRange } from '../dist/range.js';
 import { createTileTraffic } from '../dist/tiles.js';
 import { registerIpcHandlers } from './ipc.mjs';

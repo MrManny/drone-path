@@ -2,7 +2,7 @@ import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
 import type { ExportRequest } from '../../src/config.js';
 import { normalizeDimensions } from '../../src/config.js';
-import type { FrameRange } from '../../src/frame-range.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from '../../src/render.js';
 import type { RecordingSummary } from '../../src/pipeline.js';

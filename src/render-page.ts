@@ -2,13 +2,13 @@ import { hasAltitude, resolveHudLayout } from './config.js';
 import type { AppearanceSettings, HudLayout, RenderConfig } from './config.js';
 import { decimateTrack } from './decimate.js';
 import type { DecimatedTrack } from './decimate.js';
-import { unproject } from './geo.js';
-import type { Bbox, LatLon } from './geo.js';
+import { unproject } from 'drone-path-core/geo';
+import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { planIntroOutroFrames, planView } from './plan.js';
 import type { IntroOutroFrames, OverviewPlan } from './plan.js';
 import type { SceneData } from './renderer/scene.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
-import type { FrameChannels } from './telemetry-math.js';
+import type { FrameChannels } from 'drone-path-core/telemetry-math';
 
 export interface RenderPageOpts
   extends FrameChannels,

@@ -12,7 +12,7 @@ import {
   validateRenderConfig,
 } from './config.js';
 import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from './config.js';
-import { errorMessage } from './errors.js';
+import { errorMessage } from 'drone-path-core/errors';
 
 export function defaultTileCache(): string {
   const override = process.env['DRONEPATH_TILE_CACHE'];

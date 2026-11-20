@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as {
@@ -33,6 +33,7 @@ describe('the npm package stays Electron-free', () => {
   it('keeps Electron and updater code out of the CLI and shared sources', () => {
     const files = [
       ...sourceFiles(path.join(root, 'src')),
+      ...sourceFiles(path.join(root, 'packages', 'core', 'src')),
       ...sourceFiles(path.join(root, 'bin')),
     ];
     const importPattern = /from ['"]electron(?:-updater)?['"]|require\(['"]electron(?:-updater)?['"]\)/;

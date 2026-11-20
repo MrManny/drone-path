@@ -1,10 +1,10 @@
 import type { ExportRequest, RenderConfig } from '../../src/config.js';
-import type { FrameRange } from '../../src/frame-range.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
 import {
   ERR_EXPORT_COULD_NOT_BE_CANCELED,
   ERR_EXPORT_COULD_NOT_START,
   errorMessage,
-} from '../../src/errors.js';
+} from 'drone-path-core/errors';
 import type { ExportAck, ExportOutputPayload, PickOutputResult } from './backend.js';
 import type { ExportEvent, ExportForm } from './exportstate.js';
 
