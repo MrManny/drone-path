@@ -44,15 +44,15 @@ jobs:
           - os: windows-latest
             label: win-x64-nsis
             target: --win nsis
-            artifact: dist-electron/*.exe
+            artifact: apps/desktop/dist-electron/*.exe
           - os: windows-latest
             label: win-x64-portable
             target: --win portable
-            artifact: dist-electron/*.exe
+            artifact: apps/desktop/dist-electron/*.exe
           - os: ubuntu-latest
             label: linux-x86_64
             target: --linux AppImage
-            artifact: dist-electron/*.AppImage
+            artifact: apps/desktop/dist-electron/*.AppImage
     steps:
       - uses: actions/checkout@v7
 

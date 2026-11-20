@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { evaluateGate, prNeedsArtifact } from '../src/changeset-gate.ts';
+import { evaluateGate, prNeedsArtifact } from '../packages/tooling/src/changeset-gate.ts';
 import { listChangedFiles } from './check-changeset.mjs';
 import { setIssueStatus } from './lib/project.mjs';
 import { exec, execOrThrow } from './lib/exec.mjs';

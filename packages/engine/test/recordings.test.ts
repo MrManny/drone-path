@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { collectRecordings, isRecordingName } from '../src/recordings.js';
-import { cleanupTmpDirs, tmpDir } from '../../core/test/fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
 afterEach(cleanupTmpDirs);
 

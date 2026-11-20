@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseSrtText } from '../src/srt.js';
-import { GPS_FIX_CASES, SRT_SAMPLE } from './fixtures.js';
+import { GPS_FIX_CASES, SRT_SAMPLE } from '../../../test/fixtures/core.js';
 
 describe('parseSrtText', () => {
   const r = parseSrtText(SRT_SAMPLE);

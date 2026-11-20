@@ -6,7 +6,7 @@ import {
   telemetrySummary,
   trackDistanceLabel,
 } from '../src/telemetry-summary.js';
-import { statsTelemetry } from './fixtures.js';
+import { statsTelemetry } from '../../../test/fixtures/core.js';
 
 describe('telemetrySummary', () => {
   it('maps the telemetry fields every summary surface reports', () => {

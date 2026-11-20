@@ -7,7 +7,7 @@ import {
   scanGpsPair,
 } from '../src/cammeta-decode.js';
 import type { CamMetaPacket } from '../src/cammeta-decode.js';
-import { GPS_FIX_CASES } from './fixtures.js';
+import { GPS_FIX_CASES } from '../../../test/fixtures/core.js';
 
 function dbl(value: number): Buffer {
   const b = Buffer.alloc(8);

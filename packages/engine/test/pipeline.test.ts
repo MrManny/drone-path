@@ -20,14 +20,14 @@ import {
 import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/pipeline.js';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import { tilePaths } from '../src/tilecache.js';
-import { stubDeps, testConfig } from './fixtures.js';
+import { stubDeps, testConfig } from '../../../test/fixtures/engine.js';
 import {
   cleanupTmpDirs,
   loadedTelemetry,
   probeFixture,
   telemetryFixture,
   tmpDir,
-} from '../../core/test/fixtures.js';
+} from '../../../test/fixtures/core.js';
 
 describe('planOutputs', () => {
   const config = { ...DEFAULT_CONFIG, outDir: path.join('out', 'maps') };

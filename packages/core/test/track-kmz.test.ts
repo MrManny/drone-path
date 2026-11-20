@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { serializeKml } from '../src/track-kml.js';
 import { kmzBytes } from '../src/track-kmz.js';
 import { buildTrack } from '../src/track.js';
-import { TRACK_KMZ_GOLDEN_HEX, TRACK_ROWS } from './fixtures.js';
+import { TRACK_KMZ_GOLDEN_HEX, TRACK_ROWS } from '../../../test/fixtures/core.js';
 
 const kml = serializeKml(buildTrack(TRACK_ROWS));
 

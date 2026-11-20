@@ -8,7 +8,7 @@ import {
   project,
   unproject,
 } from '../src/geo.js';
-import { GPS_FIX_CASES } from './fixtures.js';
+import { GPS_FIX_CASES } from '../../../test/fixtures/core.js';
 
 describe('isGpsFix', () => {
   it.for(GPS_FIX_CASES)('$name -> $fix', ({ coords: [lat, lon], fix }) => {

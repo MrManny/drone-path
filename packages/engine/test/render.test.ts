@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mocks, renderOpts, TOOLS } from './render-fixture.js';
+import { mocks, renderOpts, TOOLS } from '../../../test/fixtures/render.js';
 import { renderVideo } from '../src/render.js';
 
 describe('renderVideo encode and capture failures', () => {

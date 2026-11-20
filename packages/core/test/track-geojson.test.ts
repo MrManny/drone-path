@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { serializeGeoJson } from '../src/track-geojson.js';
 import type { TrackSegment } from '../src/track.js';
 import { buildTrack } from '../src/track.js';
-import { TRACK_GEOJSON_GOLDEN, TRACK_ROWS } from './fixtures.js';
+import { TRACK_GEOJSON_GOLDEN, TRACK_ROWS } from '../../../test/fixtures/core.js';
 
 describe('serializeGeoJson', () => {
   it('matches the golden bytes for the two-segment fixture', () => {

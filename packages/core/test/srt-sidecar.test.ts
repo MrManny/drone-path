@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { findSrtSidecar } from '../src/srt-sidecar.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
 afterEach(cleanupTmpDirs);
 
