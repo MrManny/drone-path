@@ -1,12 +1,11 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { MouseEvent } from 'react';
 
 import type { ManualBundle } from '../../src/manual/model.js';
-import { dropManualToc } from '../lib/helpindex.js';
 import { DialogShell } from './DialogShell.js';
 
 interface HelpOverlayProps {
@@ -21,11 +20,7 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
   const [anchor, setAnchor] = useState<{ id: string } | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
   const page = bundle.pages[slug];
-  const contentHtml = useMemo(() => {
-    const html = page?.html ?? '';
-    if (slug !== 'index') return html;
-    return dropManualToc(html, bundle.nav.map((entry) => entry.slug));
-  }, [page, slug, bundle.nav]);
+  const contentHtml = page?.html ?? '';
 
   useEffect(() => {
     if (anchor === null) return;

@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest';
 
-import { compileMarkdown } from '../../src/manual/markdown.js';
+import { compileMarkdown, createSlugger, githubSlug } from '../../src/manual/markdown.js';
+
+describe('githubSlug', () => {
+  it.for<{ text: string; slug: string }>([
+    { text: 'Getting started', slug: 'getting-started' },
+    { text: 'Längsee Töplach', slug: 'längsee-töplach' },
+    { text: "It's here!", slug: 'its-here' },
+    { text: 'foo_bar stays', slug: 'foo_bar-stays' },
+    { text: 'a  b', slug: 'a--b' },
+    { text: '1280×720 output', slug: '1280720-output' },
+    { text: 'CLI and config reference', slug: 'cli-and-config-reference' },
+  ])('turns "$text" into $slug', ({ text, slug }) => {
+    expect(githubSlug(text)).toBe(slug);
+  });
+});
+
+describe('createSlugger', () => {
+  it('keeps the first heading plain and numbers duplicates like GitHub', () => {
+    const slug = createSlugger();
+    expect(slug('Foo')).toBe('foo');
+    expect(slug('Bar')).toBe('bar');
+    expect(slug('Foo')).toBe('foo-1');
+    expect(slug('foo')).toBe('foo-2');
+  });
+
+  it('counts duplicates per base slug, not per spelling', () => {
+    const slug = createSlugger();
+    expect(slug('A B')).toBe('a-b');
+    expect(slug('A-B')).toBe('a-b-1');
+    expect(slug('A!B')).toBe('ab');
+  });
+});
 
 describe('compileMarkdown page model', () => {
   it('titles the page from its first level-1 heading', () => {
@@ -98,5 +129,53 @@ describe('compileMarkdown sanitizing', () => {
   it('escapes angle brackets in text', () => {
     const { page } = compileMarkdown('a < b & c\n', 'index');
     expect(page.html).toContain('a &lt; b &amp; c');
+  });
+});
+
+describe('compileMarkdown dropToc', () => {
+  const NAV = new Set(['index', 'getting-started', 'desktop-app', 'keyboard-shortcuts']);
+  const INDEX_MD =
+    '# User manual\n\nWelcome to the manual.\n\n' +
+    '1. [Getting started](getting-started.md) — first render.\n' +
+    '2. [Desktop app](desktop-app.md) — the app.\n' +
+    '3. [Keyboard shortcuts](keyboard-shortcuts.md) — keys.\n';
+
+  it('removes the leading index TOC list while keeping the rest of the page', () => {
+    const { page } = compileMarkdown(INDEX_MD, 'index', { dropToc: NAV });
+    expect(page.html).not.toContain('<ol>');
+    expect(page.html).not.toContain('Getting started');
+    expect(page.html).toContain('<h1 id="user-manual">User manual</h1>');
+    expect(page.html).toContain('Welcome to the manual.');
+  });
+
+  it('drops only the first matching list', () => {
+    const secondList =
+      '\n## Later\n\n1. [Getting started](getting-started.md)\n2. [Desktop app](desktop-app.md)\n';
+    const { page } = compileMarkdown(`${INDEX_MD}${secondList}`, 'index', { dropToc: NAV });
+    expect(page.html).toContain('Later');
+    expect(page.html).toContain('<ol>');
+    expect(page.html).not.toContain('first render.');
+  });
+
+  it.for([
+    { name: 'content lists without manual links', md: '1. Run the render.\n2. Open the folder.\n', keep: 'Run the render.' },
+    {
+      name: 'lists mixing manual and external links',
+      md: '1. [web](https://example.com)\n2. [Desktop app](desktop-app.md)\n',
+      keep: 'example.com',
+    },
+    {
+      name: 'lists linking the same page twice',
+      md: '1. [Desktop app](desktop-app.md)\n2. [Desktop app again](desktop-app.md)\n',
+      keep: '<ol>',
+    },
+    {
+      name: 'lists pointing outside navigation',
+      md: '1. [Ghost](ghost.md)\n2. [Desktop app](desktop-app.md)\n',
+      keep: 'Ghost',
+    },
+  ])('keeps $name', ({ md, keep }) => {
+    const { page } = compileMarkdown(md, 'index', { dropToc: NAV });
+    expect(page.html).toContain(keep);
   });
 });
