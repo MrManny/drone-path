@@ -24,7 +24,7 @@ import { normalizeZoom, resetZoom } from '../lib/mapzoom.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
 import { INITIAL_UPDATE, shouldPrompt, updateReducer } from '../lib/updatestate.js';
-import { ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
+import { ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 
 interface LoadedSession {
   id: number;

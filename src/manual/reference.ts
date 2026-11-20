@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runToolMain } from '../errors.js';
+import { runToolMain } from 'drone-path-core/errors';
 import { generateCliReference } from './cliref.js';
 
 function writeReference(file: string): void {

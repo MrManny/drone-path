@@ -16,7 +16,7 @@ import {
   ERR_RENDER_KEPT_AT,
   ERR_RENDER_CANCELED,
   ERR_UNKNOWN,
-} from '../../src/errors.js';
+} from 'drone-path-core/errors';
 
 interface ErrorText {
   text: string;
@@ -50,7 +50,7 @@ const NODE_SENTENCES: Record<string, (t: Translate, name: string | null) => stri
   EISDIR: (t, name) => name ? t('errors.isDirectoryNamed', { name }) : t('errors.isDirectory'),
 };
 
-// Patterns derive from the src/errors.ts message vocabulary so the backend
+// Patterns derive from the core error message vocabulary so the backend
 // wording and its UI sentence cannot drift apart.
 const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const exactMessage = (message: string): RegExp => new RegExp(`^${escaped(message)}$`);

@@ -10,7 +10,7 @@ import {
   defaultBuildinfoPaths,
   resolveBuildGit,
 } from '../src/buildinfo.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 afterEach(cleanupTmpDirs);
 

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { serveAsset } from '../src/serve.js';
 import type { MapStyle } from '../src/config.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 interface Host {
   url: string;

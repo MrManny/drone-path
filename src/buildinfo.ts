@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runToolMain } from './errors.js';
-import { runTool } from './exec-tool.js';
+import { runToolMain } from 'drone-path-core/errors';
+import { runTool } from 'drone-path-core/exec-tool';
 import { VERSION } from './version.js';
 
 /** What the git probe found at build time; null when git was unavailable. */

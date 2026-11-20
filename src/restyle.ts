@@ -1,5 +1,5 @@
 import type { AppearanceSettings } from './config.js';
-import type { Bbox } from './geo.js';
+import type { Bbox } from 'drone-path-core/geo';
 import { buildSceneData, planPageOpts } from './render-page.js';
 import type { SceneData } from './renderer/scene.js';
 

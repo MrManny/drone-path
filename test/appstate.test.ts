@@ -16,7 +16,8 @@ import {
 } from '../src/appstate.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from '../src/config.js';
 import type { HudLayout, SettingsPatch } from '../src/config.js';
-import { cleanupTmpDirs, testConfig, tmpDir } from './fixtures.js';
+import { testConfig } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 afterEach(cleanupTmpDirs);
 

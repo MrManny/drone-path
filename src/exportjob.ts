@@ -9,7 +9,7 @@ import {
   ERR_OUTPUT_PATH_ABSOLUTE,
   ERR_RENDER_KEPT_AT,
   errorMessage,
-} from './errors.js';
+} from 'drone-path-core/errors';
 import { samePath, uniquePath } from './paths.js';
 import type { CaptureProgress } from './render.js';
 import { processRecording } from './pipeline.js';

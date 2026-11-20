@@ -1,5 +1,5 @@
 import type { PickResult, UiSession } from '../../src/appsession.js';
-import { ERR_NO_RECORDING, ERR_UNKNOWN, errorMessage } from '../../src/errors.js';
+import { ERR_NO_RECORDING, ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 import type { PickEvent } from './pickstate.js';
 
 interface PickFlowDeps {

@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderVideo } from '../src/render.js';
 import type { CaptureProgress, RenderJobOptions } from '../src/render.js';
 import { DEFAULT_CONFIG } from '../src/config.js';
-import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
+import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import { captureFraction, exportReducer, initialExportState } from '../ui/lib/exportstate.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 const mocks = vi.hoisted(() => ({
   exitCode: 0,

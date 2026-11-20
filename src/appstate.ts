@@ -10,8 +10,8 @@ import {
   parseSettingsPatch,
 } from './config.js';
 import type { RenderConfig, SettingsPatch } from './config.js';
-import { errorMessage } from './errors.js';
-import { parseValue, strictShape } from './validation.js';
+import { errorMessage } from 'drone-path-core/errors';
+import { parseValue, strictShape } from 'drone-path-core/validation';
 
 export const APP_STATE_VERSION = 1;
 

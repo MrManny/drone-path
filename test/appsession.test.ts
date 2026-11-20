@@ -16,18 +16,17 @@ import type {
 import type { RenderConfig } from '../src/config.js';
 import { processRecording } from '../src/pipeline.js';
 import type { PrepareProgress } from '../src/pipeline.js';
-import { TelemetryDocumentSchema } from '../src/telemetry-json.js';
-import type { TelemetryDocumentInput } from '../src/telemetry-json.js';
+import { TelemetryDocumentSchema } from 'drone-path-core/telemetry-json';
+import type { TelemetryDocumentInput } from 'drone-path-core/telemetry-json';
 import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
+import { stubDeps, testConfig } from './fixtures.js';
 import {
   cleanupTmpDirs,
   loadedTelemetry,
   probeFixture,
-  stubDeps,
   telemetryFixture,
-  testConfig,
   tmpDir,
-} from './fixtures.js';
+} from '../packages/core/test/fixtures.js';
 import fs from 'node:fs';
 import path from 'node:path';
 

@@ -10,7 +10,8 @@ import type { ExportOutcome, RunExportJobFn } from '../src/exportjob.js';
 import type { PipelineDeps, RecordingSummary } from '../src/pipeline.js';
 import { createTileTraffic } from '../src/tiles.js';
 import type { PrefetchStats, WarmOptions } from '../src/tiles.js';
-import { cleanupTmpDirs, stubDeps, tmpDir } from './fixtures.js';
+import { stubDeps } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();

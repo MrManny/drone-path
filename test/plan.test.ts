@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeOverview, planIntroOutroFrames, planView, zoomLimits } from '../src/plan.js';
-import type { Bbox } from '../src/geo.js';
+import type { Bbox } from 'drone-path-core/geo';
 import { TILE_SOURCES } from '../src/renderer/tilesources.js';
 
 const BBOX: Bbox = {

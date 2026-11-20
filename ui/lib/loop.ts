@@ -1,4 +1,4 @@
-import type { FrameRange } from '../../src/frame-range.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
 
 export interface LoopPoints {
   in: number;
