@@ -16,7 +16,7 @@ import {
   ERR_RENDER_KEPT_AT,
   ERR_RENDER_CANCELED,
   ERR_UNKNOWN,
-} from '../../src/errors.js';
+} from 'drone-path-core/errors';
 import { describeError } from '../../ui/lib/errortext.js';
 
 describe.for([
@@ -181,7 +181,7 @@ describe('the empty message', () => {
 });
 
 // N-1 contract: the APP_SENTENCES patterns are built from these throw-site
-// constants (src/errors.ts), so pinning both the frozen wording and the
+// constants from drone-path-core/errors, so pinning both the frozen wording and the
 // mapping keeps a reworded producer from silently losing its UI sentence.
 describe.for([
   {

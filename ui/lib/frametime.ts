@@ -1,10 +1,10 @@
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
-import { timeAt } from '../../src/frametime.js';
+import { timeAt } from 'drone-path-core/frametime';
 import type { LoopPoints, LoopState } from './loop.js';
 import { hasLoop } from './loop.js';
 
-export { framesForSeconds } from '../../src/frametime.js';
+export { framesForSeconds } from 'drone-path-core/frametime';
 
 // requestVideoFrameCallback quantizes mediaTime to the microsecond, so the
 // product can land just under frame i's integer; the slack covers that error

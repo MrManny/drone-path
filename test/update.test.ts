@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initUpdates } from '../app/update.mjs';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 type Listener = (...args: unknown[]) => void;
 

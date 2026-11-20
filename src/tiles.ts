@@ -4,7 +4,7 @@ import path from 'node:path';
 import PQueue from 'p-queue';
 
 import type { MapStyle } from './config.js';
-import { errorMessage } from './errors.js';
+import { errorMessage } from 'drone-path-core/errors';
 import type { TileCoord } from './plan.js';
 import { solidPng } from './png.js';
 import { tilePaths } from './tilecache.js';

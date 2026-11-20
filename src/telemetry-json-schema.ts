@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runToolMain } from './errors.js';
-import { generateTelemetryJsonSchema } from './telemetry-json.js';
+import { runToolMain } from 'drone-path-core/errors';
+import { generateTelemetryJsonSchema } from 'drone-path-core/telemetry-json';
 
 export function writeTelemetryJsonSchema(file: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -2,8 +2,8 @@
 
 import { useCallback, useReducer } from 'react';
 
-import type { FrameRange } from '../../src/frame-range.js';
-import { errorMessage } from '../../src/errors.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
+import { errorMessage } from 'drone-path-core/errors';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
 import type { TrackSavePhase } from '../lib/tracksave.js';

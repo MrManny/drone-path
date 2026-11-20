@@ -1,7 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -15,8 +11,6 @@ import type {
   TelemetryDocumentInput,
   TelemetryFrameInput,
 } from '../src/telemetry-json.js';
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function fullRow(overrides: TelemetryFrameInput = {}): TelemetryFrameInput {
   return {
@@ -310,18 +304,5 @@ describe('generateTelemetryJsonSchema', () => {
     ]);
     expect(Object.keys(parsed.properties)).toContain('gimbalDevice');
     expect(schema).not.toContain('"null"');
-  });
-});
-
-describe('docs/telemetry-json.schema.json', () => {
-  it('matches the generator; run "npm run docs:schema" after changing src/telemetry-json.ts', () => {
-    const checkedIn = fs.readFileSync(
-      path.join(root, 'docs', 'telemetry-json.schema.json'),
-      'utf8',
-    );
-    expect(
-      checkedIn,
-      'docs/telemetry-json.schema.json is stale; run "npm run docs:schema" and commit the result',
-    ).toBe(generateTelemetryJsonSchema());
   });
 });

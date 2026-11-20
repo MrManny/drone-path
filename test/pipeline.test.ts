@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG } from '../src/config.js';
 import { planView } from '../src/plan.js';
-import { serializeGpx } from '../src/track-gpx.js';
-import { buildTrack } from '../src/track.js';
+import { serializeGpx } from 'drone-path-core/track-gpx';
+import { buildTrack } from 'drone-path-core/track';
 import {
   INITIAL_PREPARE_PROGRESS,
   frameChannelsOf,
@@ -18,17 +18,16 @@ import {
   runBatch,
 } from '../src/pipeline.js';
 import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/pipeline.js';
-import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
+import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import { tilePaths } from '../src/tilecache.js';
+import { stubDeps, testConfig } from './fixtures.js';
 import {
   cleanupTmpDirs,
   loadedTelemetry,
   probeFixture,
-  stubDeps,
   telemetryFixture,
-  testConfig,
   tmpDir,
-} from './fixtures.js';
+} from '../packages/core/test/fixtures.js';
 
 describe('planOutputs', () => {
   const config = { ...DEFAULT_CONFIG, outDir: path.join('out', 'maps') };

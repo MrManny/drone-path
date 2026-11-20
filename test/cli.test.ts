@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildProgram, longFlagOf, parseCliArgs } from '../src/cli.js';
 import { CONFIG_OPTIONS, DEFAULT_CONFIG, TELEMETRY_JSON_ALIAS } from '../src/config.js';
 import { defaultTileCache, resolveConfig } from '../src/configfile.js';
-import type * as ffmpegModule from '../src/ffmpeg.js';
+import type * as ffmpegModule from 'drone-path-core/ffmpeg';
 import type * as recordingsModule from '../src/recordings.js';
 import type * as pipelineModule from '../src/pipeline.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 
 afterEach(cleanupTmpDirs);
 
@@ -243,7 +243,7 @@ async function mainWithMocks(
 ) {
   for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
   vi.resetModules();
-  vi.doMock('../src/ffmpeg.js', async (importOriginal) => ({
+  vi.doMock('drone-path-core/ffmpeg', async (importOriginal) => ({
     ...(await importOriginal<typeof ffmpegModule>()),
     requireFfmpegTools: async () => {},
   }));
@@ -269,7 +269,7 @@ async function mainWithMocks(
     ]);
     return stderr.mock.calls.map((c) => String(c[0])).join('');
   } finally {
-    vi.doUnmock('../src/ffmpeg.js');
+    vi.doUnmock('drone-path-core/ffmpeg');
     vi.doUnmock('../src/recordings.js');
     vi.doUnmock('../src/pipeline.js');
     vi.resetModules();

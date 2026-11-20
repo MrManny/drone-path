@@ -1,6 +1,10 @@
 {
   "name": "drone-path",
   "version": "0.13.0",
+  "private": true,
+  "workspaces": [
+    "packages/core"
+  ],
   "description": "Render flight-path map overlay videos (exactly the source frame rate and frame count) from DJI drone recordings - telemetry from the embedded CAM-meta (DVTM) stream or the .SRT sidecar.",
   "type": "module",
   "main": "app/main.mjs",
@@ -24,7 +28,7 @@
     "app:dev": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && concurrently -k \"next dev ui --webpack -p 3210\" \"wait-on http://127.0.0.1:3210 && electron app/main.mjs --dev-url http://localhost:3210\"",
     "app:pack": "electron-builder --publish never",
     "build": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && npm run build:ui",
-    "build:cli": "node scripts/build-desktop-catalogs.mjs && tsc -p tsconfig.json",
+    "build:cli": "npm run build --workspace drone-path-core && node scripts/build-desktop-catalogs.mjs && tsc -p tsconfig.json",
     "build:info": "npm run build:cli && node dist/buildinfo.js",
     "build:manual": "npm run build:cli && node dist/manual/build.js",
     "build:ui": "next build ui --webpack",
@@ -33,7 +37,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version && npm install --package-lock-only",
     "test": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && npm run typecheck:test && vitest run",
-    "typecheck:test": "tsc --noEmit -p test/tsconfig.json",
+    "typecheck:test": "tsc --noEmit -p test/tsconfig.json && tsc --noEmit -p packages/core/test/tsconfig.json",
     "lint": "eslint .",
     "prepare": "npm run build"
   },
@@ -62,6 +66,7 @@
   "homepage": "https://github.com/MrManny/drone-path#readme",
   "dependencies": {
     "commander": "~15.1.0",
+    "drone-path-core": "~0.13.0",
     "electron-updater": "~6.8.11",
     "leaflet": "~1.9.4",
     "p-queue": "~10.0.0",

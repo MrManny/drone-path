@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildPageHtml, buildSceneData, planPageOpts } from '../src/render-page.js';
 import type { RenderPageOpts } from '../src/render-page.js';
-import type { Bbox } from '../src/geo.js';
+import type { Bbox } from 'drone-path-core/geo';
 
 function baseOpts(overrides: Partial<RenderPageOpts> = {}): RenderPageOpts {
   return {

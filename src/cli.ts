@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { Command, Option } from 'commander';
 
-import { ERROR_PREFIX, errorMessage } from './errors.js';
+import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { VERSION } from './version.js';
 import {
   CONFIG_FILE_OPTION,
@@ -13,8 +13,8 @@ import {
 import { resolveConfig } from './configfile.js';
 import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from './config.js';
 import { collectRecordings } from './recordings.js';
-import { requireFfmpegTools } from './ffmpeg.js';
-import { resolveFfmpegTools } from './ffmpeg-tools.js';
+import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
+import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 import { runBatch } from './pipeline.js';
 import type { LogFn } from './logging.js';
 import type { RecordingSummary } from './pipeline.js';

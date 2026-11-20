@@ -1,6 +1,6 @@
 import type { MapStyle, RenderConfig } from './config.js';
-import { project } from './geo.js';
-import type { Bbox, MercatorPixel } from './geo.js';
+import { project } from 'drone-path-core/geo';
+import type { Bbox, MercatorPixel } from 'drone-path-core/geo';
 import { TILE_SOURCES } from './renderer/tilesources.js';
 
 export interface TileCoord {

@@ -38,7 +38,7 @@ schemas in
 
 Caveat: telemetry-parser's own DJI reader falls back to its `wm169` schema for
 Neo 2 messages and silently drops the drone block. Use the field map below —
-it is what `src/cammeta.ts` implements.
+it is what `packages/core/src/cammeta.ts` implements.
 
 ## Message tree
 
@@ -129,8 +129,8 @@ flight).
 
 ## Tooling
 
-- `src/cammeta.ts` — this repo's decoder (protobuf walk + GPS byte-scan
-  fallback), consumed by `src/telemetry.ts`.
+- `packages/core/src/cammeta.ts` — this repo's decoder (protobuf walk + GPS byte-scan
+  fallback), consumed by `packages/core/src/telemetry.ts`.
 - The archive workspace this repo lives in carries standalone mirrors:
   `scripts/flight_map/cammeta.mjs` and
   `scripts/telemetry_overlay/telemetry_dump.mjs`.

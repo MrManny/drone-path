@@ -1,5 +1,5 @@
-import { project } from './geo.js';
-import type { MercatorPixel } from './geo.js';
+import { project } from 'drone-path-core/geo';
+import type { MercatorPixel } from 'drone-path-core/geo';
 
 export interface DecimatedTrack {
   lat: number[];

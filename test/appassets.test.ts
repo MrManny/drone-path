@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveAppAsset } from '../src/appassets.js';
 import type { AppRoutes } from '../src/appassets.js';
-import { cleanupTmpDirs, tmpDir } from './fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../packages/core/test/fixtures.js';
 import { afterEach } from 'vitest';
 
 function routes(overrides: Partial<AppRoutes> = {}): AppRoutes {

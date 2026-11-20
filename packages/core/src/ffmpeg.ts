@@ -1,6 +1,6 @@
 import { ERR_NO_FRAME_RATE } from './errors.js';
 import { runTool } from './exec-tool.js';
-import { framesForSeconds, parseFpsRate, parseRate } from './frametime.js';
+import { framesForSeconds, parseFpsRate } from './frametime.js';
 import type { Fps } from './frametime.js';
 import { FFMPEG_TOOL_NAMES } from './ffmpeg-tools.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
@@ -13,12 +13,6 @@ export interface VideoProbe {
   height: number;
 }
 
-interface OutputVerifyResult {
-  frames: number;
-  fps: string | null;
-  ok: boolean;
-}
-
 const INSTALL_HINT =
   'point --ffmpeg/--ffprobe at your executables, or install ffmpeg (includes ' +
   'ffprobe) and make sure both are on PATH, e.g. "winget install Gyan.FFmpeg" ' +
@@ -26,7 +20,6 @@ const INSTALL_HINT =
 
 const FFPROBE_MAX_BUFFER = 64 * 1024 * 1024;
 const TOOL_VERSION_MAX_BUFFER = 1 << 20;
-const RATE_PROBE_MAX_BUFFER = 1 << 20;
 
 export async function requireFfmpegTools(tools: FfmpegToolPaths): Promise<void> {
   for (const tool of FFMPEG_TOOL_NAMES) {
@@ -55,10 +48,6 @@ export async function ffprobeJson(
   return JSON.parse(stdout || '{}') as Record<string, unknown>;
 }
 
-function parseCount(text: string | undefined): number {
-  return Number.parseInt(text ?? '', 10);
-}
-
 interface ProbeStream {
   r_frame_rate?: string;
   avg_frame_rate?: string;
@@ -71,7 +60,7 @@ interface ProbeFormat {
   duration?: string;
 }
 
-function firstStream(j: Record<string, unknown>): ProbeStream {
+export function firstVideoStream(j: Record<string, unknown>): ProbeStream {
   return ((j['streams'] as ProbeStream[] | undefined) ?? [])[0] ?? {};
 }
 
@@ -86,7 +75,7 @@ export async function probeVideo(
     'stream=r_frame_rate,avg_frame_rate,nb_frames,width,height:format=duration',
     '-of', 'json',
   ]);
-  const stream = firstStream(j);
+  const stream = firstVideoStream(j);
   const format = (j['format'] as ProbeFormat | undefined) ?? {};
 
   const fps =
@@ -95,7 +84,7 @@ export async function probeVideo(
   if (!fps) throw new Error(ERR_NO_FRAME_RATE);
 
   const durationSec = Number.parseFloat(format.duration ?? '');
-  let frames = parseCount(stream.nb_frames);
+  let frames = Number.parseInt(stream.nb_frames ?? '', 10);
   if (!Number.isFinite(frames) || frames <= 0) {
     frames = framesForSeconds(fps.value, durationSec);
     log('warning: nb_frames missing, using duration x fps');
@@ -113,56 +102,4 @@ export async function probeVideo(
     width: stream.width ?? 0,
     height: stream.height ?? 0,
   };
-}
-
-export async function verifyOutput(
-  tools: FfmpegToolPaths,
-  outPath: string,
-  frames: number,
-  fpsValue: number,
-): Promise<OutputVerifyResult> {
-  const j = await ffprobeJson(tools, outPath, [
-    '-select_streams', 'v:0',
-    '-show_entries', 'stream=nb_frames,r_frame_rate',
-    '-of', 'json',
-  ]);
-  const stream = firstStream(j);
-  const gotFrames = parseCount(stream.nb_frames);
-  const rate = parseRate(stream.r_frame_rate ?? '0/0');
-  const gotValue = rate ? (rate.den ? rate.num / rate.den : rate.num) : null;
-  return {
-    frames: gotFrames,
-    fps: stream.r_frame_rate ?? null,
-    ok:
-      gotFrames === frames &&
-      gotValue !== null &&
-      Math.abs(gotValue - fpsValue) < 1e-6,
-  };
-}
-
-async function probeRateFrames(ffprobe: string, file: string): Promise<string> {
-  const { stdout } = await runTool(
-    ffprobe,
-    [
-      '-v', 'error', '-select_streams', 'v:0',
-      '-show_entries', 'stream=avg_frame_rate,nb_frames',
-      '-of', 'csv=p=0', '--', file,
-    ],
-    { maxBuffer: RATE_PROBE_MAX_BUFFER },
-  );
-  return stdout.trim();
-}
-
-export async function outputMatchesSource(
-  tools: FfmpegToolPaths,
-  src: string,
-  out: string,
-): Promise<boolean> {
-  try {
-    const [srcRate, srcFrames] = (await probeRateFrames(tools.ffprobe, src)).split(',');
-    const [outRate, outFrames] = (await probeRateFrames(tools.ffprobe, out)).split(',');
-    return Number(outFrames) > 0 && srcRate === outRate && srcFrames === outFrames;
-  } catch {
-    return false;
-  }
 }

@@ -10,7 +10,7 @@ import { app } from 'electron';
 // export interop (electron-builder issue #7976).
 import electronUpdater from 'electron-updater';
 
-import { errorMessage } from '../dist/errors.js';
+import { errorMessage } from 'drone-path-core/errors';
 
 const { autoUpdater } = electronUpdater;
 

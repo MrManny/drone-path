@@ -2,7 +2,7 @@
 
 import { useTranslation } from '../lib/i18n.js';
 import type { Codec, EncodeSettings, EncoderPreset, Quality } from '../../src/config.js';
-import type { FrameRange } from '../../src/frame-range.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
 import {
   CODEC_VALUES,
   MIN_DIMENSION,
