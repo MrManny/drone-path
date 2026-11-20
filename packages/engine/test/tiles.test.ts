@@ -54,6 +54,19 @@ describe('createTileTraffic ensure', () => {
     expect(fetchStub).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the supplied app version in the tile User-Agent', async () => {
+    const fetchStub = okFetch();
+    vi.stubGlobal('fetch', fetchStub);
+
+    await createTileTraffic(tmpDir(), '0.13.0-pre-abc1234').ensure('satellite', T0);
+
+    expect(fetchStub).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      headers: {
+        'User-Agent': 'drone-path/0.13.0-pre-abc1234 (flight-path map renderer; https://github.com/MrManny/drone-path)',
+      },
+    }));
+  });
+
   it('writes a placeholder and serves it when the download fails', async () => {
     const dir = tmpDir();
     vi.stubGlobal(

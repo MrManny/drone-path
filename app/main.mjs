@@ -209,7 +209,7 @@ async function initServices(state) {
   // One polite tile queue for the whole app: on-demand tiles and the export
   // prefetch share its request budget, and on-demand tiles the player needs
   // right now jump the queue.
-  state.tileTraffic = createTileTraffic(state.config.tileCache);
+  state.tileTraffic = createTileTraffic(state.config.tileCache, app.isPackaged ? app.getVersion() : undefined);
   state.tilePrefetch = (options) => state.tileTraffic.stream(options);
   state.session = createAppSession({
     config: state.config,

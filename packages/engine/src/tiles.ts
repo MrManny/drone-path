@@ -14,8 +14,6 @@ import { VERSION } from './version.js';
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-const USER_AGENT = `drone-path/${VERSION} (flight-path map renderer; https://github.com/MrManny/drone-path)`;
-
 const DOWNLOAD_ATTEMPTS = 2;
 const DOWNLOAD_WORKERS = 2;
 const REQUEST_INTERVAL_MS = 500;
@@ -43,9 +41,9 @@ function canceledError(signal: AbortSignal): Error {
   return new Error('tile download canceled', { cause: signal.reason });
 }
 
-async function fetchBody(url: string, signal?: AbortSignal): Promise<Buffer | null> {
+async function fetchBody(url: string, userAgent: string, signal?: AbortSignal): Promise<Buffer | null> {
   const res = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
+    headers: { 'User-Agent': userAgent },
     signal: signal
       ? AbortSignal.any([AbortSignal.timeout(FETCH_TIMEOUT_MS), signal])
       : AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -54,14 +52,14 @@ async function fetchBody(url: string, signal?: AbortSignal): Promise<Buffer | nu
 }
 
 async function downloadTile(
-  queue: PQueue,
+  ctx: FetchContext,
   url: string,
   priority: TilePriority,
   signal?: AbortSignal,
 ): Promise<Buffer | null> {
   for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt++) {
     try {
-      const body = await queue.add(() => fetchBody(url, signal), {
+      const body = await ctx.queue.add(() => fetchBody(url, ctx.userAgent, signal), {
         priority: TASK_PRIORITY[priority],
         signal,
       });
@@ -105,6 +103,7 @@ interface TileFetchResult {
 interface FetchContext {
   cacheDir: string;
   queue: PQueue;
+  userAgent: string;
   placeholderPng: (style: MapStyle) => Buffer;
 }
 
@@ -117,7 +116,7 @@ async function fetchTileToCache(
 ): Promise<TileFetchResult> {
   const paths = tilePaths(ctx.cacheDir, style, tile);
   if (fs.existsSync(paths.file)) return { file: paths.file, status: 'cached' };
-  const body = await downloadTile(ctx.queue, tileUrl(style, tile), priority, signal);
+  const body = await downloadTile(ctx, tileUrl(style, tile), priority, signal);
   if (body) {
     writeCacheFile(paths.file, body);
     return { file: paths.file, status: 'downloaded' };
@@ -141,6 +140,7 @@ interface InFlightEntry {
 
 function createDownloader(
   cacheDir: string,
+  userAgent: string,
   placeholderPng: (style: MapStyle) => Buffer,
 ): Downloader {
   const queue = new PQueue({
@@ -151,7 +151,7 @@ function createDownloader(
     // matching the old request gate's nextFreeAt semantics.
     strict: true,
   });
-  const ctx: FetchContext = { cacheDir, queue, placeholderPng };
+  const ctx: FetchContext = { cacheDir, queue, userAgent, placeholderPng };
   const inFlight = new Map<string, InFlightEntry>();
 
   return {
@@ -196,8 +196,9 @@ interface TileTraffic {
   stream(options: WarmOptions): Promise<PrefetchStats>;
 }
 
-export function createTileTraffic(cacheDir: string): TileTraffic {
-  const downloader = createDownloader(cacheDir, createPlaceholderSource());
+export function createTileTraffic(cacheDir: string, version = VERSION): TileTraffic {
+  const userAgent = `drone-path/${version} (flight-path map renderer; https://github.com/MrManny/drone-path)`;
+  const downloader = createDownloader(cacheDir, userAgent, createPlaceholderSource());
   return {
     ensure(style, tile): Promise<string> {
       return downloader.enqueue(style, tile, { priority: 'now' }).then((result) => result.file);
