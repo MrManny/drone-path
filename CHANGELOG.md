@@ -1,5 +1,18 @@
 # drone-path
 
+## 0.13.0
+
+- **New:** Choose English, German, Spanish, French or Japanese in desktop
+  Settings. The app follows the operating system language by default and
+  remembers a manually selected language between launches.
+- **New:** Export dialogs place actions at the bottom and show progress
+  while restarting or exporting telemetry. Canceled open notices can be
+  dismissed, and map controls, export settings and menu items use more
+  consistent names.
+- **New:** Workspace headings and Map appearance labels are more consistent.
+  Video and filmstrip thumbnails show loading text, and zoom limit messages
+  appear beside the zoom controls.
+
 ## 0.12.1
 
 - **Fixed:** The Export video dialog handles every outcome cleanly: a
