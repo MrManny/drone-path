@@ -1,13 +1,13 @@
 import path from 'node:path';
 
-import { mimeFor, resolveTileRoute } from './assets.js';
+import { mimeFor } from './assets.js';
 import { MEDIA_PATH } from './apppaths.js';
 import type { MapStyle } from './config.js';
 import type { TileCoord } from './plan.js';
+import { parseTilePathname } from './tilecache.js';
 
 export interface AppRoutes {
   exportRoot: string;
-  tileCache: string;
   videoPath: string | null;
 }
 
@@ -16,8 +16,6 @@ type AppAsset =
   | { kind: 'video'; filePath: string }
   | {
       kind: 'tile';
-      filePath: string;
-      placeholderPath: string;
       style: MapStyle;
       tile: TileCoord;
     }
@@ -30,7 +28,7 @@ export function resolveAppAsset(pathname: string, routes: AppRoutes): AppAsset {
       : { kind: 'not-found' };
   }
 
-  const tile = resolveTileRoute(pathname, routes.tileCache, { anyStyle: true });
+  const tile = parseTilePathname(pathname);
   if (tile) {
     return { kind: 'tile', ...tile };
   }

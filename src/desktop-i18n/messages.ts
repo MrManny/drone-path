@@ -43,11 +43,15 @@ export function languageName(locale: Locale): string {
   return new Intl.DisplayNames(locale, { type: 'language' }).of(locale) ?? locale;
 }
 
+const englishRules = new Intl.PluralRules(DEFAULT_LOCALE);
+const translatorCache = new Map<Locale, Translate>();
+
 export function translator(locale: Locale): Translate {
+  const cached = translatorCache.get(locale);
+  if (cached) return cached;
   const entries = messages[locale];
-  const pluralRules = new Intl.PluralRules(locale);
-  const englishRules = new Intl.PluralRules(DEFAULT_LOCALE);
-  return (key, values = {}) => {
+  const pluralRules = locale === DEFAULT_LOCALE ? englishRules : new Intl.PluralRules(locale);
+  const translate: Translate = (key, values = {}) => {
     const local = Object.hasOwn(entries, key) ? entries[key] : undefined;
     const message = local ?? (Object.hasOwn(messages.en, key) ? messages.en[key] : undefined);
     if (message === undefined) return '';
@@ -59,6 +63,8 @@ export function translator(locale: Locale): Translate {
       Object.hasOwn(values, name) ? String(values[name]) : '',
     );
   };
+  translatorCache.set(locale, translate);
+  return translate;
 }
 
 export const tEnglish = translator(DEFAULT_LOCALE);

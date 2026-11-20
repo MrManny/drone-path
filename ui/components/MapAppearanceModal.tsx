@@ -6,11 +6,12 @@ import { useMemo, useState } from 'react';
 import type { UiSession } from '../../src/appsession.js';
 import { appearanceOf, hasAltitude } from '../../src/config.js';
 import type { ConfigOverrides, RenderConfig } from '../../src/config.js';
+import { planIntroOutroFrames } from '../../src/plan.js';
 import { restyleSceneData } from '../../src/restyle.js';
 import type { HudChipId } from '../lib/chipreadouts.js';
 import { chipReadoutsAt } from '../lib/chipreadouts.js';
 import { previewFrame } from '../lib/exportstate.js';
-import { EXAMPLE_FLIGHT } from '../lib/exampleflight.js';
+import { getExampleFlight } from '../lib/exampleflight.js';
 import { defaultAppearance, patchConfig, setHudChip } from '../lib/settings.js';
 import { restyleMeta } from '../lib/restylemeta.js';
 import { CameraControls } from './CameraControls.js';
@@ -38,21 +39,24 @@ interface MapAppearanceModalProps {
 export function MapAppearanceModal({ session, config, onChange, onClose }: MapAppearanceModalProps) {
   const t = useTranslation();
   const [segment, setSegment] = useState<PreviewSegment>('flight');
+  const example = session === null ? getExampleFlight() : null;
 
   const appearance = useMemo(() => appearanceOf(config), [config]);
 
   const preview = useMemo(() => {
-    const base = session === null ? EXAMPLE_FLIGHT.baseScene : session.scene;
-    const meta = session === null ? EXAMPLE_FLIGHT.meta : restyleMeta(session);
+    const base = example ? example.baseScene : session!.scene;
+    const meta = example ? example.meta : restyleMeta(session!);
     const data = restyleSceneData(base, appearance, meta, PREVIEW_SIZE);
     // The chips over the preview stand in for the export frame's HUD pills,
     // so the renderer draws none of its own; the real HUD flags stay on the
     // data because the marker arrow follows the heading setting (#283).
     return { ...data, hudPills: false };
-  }, [session, appearance]);
+  }, [session, example, appearance]);
 
-  const frames = session === null ? EXAMPLE_FLIGHT.frames : session.video.frames;
-  const flightSec = session === null ? EXAMPLE_FLIGHT.durationSec : session.durationSec;
+  const fps = example ? example.fps : session!.video.fps;
+  const frames = example ? example.frames : session!.video.frames;
+  const flightSec = example ? example.durationSec : session!.durationSec;
+  const shortened = planIntroOutroFrames(config, { fps, frames }).clamped;
   const frame =
     segment === 'intro'
       ? 0
@@ -90,6 +94,7 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
             introSec={config.introSec}
             outroSec={config.outroSec}
             flightSec={flightSec}
+            shortened={shortened}
             selected={segment}
             onSelect={setSegment}
             onChange={apply}

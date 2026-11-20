@@ -8,6 +8,7 @@ import { planView } from '../src/plan.js';
 import { serializeGpx } from '../src/track-gpx.js';
 import { buildTrack } from '../src/track.js';
 import {
+  INITIAL_PREPARE_PROGRESS,
   frameChannelsOf,
   outputPathFor,
   planOutputs,
@@ -19,7 +20,6 @@ import {
 import type { PipelineDeps, PrepareProgress, RecordingSummary } from '../src/pipeline.js';
 import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
 import { tilePaths } from '../src/tilecache.js';
-import { START_PREPARE_PROGRESS } from '../ui/lib/pickstate.js';
 import {
   cleanupTmpDirs,
   loadedTelemetry,
@@ -154,7 +154,7 @@ describe('prepareSession progress reports', () => {
     });
 
     expect(events).toEqual([
-      START_PREPARE_PROGRESS,
+      INITIAL_PREPARE_PROGRESS,
       { stage: 'telemetry', done: 1, total: 3 },
       { stage: 'plan', done: 2, total: 3 },
     ]);

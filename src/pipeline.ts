@@ -17,8 +17,13 @@ import { writeTrackFile } from './track-write.js';
 import type { TrackRecord, TrackStream } from './track.js';
 import { prefetchTiles } from './tiles.js';
 import type { PrefetchStats } from './tiles.js';
-import { planIntroOutroFrames, planView } from './plan.js';
-import type { IntroOutroFrames, OverviewPlan } from './plan.js';
+import {
+  INITIAL_PREPARE_PROGRESS,
+  PREPARE_STAGE_ORDER,
+  planIntroOutroFrames,
+  planView,
+} from './plan.js';
+import type { IntroOutroFrames, OverviewPlan, PrepareProgress, PrepareStage } from './plan.js';
 import { buildPageHtml, planPageOpts } from './render-page.js';
 import type { RenderPageOpts } from './render-page.js';
 import { renderVideo } from './render.js';
@@ -39,15 +44,8 @@ import {
 import type { TelemetrySummary } from './telemetry-summary.js';
 import type { LogFn } from './logging.js';
 
-const PREPARE_STAGE_ORDER = ['probe', 'telemetry', 'plan'] as const;
-
-export type PrepareStage = (typeof PREPARE_STAGE_ORDER)[number];
-
-export interface PrepareProgress {
-  stage: PrepareStage;
-  done: number;
-  total: number;
-}
+export { INITIAL_PREPARE_PROGRESS };
+export type { PrepareProgress, PrepareStage };
 
 export type PrepareProgressFn = (progress: PrepareProgress) => void;
 

@@ -240,4 +240,9 @@ function buildExampleFlight(): ExampleFlight {
   };
 }
 
-export const EXAMPLE_FLIGHT: ExampleFlight = buildExampleFlight();
+let cachedExampleFlight: ExampleFlight | null = null;
+
+export function getExampleFlight(): ExampleFlight {
+  cachedExampleFlight ??= buildExampleFlight();
+  return cachedExampleFlight;
+}

@@ -15,6 +15,7 @@ function renderStrip(
   over: Partial<{
     introSec: number;
     outroSec: number;
+    shortened: boolean;
     selected: PreviewSegment;
     onChange: (patch: ConfigOverrides) => boolean;
     onSelect: (segment: PreviewSegment) => void;
@@ -25,6 +26,7 @@ function renderStrip(
       introSec={over.introSec ?? 2}
       outroSec={over.outroSec ?? 2}
       flightSec={138}
+      shortened={over.shortened ?? false}
       selected={over.selected ?? 'flight'}
       onSelect={over.onSelect ?? (() => {})}
       onChange={over.onChange ?? (() => true)}
@@ -49,12 +51,12 @@ describe('OpeningEndingStrip', () => {
   });
 
   it('says when the eases will shorten to fit the clip', () => {
-    renderStrip({ introSec: 40, outroSec: 40 });
+    renderStrip({ introSec: 40, outroSec: 40, shortened: true });
     expect(screen.getByText('Intro and outro shorten to fit this clip.')).toBeTruthy();
   });
 
   it('stays quiet while the eases fit the clip', () => {
-    renderStrip({ introSec: 2, outroSec: 2 });
+    renderStrip({ introSec: 2, outroSec: 2, shortened: false });
     expect(screen.queryByText('Intro and outro shorten to fit this clip.')).toBeNull();
   });
 

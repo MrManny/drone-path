@@ -49,4 +49,9 @@ describe('desktop message translation', () => {
     expect(t('cameraControls.paddingLevels', { count: 1 })).toBe('1 level');
     expect(t('cameraControls.paddingLevels', { count: 2 })).toBe('2 levels');
   });
+
+  it('reuses the translator instance per locale', () => {
+    expect(translator('en')).toBe(translator('en'));
+    expect(translator(resolveLocale(null, ['ja-JP']))).toBe(t);
+  });
 });
