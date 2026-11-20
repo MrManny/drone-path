@@ -1,7 +1,8 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import type { Codec, EncodeSettings, FrameRange, EncoderPreset, Quality } from '../../src/config.js';
+import type { Codec, EncodeSettings, EncoderPreset, Quality } from '../../src/config.js';
+import type { FrameRange } from '../../src/frame-range.js';
 import {
   CODEC_VALUES,
   MIN_DIMENSION,

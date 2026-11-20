@@ -8,11 +8,10 @@ import {
   SETTINGS_KEYS,
   formatHud,
   parseSettingsPatch,
-  parseValue,
-  strictShape,
 } from './config.js';
 import type { RenderConfig, SettingsPatch } from './config.js';
 import { errorMessage } from './errors.js';
+import { parseValue, strictShape } from './validation.js';
 
 export const APP_STATE_VERSION = 1;
 

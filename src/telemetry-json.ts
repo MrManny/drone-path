@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { resolveFrameRange } from './config.js';
-import type { FrameRange } from './config.js';
+import { resolveFrameRange } from './frame-range.js';
+import type { FrameRange } from './frame-range.js';
 import type { HeadingMode, TelemetrySource } from './telemetry-math.js';
 
 export const TELEMETRY_JSON_SCHEMA_VERSION = 1;
