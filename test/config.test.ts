@@ -14,7 +14,6 @@ import {
   normalizeOverrides,
   parseAppearanceSettings,
   parseExportRequest,
-  parseFrameRange,
   parseHud,
   parseSettingsPatch,
   resolveHudLayout,
@@ -337,31 +336,6 @@ describe('formatHud', () => {
     for (const list of ['heading', 'heading,alt', 'alt,speed', 'heading,alt,speed', 'none']) {
       expect(formatHud(parseHud(list))).toBe(list);
     }
-  });
-});
-
-describe('parseFrameRange', () => {
-  it('accepts an inclusive start < end range', () => {
-    expect(parseFrameRange({ start: 10, end: 29 })).toEqual({ start: 10, end: 29 });
-  });
-
-  it('accepts a single-frame span (start equal to end)', () => {
-    expect(parseFrameRange({ start: 5, end: 5 })).toEqual({ start: 5, end: 5 });
-  });
-
-  it.each([
-    ['start after end', { start: 9, end: 2 }],
-    ['negative start', { start: -1, end: 4 }],
-    ['fractional index', { start: 1.5, end: 4 }],
-    ['non-numeric end', { start: 0, end: 'x' }],
-    ['unknown key', { start: 0, end: 4, fps: 30 }],
-  ])('rejects %s', (_label, raw) => {
-    expect(() => parseFrameRange(raw)).toThrow(/invalid|unknown/);
-  });
-
-  it('rejects non-object input', () => {
-    expect(() => parseFrameRange(null)).toThrow('invalid frame range');
-    expect(() => parseFrameRange([0, 4])).toThrow('invalid frame range');
   });
 });
 

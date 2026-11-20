@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+import { parseFrameRange } from './frame-range.js';
+import type { FrameRange } from './frame-range.js';
+import { numberValue, parseValue, strictShape } from './validation.js';
+
 export const MAP_STYLE_VALUES = ['satellite', 'topo'] as const;
 export type MapStyle = (typeof MAP_STYLE_VALUES)[number];
 const VIEW_MODE_VALUES = ['follow', 'overview'] as const;
@@ -104,44 +108,6 @@ interface IssueInput {
 
 const invalidValue = (name: string) => (issue: IssueInput): string =>
   `invalid value for ${name}: ${String(issue.input)}`;
-
-const invalidNumber = (name: string) => (issue: IssueInput): string =>
-  `invalid number for ${name}: ${String(issue.input)}`;
-
-export function parseValue<S extends z.ZodType>(
-  schema: S,
-  value: unknown,
-): z.output<S> {
-  const result = schema.safeParse(value);
-  if (result.success) return result.data;
-  // The legacy key loops ran before the value checks; surface an unknown-key
-  // issue first so multi-error input keeps reporting in that order.
-  const issue =
-    result.error.issues.find((i) => i.code === 'unrecognized_keys') ??
-    result.error.issues[0];
-  throw new Error(issue.message, { cause: result.error });
-}
-
-interface ShapeWording {
-  invalid: string;
-  unknownKey: (key: string) => string;
-}
-
-export function strictShape<T extends z.ZodRawShape>(
-  shape: T,
-  wording: ShapeWording,
-) {
-  return z.strictObject(shape, {
-    error: (issue) =>
-      issue.code === 'unrecognized_keys'
-        ? wording.unknownKey(issue.keys[0])
-        : wording.invalid,
-  });
-}
-
-function numberValue(name: string): z.ZodType<number> {
-  return z.number({ error: invalidNumber(name) });
-}
 
 function stringValue(name: string): z.ZodType<string> {
   return z
@@ -753,57 +719,10 @@ export function validateRenderConfig(config: RenderConfig): void {
   if (!config.outSuffix) throw new Error('out-suffix must not be empty');
 }
 
-export interface FrameRange {
-  start: number;
-  end: number;
-}
-
 export interface ExportRequest {
   outPath: string;
   config: RenderConfig;
   range: FrameRange | null;
-}
-
-function assertValidFrameRange(range: FrameRange, name = 'frame range'): void {
-  if (!Number.isInteger(range.start) || !Number.isInteger(range.end)) {
-    throw new Error(`invalid ${name}: start and end must be integer frame indices`);
-  }
-  // A single-frame span (start === end) is a valid export range.
-  if (range.start < 0 || range.start > range.end) {
-    throw new Error(`invalid ${name}: expected 0 <= start <= end, got ${range.start}-${range.end}`);
-  }
-}
-
-export function parseFrameRange(raw: unknown, name = 'frame range'): FrameRange {
-  const range = parseValue(
-    strictShape(
-      {
-        start: numberValue(`${name}: start`),
-        end: numberValue(`${name}: end`),
-      },
-      {
-        invalid: `invalid ${name}`,
-        unknownKey: (key) => `unknown ${name} key ${key}`,
-      },
-    ),
-    raw,
-  );
-  assertValidFrameRange(range, name);
-  return range;
-}
-
-export function resolveFrameRange(
-  range: FrameRange | null | undefined,
-  frames: number,
-): FrameRange | null {
-  if (!range) return null;
-  assertValidFrameRange(range);
-  if (range.end >= frames) {
-    throw new Error(
-      `frame range ${range.start}-${range.end} is beyond the recording (${frames} frames)`,
-    );
-  }
-  return range;
 }
 
 const MAIN_OWNED_KEYS = [

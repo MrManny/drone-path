@@ -28,13 +28,10 @@ import { buildPageHtml, planPageOpts } from './render-page.js';
 import type { RenderPageOpts } from './render-page.js';
 import { renderVideo } from './render.js';
 import type { CaptureProgress } from './render.js';
-import type { FrameRange, HudLayout, RenderConfig } from './config.js';
-import {
-  effectiveZoomOut,
-  hasAltitude,
-  resolveHudLayout,
-  resolveFrameRange,
-} from './config.js';
+import type { HudLayout, RenderConfig } from './config.js';
+import { effectiveZoomOut, hasAltitude, resolveHudLayout } from './config.js';
+import { resolveFrameRange } from './frame-range.js';
+import type { FrameRange } from './frame-range.js';
 import {
   fixCountLabel,
   noLockCountLabel,

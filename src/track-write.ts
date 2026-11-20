@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { FrameRange } from './config.js';
+import type { FrameRange } from './frame-range.js';
 import {
   buildTelemetryDocument,
   segmentTelemetryInput,

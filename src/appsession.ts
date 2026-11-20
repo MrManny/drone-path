@@ -4,13 +4,11 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { TILE_BASE, mediaUrlFor } from './apppaths.js';
-import {
-  parseFrameRange,
-  parseAppearanceSettings,
-  parseValue,
-  strictShape,
-} from './config.js';
-import type { FrameRange, AppearanceSettings, RenderConfig } from './config.js';
+import { parseAppearanceSettings } from './config.js';
+import type { AppearanceSettings, RenderConfig } from './config.js';
+import { parseFrameRange } from './frame-range.js';
+import type { FrameRange } from './frame-range.js';
+import { parseValue, strictShape } from './validation.js';
 import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from './errors.js';
 import type { VideoProbe } from './ffmpeg.js';
 import { timeAt } from './frametime.js';

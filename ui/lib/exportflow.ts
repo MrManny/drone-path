@@ -1,4 +1,5 @@
-import type { ExportRequest, FrameRange, RenderConfig } from '../../src/config.js';
+import type { ExportRequest, RenderConfig } from '../../src/config.js';
+import type { FrameRange } from '../../src/frame-range.js';
 import {
   ERR_EXPORT_COULD_NOT_BE_CANCELED,
   ERR_EXPORT_COULD_NOT_START,
