@@ -121,7 +121,10 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
       if (prior.availability === 'offline') online.push(key);
     } else {
       pending.set(file, current);
-      if (prior?.gazePending && matches(current, prior.fingerprint)) backfills.add(file);
+      if (prior?.gazePending && matches(current, prior.fingerprint)) {
+        backfills.add(file);
+        if (prior.availability === 'offline') online.push(key);
+      }
     }
   }
 

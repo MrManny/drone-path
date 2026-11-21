@@ -210,9 +210,15 @@ it.each([true, false])('backfills migrated DVTM once even with usable gaze = %s'
   expect(matches()).toEqual([]);
   expect(probe).toHaveBeenCalledTimes(1);
 
+  const disconnected = root + '-disconnected';
+  fs.renameSync(root, disconnected);
+  await scanArchive([root], options);
+  expect(inspect(db)[0]).toMatchObject({ availability: 'offline', gazePending: true });
+  fs.renameSync(disconnected, root);
+
   probe.mockRejectedValueOnce(new Error('temporary sharing violation'));
   expect(await scanArchive([root], options)).toMatchObject([{ status: 'error' }]);
-  expect(inspect(db)[0]).toMatchObject({ gazePending: true, record: { status: 'ok' } });
+  expect(inspect(db)[0]).toMatchObject({ availability: 'online', gazePending: true, record: { status: 'ok' } });
   expect(await scanArchive([root], options)).toMatchObject([{ status: 'ok' }]);
   expect(matches()).toHaveLength(withAngle ? 1 : 0);
   if (withAngle) expect(matches()[0]?.tSec).toBe(0);
