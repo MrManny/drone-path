@@ -1,11 +1,25 @@
 # drone-path
 
-## Unreleased
+## 1.0.0-rc1
 
-- npm installs still use the `drone-path` package and command. Its tarball
-  now contains the CLI and depends on the separately packaged
-  `drone-path-core` telemetry library and `drone-path-engine` renderer.
-  Desktop installers remain available from GitHub Releases.
+- **Fixed:** `.SRT` no-lock gaps now preserve the nearest valid fix's speed and
+  heading instead of dropping to zero or the default heading, and two-fix
+  tracks compute forward-difference speed and course-over-ground heading.
+- **Fixed:** Multi-worker exports apply proper encode backpressure, cancel
+  in-flight tile pre-warming cleanly, deduplicate tile cache writes atomically,
+  and handle Windows process and server cleanup reliably.
+- **Fixed:** `"outDir": null` in `.dronepath.json` or config overrides now
+  writes outputs beside their source recordings instead of falling back to
+  `"out"`, and `null` for non-nullable settings keys reports a type error.
+- **Fixed:** Desktop modal dialogs keep `Tab` focus trapped reliably, timeline
+  loop dragging clamps to live bounds without leaking listeners or map timers,
+  window close guards no longer deadlock after an export finishes, canceled
+  exports never overwrite finished files, and updater restart failures and
+  duplicate save-picker triggers are handled cleanly.
+- **Internal:** Split the codebase into monorepo packages: `drone-path` now
+  depends on `drone-path-core` and `drone-path-engine`, while desktop
+  installers continue to ship from GitHub Releases. Scoped GitHub Project
+  status helpers to issues in the current repository.
 
 ## 0.13.0
 
