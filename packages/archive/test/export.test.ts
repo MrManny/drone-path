@@ -96,3 +96,46 @@ it('rejects unsupported formats and prevents overwriting the archive at a custom
   expect(() => exportArchiveTracks(db, db)).toThrow('cannot overwrite the archive database');
   expect(listArchiveFlights(db)).toEqual([]);
 });
+
+it('cuts dateline crossings into adjacent pieces in the exported tracks', () => {
+  const dir = tmpDir();
+  const db = path.join(dir, 'archive.sqlite');
+  const store = new ArchiveStore(db);
+  try {
+    store.commit(0, [clip('/survey/DJI_0001.MP4', '2025-01-01T00:00:00Z',
+      [180, 179.9, -179.9, -179.8], 'online')], [], [], []);
+  } finally {
+    store.close();
+  }
+
+  const geojson = path.join(dir, 'flights.geojson');
+  exportArchiveTracks(db, geojson);
+  function lines(): number[][][] {
+    const contents = JSON.parse(fs.readFileSync(geojson, 'utf8')) as {
+      features: { geometry: { coordinates: number[][][] } }[];
+    };
+    return contents.features[0].geometry.coordinates;
+  }
+  expect(lines()).toEqual([
+    [[180, 0], [179.9, 0], [180, 0]], [[-180, 0], [-179.9, 0], [-179.8, 0]],
+  ]);
+
+  const gpx = path.join(dir, 'flights.gpx');
+  exportArchiveTracks(db, gpx);
+  const xml = fs.readFileSync(gpx, 'utf8');
+  expect(xml.match(/<trkseg>/gu)).toHaveLength(2);
+  expect(xml).toContain('lon="179.99999999999997"');
+  expect(xml).toContain('lon="-180"');
+  expect(xml).not.toContain('lon="180"');
+
+  const kml = path.join(dir, 'flights.kml');
+  exportArchiveTracks(db, kml);
+  const kmlXml = fs.readFileSync(kml, 'utf8');
+  expect(kmlXml).toContain('<coordinates>180,0,0 179.9,0,0 180,0,0</coordinates>');
+  expect(kmlXml).toContain('<coordinates>-180,0,0 -179.9,0,0 -179.8,0,0</coordinates>');
+
+  exportArchiveTracks(db, geojson, { redactLaunchM: 100 });
+  expect(lines()).toEqual([
+    [[179.9, 0], [179.9, 0]], [[-179.9, 0], [-179.9, 0]],
+  ]);
+});

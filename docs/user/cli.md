@@ -194,7 +194,8 @@ selected geometry. It uses a plain background and requires no tile server.
 
 For a combined track file, choose `.gpx`, `.geojson`, `.kml`, or `.kmz` in
 the output filename. The files preserve flight groups and the boundaries of
-indexed track segments. The archive stores simplified tracks and clip-relative
+indexed track segments. Tracks crossing the antimeridian are split at the
+meridian. The archive stores simplified tracks and clip-relative
 sample times, so exports omit absolute altitudes and UTC timestamps.
 
 Both commands accept `--archive-db` and the same clip filters as

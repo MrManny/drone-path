@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import type { LatLon } from 'drone-path-core/geo';
 import { launchRedactor } from 'drone-path-core/launch-redaction';
+import { splitTrackAtAntimeridian } from 'drone-path-core/track-antimeridian';
 import { trackFormatOf } from 'drone-path-core/track-format';
 import { serializeGeoJsonTracks } from 'drone-path-core/track-geojson';
 import { serializeGpxTracks } from 'drone-path-core/track-gpx';
@@ -22,7 +23,9 @@ interface ExportOptions {
   includeGaze?: boolean;
 }
 
-function exportFlights(db: string, { filters = {}, redactLaunchM = 0, includeGaze = false }: ExportOptions): MapFlight[] {
+function exportFlights(
+  db: string, { filters = {}, redactLaunchM = 0, includeGaze = false }: ExportOptions, splitDateline = false,
+): MapFlight[] {
   if (!Number.isFinite(redactLaunchM) || redactLaunchM < 0) {
     throw new Error('expected a nonnegative launch redaction radius in meters');
   }
@@ -42,7 +45,8 @@ function exportFlights(db: string, { filters = {}, redactLaunchM = 0, includeGaz
     }
     return [...flights.values()].flatMap((members) => {
       const selected = members.sort((a, b) => a.flight.order - b.flight.order).flatMap(({ record, availability, gaze }) => {
-        const track = redactTrack(record.track).map((segment) => segment.map(({ lat, lon }): LatLon => ({ lat, lon })));
+        const geometry = splitDateline ? splitTrackAtAntimeridian(record.track) : record.track;
+        const track = redactTrack(geometry).map((segment) => segment.map(({ lat, lon }): LatLon => ({ lat, lon })));
         if (track.length === 0 && gaze.length === 0) return [];
         return [{
           track,
@@ -84,7 +88,7 @@ export function exportArchiveMap(db: string, output: string, options: ExportOpti
 export function exportArchiveTracks(db: string, output: string, options: Omit<ExportOptions, 'includeGaze'> = {}): void {
   const format = trackFormatOf(output);
   if (format === 'json') throw new Error('expected a .gpx, .geojson, .kml, or .kmz output file');
-  const tracks: TrackSegment[][] = exportFlights(db, { ...options, includeGaze: false }).map(({ clips }) =>
+  const tracks: TrackSegment[][] = exportFlights(db, { ...options, includeGaze: false }, true).map(({ clips }) =>
     clips.flatMap(({ track }) => track.map((segment) =>
       segment.map(({ lat, lon }) => ({ lat, lon, altM: null, timeMs: null })),
     )),
