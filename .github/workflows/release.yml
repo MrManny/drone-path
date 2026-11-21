@@ -4,9 +4,10 @@ name: Release
 # desktop jobs run. Re-run failed jobs to resume at the first failed publish.
 #
 # Auth works in two phases (see README "Releasing"):
-#   1. Bootstrap: publish the new package names manually or set NPM_TOKEN to
-#      a granular token authorized to create them and publish this release.
-#      The workflow uses the token with --provenance.
+#   1. Bootstrap: set NPM_TOKEN to a granular token authorized to create the
+#      new package names and publish this release with --provenance.
+#      Manual bootstrap uses a distinct, earlier prerelease for each name
+#      and a non-default dist-tag. Reserve the exact versions for this workflow.
 #   2. Trusted publishing: configure the trusted publisher for each package
 #      on npmjs.com (workflow filename: release.yml), then delete
 #      the NPM_TOKEN secret. With the secret gone, publishing switches to

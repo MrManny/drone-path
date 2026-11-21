@@ -91,12 +91,19 @@ A published GitHub release runs the tag and quality checks, then publishes
 Independent jobs attach the desktop installers, AppImage, and auto-update
 metadata to the same release. GitHub prereleases skip this workflow.
 
-For the first publication of a new package, use npm credentials that can
-create its public package name. A maintainer can bootstrap it manually or set
-the repository's `NPM_TOKEN` secret to a granular token authorized to create the
-new names and publish all packages in that release. The workflow uses
-`--provenance` with the token. Once each package exists, configure a
-[trusted publisher](https://docs.npmjs.com/trusted-publishers/) for it on npm
+Reserve the release's exact package versions for GitHub Actions. To publish
+the first release, set the repository's `NPM_TOKEN` secret to a granular token
+authorized to create the new public package names and publish all packages in
+the release. The workflow uses `--provenance` with the token.
+
+For a manual bootstrap, use npm credentials that can create the new names.
+Publish a distinct, earlier prerelease for each new name under a non-default
+dist-tag such as `bootstrap` (`npm publish --workspace <name> --access public --tag bootstrap`).
+npm package versions are immutable, so the workflow needs the exact release
+versions to be unused.
+
+Once each package exists, configure its
+[trusted publisher](https://docs.npmjs.com/trusted-publishers/) on npm
 with owner `MrManny`, repository `drone-path`, workflow `release.yml`, and
 permission for direct publishing. Remove `NPM_TOKEN` when all three are
 configured so subsequent releases use token-free trusted publishing.
