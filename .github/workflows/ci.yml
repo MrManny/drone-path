@@ -55,3 +55,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run app:pack -- --dir
+      - name: Verify production dependencies in the desktop ASAR
+        env:
+          ELECTRON_RUN_AS_NODE: '1'
+        run: npm exec --workspace drone-path-desktop -- electron build/verify-asar.cjs dist-electron/linux-unpacked/resources/app.asar

@@ -22,12 +22,8 @@ function assertFfResources(resourcesDir, platform) {
   const missing = [exe('ffmpeg'), exe('ffprobe')].filter(
     (name) => !isFile(path.join(ffDir, name)),
   );
-  const hasLicense =
-    fs.existsSync(ffDir) &&
-    fs
-      .readdirSync(ffDir)
-      .some((name) => /licen[cs]e|gpl/i.test(name) && isFile(path.join(ffDir, name)));
-  if (!hasLicense) missing.push('the GPL license text');
+  const license = `${exe('ffmpeg')}.LICENSE`;
+  if (!isFile(path.join(ffDir, license))) missing.push(`the GPL license text (${license})`);
   if (missing.length > 0) {
     throw new Error(
       `packaged app is missing embedded tooling in ${ffDir}: ${missing.join(', ')} - ` +
