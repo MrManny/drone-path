@@ -159,7 +159,11 @@ function describeView(
 }
 
 function mtimeOf(outPath: string): number | null {
-  return fs.existsSync(outPath) ? fs.statSync(outPath).mtimeMs : null;
+  try {
+    return fs.statSync(outPath).mtimeMs;
+  } catch {
+    return null;
+  }
 }
 
 function removePartialOutput(
@@ -169,8 +173,13 @@ function removePartialOutput(
 ): void {
   const mtimeNow = mtimeOf(outPath);
   if (mtimeNow !== null && (mtimeBefore === null || mtimeNow !== mtimeBefore)) {
-    fs.rmSync(outPath, { force: true });
-    log(`removed partial output: ${outPath}`);
+    try {
+      // Retry brief Windows file-lock release delays after killing ffmpeg.
+      fs.rmSync(outPath, { force: true, maxRetries: 5, retryDelay: 50 });
+      log(`removed partial output: ${outPath}`);
+    } catch (e) {
+      log(`warning: could not remove partial output ${outPath}: ${errorMessage(e)}`);
+    }
   }
 }
 
@@ -344,12 +353,22 @@ async function tileWarmStage(
   config: RenderConfig,
   overview: OverviewPlan,
   log: LogFn,
+  signal?: AbortSignal,
 ): Promise<PrefetchStats> {
-  const tileStats = await deps.prefetchTiles({
-    style: config.style,
-    tiles: overview.tiles,
-    log,
-  });
+  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+  let tileStats: PrefetchStats;
+  try {
+    tileStats = await deps.prefetchTiles({
+      style: config.style,
+      tiles: overview.tiles,
+      log,
+      signal,
+    });
+  } catch (err) {
+    if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED, { cause: err });
+    throw err;
+  }
+  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
   if (tileStats.downloaded) {
     log(`tiles: ${tileStats.downloaded} downloaded, ${tileStats.failed} placeholders`);
   }
@@ -569,11 +588,13 @@ export async function processRecording(
     tools,
   });
 
+  if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+
   if (config.trackOut) {
     writeTrackExport(config.trackOut, prep, log);
   }
 
-  const tileStats = await tileWarmStage(deps, config, prep.overview, log);
+  const tileStats = await tileWarmStage(deps, config, prep.overview, log, options.signal);
   const range = resolveFrameRange(options.range, prep.probe.frames);
   const outFrames = range ? range.end - range.start + 1 : prep.probe.frames;
   const ctx: RunContext = {

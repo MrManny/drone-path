@@ -11,8 +11,20 @@ import { tilePaths } from './tilecache.js';
 import { TILE_SOURCES } from './renderer/tilesources.js';
 import { VERSION } from './version.js';
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(canceledError(signal));
+  return new Promise((resolve, reject) => {
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(canceledError(signal!));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 const DOWNLOAD_ATTEMPTS = 2;
 const DOWNLOAD_WORKERS = 2;
@@ -58,6 +70,7 @@ async function downloadTile(
   signal?: AbortSignal,
 ): Promise<Buffer | null> {
   for (let attempt = 0; attempt < DOWNLOAD_ATTEMPTS; attempt++) {
+    if (signal?.aborted) throw canceledError(signal);
     try {
       const body = await ctx.queue.add(() => fetchBody(url, ctx.userAgent, signal), {
         priority: TASK_PRIORITY[priority],
@@ -66,17 +79,29 @@ async function downloadTile(
       if (body) return body;
     } catch {
       if (signal?.aborted) throw canceledError(signal);
-      await sleep(RETRY_DELAY_MS);
+    }
+    if (attempt + 1 < DOWNLOAD_ATTEMPTS) {
+      await sleep(RETRY_DELAY_MS, signal);
     }
   }
   return null;
 }
 
+let cacheWriteSeq = 0;
+
 function writeCacheFile(cachePath: string, data: Buffer): void {
+  const dir = path.dirname(cachePath);
+  const tmpPath = path.join(dir, `${path.basename(cachePath)}.${process.pid}.${++cacheWriteSeq}.tmp`);
   try {
-    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-    fs.writeFileSync(cachePath, data);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(tmpPath, data);
+    fs.renameSync(tmpPath, cachePath);
   } catch (e) {
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch {
+      // best-effort cleanup so the original cache write error propagates
+    }
     throw new Error(`cache write failed: ${cachePath}: ${errorMessage(e)}`, { cause: e });
   }
 }
@@ -114,6 +139,7 @@ async function fetchTileToCache(
   priority: TilePriority,
   signal?: AbortSignal,
 ): Promise<TileFetchResult> {
+  if (signal?.aborted) throw canceledError(signal);
   const paths = tilePaths(ctx.cacheDir, style, tile);
   if (fs.existsSync(paths.file)) return { file: paths.file, status: 'cached' };
   const body = await downloadTile(ctx, tileUrl(style, tile), priority, signal);
@@ -121,8 +147,28 @@ async function fetchTileToCache(
     writeCacheFile(paths.file, body);
     return { file: paths.file, status: 'downloaded' };
   }
+  if (signal?.aborted) throw canceledError(signal);
   writeCacheFile(paths.placeholder, ctx.placeholderPng(style));
   return { file: paths.placeholder, status: 'failed' };
+}
+
+function withAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(canceledError(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(canceledError(signal));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
 }
 
 interface Downloader {
@@ -154,23 +200,34 @@ function createDownloader(
   const ctx: FetchContext = { cacheDir, queue, userAgent, placeholderPng };
   const inFlight = new Map<string, InFlightEntry>();
 
-  return {
-    enqueue(style, tile, options = {}): Promise<TileFetchResult> {
-      const priority = options.priority ?? 'background';
-      const key = `${priority}:${tilePaths(cacheDir, style, tile).file}`;
-      // Share only within one stream: a canceled stream's downloads must never be handed to the next one.
-      const shared = inFlight.get(key);
-      if (shared && shared.signal === options.signal) return shared.promise;
-      const task = fetchTileToCache(ctx, style, tile, priority, options.signal);
-      const entry: InFlightEntry = { promise: task, signal: options.signal };
-      const clear = (): void => {
-        if (inFlight.get(key) === entry) inFlight.delete(key);
-      };
-      void task.then(clear, clear);
-      inFlight.set(key, entry);
-      return task;
-    },
+  const enqueue: Downloader['enqueue'] = (style, tile, options = {}) => {
+    if (options.signal?.aborted) {
+      return Promise.reject(canceledError(options.signal));
+    }
+    const priority = options.priority ?? 'background';
+    const key = tilePaths(cacheDir, style, tile).file;
+    const shared = inFlight.get(key);
+    if (shared && !shared.signal?.aborted) {
+      return withAbort(shared.promise, options.signal).catch((e) => {
+        if (shared.signal?.aborted && !options.signal?.aborted) {
+          return enqueue(style, tile, options);
+        }
+        throw e;
+      });
+    }
+    const task = fetchTileToCache(ctx, style, tile, priority, options.signal);
+    const entry: InFlightEntry = { promise: task, signal: options.signal };
+    const clear = (): void => {
+      options.signal?.removeEventListener('abort', clear);
+      if (inFlight.get(key) === entry) inFlight.delete(key);
+    };
+    options.signal?.addEventListener('abort', clear, { once: true });
+    void task.then(clear, clear);
+    inFlight.set(key, entry);
+    return task;
   };
+
+  return { enqueue };
 }
 
 export interface PrefetchStats {
@@ -205,6 +262,7 @@ export function createTileTraffic(cacheDir: string, version = VERSION): TileTraf
     },
     stream(options): Promise<PrefetchStats> {
       const { style, tiles, log = () => {}, onTile = () => {}, signal } = options;
+      if (signal?.aborted) return Promise.reject(canceledError(signal));
       const missing: TileCoord[] = [];
       for (const tile of tiles) {
         if (fs.existsSync(tilePaths(cacheDir, style, tile).file)) onTile('cached');

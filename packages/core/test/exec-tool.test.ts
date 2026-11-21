@@ -16,7 +16,7 @@ beforeEach(() => {
 });
 
 describe('runTool', () => {
-  it('passes the command, argv and buffer budget through untouched', async () => {
+  it('passes the command, argv and buffer budget through with windowsHide enabled', async () => {
     mocks.execFile.mockImplementation(
       (
         _cmd: string,
@@ -33,8 +33,25 @@ describe('runTool', () => {
     expect(mocks.execFile.mock.calls[0].slice(0, 3)).toEqual([
       'ffprobe',
       ['-v', 'error'],
-      { maxBuffer: 42 },
+      { windowsHide: true, maxBuffer: 42 },
     ]);
+  });
+
+  it('defaults windowsHide to true when options are omitted and lets callers override it', async () => {
+    mocks.execFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        cb: (e: null, result: { stdout: string; stderr: string }) => void,
+      ) => cb(null, { stdout: 'ok', stderr: '' }),
+    );
+
+    await runTool('ffprobe', ['-version']);
+    await runTool('ffprobe', ['-version'], { windowsHide: false });
+
+    expect(mocks.execFile.mock.calls[0][2]).toEqual({ windowsHide: true });
+    expect(mocks.execFile.mock.calls[1][2]).toEqual({ windowsHide: false });
   });
 
   it('propagates the spawned error unwrapped so callers can wrap it with cause', async () => {

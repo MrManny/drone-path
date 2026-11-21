@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   launchFail: false,
   spawnCmds: [] as string[],
   spawnArgs: [] as string[][],
+  spawnOpts: [] as Array<childProcessModule.SpawnOptions | undefined>,
+  spawnError: null as Error | null,
+  killed: 0,
+  closeDelayMs: 0,
 }));
 
 export { mocks };
@@ -24,9 +28,10 @@ vi.mock('node:child_process', async (importOriginal) => {
   const { PassThrough } = await import('node:stream');
   return {
     ...actual,
-    spawn: (cmd: string, args: string[]) => {
+    spawn: (cmd: string, args: string[], opts?: childProcessModule.SpawnOptions) => {
       mocks.spawnCmds.push(cmd);
       mocks.spawnArgs.push(args);
+      mocks.spawnOpts.push(opts);
       const proc = new EventEmitter() as InstanceType<typeof EventEmitter> & {
         stdin: InstanceType<typeof PassThrough>;
         stderr: InstanceType<typeof PassThrough>;
@@ -34,8 +39,25 @@ vi.mock('node:child_process', async (importOriginal) => {
       };
       proc.stdin = new PassThrough();
       proc.stderr = new PassThrough();
-      proc.kill = () => {};
-      proc.stdin.on('finish', () => proc.emit('close', mocks.exitCode));
+      let closed = false;
+      const emitClose = (code: number | null): void => {
+        if (closed) return;
+        closed = true;
+        proc.emit('close', code);
+      };
+      proc.kill = () => {
+        mocks.killed++;
+        if (mocks.closeDelayMs > 0) {
+          setTimeout(() => emitClose(null), mocks.closeDelayMs);
+        } else {
+          queueMicrotask(() => emitClose(null));
+        }
+      };
+      proc.stdin.on('finish', () => emitClose(mocks.exitCode));
+      if (mocks.spawnError) {
+        const err = mocks.spawnError;
+        queueMicrotask(() => proc.emit('error', err));
+      }
       return proc;
     },
   };
@@ -72,6 +94,10 @@ beforeEach(() => {
   mocks.launchFail = false;
   mocks.spawnCmds = [];
   mocks.spawnArgs = [];
+  mocks.spawnOpts = [];
+  mocks.spawnError = null;
+  mocks.killed = 0;
+  mocks.closeDelayMs = 0;
 });
 
 afterEach(cleanupTmpDirs);
