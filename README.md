@@ -102,7 +102,8 @@ From an installed, built checkout, preview the release without publishing with
 A published GitHub release runs the tag and quality checks, then publishes
 `drone-path-core`, `drone-path-engine`, and `drone-path` to npm in that order.
 Independent jobs attach the desktop installers, AppImage, and auto-update
-metadata to the same release. GitHub prereleases skip this workflow.
+metadata to the same release. GitHub prereleases publish to npm under the
+`next` dist-tag instead of `latest`.
 
 Reserve the release's exact package versions for GitHub Actions. To publish
 the first release, set the repository's `NPM_TOKEN` secret to a granular token
