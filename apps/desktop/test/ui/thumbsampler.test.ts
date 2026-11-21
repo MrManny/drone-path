@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 
-import { createThumbSampler, THUMB_HEIGHT, THUMB_WIDTH } from '../../ui/lib/thumbsampler.js';
+import { createThumbSampler, THUMB_SIZE } from '../../ui/lib/thumbsampler.js';
 
 interface FakeMedia {
   doc: Document;
@@ -112,8 +112,8 @@ describe('createThumbSampler', () => {
       360,
       0,
       0,
-      THUMB_WIDTH,
-      THUMB_HEIGHT,
+      THUMB_SIZE,
+      THUMB_SIZE,
     );
     expect(createObjectURL).toHaveBeenCalledWith(media.blob);
     sampler.dispose();
@@ -284,8 +284,8 @@ describe('createThumbSampler', () => {
       ...crop,
       0,
       0,
-      THUMB_WIDTH,
-      THUMB_HEIGHT,
+      THUMB_SIZE,
+      THUMB_SIZE,
     );
     sampler.dispose();
     createObjectURL.mockRestore();
@@ -302,11 +302,5 @@ describe('createThumbSampler', () => {
     await expect(sampler.grab(0)).resolves.toBeNull();
     expect(media.ctx.drawImage).not.toHaveBeenCalled();
     sampler.dispose();
-  });
-});
-
-describe('thumb size', () => {
-  it('keeps the canvas square', () => {
-    expect(THUMB_WIDTH).toBe(THUMB_HEIGHT);
   });
 });

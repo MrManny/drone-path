@@ -10,36 +10,42 @@ const ENTRY_NAME = 'doc.kml';
 const DOS_DATE_1980_01_01 = 0x0021;
 const DOS_TIME_MIDNIGHT = 0x0000;
 
-function localHeader(name: Buffer, data: Buffer): Buffer {
+function writeCommonEntryFields(
+  buf: Buffer,
+  offset: number,
+  crc: number,
+  dataLength: number,
+  nameLength: number,
+): void {
+  buf.writeUInt16LE(20, offset); // version needed: 2.0
+  buf.writeUInt16LE(0, offset + 2); // flags
+  buf.writeUInt16LE(0, offset + 4); // method: stored
+  buf.writeUInt16LE(DOS_TIME_MIDNIGHT, offset + 6);
+  buf.writeUInt16LE(DOS_DATE_1980_01_01, offset + 8);
+  buf.writeUInt32LE(crc, offset + 10);
+  buf.writeUInt32LE(dataLength, offset + 14);
+  buf.writeUInt32LE(dataLength, offset + 18);
+  buf.writeUInt16LE(nameLength, offset + 22);
+  buf.writeUInt16LE(0, offset + 24); // extra field length
+}
+
+function localHeader(name: Buffer, data: Buffer, crc: number): Buffer {
   const header = Buffer.alloc(30);
   header.writeUInt32LE(0x04034b50, 0);
-  header.writeUInt16LE(20, 4); // version needed: 2.0
-  header.writeUInt16LE(0, 6); // flags
-  header.writeUInt16LE(0, 8); // method: stored
-  header.writeUInt16LE(DOS_TIME_MIDNIGHT, 10);
-  header.writeUInt16LE(DOS_DATE_1980_01_01, 12);
-  header.writeUInt32LE(crc32(data), 14);
-  header.writeUInt32LE(data.length, 18);
-  header.writeUInt32LE(data.length, 22);
-  header.writeUInt16LE(name.length, 26);
-  header.writeUInt16LE(0, 28); // extra field length
+  writeCommonEntryFields(header, 4, crc, data.length, name.length);
   return Buffer.concat([header, name, data]);
 }
 
-function centralDirectoryEntry(name: Buffer, data: Buffer, offset: number): Buffer {
+function centralDirectoryEntry(
+  name: Buffer,
+  dataLength: number,
+  crc: number,
+  offset: number,
+): Buffer {
   const entry = Buffer.alloc(46);
   entry.writeUInt32LE(0x02014b50, 0);
   entry.writeUInt16LE(20, 4); // version made by: 2.0, MS-DOS
-  entry.writeUInt16LE(20, 6); // version needed: 2.0
-  entry.writeUInt16LE(0, 8); // flags
-  entry.writeUInt16LE(0, 10); // method: stored
-  entry.writeUInt16LE(DOS_TIME_MIDNIGHT, 12);
-  entry.writeUInt16LE(DOS_DATE_1980_01_01, 14);
-  entry.writeUInt32LE(crc32(data), 16);
-  entry.writeUInt32LE(data.length, 20);
-  entry.writeUInt32LE(data.length, 24);
-  entry.writeUInt16LE(name.length, 28);
-  entry.writeUInt16LE(0, 30); // extra field length
+  writeCommonEntryFields(entry, 6, crc, dataLength, name.length);
   entry.writeUInt16LE(0, 32); // comment length
   entry.writeUInt16LE(0, 34); // disk number start
   entry.writeUInt16LE(0, 36); // internal attributes
@@ -64,8 +70,9 @@ function endOfCentralDirectory(entryCount: number, cdSize: number, cdOffset: num
 export function kmzBytes(kml: string): Buffer {
   const name = Buffer.from(ENTRY_NAME, 'utf8');
   const data = Buffer.from(kml, 'utf8');
-  const local = localHeader(name, data);
-  const central = centralDirectoryEntry(name, data, 0);
+  const crc = crc32(data);
+  const local = localHeader(name, data, crc);
+  const central = centralDirectoryEntry(name, data.length, crc, 0);
   return Buffer.concat([
     local,
     central,

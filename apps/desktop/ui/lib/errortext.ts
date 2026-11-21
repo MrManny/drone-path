@@ -56,6 +56,10 @@ const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\
 const exactMessage = (message: string): RegExp => new RegExp(`^${escaped(message)}$`);
 const messagePrefix = (prefix: string): RegExp => new RegExp(`^${escaped(prefix)}`);
 
+export const UI_ERR_ACTION_FAILED = 'action failed';
+export const UI_ERR_TRACK_SAVE = 'track file could not be saved';
+export const UI_ERR_REVEAL = 'the file could not be revealed';
+
 const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray, t: Translate) => string]> = [
   [exactMessage(ERR_NO_RECORDING), (_match, t) => t('errors.noRecording')],
   [exactMessage(ERR_EXPORT_ALREADY_RUNNING), (_match, t) => t('errors.exportRunning')],
@@ -102,16 +106,9 @@ const APP_SENTENCES: ReadonlyArray<readonly [RegExp, (match: RegExpExecArray, t:
     (_match, t) => t('errors.noFrameRate'),
   ],
   [exactMessage(ERR_UNKNOWN), (_match, t) => t('errors.unknown')],
-  // The UI fallbacks for a refused bridge call that carries no backend message
-  // (ui/lib/exportflow.ts, ui/lib/tracksave.ts, ui/hooks/useTrackSave.ts)
-  // live in the error-message slot, so they map here to sentences instead of
-  // surfacing as fragments.
-  [exactMessage('action failed'), (_match, t) => t('errors.actionFailed')],
-  [
-    exactMessage('track file could not be saved'),
-    (_match, t) => t('errors.trackSave'),
-  ],
-  [exactMessage('the file could not be revealed'), (_match, t) => t('errors.reveal')],
+  [exactMessage(UI_ERR_ACTION_FAILED), (_match, t) => t('errors.actionFailed')],
+  [exactMessage(UI_ERR_TRACK_SAVE), (_match, t) => t('errors.trackSave')],
+  [exactMessage(UI_ERR_REVEAL), (_match, t) => t('errors.reveal')],
 ];
 
 export function describeError(message: string, t: Translate = tEnglish): ErrorText {

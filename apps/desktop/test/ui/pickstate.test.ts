@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PrepareProgress } from 'drone-path-engine/pipeline';
-import { START_PREPARE_PROGRESS, pickReducer } from '../../ui/lib/pickstate.js';
+import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
+import type { PrepareProgress } from 'drone-path-engine/plan';
+import { pickReducer } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 
-const PREPARING: PickState = { kind: 'preparing', progress: START_PREPARE_PROGRESS };
+const PREPARING: PickState = { kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS };
 
 const PLANNING: PrepareProgress = {
   stage: 'plan',

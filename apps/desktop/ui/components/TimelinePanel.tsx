@@ -12,7 +12,7 @@ import type { LoopState } from '../lib/loop.js';
 import { frameAtPointer, hasLoop, resolveLoop } from '../lib/loop.js';
 import { Filmstrip } from './Filmstrip.js';
 
-interface TimelinePanelProps {
+export interface TimelinePanelProps {
   dispatch: (action: HotkeyAction) => void;
   disabled?: boolean;
   loop: LoopState;

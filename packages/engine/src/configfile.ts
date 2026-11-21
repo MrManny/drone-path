@@ -6,10 +6,9 @@ import {
   CONFIG_FILE_NAME,
   DEFAULT_CONFIG,
   assertOneTrackOutSpelling,
-  normalizeDimensions,
+  finalizeRenderConfig,
   normalizeOverrides,
   trackOutSpellingOf,
-  validateRenderConfig,
 } from './config.js';
 import type { ConfigOverrides, RenderConfig, TrackOutSpelling } from './config.js';
 import { errorMessage } from 'drone-path-core/errors';
@@ -115,11 +114,7 @@ export function resolveConfig(opts: {
   ]);
   const merged = mergeConfigLayers(fileLayer.overrides, opts.cli ?? {});
 
-  validateRenderConfig(merged);
-  const normalized = {
-    ...merged,
-    ...normalizeDimensions(merged.width, merged.height),
-  };
+  const normalized = finalizeRenderConfig(merged);
 
   return { config: resolveConfigPaths(normalized, cwd), configPath };
 }

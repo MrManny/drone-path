@@ -17,7 +17,7 @@ import { useLanguageSettings } from '../hooks/useLanguageSettings.js';
 import { LanguageProvider } from '../lib/i18n.js';
 import { useDialogs } from '../hooks/useDialogs.js';
 import { aboutContent } from '../lib/abouttext.js';
-import { appBridge } from '../lib/backend.js';
+import { appBridge, tryAppBridge } from '../lib/backend.js';
 import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
 import { normalizeZoom, resetZoom } from '../lib/mapzoom.js';
@@ -56,17 +56,19 @@ export default function Page() {
   );
 
   useEffect(() => {
+    const bridge = tryAppBridge();
+    if (!bridge) return;
     let cancelled = false;
     const version = settingsVersion.current;
     void (async () => {
       try {
-        const resolved = await appBridge().getSettings();
+        const resolved = await bridge.getSettings();
         // Stored settings may predate the Zoom field rule (#271).
         if (!cancelled && settingsVersion.current === version) {
           setSettings(normalizeZoom(resolved));
         }
       } catch {
-        // Outside the app shell there is no backend: keep the defaults.
+        // Keep defaults if loading settings fails.
       }
     })();
     return () => {
@@ -77,27 +79,18 @@ export default function Page() {
   const handleSettingsChange = useCallback((next: RenderConfig) => {
     settingsVersion.current += 1;
     setSettings(next);
-    try {
-      void appBridge()
-        .saveSettings(settingsPatchOf(next))
-        .catch(() => {
-        });
-    } catch {
-      // Outside the app shell there is no backend to persist settings.
-    }
+    void tryAppBridge()
+      ?.saveSettings(settingsPatchOf(next))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    let offPreparing: (() => void) | null = null;
-    let offProgress: (() => void) | null = null;
-    try {
-      offPreparing = appBridge().onPreparing(() => dispatch({ type: 'preparing' }));
-      offProgress = appBridge().onPrepareProgress((progress) =>
-        dispatch({ type: 'progress', progress }),
-      );
-    } catch {
-      // Outside the app shell there is no backend to report progress.
-    }
+    const bridge = tryAppBridge();
+    if (!bridge) return;
+    const offPreparing = bridge.onPreparing?.(() => dispatch({ type: 'preparing' }));
+    const offProgress = bridge.onPrepareProgress?.((progress) =>
+      dispatch({ type: 'progress', progress }),
+    );
     return () => {
       offPreparing?.();
       offProgress?.();
@@ -105,21 +98,16 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    let offReady: (() => void) | null = null;
-    let offFailed: (() => void) | null = null;
-    try {
-      offReady = appBridge().onUpdateReady(() => dispatchUpdate({ type: 'ready' }));
-      offFailed = appBridge().onUpdateRestartFailed(handleRestartFailed);
-      void appBridge()
-        .getUpdateState()
-        .then((state) => {
-          if (state.ready) dispatchUpdate({ type: 'ready' });
-        })
-        .catch(() => {
-        });
-    } catch {
-      // Outside the app shell there is no backend to report updates.
-    }
+    const bridge = tryAppBridge();
+    if (!bridge) return;
+    const offReady = bridge.onUpdateReady?.(() => dispatchUpdate({ type: 'ready' }));
+    const offFailed = bridge.onUpdateRestartFailed?.(handleRestartFailed);
+    void bridge
+      .getUpdateState?.()
+      .then((state) => {
+        if (state.ready) dispatchUpdate({ type: 'ready' });
+      })
+      .catch(() => {});
     return () => {
       offReady?.();
       offFailed?.();
@@ -174,21 +162,15 @@ export default function Page() {
     }
   }, [dispatchDialog, handleRestartFailed]);
 
-  const postponeUpdate = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
-
   const openHelp = useCallback(() => dispatchDialog({ type: 'openHelp' }), [dispatchDialog]);
   const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
   // Exit closes the window through the app shell's close path, so a running
   // export still gets its confirmation prompt.
   const handleExit = useCallback(() => {
-    try {
-      void appBridge()
-        .closeWindow()
-        .catch(() => {});
-    } catch {
-      // Outside the app shell there is no window to close.
-    }
+    void tryAppBridge()
+      ?.closeWindow()
+      .catch(() => {});
   }, []);
 
   return (
@@ -238,7 +220,7 @@ export default function Page() {
           restarting={updatePhase === 'restarting'}
           failure={updateFailure}
           onRestart={restartUpdate}
-          onLater={postponeUpdate}
+          onLater={closeOverlay}
         />
       ) : null}
       {helpOpen ? <HelpOverlay bundle={MANUAL} onClose={closeOverlay} /> : null}

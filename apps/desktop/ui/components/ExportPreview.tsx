@@ -5,11 +5,9 @@ import type { CSSProperties } from 'react';
 import { useMemo } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
-import { appearanceOf } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
-import { restyleSceneData } from 'drone-path-engine/restyle';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
-import { restyleMeta } from '../lib/restylemeta.js';
+import { restyleSession } from '../lib/restylemeta.js';
 import 'leaflet/dist/leaflet.css';
 
 interface ExportPreviewProps {
@@ -25,13 +23,7 @@ export function ExportPreview({ session, config, size, frame, note = false }: Ex
   const t = useTranslation();
   const { width, height } = size;
   const data = useMemo(
-    () =>
-      restyleSceneData(
-        session.scene,
-        appearanceOf(config),
-        restyleMeta(session),
-        { width, height },
-      ),
+    () => restyleSession(session, config, { width, height }),
     [session, config, width, height],
   );
   const hostRef = useSceneIsland({ data, frame });

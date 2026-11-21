@@ -1,17 +1,12 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import type { Dialogs } from '../hooks/useDialogs.js';
-import { usePlayerHotkeys } from '../hooks/usePlayerHotkeys.js';
 import type { LoopState } from '../lib/loop.js';
-import type { MenuItemId } from '../lib/menumodel.js';
 import type { PickState } from '../lib/pickstate.js';
 import { EmptyStage } from './EmptyStage.js';
-import { MenuBar } from './MenuBar.js';
-import { TimelinePanel } from './TimelinePanel.js';
-import { TransportBar } from './TransportBar.js';
-import { WorkspaceHeader } from './WorkspaceHeader.js';
+import { WorkspaceShell } from './WorkspaceShell.js';
 
 interface EmptyWorkspaceProps {
   state: PickState;
@@ -36,81 +31,50 @@ export function EmptyWorkspace({
   const timeRef = useRef<HTMLSpanElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { mapAppearanceOpen, dispatchDialog } = dialogs;
-
-  const toggleMapAppearance = useCallback(() => {
-    dispatchDialog({ type: mapAppearanceOpen ? 'close' : 'openMapAppearance' });
-  }, [mapAppearanceOpen, dispatchDialog]);
-
-  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
-
-  const dispatch = usePlayerHotkeys(
-    {
-      togglePlay: NOOP,
-      setSpeed: NOOP,
-      stepBy: NOOP,
-      scrubTo: NOOP,
-      setLoopPoint: NOOP,
-      clearLoop: NOOP,
-      swap: NOOP,
-      openRecording: onPick,
-      closeOverlay,
-      zoomStep: NOOP,
-    },
-    {
-      modalOpen: dialogs.modalOpen,
-      menuOpen,
-      fps: 0,
-      frames: 0,
-    },
-  );
-
-  // Recording-only items stay disabled with nothing loaded, so they need no handler.
-  const menuActions: Partial<Record<MenuItemId, () => void>> = {
-    open: onPick,
-    appSettings: () => dispatchDialog({ type: 'openSettings' }),
-    settings: toggleMapAppearance,
-    documentation: onHelp,
-    about: () => dispatchDialog({ type: 'openAbout' }),
-    exit: onExit,
-  };
 
   return (
-    <div className="workspace">
-      <MenuBar
-        hasRecording={false}
-        opening={state.kind === 'preparing'}
-        modalOpen={dialogs.modalOpen}
-        onActivate={(item) => menuActions[item]?.()}
-        onMenuOpenChange={setMenuOpen}
-      />
-      <WorkspaceHeader durationSec={null} />
-      <EmptyStage state={state} onPick={onPick} onDismiss={onDismiss} />
-      <TransportBar
-        dispatch={dispatch}
-        disabled
-        ready={false}
-        playing={false}
-        speed={1}
-        fps={0}
-        durationSec={0}
-        timeRef={timeRef}
-      />
-      <TimelinePanel
-        dispatch={dispatch}
-        disabled
-        loop={NO_LOOP}
-        setLoopFrame={NOOP}
-        fps={0}
-        frames={0}
-        durationSec={0}
-        maxFrame={0}
-        scrubTo={NOOP}
-        scrubRef={scrubRef}
-        playheadRef={playheadRef}
-        src=""
-      />
-    </div>
+    <WorkspaceShell
+      hasRecording={false}
+      opening={state.kind === 'preparing'}
+      durationSec={null}
+      dialogs={dialogs}
+      onOpen={onPick}
+      onHelp={onHelp}
+      onExit={onExit}
+      hotkeyHandlers={{
+        togglePlay: NOOP,
+        setSpeed: NOOP,
+        stepBy: NOOP,
+        scrubTo: NOOP,
+        setLoopPoint: NOOP,
+        clearLoop: NOOP,
+        swap: NOOP,
+        zoomStep: NOOP,
+      }}
+      hotkeyTiming={{ fps: 0, frames: 0 }}
+      stage={<EmptyStage state={state} onPick={onPick} onDismiss={onDismiss} />}
+      transport={{
+        disabled: true,
+        ready: false,
+        playing: false,
+        speed: 1,
+        fps: 0,
+        durationSec: 0,
+        timeRef,
+      }}
+      timeline={{
+        disabled: true,
+        loop: NO_LOOP,
+        setLoopFrame: NOOP,
+        fps: 0,
+        frames: 0,
+        durationSec: 0,
+        maxFrame: 0,
+        scrubTo: NOOP,
+        scrubRef,
+        playheadRef,
+        src: '',
+      }}
+    />
   );
 }

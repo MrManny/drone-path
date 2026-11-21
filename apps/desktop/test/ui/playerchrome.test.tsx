@@ -11,7 +11,7 @@ import { MapAppearanceModal } from '../../ui/components/MapAppearanceModal.js';
 import { PlayerChrome } from '../../ui/components/PlayerChrome.js';
 import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
 import { useDialogs } from '../../ui/hooks/useDialogs.js';
-import { START_PREPARE_PROGRESS } from '../../ui/lib/pickstate.js';
+import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
 import type { PickState } from '../../ui/lib/pickstate.js';
 import { restyleMeta } from '../../ui/lib/restylemeta.js';
 import { SESSION, flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
@@ -1137,7 +1137,7 @@ describe('PlayerChrome open notice', () => {
         settings={SETTINGS}
         onSettingsChange={() => {}}
         onOpen={() => {}}
-        openState={{ kind: 'preparing', progress: START_PREPARE_PROGRESS }}
+        openState={{ kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS }}
       />,
     );
     expect(screen.getByText('Reading the recording…')).toBeTruthy();

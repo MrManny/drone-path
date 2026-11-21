@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { FfmpegToolOverrides } from 'drone-path-core/ffmpeg-tools';
 import { parseFrameRange } from 'drone-path-core/frame-range';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { numberValue, parseValue, strictShape } from 'drone-path-core/validation';
+import { asRecord, isRecord, numberValue, parseValue, strictShape } from 'drone-path-core/validation';
 
 export const MAP_STYLE_VALUES = ['satellite', 'topo'] as const;
 export type MapStyle = (typeof MAP_STYLE_VALUES)[number];
@@ -137,7 +137,7 @@ function nullableStringValue(name: string): z.ZodType<string | null> {
 // The legacy key loops ran Object.keys on any object, arrays included;
 // spreading keeps exactly those keys visible to the strict shapes below.
 const keyedObjectInput = (value: unknown): unknown =>
-  typeof value === 'object' && value !== null ? { ...value } : value;
+  isRecord(value) ? { ...value } : value;
 
 // The whitespace tolerance matches the legacy trim-before-match so the error
 // can echo the raw untrimmed input.
@@ -574,14 +574,7 @@ export function appearanceOf(config: AppearanceSettings): AppearanceSettings {
 
 export function settingsPatchOf(config: RenderConfig): SettingsPatch {
   return {
-    style: config.style,
-    view: config.view,
-    zoom: config.zoom,
-    zoomOut: config.zoomOut,
-    hud: config.hud,
-    introSec: config.introSec,
-    outroSec: config.outroSec,
-    trailColor: config.trailColor,
+    ...appearanceOf(config),
     codec: config.codec,
     quality: config.quality,
     preset: config.preset,
@@ -618,8 +611,7 @@ export function parseSettingsPatch(raw: unknown, origin: string): SettingsPatch 
 // The pick-request flavor of look settings: its error wording is the legacy
 // IPC wording, deliberately distinct from validateRenderConfig's CLI wording.
 export function parseAppearanceSettings(raw: unknown): AppearanceSettings {
-  const look =
-    typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const look = asRecord(raw);
   const { style, view, hud } = look;
   const mapStyle = parseValue(
     z.enum(MAP_STYLE_VALUES, {
@@ -642,7 +634,7 @@ export function parseAppearanceSettings(raw: unknown): AppearanceSettings {
   requireNonNegative(introSec, 'intro must be 0 or more');
   requireNonNegative(outroSec, 'outro must be 0 or more');
   const trailColor = asTrailColor(look.trailColor ?? null, 'trail color');
-  const chips = typeof hud === 'object' && hud !== null ? (hud as Record<string, unknown>) : {};
+  const chips = asRecord(hud);
   return {
     style: mapStyle,
     view: viewMode,
@@ -717,6 +709,11 @@ export function validateRenderConfig(config: RenderConfig): void {
   if (!config.outSuffix) throw new Error('out-suffix must not be empty');
 }
 
+export function finalizeRenderConfig(config: RenderConfig): RenderConfig {
+  validateRenderConfig(config);
+  return { ...config, ...normalizeDimensions(config.width, config.height) };
+}
+
 export interface ExportRequest {
   outPath: string;
   config: RenderConfig;
@@ -731,10 +728,10 @@ const MAIN_OWNED_KEYS = [
 ] as const;
 
 function parseRequestConfig(raw: unknown, base: RenderConfig): RenderConfig {
-  if (typeof raw !== 'object' || raw === null) {
+  if (!isRecord(raw)) {
     throw new Error('invalid export request: config');
   }
-  const flat = { ...(raw as Record<string, unknown>) };
+  const flat = { ...raw };
   for (const key of MAIN_OWNED_KEYS) delete flat[key];
   const { hud, ...rest } = flat;
   const hudSpec =
@@ -743,8 +740,7 @@ function parseRequestConfig(raw: unknown, base: RenderConfig): RenderConfig {
       : parseValue(hudSpecSchema('export request: config: hud'), hud);
   const config = { ...base, ...normalizeOverrides(rest, 'export request: config') };
   const merged = hudSpec === undefined ? config : { ...config, hud: hudSpec };
-  validateRenderConfig(merged);
-  return { ...merged, ...normalizeDimensions(merged.width, merged.height) };
+  return finalizeRenderConfig(merged);
 }
 
 const EXPORT_REQUEST_SCHEMA = z.preprocess(

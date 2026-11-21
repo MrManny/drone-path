@@ -53,6 +53,13 @@ function camSampleToFrameValues(sample: CamSample): TelemetryFrameInput {
   };
 }
 
+function toTrackRecords<T extends { tSec: number }>(
+  items: readonly T[],
+  toValues: (item: T) => TelemetryFrameInput,
+): TrackRecord[] {
+  return items.map((item) => ({ ...toValues(item), tSec: item.tSec }));
+}
+
 interface SourceSamples extends TelemetrySamples {
   frameValues: TelemetryFrameInput[];
   trackValues: TrackRecord[];
@@ -81,10 +88,7 @@ async function loadSamples(
       noLock: cam.noLock,
       frameValues:
         cam.method === 'dvtm-packets' ? cam.samples.map(camSampleToFrameValues) : [],
-      trackValues: cam.samples.map((sample) => ({
-        ...camSampleToFrameValues(sample),
-        tSec: sample.tSec,
-      })),
+      trackValues: toTrackRecords(cam.samples, camSampleToFrameValues),
       protoFile: cam.protoFile,
       gimbalDevice: cam.gimbalDevice,
     };
@@ -106,10 +110,7 @@ async function loadSamples(
       method: 'srt-cues',
       noLock: parsed.noLock,
       frameValues: parsed.cues.map(srtCueToFrameValues),
-      trackValues: parsed.cues.map((cue) => ({
-        ...srtCueToFrameValues(cue),
-        tSec: cue.tSec,
-      })),
+      trackValues: toTrackRecords(parsed.cues, srtCueToFrameValues),
       protoFile: null,
       gimbalDevice: null,
     };

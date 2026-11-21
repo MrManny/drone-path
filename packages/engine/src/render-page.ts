@@ -60,7 +60,8 @@ export function planPageOpts(opts: {
   };
 }
 
-export function buildSceneData(opts: RenderPageOpts, tileBase: string): SceneData {  const {
+export function buildSceneData(opts: RenderPageOpts, tileBase: string): SceneData {
+  const {
     width, height, style, trailColor, view, center, zoom, attribution,
     lat, lon, alt, speed, headingDeg, hud, decimated,
     introN = 0, outroN = 0,

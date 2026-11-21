@@ -6,6 +6,7 @@ import {
   errorMessage,
 } from 'drone-path-core/errors';
 import type { ExportAck, ExportOutputPayload, PickOutputResult } from './backend.js';
+import { UI_ERR_ACTION_FAILED } from './errortext.js';
 import type { ExportEvent, ExportForm } from './exportstate.js';
 
 export interface ExportFlowDeps {
@@ -112,6 +113,6 @@ export function runDoneAction(
     () => call(deps),
     (error) => ({ type: 'failed', error }),
     emit,
-    'action failed',
+    UI_ERR_ACTION_FAILED,
   );
 }

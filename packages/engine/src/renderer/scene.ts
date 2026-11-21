@@ -70,18 +70,18 @@ interface Decor {
   wrapEl: HTMLElement | null;
 }
 
+/** A missing value renders exactly like a disabled chip: the dimmed "--". */
+function isMissing(value: number | null | undefined): value is null | undefined {
+  return value === null || value === undefined;
+}
+
 function setChipText(
   chip: HTMLElement | null,
   value: number | null | undefined,
   format: (v: number) => string,
 ): void {
   if (!chip) return;
-  chip.textContent = value === null || value === undefined ? '--' : format(value);
-}
-
-/** A missing value renders exactly like a disabled chip: the dimmed "--". */
-function isPlaceholder(value: number | null | undefined): boolean {
-  return value === null || value === undefined;
+  chip.textContent = isMissing(value) ? '--' : format(value);
 }
 
 let scopeCount = 0;
@@ -408,7 +408,7 @@ class SceneState implements Scene {
       sample falls back to the dimmed "--", matching the preview chip (#283). */
   private setHeading(chip: HTMLElement | null, deg: number | null | undefined): void {
     if (!chip) return;
-    const missing = deg === null || deg === undefined;
+    const missing = isMissing(deg);
     const arrow = chip.querySelector<HTMLElement>('.chip-arrow');
     const num = chip.querySelector<HTMLElement>('.num');
     if (arrow) {
@@ -425,7 +425,7 @@ class SceneState implements Scene {
   ): void {
     if (!chip) return;
     setChipText(chip.querySelector<HTMLElement>('.num'), value, format);
-    if (this.externalHud) chip.classList.toggle('map-readout-off', isPlaceholder(value));
+    if (this.externalHud) chip.classList.toggle('map-readout-off', isMissing(value));
   }
 
   setFrame(i: number): Promise<void> {
@@ -452,18 +452,16 @@ class SceneState implements Scene {
   update(next: SceneData): Promise<void> {
     const prev = this.data;
     this.data = next;
-    if (next.lat !== prev.lat || next.lon !== prev.lon) {
+    const styleChanged = next.style !== prev.style;
+    const sizeChanged = next.width !== prev.width || next.height !== prev.height;
+    const trackChanged = next.lat !== prev.lat || next.lon !== prev.lon;
+    if (trackChanged) {
       this.latlngs = this.latlngsOf(next);
       this.bb = this.L.latLngBounds(this.latlngs);
     }
-    const chromeChanged =
-      next.style !== prev.style ||
-      next.trailColor !== prev.trailColor ||
-      next.width !== prev.width ||
-      next.height !== prev.height ||
-      next.attribution !== prev.attribution;
-    if (chromeChanged) this.applyChrome();
-    if (next.style !== prev.style) {
+    const lookChanged = styleChanged || next.trailColor !== prev.trailColor || sizeChanged;
+    if (lookChanged || next.attribution !== prev.attribution) this.applyChrome();
+    if (styleChanged) {
       // Zoom constraints are per tile layer (topo is native to z17), so a style switch swaps the layer instead of only its URL.
       this.tiles.remove();
       this.tiles = this.makeTileLayer(next.tileUrl, next.style);
@@ -471,17 +469,11 @@ class SceneState implements Scene {
     } else if (next.tileUrl !== prev.tileUrl) {
       this.tiles.setUrl(next.tileUrl);
     }
-    const decorInvalidated =
-      next.style !== prev.style ||
-      next.trailColor !== prev.trailColor ||
+    const trailChanged =
       next.trailLat !== prev.trailLat ||
       next.trailLon !== prev.trailLon ||
-      next.trailFrame !== prev.trailFrame ||
-      next.lat !== prev.lat ||
-      next.lon !== prev.lon ||
-      next.width !== prev.width ||
-      next.height !== prev.height;
-    if (decorInvalidated) this.rebuildDecor();
+      next.trailFrame !== prev.trailFrame;
+    if (lookChanged || trailChanged || trackChanged) this.rebuildDecor();
     if (
       !hudEq(prev.hud, next.hud) ||
       next.hudPills !== prev.hudPills ||

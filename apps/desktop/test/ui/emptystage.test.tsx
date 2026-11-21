@@ -7,8 +7,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
 import { EmptyStage } from '../../ui/components/EmptyStage.js';
-import { START_PREPARE_PROGRESS } from '../../ui/lib/pickstate.js';
 import type { PickState } from '../../ui/lib/pickstate.js';
 
 vi.mock('../../ui/components/MapIsland.js', async () => {
@@ -97,7 +97,7 @@ describe('EmptyStage', () => {
   });
 
   it('goes disabled Preparing… and shows the first stage once the file is prepared', () => {
-    renderStage({ kind: 'preparing', progress: START_PREPARE_PROGRESS });
+    renderStage({ kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS });
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Preparing…' });
     expect(button.disabled).toBe(true);
     expect(screen.getByText('Reading the recording…')).toBeTruthy();
@@ -106,7 +106,7 @@ describe('EmptyStage', () => {
   });
 
   it('keeps the loading feedback in the centered stack with the CTA (#167)', () => {
-    renderStage({ kind: 'preparing', progress: START_PREPARE_PROGRESS });
+    renderStage({ kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS });
     const notice = screen.getByText('Reading the recording…').closest('.prepare-status');
     expect(notice?.closest('.stage-empty')).not.toBeNull();
     expect(document.querySelector('.player-notices')).toBeNull();
@@ -166,7 +166,7 @@ describe.each<PickState>([{ kind: 'idle' }, { kind: 'picking' }, { kind: 'ready'
 describe.for<PickState>([
   { kind: 'idle' },
   { kind: 'picking' },
-  { kind: 'preparing', progress: START_PREPARE_PROGRESS },
+  { kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS },
   { kind: 'canceled' },
   { kind: 'error', message: 'boom' },
 ])('an empty stage in the $kind state', (state) => {

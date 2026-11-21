@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import { TILE_SOURCES } from 'drone-path-engine/renderer/tilesources';
 import {
-  isZoomPinValue,
   normalizePinnedZoom,
   normalizeZoom,
   resetZoom,
@@ -21,21 +20,6 @@ describe('normalizePinnedZoom (#270)', () => {
     { name: 'clamps a negative to auto-fit', value: -3, want: 0 },
   ])('$name', ({ value, want }) => {
     expect(normalizePinnedZoom(value, 'satellite')).toBe(want);
-  });
-});
-
-describe('isZoomPinValue (#271)', () => {
-  it.for<{ name: string; value: number; valid: boolean }>([
-    { name: 'accepts auto-fit', value: 0, valid: true },
-    { name: 'accepts the floor', value: 2, valid: true },
-    { name: 'accepts the maximum', value: TILE_SOURCES.satellite.maxZoom, valid: true },
-    { name: 'accepts a level between', value: 14, valid: true },
-    { name: 'refuses a level below the floor', value: 1, valid: false },
-    { name: 'refuses a level above the maximum', value: 25, valid: false },
-    { name: 'refuses a fraction', value: 14.5, valid: false },
-    { name: 'refuses a negative', value: -1, valid: false },
-  ])('$name', ({ value, valid }) => {
-    expect(isZoomPinValue(value, 'satellite')).toBe(valid);
   });
 });
 

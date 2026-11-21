@@ -77,10 +77,12 @@ function collectOverrides(
     const raw = row.cli.parse ? row.cli.parse(opts[row.key]) : opts[row.key];
     Object.assign(cli, row.normalize(raw, flag));
   }
+  const hasAlias = givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.inputKey);
+  const hasCanonical = givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.key);
   // The deprecated alias lands on the same trackOut override key; both
   // spellings at once is ambiguous and rejected.
-  if (givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.inputKey)) {
-    if (givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.key)) {
+  if (hasAlias) {
+    if (hasCanonical) {
       throw new Error(
         `${longFlagOf(TELEMETRY_JSON_ALIAS.flags)} and --track-out cannot be combined (use --track-out)`,
       );
@@ -94,12 +96,9 @@ function collectOverrides(
       ),
     );
   }
-  const trackOutSpelling: TrackOutSpelling | null = givenOnCommandLine(
-    program,
-    TELEMETRY_JSON_ALIAS.inputKey,
-  )
+  const trackOutSpelling: TrackOutSpelling | null = hasAlias
     ? 'telemetry-json'
-    : givenOnCommandLine(program, TELEMETRY_JSON_ALIAS.key)
+    : hasCanonical
       ? 'track-out'
       : null;
   return { cli, trackOutSpelling };

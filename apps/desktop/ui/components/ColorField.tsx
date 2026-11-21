@@ -1,7 +1,6 @@
 'use client';
 
-import { useTranslation } from '../lib/i18n.js';
-import { useId, useState } from 'react';
+import { DraftField } from './DraftField.js';
 
 export interface ColorFieldProps {
   label: string;
@@ -13,54 +12,28 @@ export interface ColorFieldProps {
 }
 
 export function ColorField({ label, value, parse, rule, hint, onValue }: ColorFieldProps) {
-  const t = useTranslation();
-  const id = useId();
-  const messageId = `${id}-message`;
-  const hintId = `${id}-hint`;
-  const [draft, setDraft] = useState<string | null>(null);
-  const [invalid, setInvalid] = useState(false);
   return (
-    <div className="settings-row">
-      <label className="settings-label" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        type="text"
-        value={draft ?? value ?? ''}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? messageId : hint ? hintId : undefined}
-        onChange={(e) => {
-          const raw = e.target.value;
-          setDraft(raw);
-          let parsed: string | null;
-          try {
-            parsed = raw === '' ? null : parse(raw);
-          } catch {
-            setInvalid(true);
-            return;
-          }
-          setInvalid(!onValue(parsed));
-        }}
-        onBlur={() => {
-          setDraft(null);
-          setInvalid(false);
-        }}
-      />
-      <span
-        className={value === null ? 'color-swatch color-swatch-empty' : 'color-swatch'}
-        style={{ background: value ?? undefined }}
-        aria-hidden="true"
-      />
-      {invalid ? (
-        <span className="field-message" id={messageId}>
-          {t('field.mustBe', { rule })}
-        </span>
-      ) : hint ? (
-        <span className="hint" id={hintId}>
-          {hint}
-        </span>
-      ) : null}
-    </div>
+    <DraftField
+      label={label}
+      value={value ?? ''}
+      inputProps={{ type: 'text' }}
+      parse={(raw) => {
+        try {
+          return { ok: true, value: raw === '' ? null : parse(raw) };
+        } catch {
+          return { ok: false };
+        }
+      }}
+      rule={rule}
+      hint={hint}
+      suffix={
+        <span
+          className={value === null ? 'color-swatch color-swatch-empty' : 'color-swatch'}
+          style={{ background: value ?? undefined }}
+          aria-hidden="true"
+        />
+      }
+      onValue={onValue}
+    />
   );
 }

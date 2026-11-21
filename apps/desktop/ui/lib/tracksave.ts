@@ -4,6 +4,7 @@ import type { TrackSaveRequest } from '../../src/appsession.js';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import { ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 import type { ExportAck, PickOutputResult } from './backend.js';
+import { UI_ERR_TRACK_SAVE } from './errortext.js';
 import { formatFrameRange, formatTime } from './frametime.js';
 
 interface TrackSaveDeps {
@@ -87,7 +88,7 @@ export async function trackSaveFlow(
     onSaving();
     const ack = await deps.saveTrack({ outPath: picked.path, range });
     if (!ack.ok) {
-      return { type: 'failed', message: ack.error ?? 'track file could not be saved' };
+      return { type: 'failed', message: ack.error ?? UI_ERR_TRACK_SAVE };
     }
     return { type: 'saved', path: picked.path };
   } catch (e) {
