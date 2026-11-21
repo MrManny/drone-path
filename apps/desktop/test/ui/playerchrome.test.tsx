@@ -1017,6 +1017,31 @@ describe('PlayerChrome loop region', () => {
     ).toBe(true);
   });
 
+  it('clamps a dragged handle against the live out point when moved outward mid-drag (#314)', async () => {
+    await renderPlayer();
+    const scrub = document.querySelector('input[type="range"]') as HTMLInputElement;
+    fireEvent.change(scrub, { target: { value: '30' } });
+    key(window, { key: 'i' });
+    fireEvent.change(scrub, { target: { value: '60' } });
+    key(window, { key: 'o' });
+    act(() => flushRaf());
+    const track = document.querySelector('.track') as HTMLElement;
+    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 100 } as DOMRect);
+    pointer('pointerdown', document.querySelector('.loop-handle-in') as HTMLElement);
+    // Move the out point outward to frame 89 mid-drag via O: the in handle must
+    // drag past the stale frame-60 bound instead of clamping at 59.
+    fireEvent.change(scrub, { target: { value: '89' } });
+    key(window, { key: 'o' });
+    act(() => flushRaf());
+    pointer('pointermove', window, { clientX: 80 });
+    pointer('pointerup', window);
+    // 0.8 * 89 = 71.2 -> frame 71 (~2s at 30 fps); frame 89 rounds to 0:03
+    expect(document.querySelector('.loop-readout')?.textContent).toBe('in 0:02 · out 0:03');
+    const band = document.querySelector('.loop-band') as HTMLElement;
+    expect(parseFloat(band.style.left)).toBeCloseTo((71 / 89) * 100);
+    expect(parseFloat(band.style.width)).toBeCloseTo(((89 - 71) / 89) * 100);
+  });
+
   it('resumes an end-of-file loop at the loop start, not the file start', async () => {
     const fake = await renderPlayer();
     setLoopRegion(30, 60);
