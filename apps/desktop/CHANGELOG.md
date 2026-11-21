@@ -2,16 +2,7 @@
 
 ## 1.0.0
 
-### Patch Changes
-
-- Updated dependencies [f987b1b]
-- Updated dependencies [f987b1b]
-- Updated dependencies [f987b1b]
-- Updated dependencies [f987b1b]
-- Updated dependencies [f987b1b]
-- Updated dependencies [f987b1b]
-  - drone-path-core@1.0.0
-  - drone-path-engine@1.0.0
+- **Internal:** Updated `drone-path-core` and `drone-path-engine` to `1.0.0`.
 
 ## 1.0.0-rc1
 

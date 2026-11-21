@@ -15,7 +15,7 @@ description: Release workflow. Use when preparing a release.
 
 4. Switch to a dedicated release branch `release/vX.Y.Z`
 
-5. Rewrite the new `CHANGELOG.md` section as prose release notes before committing
+5. Rewrite the new `CHANGELOG.md` sections (root and workspaces) as prose release notes before committing
   - group changes by "Core libraries", "CLI", and "Desktop"
   - terse labeled lines: `**New:**` what users can do now that they could not before, `**Fixed:**` which known issues were fixed, `**Internal:**` (optional, last) changes with no user impact
   - omit labeled lines with no content instead of writing `Nothing this release.`
