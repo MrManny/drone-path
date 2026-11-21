@@ -19,9 +19,6 @@
 - **Fixed:** Archive queries can now open an existing index while a scan holds a
   SQLite write reservation, and SRT sidecar scanning avoids repeated directory
   reads.
-
-## 1.0.0-rc1
-
 - **Fixed:** `.SRT` no-lock gaps now preserve the nearest valid fix's speed and
   heading instead of dropping to zero or the default heading, and two-fix
   tracks compute forward-difference speed and course-over-ground heading.
@@ -37,9 +34,9 @@
   exports never overwrite finished files, and updater restart failures and
   duplicate save-picker triggers are handled cleanly.
 - **Internal:** Split the codebase into monorepo packages: `drone-path` now
-  depends on `drone-path-core` and `drone-path-engine`, while desktop
-  installers continue to ship from GitHub Releases. Scoped GitHub Project
-  status helpers to issues in the current repository.
+  depends on `drone-path-core`, `drone-path-engine`, and `drone-path-archive`,
+  while desktop installers continue to ship from GitHub Releases. Scoped GitHub
+  Project status helpers to issues in the current repository.
 
 ## 0.13.0
 
