@@ -183,7 +183,7 @@ function hudSpecSchema(name: string): z.ZodType<HudLayout> {
 }
 
 function patchHud(value: unknown, name: string): HudLayout | undefined {
-  if (value === undefined || value === null) return undefined;
+  if (value === undefined) return undefined;
   return typeof value === 'string'
     ? parseHud(parseValue(stringValue(name), value))
     : parseValue(hudSpecSchema(name), value);
@@ -518,7 +518,6 @@ export function normalizeOverrides(
     const normalize = OVERRIDE_NORMALIZERS[key as keyof RenderConfig];
     const value = raw[key];
     if (value === undefined) continue;
-    if (value === null && DEFAULT_CONFIG[key as keyof RenderConfig] !== null) continue;
     Object.assign(out, normalize(value, `${origin}: ${key}`));
   }
   // Both spellings at once is ambiguous and rejected; the alias alone warns
