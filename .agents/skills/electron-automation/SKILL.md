@@ -5,7 +5,7 @@ description: Launch, drive and instrument the Drone Path Electron app from an ag
 
 # Automating the Electron App
 
-Re-check `package.json` and `app/main.mjs` before relying on exact flags.
+Re-check `apps/desktop/package.json` and `apps/desktop/app/main.mjs` before relying on exact flags.
 
 ## How the app launches
 
@@ -17,7 +17,7 @@ Re-check `package.json` and `app/main.mjs` before relying on exact flags.
 - The shell (`apps/desktop/app/main.mjs`) is thin: one window, a privileged `app://bundle`
   scheme serving `apps/desktop/ui/out` plus media and tiles, and three IPC handlers
   (`dronepath:pick`, `-:session`, `-:settings`) bridged through
-  `app/preload.cjs` as `window.dronepath`.
+  `apps/desktop/app/preload.cjs` as `window.dronepath`.
 - **Tool check at startup:** ffmpeg/ffprobe resolve via
   `packages/core/src/ffmpeg-tools.ts` (`resolveFfmpegTools()`: config override, embedded
   binaries, then PATH); without a runnable pair the app dies at startup
@@ -62,13 +62,13 @@ window-level screenshot.
 
 ## The one real obstacle: the native file dialog
 
-`pickRecording()` opens a native `dialog.showOpenDialog` (`app/main.mjs`),
+`pickRecording()` opens a native `dialog.showOpenDialog` (`apps/desktop/app/main.mjs`),
 which Playwright cannot automate (`page.on('dialog')` handles only JS
 dialogs). Two solutions:
 
 1. **Monkey-patch, no code change:** patch `dialog.showOpenDialog` via
    `app.evaluate` to return a fixed path (as above). Works because
-   `app/main.mjs` resolves the method at call time on the shared `dialog`
+   `apps/desktop/app/main.mjs` resolves the method at call time on the shared `dialog`
    object.
 2. **Cleaner long-term (small future change):** a flag such as `--open <path>`
    (or an env var) so `pickFile` skips the dialog when a path is supplied —

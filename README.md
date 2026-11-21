@@ -1,6 +1,3 @@
-> [!NOTE]
-> Head's up! This repo will be restructured as a monorepo in the near future.
-
 # Drone Path
 
 This handy little tool renders flight-path map videos from DJI drone
@@ -20,10 +17,6 @@ recording and watch its flight path on the map in sync as you play.
 ## Quick start
 
 ```sh
-# from GitHub
-npx github:MrManny/drone-path "my-flight.mp4"
-
-# from npm
 npx drone-path "my-flight.mp4"
 
 # topographic map, altitude + speed HUD
@@ -77,6 +70,26 @@ shared timeline.*
 
 If you want or need specific features, feel free to open an issue in this
 repository's issue tracker.
+
+## Repository layout
+
+Run `npm ci`, `npm run lint`, `npm test`, and `npm run build` from the
+repository root. The workspaces share a single lockfile.
+
+| Workspace | Owns |
+| --- | --- |
+| [`packages/core`](packages/core/) | Telemetry extraction, frame ranges, and tool discovery |
+| [`packages/engine`](packages/engine/) | Configuration, rendering, and map tiles |
+| [`packages/cli`](packages/cli/) | The `drone-path` command and CLI API |
+| [`packages/tooling`](packages/tooling/) | Manual, schema, build identity, and localization generators |
+| [`apps/desktop`](apps/desktop/) | Electron shell, Next.js UI, and desktop packaging |
+
+To run the CLI from a checkout after `npm ci`:
+
+```sh
+npm run build:cli
+node packages/cli/bin/drone-path.mjs "my-flight.mp4"
+```
 
 ## Releasing
 
