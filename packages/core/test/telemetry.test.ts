@@ -208,9 +208,9 @@ describe('telemetry source selection', () => {
         })),
       });
     mocks.execFile.mockImplementation(
-      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
-        fs.writeFileSync(args[args.length - 1], Buffer.concat(parts));
-        cb(null);
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: null, result: { stdout: Buffer }) => void) => {
+        expect(args.at(-1)).toBe('pipe:1');
+        cb(null, { stdout: Buffer.concat(parts) });
       },
     );
   }
@@ -223,9 +223,9 @@ describe('telemetry source selection', () => {
       })
       .mockResolvedValueOnce({ packets: [{ pts_time: '0', size: '5' }] });
     mocks.execFile.mockImplementation(
-      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
-        fs.writeFileSync(args[args.length - 1], dump);
-        cb(null);
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: null, result: { stdout: Buffer }) => void) => {
+        expect(args.at(-1)).toBe('pipe:1');
+        cb(null, { stdout: dump });
       },
     );
   }
@@ -561,9 +561,9 @@ describe('telemetry JSON export values', () => {
         })),
       });
     mocks.execFile.mockImplementation(
-      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
-        fs.writeFileSync(args[args.length - 1], dump);
-        cb(null);
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: null, result: { stdout: Buffer }) => void) => {
+        expect(args.at(-1)).toBe('pipe:1');
+        cb(null, { stdout: dump });
       },
     );
 
