@@ -11,8 +11,8 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
   check the whole repository.
 
 When adding a dependency, pin it to a patch-level range (for example,
-`~1.2.3`) and check `https://security.snyk.io/package/npm/<package_name>`
-for high or critical security issues before adding it.
+`~1.2.3`). New dependencies must have no high or critical security issues.
+Check `https://security.snyk.io/package/npm/<package_name>` before adding one.
 
 ## Workspaces
 
