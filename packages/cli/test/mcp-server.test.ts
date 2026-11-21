@@ -729,7 +729,7 @@ describe('MCP security hardening', () => {
     await h.shutdown();
   });
 
-  it('redacts absolute filesystem paths from client error responses while logging raw errors', async () => {
+  it('redacts absolute filesystem paths from client error responses and tool error logs', async () => {
     expect(sanitizeMcpErrorMessage('failed at C:\\Users\\Alice Smith\\clip.mp4')).toBe(
       'failed at <path>',
     );
@@ -763,9 +763,14 @@ describe('MCP security hardening', () => {
     expect(clientMsg).toContain('path is outside allowed roots: <path>');
     expect(clientMsg).not.toContain('secret-outside-folder');
     expect(clientMsg).not.toContain('private.mp4');
-    expect(h.logs.some((entry) => entry.includes('tool error:') && entry.includes(outsideClip))).toBe(
-      true,
-    );
+    expect(
+      h.logs.some(
+        (entry) =>
+          entry.includes('tool error: path is outside allowed roots: <path>') &&
+          !entry.includes('secret-outside-folder') &&
+          !entry.includes('private.mp4'),
+      ),
+    ).toBe(true);
 
     await h.shutdown();
   });

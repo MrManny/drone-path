@@ -245,10 +245,10 @@ function toolHandler<TArgs>(log: LogFn, handler: (args: TArgs) => Promise<unknow
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
       };
     } catch (err) {
-      const raw = errorMessage(err);
-      log(`tool error: ${raw}`);
+      const sanitized = sanitizeMcpErrorMessage(errorMessage(err));
+      log(`tool error: ${sanitized}`);
       return {
-        content: [{ type: 'text' as const, text: sanitizeMcpErrorMessage(raw) }],
+        content: [{ type: 'text' as const, text: sanitized }],
         isError: true,
       };
     }
