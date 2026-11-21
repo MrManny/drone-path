@@ -1,8 +1,11 @@
-import fs from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import type * as childProcessModule from 'node:child_process';
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
+import { camMetaMp4 } from '../../../test/fixtures/mp4-cammeta.js';
 import { parseCamMeta } from '../src/cammeta.js';
 import type * as ffmpegModule from '../src/ffmpeg.js';
 import type { FfmpegToolPaths } from '../src/ffmpeg-tools.js';
@@ -97,9 +100,9 @@ describe('parseCamMeta stream presence contract', () => {
       .mockResolvedValueOnce({ streams: [{ index: 3, tags: { handler_name: 'CAM meta' } }] })
       .mockResolvedValueOnce({ packets });
     mocks.execFile.mockImplementation(
-      (_cmd: string, args: string[], _opts: unknown, cb: (e: Error | null) => void) => {
-        fs.writeFileSync(args[args.length - 1], dump);
-        cb(null);
+      (_cmd: string, args: string[], _opts: unknown, cb: (e: null, result: { stdout: Buffer }) => void) => {
+        expect(args.at(-1)).toBe('pipe:1');
+        cb(null, { stdout: dump });
       },
     );
   }
@@ -134,4 +137,39 @@ describe('parseCamMeta stream presence contract', () => {
       expect(result?.gimbalDevice).toBeNull();
     },
   );
+});
+
+describe('direct CAM meta extraction', () => {
+  afterEach(cleanupTmpDirs);
+
+  it('matches tool decoding and falls back after discovering an unsupported MP4', async () => {
+    const { buffer, packets, file } = camMetaMp4();
+    const video = path.join(tmpDir(), 'cammeta.mp4');
+    writeFileSync(video, file);
+    const opts = { keepAll: true, stream: { index: 2, trackId: 3 } };
+    mocks.ffprobeJson.mockReset();
+    mocks.execFile.mockReset();
+
+    const direct = await parseCamMeta(TOOLS, video, 0.101, opts);
+
+    expect(direct?.method).toBe('dvtm-packets');
+    expect(direct?.samples.map((sample) => sample.tSec)).toEqual([0, 0.033367, 0.066733]);
+    expect(direct?.noLock).toBe(1);
+    expect(mocks.ffprobeJson).not.toHaveBeenCalled();
+    expect(mocks.execFile).not.toHaveBeenCalled();
+
+    writeFileSync(video, camMetaMp4('fragmented').file);
+    mocks.ffprobeJson.mockResolvedValue({
+      packets: packets.map(({ tSec, size }) => ({ pts_time: String(tSec), size: String(size) })),
+    });
+    mocks.execFile.mockImplementation(
+      (_cmd: string, _args: string[], _opts: unknown, cb: (e: null, result: { stdout: Buffer }) => void) =>
+        cb(null, { stdout: buffer }),
+    );
+
+    await expect(parseCamMeta(TOOLS, video, 0.101, opts)).resolves.toEqual(direct);
+    expect(mocks.ffprobeJson).toHaveBeenCalledTimes(1);
+    expect(mocks.ffprobeJson.mock.calls[0][2]).toContain('packet=pts_time,size');
+    expect(mocks.execFile).toHaveBeenCalledTimes(1);
+  });
 });

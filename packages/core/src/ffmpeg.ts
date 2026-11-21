@@ -11,6 +11,14 @@ export interface VideoProbe {
   durationSec: number;
   width: number;
   height: number;
+  /** Original camera metadata. Its accuracy and time zone are unverified. */
+  creationTime?: string;
+  camMeta?: CamMetaStream | null;
+}
+
+export interface CamMetaStream {
+  index: number;
+  trackId?: number;
 }
 
 const INSTALL_HINT =
@@ -49,6 +57,10 @@ export async function ffprobeJson(
 }
 
 interface ProbeStream {
+  index?: number;
+  id?: string;
+  codec_type?: string;
+  tags?: { handler_name?: string };
   r_frame_rate?: string;
   avg_frame_rate?: string;
   nb_frames?: string;
@@ -58,10 +70,26 @@ interface ProbeStream {
 
 interface ProbeFormat {
   duration?: string;
+  tags?: { creation_time?: string };
 }
 
 export function firstVideoStream(j: Record<string, unknown>): ProbeStream {
   return ((j['streams'] as ProbeStream[] | undefined) ?? [])[0] ?? {};
+}
+
+export function findCamMetaStream(
+  probe: Record<string, unknown>,
+): CamMetaStream | null {
+  const streams = (probe['streams'] ?? []) as ProbeStream[];
+  const stream = streams.find(({ index, codec_type, tags }) =>
+    typeof index === 'number' && (codec_type === undefined || codec_type === 'data') &&
+    tags?.handler_name === 'CAM meta',
+  );
+  if (stream?.index === undefined) return null;
+  const trackId = Number(stream.id);
+  return Number.isSafeInteger(trackId) && trackId > 0
+    ? { index: stream.index, trackId }
+    : { index: stream.index };
 }
 
 export async function probeVideo(
@@ -70,12 +98,13 @@ export async function probeVideo(
   log: (msg: string) => void = () => {},
 ): Promise<VideoProbe> {
   const j = await ffprobeJson(tools, videoPath, [
-    '-select_streams', 'v:0',
     '-show_entries',
-    'stream=r_frame_rate,avg_frame_rate,nb_frames,width,height:format=duration',
+    'stream=index,id,codec_type,r_frame_rate,avg_frame_rate,nb_frames,width,height' +
+      ':stream_tags=handler_name:format=duration:format_tags=creation_time',
     '-of', 'json',
   ]);
-  const stream = firstVideoStream(j);
+  const streams = (j['streams'] ?? []) as ProbeStream[];
+  const stream = streams.find(({ codec_type }) => codec_type === 'video') ?? {};
   const format = (j['format'] as ProbeFormat | undefined) ?? {};
 
   const fps =
@@ -101,5 +130,7 @@ export async function probeVideo(
     durationSec,
     width: stream.width ?? 0,
     height: stream.height ?? 0,
+    creationTime: format.tags?.creation_time,
+    camMeta: findCamMetaStream(j),
   };
 }

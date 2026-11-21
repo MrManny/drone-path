@@ -11,7 +11,7 @@ interface ToolOutput {
 
 // One child-process seam for src/: command, argv and buffer budget pass
 // through untouched, and the spawned error propagates unwrapped so each
-// caller keeps its own { cause } wording. Tool output is text (utf8).
+// caller keeps its own { cause } wording.
 // Hide the console window on Windows so GUI callers do not flash a terminal.
 export async function runTool(
   command: string,
@@ -23,4 +23,15 @@ export async function runTool(
     stdout: String(result?.stdout ?? ''),
     stderr: String(result?.stderr ?? ''),
   };
+}
+
+export async function runToolBinary(
+  command: string,
+  args: readonly string[],
+  opts?: ExecFileOptions,
+): Promise<Buffer> {
+  const { stdout } = await execFileAsync(
+    command, args, { windowsHide: true, ...opts, encoding: 'buffer' },
+  );
+  return stdout;
 }

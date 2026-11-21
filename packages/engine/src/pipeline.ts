@@ -320,6 +320,7 @@ async function telemetryStage(
     frames: probe.frames,
     fpsValue: probe.fps.value,
     durationSec: probe.durationSec,
+    camMeta: probe.camMeta,
     tools,
   });
   const tel = loaded.telemetry;
