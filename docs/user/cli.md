@@ -81,3 +81,16 @@ The document follows the checked-in `docs/telemetry-json.schema.json`; `SensorTe
 ## Options and reference
 
 Run `npx drone-path --help` for the built-in overview. The complete table of options and config keys lives in [CLI and config reference](cli-reference.md); persistent settings are covered in [Config file](config-file.md).
+
+## Scan a recording library
+
+Run `drone-path archive scan <dirs...>` to inspect one or more folders. Add
+`--recurse` to scan subfolders and `--json` to write one JSON object per
+recording to stdout in path order. Progress goes to stderr. Drone Path skips
+non-MP4 files and generated `*_map.mp4` overlays.
+
+Each record reports the canonical path, file size and modification time, video
+metadata, and a status of `ok`, `no-telemetry`, `no-gps`, or `error`. If present,
+`cameraCreationTime` contains the original, unverified camera tag. Track points
+use seconds from the start of the clip. Bounding boxes and tracks are available
+for clips with GPS fixes.

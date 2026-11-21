@@ -19,8 +19,8 @@ const SOURCE_PACKETS = [
 
 type Layout = 'ordinary' | 'wide' | 'fragmented' | 'bad-offset' | 'composition-offset' | 'identity-edit' | 'shifted-edit' | 'rounding-tie';
 
-export function camMetaMp4(layout: Layout = 'ordinary') {
-  const [first, second, third] = SOURCE_PACKETS;
+export function camMetaMp4(layout: Layout = 'ordinary', sourcePackets = SOURCE_PACKETS) {
+  const [first, second, third] = sourcePackets;
   const fileType = box('ftyp', Buffer.from('isom'), uints(0), Buffer.from('isom'));
   const gap = Buffer.alloc(7, 0x42);
   const mediaData = box('mdat', first, second, gap, third);
@@ -54,8 +54,8 @@ export function camMetaMp4(layout: Layout = 'ordinary') {
   const movie = box('moov', movieHeader, box('trak', trackHeader, ...edits, media));
   return {
     file: Buffer.concat([fileType, mediaData, movie, ...(layout === 'fragmented' ? [box('moof')] : [])]),
-    buffer: Buffer.concat(SOURCE_PACKETS),
-    packets: SOURCE_PACKETS.map((sample, i) => ({
+    buffer: Buffer.concat(sourcePackets),
+    packets: sourcePackets.map((sample, i) => ({
       tSec: (roundingTie ? [0, 0.007812, 0.023438] : [0, 0.033367, 0.066733])[i],
       size: sample.length,
     })),

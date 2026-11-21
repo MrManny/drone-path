@@ -15,6 +15,7 @@ import { readCamMetaTrack } from './mp4-cammeta.js';
 async function probeCamMetaStream(
   tools: FfmpegToolPaths,
   videoPath: string,
+  signal?: AbortSignal,
 ): Promise<CamMetaStream | null> {
   let probe: Record<string, unknown>;
   try {
@@ -25,7 +26,7 @@ async function probeCamMetaStream(
       'stream=index,id:stream_tags=handler_name',
       '-of',
       'json',
-    ]);
+    ], signal);
   } catch (e) {
     throw new Error('ffprobe failed while probing the cam meta stream', { cause: e });
   }
@@ -36,6 +37,7 @@ async function listCamMetaPackets(
   tools: FfmpegToolPaths,
   videoPath: string,
   streamIndex: number,
+  signal?: AbortSignal,
 ): Promise<CamMetaPacket[]> {
   let probe: Record<string, unknown>;
   try {
@@ -47,7 +49,7 @@ async function listCamMetaPackets(
       'packet=pts_time,size',
       '-of',
       'json',
-    ]);
+    ], signal);
   } catch (e) {
     throw new Error('ffprobe failed while listing the cam meta packets', { cause: e });
   }
@@ -64,6 +66,7 @@ async function dumpCamMetaStream(
   tools: FfmpegToolPaths,
   videoPath: string,
   streamIndex: number,
+  signal?: AbortSignal,
 ): Promise<Buffer> {
   try {
     return await runToolBinary(
@@ -72,7 +75,7 @@ async function dumpCamMetaStream(
         '-v', 'error', '-i', videoPath,
         '-map', `0:${streamIndex}`, '-c', 'copy', '-f', 'rawvideo', 'pipe:1',
       ],
-      { maxBuffer: constants.MAX_LENGTH },
+      { maxBuffer: constants.MAX_LENGTH, signal },
     );
   } catch (e) {
     throw new Error('ffmpeg failed while dumping the cam meta stream', { cause: e });
@@ -86,14 +89,15 @@ export async function parseCamMeta(
   tools: FfmpegToolPaths,
   videoPath: string,
   durationSec: number,
-  opts: { keepAll?: boolean; stream?: CamMetaStream | null } = {},
+  opts: { keepAll?: boolean; stream?: CamMetaStream | null; signal?: AbortSignal } = {},
 ): Promise<CamMetaResult | null> {
-  const stream = opts.stream === undefined ? await probeCamMetaStream(tools, videoPath) : opts.stream;
+  opts.signal?.throwIfAborted();
+  const stream = opts.stream === undefined ? await probeCamMetaStream(tools, videoPath, opts.signal) : opts.stream;
   if (stream === null) return null;
 
-  const direct = stream.trackId === undefined ? null : await readCamMetaTrack(videoPath, stream.trackId);
-  const packets = direct?.packets ?? await listCamMetaPackets(tools, videoPath, stream.index);
-  const buf = direct?.buffer ?? await dumpCamMetaStream(tools, videoPath, stream.index);
+  const direct = stream.trackId === undefined ? null : await readCamMetaTrack(videoPath, stream.trackId, opts.signal);
+  const packets = direct?.packets ?? await listCamMetaPackets(tools, videoPath, stream.index, opts.signal);
+  const buf = direct?.buffer ?? await dumpCamMetaStream(tools, videoPath, stream.index, opts.signal);
 
   const sizeSum = packets.reduce(
     (sum, packet) => sum + (Number.isFinite(packet.size) ? packet.size : 0),

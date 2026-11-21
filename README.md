@@ -34,6 +34,11 @@ overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback. All
 requirements and install options are in
 [Getting started](docs/user/getting-started.md).
 
+### Scan a recording library
+
+Run `drone-path archive scan <folder> --recurse --json` to inventory MP4 recordings as newline-delimited JSON. See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for the record format.
+
+
 ## User manual
 
 The user manual lives in [docs/user/](docs/user/README.md); the desktop app

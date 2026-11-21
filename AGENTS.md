@@ -21,6 +21,7 @@ Check `https://security.snyk.io/package/npm/<package_name>` before adding one.
 ## Workspaces
 
 - [Core](packages/core/AGENTS.md) owns telemetry extraction and tool discovery.
+- [Archive](packages/archive/AGENTS.md) owns library scanning and indexing.
 - [Engine](packages/engine/AGENTS.md) owns rendering and configuration.
 - [CLI](packages/cli/AGENTS.md) owns the command and its public API.
 - [Tooling](packages/tooling/AGENTS.md) owns the manual and build generators.

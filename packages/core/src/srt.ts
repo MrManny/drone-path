@@ -123,6 +123,6 @@ export function parseSrtText(text: string): SrtParseResult {
   return { cues, noLock, count: cues.length };
 }
 
-export async function parseSrt(path: string): Promise<SrtParseResult> {
-  return parseSrtText(await readFile(path, 'utf8'));
+export async function parseSrt(path: string, signal?: AbortSignal): Promise<SrtParseResult> {
+  return parseSrtText(await readFile(path, { encoding: 'utf8', signal }));
 }
