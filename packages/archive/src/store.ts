@@ -196,8 +196,10 @@ export class ArchiveStore {
     return this.transaction('BEGIN', () => this.selectClipViewport(bbox, availability));
   }
 
-  private selectClipViewport(bbox: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
-    return this.selectClips(bbox, availability, false).filter(({ key, record }) => {
+  private selectClipViewport(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
+    const clips = this.selectClips(bbox, availability, false);
+    if (bbox === undefined) return clips;
+    return clips.filter(({ key, record }) => {
       const raw = record.bbox;
       if (raw === null) return false;
       if (raw.maxLon - raw.minLon <= 180) return true;
@@ -210,8 +212,7 @@ export class ArchiveStore {
     matches: (clip: IndexedClip) => boolean, options: { includeGaze: boolean; redact: boolean },
   ) {
     return this.transaction('BEGIN', () => {
-      const clips = (bbox === undefined ? this.selectClips(undefined, availability, false) :
-        this.selectClipViewport(bbox, availability)).filter(matches);
+      const clips = this.selectClipViewport(bbox, availability).filter(matches);
       const endpoints = options.redact ? this.readLaunchEndpoints(new Set(clips.map(({ flight }) => flight.flightId))) : [];
       const gaze = options.includeGaze ? this.db.prepare('SELECT samples_json FROM clip_gaze WHERE clip_key = ?') : undefined;
       return {
@@ -407,5 +408,23 @@ export class ArchiveStore {
       key, bbox?.minLat ?? null, bbox?.maxLat ?? null, bbox?.minLon ?? null, bbox?.maxLon ?? null,
       JSON.stringify(gaze),
     );
+  }
+}
+
+export function withArchiveStore<T>(db: string, run: (store: ArchiveStore) => T): T {
+  const store = new ArchiveStore(db);
+  try {
+    return run(store);
+  } finally {
+    store.close();
+  }
+}
+
+export async function withArchiveStoreAsync<T>(db: string, run: (store: ArchiveStore) => Promise<T>): Promise<T> {
+  const store = new ArchiveStore(db);
+  try {
+    return await run(store);
+  } finally {
+    store.close();
   }
 }

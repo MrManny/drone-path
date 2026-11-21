@@ -16,8 +16,8 @@ export interface MercatorPixel {
 }
 
 export const EARTH_RADIUS_M = 6371008.8;
-const DEG_TO_RAD = Math.PI / 180;
-const RAD_TO_DEG = 180 / Math.PI;
+export const DEG_TO_RAD = Math.PI / 180;
+export const RAD_TO_DEG = 180 / Math.PI;
 
 // (0, 0) is DJI's "no GPS lock" placeholder before the first fix, not a real fix.
 export function isGpsFix(lat: number, lon: number): boolean {
