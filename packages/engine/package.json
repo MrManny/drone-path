@@ -10,14 +10,16 @@
     }
   },
   "files": [
-    "dist"
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "THIRD-PARTY-NOTICES.md"
   ],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "prepack": "npm run build"
+    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.json",
+    "prepack": "npm run build:shared --prefix ../.."
   },
   "author": "Manuel Warum",
   "license": "MIT",
