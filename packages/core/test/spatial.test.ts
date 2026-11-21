@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 
-import { bboxIntersects, nearestOnTrack, radiusBbox } from '../src/spatial.js';
+import { bboxIntersects, nearestOnTrack, radiusBbox, resolveTrackBbox } from '../src/spatial.js';
 
 it('intersects inclusive bounds on either side of the antimeridian', () => {
   const viewport = { minLat: -2, maxLat: 2, minLon: 175, maxLon: -175 };
@@ -20,6 +20,13 @@ it('constructs radius bounds that wrap at the antimeridian and cover all longitu
   expect(radiusBbox({ lat: 89.99, lon: 30 }, 2_000)).toMatchObject({
     maxLat: 90, minLon: -180, maxLon: 180,
   });
+});
+
+it('uses confirmed crossing arcs and retains indexed fixes away from the seam', () => {
+  const bbox = { minLat: 0, maxLat: 1, minLon: -178, maxLon: 178 };
+  const points = [178, -178, -80, 5].map((lon) => ({ lat: 1, lon }));
+  expect(resolveTrackBbox(bbox, [points])).toEqual({ ...bbox, maxLon: 5, minLon: 178 });
+  expect(resolveTrackBbox(bbox, points.map((point) => [point]))).toEqual(bbox);
 });
 
 it('interpolates the closest timestamp on a short arc across the antimeridian', () => {

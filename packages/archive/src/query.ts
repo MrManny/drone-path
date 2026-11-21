@@ -1,7 +1,7 @@
 import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { nearestOnTrack, radiusBbox } from 'drone-path-core/spatial';
 
-import type { ScanPoint, SparseSample } from './scan-track.js';
+import { groupSamples } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 import { ArchiveStore } from './store.js';
 import type { IndexedClip } from './store.js';
@@ -66,16 +66,6 @@ export function listArchive(db: string, filters: ListFilters = {}): ArchiveClip[
   } finally {
     store.close();
   }
-}
-
-function groupSamples(samples: readonly SparseSample[]): ScanPoint[][] {
-  const segments = new Map<number, ScanPoint[]>();
-  for (const sample of samples) {
-    const segment = segments.get(sample.segment);
-    if (segment) segment.push(sample);
-    else segments.set(sample.segment, [sample]);
-  }
-  return [...segments.values()];
 }
 
 export function nearArchive(db: string, point: LatLon, radiusM: number = DEFAULT_RADIUS_M): NearHit[] {

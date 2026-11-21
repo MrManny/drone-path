@@ -11,6 +11,16 @@ export interface SparseSample extends ScanPoint {
   segment: number;
 }
 
+export function groupSamples(samples: readonly SparseSample[]): ScanPoint[][] {
+  const segments = new Map<number, ScanPoint[]>();
+  for (const sample of samples) {
+    const segment = segments.get(sample.segment);
+    if (segment) segment.push(sample);
+    else segments.set(sample.segment, [sample]);
+  }
+  return [...segments.values()];
+}
+
 export function decimateSegments(segments: readonly ScanPoint[][], maxPoints: number, zoom: number): ScanPoint[][] {
   let minimum = 0;
   let count = 0;

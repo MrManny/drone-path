@@ -4,8 +4,9 @@ import { DatabaseSync } from 'node:sqlite';
 import type { SQLInputValue } from 'node:sqlite';
 
 import type { Bbox } from 'drone-path-core/geo';
-import { longitudeRanges } from 'drone-path-core/spatial';
+import { bboxIntersects, longitudeRanges, resolveTrackBbox } from 'drone-path-core/spatial';
 
+import { groupSamples } from './scan-track.js';
 import type { ScanPoint, SparseSample } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 
@@ -124,7 +125,13 @@ export class ArchiveStore {
   }
 
   listClips(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedClip[] {
-    return this.selectClips(bbox, availability, false);
+    if (bbox === undefined) return this.selectClips(undefined, availability, false);
+    return this.transaction('BEGIN', () => this.selectClips(bbox, availability, false).filter(({ key, record }) => {
+      const raw = record.bbox;
+      if (raw === null) return false;
+      if (raw.maxLon - raw.minLon <= 180) return true;
+      return bboxIntersects(bbox, resolveTrackBbox(raw, [...record.track, ...groupSamples(this.readSamples(key))]));
+    }));
   }
 
   readTrackCandidates(bbox: Bbox): { clip: IndexedClip; samples: SparseSample[] }[] {
@@ -192,7 +199,7 @@ export class ArchiveStore {
           AND (${longitude})
         ))`);
       } else {
-        clauses.push(`(${latitude}) AND (${longitude})`);
+        clauses.push(`(${latitude}) AND (max_lon - min_lon > 180 OR (${longitude}))`);
       }
       values.push(bbox.maxLat, bbox.minLat, ...ranges.flatMap(([west, east]) => [east, west]));
     }

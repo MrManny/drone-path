@@ -33,6 +33,46 @@ export function bboxIntersects(a: Bbox, b: Bbox): boolean {
   );
 }
 
+export function resolveTrackBbox(bbox: Bbox, segments: readonly (readonly LatLon[])[]): Bbox {
+  if (bbox.maxLon - bbox.minLon <= 180) return bbox;
+
+  // Archived extrema still describe real fixes even if decimation dropped them.
+  const ranges: LongitudeRange[] = [[bbox.minLon, bbox.minLon], [bbox.maxLon, bbox.maxLon]];
+  let crossesAntimeridian = false;
+  for (const segment of segments) {
+    if (segment.length === 1) ranges.push([segment[0].lon, segment[0].lon]);
+    for (let i = 1; i < segment.length; i++) {
+      const west = Math.min(segment[i - 1].lon, segment[i].lon);
+      const east = Math.max(segment[i - 1].lon, segment[i].lon);
+      if (east - west === 180) return { ...bbox, minLon: -180, maxLon: 180 };
+      if (east - west > 180) {
+        crossesAntimeridian = true;
+        ranges.push([-180, west], [east, 180]);
+      } else {
+        ranges.push([west, east]);
+      }
+    }
+  }
+  if (!crossesAntimeridian) return bbox;
+
+  // Leave out only the largest uncovered interval. Every indexed arc and
+  // recorded extremum stays inside the resulting circular bounding box.
+  ranges.sort(([westA], [westB]) => westA - westB);
+  let end = -180;
+  let largestGap = 0;
+  let minLon = -180;
+  let maxLon = 180;
+  for (const [west, east] of ranges) {
+    if (west - end > largestGap) {
+      largestGap = west - end;
+      minLon = west;
+      maxLon = end;
+    }
+    end = Math.max(end, east);
+  }
+  return { ...bbox, minLon, maxLon };
+}
+
 function wrapLongitude(lon: number): number {
   if (lon < -180) return lon + 360;
   if (lon > 180) return lon - 360;

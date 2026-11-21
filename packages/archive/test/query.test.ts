@@ -95,6 +95,23 @@ it('ranks near clips, includes offline data, and does not interpolate over gaps'
   expect(nearArchive(db, { lat: -30, lon: 0 }, 100)).toEqual([]);
 });
 
+it('lists an indexed antimeridian crossing in a narrow wrapped viewport and excludes it near Greenwich', () => {
+  const db = index(
+    clip('crossing', [
+      { lat: 10, lon: 179, tSec: 1, segment: 0 },
+      { lat: 10, lon: -179, tSec: 2, segment: 0 },
+    ]),
+    clip('greenwich', [{ lat: 10, lon: 0, tSec: 1, segment: 0 }]),
+  );
+  const viewport = { minLat: 9, maxLat: 11 };
+  expect(listArchive(db, {
+    bbox: { ...viewport, minLon: 179.5, maxLon: -179.5 },
+  }).map(({ path: name }) => name)).toEqual(['crossing']);
+  expect(listArchive(db, {
+    bbox: { ...viewport, minLon: -0.5, maxLon: 0.5 },
+  }).map(({ path: name }) => name)).toEqual(['greenwich']);
+});
+
 it('keeps arcs that reach outside the raw latitude bounds in the SQL prefilter', () => {
   const db = index(clip('arc', [
     { lat: 60, lon: -60, tSec: 2, segment: 0 },
