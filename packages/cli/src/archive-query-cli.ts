@@ -1,5 +1,6 @@
 import { Option } from 'commander';
 import type { Command } from 'commander';
+import { exportArchiveMap, exportArchiveTracks } from 'drone-path-archive/export';
 import { archiveDbPath } from 'drone-path-archive/paths';
 import { DEFAULT_RADIUS_M, listArchive, listArchiveFlights, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveAvailability, ListFilters } from 'drone-path-archive/query';
@@ -64,21 +65,35 @@ function listOptions(options: ListOptions): ListFilters {
   return { bbox: inBbox, afterMs: after, beforeMs: before, minDistanceM: minDist, availability: status };
 }
 
-function commonOptions(command: Command): Command {
+function queryOptions(command: Command): Command {
   return command
     .option('--archive-db <path>', 'override the per-user archive database path')
     .option('--json', 'write a JSON array to stdout')
     .exitOverride();
 }
 
-export function addArchiveQueries(program: Command): void {
-  commonOptions(program.command('list'))
-    .description('List indexed recordings.')
-    .option('--in-bbox <s,w,n,e>', 'filter clips by a viewport bounding box', bbox)
+function listFilters(command: Command): Command {
+  return command.option('--in-bbox <s,w,n,e>', 'filter clips by a viewport bounding box', bbox)
     .option('--after <date>', 'earliest camera date or timestamp, inclusive', parseDateBound)
     .option('--before <date>', 'latest camera date or timestamp, exclusive', parseDateBound)
     .option('--min-dist <m>', 'minimum track distance in meters', meters)
-    .option('--status <state>', 'filter by online or offline availability', availability)
+    .option('--status <state>', 'filter by online or offline availability', availability);
+}
+
+interface ExportOptions extends ListOptions {
+  redactLaunch?: number;
+  includeGaze?: boolean;
+}
+
+function exportOptions(command: Command): Command {
+  return listFilters(command)
+    .option('--archive-db <path>', 'override the per-user archive database path')
+    .option('--redact-launch <m>', 'exclude geometry near the first and last indexed fix of each flight', meters)
+    .exitOverride();
+}
+
+export function addArchiveQueries(program: Command): void {
+  listFilters(queryOptions(program.command('list').description('List indexed recordings.')))
     .addOption(new Option('--group-by <kind>', 'group matching clips into flights').choices(['flight']))
     .action((options: ListOptions) => {
       const db = archiveDbPath(options.archiveDb);
@@ -100,7 +115,7 @@ export function addArchiveQueries(program: Command): void {
       else for (const clip of clips) process.stdout.write(`[${clip.availability}] ${clip.path}\n`);
     });
 
-  commonOptions(program.command('near'))
+  queryOptions(program.command('near'))
     .description('Find where indexed recordings pass near a location.')
     // Commander treats a negative coordinate pair as an option, but the
     // required argument parser still rejects anything besides a coordinate.
@@ -115,5 +130,24 @@ export function addArchiveQueries(program: Command): void {
         const label = hit.matchType === 'gaze' ? 'in camera view' : `${hit.distanceM.toFixed(1)} m`;
         process.stdout.write(`${label} at ${hit.tSec.toFixed(2)} s [${hit.clip.availability}] ${hit.clip.path}\n`);
       }
+    });
+
+  exportOptions(program.command('export-map'))
+    .description('Write a standalone HTML map of matching flights.')
+    .argument('<out.html>', 'output HTML file')
+    .option('--include-gaze', 'show estimated camera ground footprints')
+    .action((output: string, options: ExportOptions) => {
+      exportArchiveMap(archiveDbPath(options.archiveDb), output, {
+        filters: listOptions(options), redactLaunchM: options.redactLaunch, includeGaze: options.includeGaze,
+      });
+    });
+
+  exportOptions(program.command('export-tracks'))
+    .description('Write matching flight tracks in GPX, GeoJSON, KML, or KMZ format.')
+    .argument('<out>', 'output .gpx, .geojson, .kml, or .kmz file')
+    .action((output: string, options: ExportOptions) => {
+      exportArchiveTracks(archiveDbPath(options.archiveDb), output, {
+        filters: listOptions(options), redactLaunchM: options.redactLaunch,
+      });
     });
 }

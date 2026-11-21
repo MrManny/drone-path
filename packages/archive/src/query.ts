@@ -35,7 +35,7 @@ export interface NearHit {
   matchType: 'track' | 'gaze';
 }
 
-function matchesMetadata(clip: ArchiveClip, { afterMs, beforeMs, minDistanceM }: ListFilters): boolean {
+export function matchesMetadata(clip: ScanRecord, { afterMs, beforeMs, minDistanceM }: ListFilters): boolean {
   if (minDistanceM !== undefined &&
       (clip.telemetry === null || clip.telemetry.trackDistanceM < minDistanceM)) return false;
   if (afterMs === undefined && beforeMs === undefined) return true;

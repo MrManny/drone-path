@@ -26,6 +26,13 @@ function itemLines(indents: string, itemsBySegment: readonly string[][]): string
   return lines;
 }
 
+export function serializeGeoJsonTracks(tracks: readonly (readonly TrackSegment[])[]): string {
+  const features = tracks.map((segments) =>
+    serializeGeoJson(segments.map((segment) => segment.length === 1 ? [segment[0], segment[0]] : segment)).trimEnd(),
+  );
+  return `{"type":"FeatureCollection","features":[${features.join(',\n')}]}\n`;
+}
+
 export function serializeGeoJson(segments: readonly TrackSegment[]): string {
   const allTimed =
     segments.length > 0 &&

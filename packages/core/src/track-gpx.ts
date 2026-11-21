@@ -19,16 +19,23 @@ function trkptLines(vertex: TrackVertex): string[] {
 }
 
 export function serializeGpx(segments: readonly TrackSegment[]): string {
+  return serializeGpxTracks([segments]);
+}
+
+export function serializeGpxTracks(tracks: readonly (readonly TrackSegment[])[]): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<gpx version="1.1" creator="drone-path" xmlns="http://www.topografix.com/GPX/1/1">',
-    '  <trk>',
   ];
-  for (const segment of segments) {
-    lines.push('    <trkseg>');
-    for (const vertex of segment) lines.push(...trkptLines(vertex));
-    lines.push('    </trkseg>');
+  for (const segments of tracks) {
+    lines.push('  <trk>');
+    for (const segment of segments) {
+      lines.push('    <trkseg>');
+      for (const vertex of segment) lines.push(...trkptLines(vertex));
+      lines.push('    </trkseg>');
+    }
+    lines.push('  </trk>');
   }
-  lines.push('  </trk>', '</gpx>', '');
+  lines.push('</gpx>', '');
   return lines.join('\n');
 }

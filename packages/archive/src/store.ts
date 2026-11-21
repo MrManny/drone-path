@@ -186,12 +186,51 @@ export class ArchiveStore {
 
   listClips(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
     if (bbox === undefined) return this.selectClips(undefined, availability, false);
-    return this.transaction('BEGIN', () => this.selectClips(bbox, availability, false).filter(({ key, record }) => {
+    return this.transaction('BEGIN', () => this.selectClipViewport(bbox, availability));
+  }
+
+  private selectClipViewport(bbox: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
+    return this.selectClips(bbox, availability, false).filter(({ key, record }) => {
       const raw = record.bbox;
       if (raw === null) return false;
       if (raw.maxLon - raw.minLon <= 180) return true;
       return bboxIntersects(bbox, resolveTrackBbox(raw, [...record.track, ...groupSamples(this.readSamples(key))]));
-    }));
+    });
+  }
+
+  readExportCandidates(
+    bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined,
+    matches: (clip: IndexedClip) => boolean, options: { includeGaze: boolean; redact: boolean },
+  ) {
+    return this.transaction('BEGIN', () => {
+      const clips = (bbox === undefined ? this.selectClips(undefined, availability, false) :
+        this.selectClipViewport(bbox, availability)).filter(matches);
+      const endpoints = options.redact ? this.readLaunchEndpoints(new Set(clips.map(({ flight }) => flight.flightId))) : [];
+      const gaze = options.includeGaze ? this.db.prepare('SELECT samples_json FROM clip_gaze WHERE clip_key = ?') : undefined;
+      return {
+        endpoints,
+        clips: clips.map((clip) => ({
+          ...clip,
+          gaze: JSON.parse(gaze?.get(clip.key)?.samples_json as string ?? '[]') as GazeSample[],
+        })),
+      };
+    });
+  }
+
+  private readLaunchEndpoints(flightIds: ReadonlySet<string>): LatLon[] {
+    const endpoints: LatLon[] = [];
+    for (const direction of ['ASC', 'DESC']) {
+      const statement = this.db.prepare(`
+        SELECT lat, lon FROM clip_flights JOIN clip_samples USING (clip_key)
+        WHERE flight_id = ?
+        ORDER BY flight_order ${direction}, segment ${direction}, sample_index ${direction} LIMIT 1
+      `);
+      for (const id of flightIds) {
+        const point = statement.get(id) as unknown as LatLon | undefined;
+        if (point) endpoints.push(point);
+      }
+    }
+    return endpoints;
   }
 
   readTrackCandidates(bbox: Bbox): { clip: IndexedClip; samples: SparseSample[] }[] {

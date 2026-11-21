@@ -42,12 +42,23 @@ function placemarkLines(segment: TrackSegment): string[] {
 }
 
 export function serializeKml(segments: readonly TrackSegment[]): string {
+  return kmlDocument(segments.flatMap(placemarkLines));
+}
+
+export function serializeKmlTracks(tracks: readonly (readonly TrackSegment[])[]): string {
+  return kmlDocument(tracks.flatMap((segments, index) => [
+    '    <Folder>', `      <name>Flight ${index + 1}</name>`,
+    ...segments.flatMap((segment) => placemarkLines(segment.length === 1 ? [segment[0], segment[0]] : segment))
+      .map((line) => `  ${line}`),
+    '    </Folder>',
+  ]));
+}
+
+function kmlDocument(placemarks: readonly string[]): string {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">',
     '  <Document>',
   ];
-  for (const segment of segments) lines.push(...placemarkLines(segment));
-  lines.push('  </Document>', '</kml>', '');
-  return lines.join('\n');
+  return lines.concat(placemarks, '  </Document>', '</kml>', '').join('\n');
 }
