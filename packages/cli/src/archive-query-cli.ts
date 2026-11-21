@@ -1,6 +1,6 @@
 import { Option } from 'commander';
 import type { Command } from 'commander';
-import { exportArchiveMap, exportArchiveTracks } from 'drone-path-archive/export';
+import { exportArchiveMap, exportArchiveMarkers, exportArchiveTracks } from 'drone-path-archive/export';
 import { archiveDbPath } from 'drone-path-archive/paths';
 import { DEFAULT_RADIUS_M, listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveAvailability, ListFilters } from 'drone-path-archive/query';
@@ -184,6 +184,15 @@ export function addArchiveQueries(program: Command): void {
     .action((output: string, options: ExportOptions) => {
       exportArchiveTracks(archiveDbPath(options.archiveDb), output, {
         filters: listOptions(options), redactLaunchM: options.redactLaunch,
+      });
+    });
+
+  archiveCommand(listFilters(program.command('export-markers')))
+    .description('Write matching shot segments as DaVinci Resolve CSV or FCPXML markers.')
+    .argument('<out>', 'output .csv or .fcpxml file')
+    .action((output: string, options: ListOptions) => {
+      exportArchiveMarkers(archiveDbPath(options.archiveDb), output, {
+        filters: listOptions(options),
       });
     });
 }

@@ -3,6 +3,12 @@ import path from 'node:path';
 
 import type { LatLon } from 'drone-path-core/geo';
 import { launchRedactor } from 'drone-path-core/launch-redaction';
+import {
+  markerFormatOf,
+  serializeDaVinciResolveCsv,
+  serializeFcpxmlMarkers,
+} from 'drone-path-core/nle-markers';
+import type { MarkerRange } from 'drone-path-core/nle-markers';
 import { splitTrackAtAntimeridian } from 'drone-path-core/track-antimeridian';
 import { trackFormatOf } from 'drone-path-core/track-format';
 import { serializeGeoJsonTracks } from 'drone-path-core/track-geojson';
@@ -14,8 +20,8 @@ import type { TrackSegment } from 'drone-path-core/track';
 import { archiveMapHtml } from './export-map.js';
 import type { MapFlight } from './export-map.js';
 import { groupFlightMembers } from './flight-members.js';
-import { matchesMetadata, segmentFilterOf } from './query.js';
-import type { ListFilters } from './query.js';
+import { listArchiveSegments, matchesMetadata, segmentFilterOf } from './query.js';
+import type { ArchiveSegment, ListFilters } from './query.js';
 import { withArchiveStore } from './store.js';
 
 interface ExportOptions {
@@ -94,4 +100,50 @@ export function exportArchiveTracks(db: string, output: string, options: Omit<Ex
     case 'kml': return writeExport(db, output, serializeKmlTracks(tracks));
     case 'kmz': return writeExport(db, output, kmzBytes(serializeKmlTracks(tracks)));
   }
+}
+
+function segmentToMarkerRange(segment: ArchiveSegment): MarkerRange {
+  const video = segment.clip.video;
+  if (
+    !video ||
+    video.durationSec === null ||
+    !Number.isFinite(video.durationSec) ||
+    video.durationSec <= 0 ||
+    !Number.isFinite(video.fps.value) ||
+    video.fps.value <= 0
+  ) {
+    throw new Error(`clip ${segment.clip.path} is missing video timing metadata for marker export`);
+  }
+  const durationSec = video.durationSec;
+  const startSec = Math.max(0, Math.min(durationSec, segment.startSec));
+  const endSec = Math.max(startSec, Math.min(durationSec, segment.endSec));
+  const clipName = segment.clip.path.split(/[\\/]/u).at(-1);
+  return {
+    clipPath: segment.clip.path,
+    ...(clipName ? { clipName } : {}),
+    fps: video.fps,
+    durationSec,
+    startSec,
+    endSec,
+    label: segment.type,
+    note:
+      `smoothness ${segment.smoothness.toFixed(3)}, ` +
+      `speed ${segment.meanSpeedMps.toFixed(2)} m/s, ` +
+      `yawRate ${segment.meanYawRateDegPerSec.toFixed(2)} deg/s`,
+  };
+}
+
+export function exportArchiveMarkers(
+  db: string,
+  output: string,
+  options: { filters?: ListFilters } = {},
+): void {
+  const format = markerFormatOf(output);
+  const segments = listArchiveSegments(db, options.filters);
+  const markers = segments.map(segmentToMarkerRange);
+  const content =
+    format === 'csv'
+      ? serializeDaVinciResolveCsv(markers)
+      : serializeFcpxmlMarkers(markers);
+  writeExport(db, output, content);
 }

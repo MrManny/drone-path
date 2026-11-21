@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { exportArchiveMap, exportArchiveTracks } from 'drone-path-archive/export';
+import { exportArchiveMap, exportArchiveMarkers, exportArchiveTracks } from 'drone-path-archive/export';
 import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveClip, ArchiveSegment } from 'drone-path-archive/query';
 
@@ -155,4 +155,29 @@ it('keeps --group-by flight routing when combined with segment filters', async (
   expect(listArchiveFlights).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ segmentType: 'orbit' }));
   expect(listArchiveSegments).not.toHaveBeenCalled();
   expect(output.mock.calls).toEqual([[JSON.stringify(grouped) + '\n']]);
+});
+
+it('routes archive export-markers through all list filters', async () => {
+  await main([
+    'node', 'drone-path', 'archive', 'export-markers', 'shots.fcpxml',
+    '--archive-db', 'query.sqlite',
+    '--in-bbox', '1,2,3,4',
+    '--after', '2025-01-01',
+    '--before', '2025-02-01',
+    '--min-dist', '150',
+    '--status', 'online',
+    '--segment-type', 'orbit',
+    '--min-smoothness', '0.75',
+  ]);
+  expect(exportArchiveMarkers).toHaveBeenCalledWith(path.resolve('query.sqlite'), 'shots.fcpxml', {
+    filters: {
+      bbox: { minLat: 1, minLon: 2, maxLat: 3, maxLon: 4 },
+      afterMs: parseDateBound('2025-01-01'),
+      beforeMs: parseDateBound('2025-02-01'),
+      minDistanceM: 150,
+      availability: 'online',
+      segmentType: 'orbit',
+      minSmoothness: 0.75,
+    },
+  });
 });

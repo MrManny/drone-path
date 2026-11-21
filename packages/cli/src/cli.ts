@@ -3,6 +3,7 @@ import { Command, Option } from 'commander';
 
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { runArchive } from './archive-cli.js';
+import { runExtractFrame } from './extract-frame-cli.js';
 import { VERSION } from './version.js';
 import {
   CONFIG_FILE_OPTION,
@@ -196,6 +197,10 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   try {
     if (argv[2] === 'archive') {
       await runArchive(argv.slice(3));
+      return;
+    }
+    if (argv[2] === 'extract-frame') {
+      await runExtractFrame(argv.slice(3));
       return;
     }
     const invocation = resolveInvocation(argv);
