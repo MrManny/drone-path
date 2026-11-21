@@ -123,13 +123,28 @@ describe('initUpdates with update metadata', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('reports a thrown install failure instead of stranding the prompt', () => {
+  it('reports a thrown install failure once via the return value without invoking onError', () => {
     const { controller } = start();
     harness.autoUpdater.quitAndInstall.mockImplementationOnce(() => {
       throw new Error('spawn failed');
     });
     const onError = vi.fn();
     expect(controller.restart({ onError })).toEqual({ ok: false, error: 'spawn failed' });
+    expect(onError).not.toHaveBeenCalled();
+
+    // The once('error') listener was cleaned up so later feed errors do not fire onError.
+    harness.emit('error', new Error('later background error'));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('reports a synchronous error-event failure once via the return value', () => {
+    const { controller } = start();
+    harness.autoUpdater.quitAndInstall.mockImplementationOnce(() => {
+      harness.emit('error', new Error('sync emit failed'));
+    });
+    const onError = vi.fn();
+    expect(controller.restart({ onError })).toEqual({ ok: false, error: 'sync emit failed' });
+    expect(onError).not.toHaveBeenCalled();
   });
 
   it('reports an install failure emitted on the error channel', () => {

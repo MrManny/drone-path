@@ -101,6 +101,10 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
         ? { status: 'canceled' }
         : { status: 'error', error: errorMessage(e) };
     }
+    if (controller.signal.aborted) {
+      removeQuietly(working);
+      return { status: 'canceled' };
+    }
     try {
       swapIntoPlace(working, request.outPath);
     } catch (e) {
