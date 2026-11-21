@@ -759,8 +759,10 @@ describe('desktop language selector', () => {
     expect(localized.value).toBe('de');
     expect(bridge.saveLanguage).toHaveBeenCalledWith('de');
     expect(screen.getByRole('button', { name: 'Öffnen…' })).toBeTruthy();
-    expect(document.documentElement.lang).toBe('de');
-    expect(document.title).toBe('Deutscher Fenstertitel');
+    await waitFor(() => {
+      expect(document.documentElement.lang).toBe('de');
+      expect(document.title).toBe('Deutscher Fenstertitel');
+    });
 
     fireEvent.change(localized, { target: { value: '' } });
     expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy();
