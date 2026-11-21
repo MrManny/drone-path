@@ -93,8 +93,8 @@ UI tokens and design principles.
 ## Definition of done
 
 - `npm run lint`, `npm test`, `npm run build` green (CI gates on lint + test
-  over Node 24 + 26, then adds a CLI pack dry run and a desktop packaging
-  smoke on Node 24).
+  over Node 24 + 26, then adds dry-run packs for the published workspaces and
+  a desktop packaging smoke on Node 24).
 - Docs updated (README: user-visible, here: commands and standards).
 - Release bookkeeping for `feat`/`fix` commits is defined in
   [`.changeset/README.md`](.changeset/README.md).
