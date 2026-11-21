@@ -38,16 +38,29 @@ export function initUpdates({ log, onReady }) {
     // keeps running: both the thrown and the emitted failure must surface or
     // the restart prompt would wait forever.
     restart({ onError }) {
+      let inSyncCall = true;
+      let hasSyncError = false;
+      let syncError;
       const fail = (e) => {
         autoUpdater.removeListener('error', fail);
+        if (inSyncCall) {
+          hasSyncError = true;
+          syncError = e;
+          return;
+        }
         onError(errorMessage(e));
       };
       autoUpdater.once('error', fail);
       try {
         autoUpdater.quitAndInstall(true, true);
       } catch (e) {
-        fail(e);
+        inSyncCall = false;
+        autoUpdater.removeListener('error', fail);
         return { ok: false, error: errorMessage(e) };
+      }
+      inSyncCall = false;
+      if (hasSyncError) {
+        return { ok: false, error: errorMessage(syncError) };
       }
       return { ok: true };
     },
