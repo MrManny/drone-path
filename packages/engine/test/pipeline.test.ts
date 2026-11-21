@@ -282,7 +282,7 @@ describe('processRecording tile pre-warm', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     controller.abort();
 
-    await expect(pending).rejects.toThrow('tile download canceled');
+    await expect(pending).rejects.toThrow('render canceled');
   });
 });
 

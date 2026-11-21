@@ -355,12 +355,20 @@ async function tileWarmStage(
   log: LogFn,
   signal?: AbortSignal,
 ): Promise<PrefetchStats> {
-  const tileStats = await deps.prefetchTiles({
-    style: config.style,
-    tiles: overview.tiles,
-    log,
-    signal,
-  });
+  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+  let tileStats: PrefetchStats;
+  try {
+    tileStats = await deps.prefetchTiles({
+      style: config.style,
+      tiles: overview.tiles,
+      log,
+      signal,
+    });
+  } catch (err) {
+    if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED, { cause: err });
+    throw err;
+  }
+  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
   if (tileStats.downloaded) {
     log(`tiles: ${tileStats.downloaded} downloaded, ${tileStats.failed} placeholders`);
   }
