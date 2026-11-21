@@ -1,3 +1,4 @@
+import { footprintContains } from 'drone-path-core/ground-footprint';
 import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { nearestOnTrack, radiusBbox } from 'drone-path-core/spatial';
 
@@ -31,7 +32,7 @@ export interface NearHit {
   clip: ArchiveClip;
   tSec: number;
   distanceM: number;
-  matchType: 'track';
+  matchType: 'track' | 'gaze';
 }
 
 function matchesMetadata(clip: ArchiveClip, { afterMs, beforeMs, minDistanceM }: ListFilters): boolean {
@@ -77,17 +78,24 @@ export function listArchiveFlights(db: string, filters: ListFilters = {}): Archi
   }));
 }
 
-export function nearArchive(db: string, point: LatLon, radiusM: number = DEFAULT_RADIUS_M): NearHit[] {
+export function nearArchive(
+  db: string, point: LatLon, radiusM: number = DEFAULT_RADIUS_M, includeGaze = false,
+): NearHit[] {
   const store = new ArchiveStore(db);
   try {
     const hits: NearHit[] = [];
-    for (const { clip, samples } of store.readTrackCandidates(radiusBbox(point, radiusM))) {
+    const { tracks, gaze } = store.readNearCandidates(radiusBbox(point, radiusM), includeGaze ? point : undefined);
+    for (const { clip, samples } of tracks) {
       const match = nearestOnTrack(point, groupSamples(samples));
       if (match !== null && match.distanceM <= radiusM) {
         hits.push({ clip: toClip(clip), ...match, matchType: 'track' });
       }
     }
-    // Stable sorting preserves clip-key order for equal distances.
+    for (const { clip, samples } of gaze) {
+      const match = samples.find(({ polygon }) => footprintContains(polygon, point));
+      if (match) hits.push({ clip: toClip(clip), tSec: match.tSec, distanceM: 0, matchType: 'gaze' });
+    }
+    // Stable sorting preserves clip-key order within each match type for equal distances.
     return hits.sort((a, b) => a.distanceM - b.distanceM);
   } finally {
     store.close();

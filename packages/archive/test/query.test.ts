@@ -156,3 +156,24 @@ it('assembles filtered flight members in recording order with their split predec
   expect(remaining.flightId).not.toBe(flight.flightId);
   expect(remaining.clips).toEqual([{ ...next.record, availability: 'online', splitFromKey: null }]);
 });
+it('finds a gaze match outside the track radius without adding gaze to SRT clips', () => {
+  const point = { lat: 45, lon: -180 };
+  const far = { lat: 45.004, lon: 179.999, tSec: 7, segment: 0 };
+  const dvtm = clip('dvtm', [far], 'offline');
+  dvtm.record.telemetry = {
+    source: 'cammeta', method: 'dvtm-packets', fixCount: 1, noLock: 0, trackDistanceM: 0,
+  };
+  dvtm.gaze = [
+    { tSec: 7, polygon: [
+      { lat: 44.999, lon: 179.999 }, { lat: 44.999, lon: -179.999 },
+      { lat: 45.001, lon: -179.999 }, { lat: 45.001, lon: 179.999 },
+    ] },
+  ];
+  const db = index(dvtm, clip('srt', [far]));
+  expect(nearArchive(db, point, 15)).toEqual([]);
+  expect(nearArchive(db, point, 15, true)).toMatchObject([
+    { clip: { path: 'dvtm', availability: 'offline' }, matchType: 'gaze', tSec: 7, distanceM: 0 },
+  ]);
+  expect(nearArchive(db, { lat: 45, lon: 0 }, 15, true)).toEqual([]);
+  expect(nearArchive(db, point, 500, true).map(({ matchType }) => matchType)).toEqual(['gaze', 'track', 'track']);
+});

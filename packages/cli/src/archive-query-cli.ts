@@ -107,11 +107,13 @@ export function addArchiveQueries(program: Command): void {
     .allowUnknownOption()
     .argument('<lat,lon>', 'query latitude and longitude', point)
     .option('--radius <m>', 'search radius in meters', meters, DEFAULT_RADIUS_M)
-    .action((location: LatLon, options: QueryOptions & { radius: number }) => {
-      const hits = nearArchive(archiveDbPath(options.archiveDb), location, options.radius);
+    .option('--include-gaze', 'also match points inside estimated camera ground footprints')
+    .action((location: LatLon, options: QueryOptions & { radius: number; includeGaze?: boolean }) => {
+      const hits = nearArchive(archiveDbPath(options.archiveDb), location, options.radius, options.includeGaze);
       if (options.json) writeJson(hits);
       else for (const hit of hits) {
-        process.stdout.write(`${hit.distanceM.toFixed(1)} m at ${hit.tSec.toFixed(2)} s [${hit.clip.availability}] ${hit.clip.path}\n`);
+        const label = hit.matchType === 'gaze' ? 'in camera view' : `${hit.distanceM.toFixed(1)} m`;
+        process.stdout.write(`${label} at ${hit.tSec.toFixed(2)} s [${hit.clip.availability}] ${hit.clip.path}\n`);
       }
     });
 }

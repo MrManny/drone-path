@@ -10,6 +10,8 @@ import type { Bbox } from 'drone-path-core/geo';
 import { loadTelemetrySamples } from 'drone-path-core/telemetry';
 import type { SourceSamples } from 'drone-path-core/telemetry';
 
+import { sampleGaze } from './gaze.js';
+import type { GazeSample } from './gaze.js';
 import { summarizeTrack } from './scan-track.js';
 import type { ScanPoint } from './scan-track.js';
 
@@ -44,6 +46,7 @@ export interface ScanOptions {
   signal?: AbortSignal;
   onRecord?: (record: ScanRecord) => void;
   onTrack?: (file: string, segments: ScanPoint[][]) => void;
+  onGaze?: (file: string, samples: GazeSample[]) => void;
 }
 
 function isRecording(name: string): boolean {
@@ -75,7 +78,7 @@ export async function discoverRecordings(
 }
 
 export async function scanRecording(
-  file: string, { tools, signal, onTrack }: Pick<ScanOptions, 'tools' | 'signal' | 'onTrack'>,
+  file: string, { tools, signal, onTrack, onGaze }: Pick<ScanOptions, 'tools' | 'signal' | 'onTrack' | 'onGaze'>,
 ): Promise<ScanRecord> {
   signal?.throwIfAborted();
   const record: ScanRecord = {
@@ -109,6 +112,7 @@ export async function scanRecording(
     record.bbox = bbox;
     record.track = track;
     record.telemetry = { source: loaded.source, method: loaded.method, fixCount, noLock: loaded.noLock, trackDistanceM };
+    if (onGaze && loaded.method === 'dvtm-packets') onGaze(file, sampleGaze(loaded.trackValues));
     record.status = fixCount > 0 ? 'ok' : 'no-gps';
   } catch (error) {
     signal?.throwIfAborted();

@@ -10,7 +10,7 @@ import type { ScanOptions, ScanRecord } from './scanner.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from './store.js';
 import type { ClipFingerprint, ClipUpdate } from './store.js';
 
-export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'onTrack'> {
+export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'onTrack' | 'onGaze'> {
   db: string;
   prune?: boolean;
   getTools: () => Promise<FfmpegToolPaths>;
@@ -104,6 +104,7 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
   const records = new Map<string, ScanRecord>();
   const pending = new Map<string, ClipFingerprint>();
   const seen = new Set<string>();
+  const backfills = new Set<string>();
   const online: string[] = [];
 
   for (const file of files) {
@@ -114,12 +115,13 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
     if (!current) continue;
     seen.add(key);
     const prior = previous.get(key);
-    if (prior && prior.record.status !== 'error' && matches(current, prior.fingerprint)) {
+    if (prior && !prior.gazePending && prior.record.status !== 'error' && matches(current, prior.fingerprint)) {
       records.set(file, prior.record);
       onRecord?.(prior.record);
       if (prior.availability === 'offline') online.push(key);
     } else {
       pending.set(file, current);
+      if (prior?.gazePending && matches(current, prior.fingerprint)) backfills.add(file);
     }
   }
 
@@ -137,7 +139,9 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
   }
 
   signal?.throwIfAborted();
-  store.commit(revision, updates, online, offline, removed);
+  // A failed footprint backfill leaves the existing track indexed and retryable.
+  const successfulUpdates = updates.filter(({ record }) => record.status !== 'error' || !backfills.has(record.path));
+  store.commit(revision, successfulUpdates, online, offline, removed);
   return files.flatMap((file) => records.get(file) ?? []);
 }
 
@@ -146,9 +150,11 @@ async function probeChanges(
 ): Promise<ClipUpdate[]> {
   if (pending.size === 0) return [];
   const tracks = new Map<string, Pick<ClipUpdate, 'overview' | 'samples'>>();
+  const gaze = new Map<string, NonNullable<ClipUpdate['gaze']>>();
   const tools = await getTools();
   const scanned = await scanRecordings([...pending.keys()], {
     tools, concurrency, signal, onRecord,
+    onGaze: (file, samples) => gaze.set(file, samples),
     onTrack: (file, segments) => {
       tracks.set(file, { overview: decimateSegments(segments, 60, 9), samples: sampleSegments(segments) });
     },
@@ -163,6 +169,7 @@ async function probeChanges(
     updates.push({
       key: clipKey(record.path), availability: 'online', fingerprint: original, record,
       ...tracks.get(record.path) ?? { overview: [], samples: [] },
+      gaze: gaze.get(record.path),
     });
   }
   return updates;

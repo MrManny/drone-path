@@ -160,3 +160,19 @@ contains `clip` (the same fields as a list entry), `tSec` (seconds from the
 start of the clip), `distanceM`, and `matchType: "track"`. The reported time
 is interpolated between sampled fixes in the same continuous GPS segment. Its
 accuracy depends on the original telemetry and the sampling interval.
+
+Add `--include-gaze` to find clips whose camera may have seen the point, even
+when the drone was outside the search radius. A matching clip can have both a
+track hit and a `matchType: "gaze"` hit. For gaze, `distanceM` is zero because
+the target is inside the footprint, and `tSec` is the original time of the
+first matching sampled frame. The index stores roughly one footprint per
+second, so brief views can be missed.
+
+Footprints use DVTM gimbal attitude and altitude above takeoff, assumed to be
+height above flat ground. The estimate uses a 75-degree horizontal and
+50-degree vertical field of view and interprets gimbal yaw as clockwise from
+north in the recorded NED convention. The compass reference and calibration
+can vary, and the estimate does not account for terrain, zoom, or lens crop.
+The scanner skips frames with missing data or rays too close to the horizon.
+SRT-only clips still return track matches. Rescan previously indexed DVTM clips
+with the original files available to add their footprints.
