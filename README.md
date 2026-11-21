@@ -105,16 +105,16 @@ node packages/cli/bin/drone-path.mjs "my-flight.mp4"
 ## Releasing
 
 `npm run changeset:version` folds pending changesets and updates the lockfile.
-The three npm packages and the desktop app share one version. Update the root
+The four npm packages and the desktop app share one version. Update the root
 changelog in the release PR and use the matching `v<version>` GitHub release tag.
 From an installed, built checkout, preview the release without publishing with
 `node scripts/release-npm.mjs dry-run v<version>`.
 
 A published GitHub release runs the tag and quality checks, then publishes
-`drone-path-core`, `drone-path-engine`, and `drone-path` to npm in that order.
-Independent jobs attach the desktop installers, AppImage, and auto-update
-metadata to the same release. GitHub prereleases publish to npm under the
-`next` dist-tag instead of `latest`.
+`drone-path-core`, `drone-path-archive`, `drone-path-engine`, and `drone-path` to
+npm in dependency order. Independent jobs attach the desktop installers, AppImage,
+and auto-update metadata to the same release. GitHub prereleases publish to npm
+under the `next` dist-tag instead of `latest`.
 
 Reserve the release's exact package versions for GitHub Actions. To publish
 the first release, set the repository's `NPM_TOKEN` secret to a granular token
@@ -130,7 +130,7 @@ versions to be unused.
 Once each package exists, configure its
 [trusted publisher](https://docs.npmjs.com/trusted-publishers/) on npm
 with owner `MrManny`, repository `drone-path`, workflow `release.yml`, and
-permission for direct publishing. Remove `NPM_TOKEN` when all three are
+permission for direct publishing. Remove `NPM_TOKEN` when all four are
 configured so subsequent releases use token-free trusted publishing.
 
 After a partial publish, check the package versions on npm and re-run failed
