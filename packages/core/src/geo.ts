@@ -15,7 +15,7 @@ export interface MercatorPixel {
   y: number;
 }
 
-const EARTH_RADIUS_M = 6371008.8;
+export const EARTH_RADIUS_M = 6371008.8;
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 

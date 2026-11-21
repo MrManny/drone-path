@@ -6,6 +6,8 @@ import { archiveDbPath } from 'drone-path-archive/paths';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
 import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 
+import { addArchiveQueries } from './archive-query-cli.js';
+
 export async function runArchive(argv: string[]): Promise<void> {
   const program = new Command('drone-path archive')
     .description('Inspect a library of drone recordings.')
@@ -46,5 +48,6 @@ export async function runArchive(argv: string[]): Promise<void> {
         process.off('SIGINT', interrupt);
       }
     });
+  addArchiveQueries(program);
   await program.parseAsync(argv, { from: 'user' });
 }

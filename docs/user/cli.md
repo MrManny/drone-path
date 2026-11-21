@@ -112,3 +112,37 @@ The index stores overview tracks of up to 60 vertices, detail tracks of up to
 500, and timestamped GPS fixes at roughly one-second intervals. These tracks
 and samples summarize the source telemetry, so a lookup can miss motion
 between retained fixes.
+
+## Query the recording library
+
+Run `drone-path archive list` to list indexed recordings in path order. Combine
+any of these filters.
+
+| Option | Filter |
+| --- | --- |
+| `--in-bbox <s,w,n,e>` | The clip bounding box touches the viewport. Coordinates are inclusive. A west value greater than east crosses the antimeridian. |
+| `--after <date>` | The camera tag is at or after the bound. |
+| `--before <date>` | The camera tag is earlier than the bound. |
+| `--min-dist <m>` | The GPS track traveled at least this many meters. |
+| `--status <state>` | The clip is `online` or `offline`. |
+
+Date bounds accept `YYYY-MM-DD` at midnight UTC or an ISO timestamp with an
+explicit time zone. Date filters compare the original, unverified camera tag
+when the tag includes a time zone. File modification times and camera tags
+without a time zone do not participate in date filters.
+
+The viewport filter uses the indexed track to resolve bounding boxes for clips
+that cross the antimeridian.
+
+Run `drone-path archive near 46.62,14.31 --radius 250` to find indexed clips
+whose GPS tracks pass within 250 meters of the point. The default radius is 100
+meters. Results include offline clips and sort by closest distance. Southern
+latitudes use a minus sign, as in `drone-path archive near -33.86,151.21`.
+
+Both commands accept `--archive-db <path>` and `--json`. JSON output is a single
+array, including `[]` when nothing matches. List entries contain the [scan
+record](#scan-a-recording-library) fields plus `availability`. Each near hit
+contains `clip` (the same fields as a list entry), `tSec` (seconds from the
+start of the clip), `distanceM`, and `matchType: "track"`. The reported time
+is interpolated between sampled fixes in the same continuous GPS segment. Its
+accuracy depends on the original telemetry and the sampling interval.
