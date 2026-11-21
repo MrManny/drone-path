@@ -19,7 +19,8 @@ description: Release workflow. Use when preparing a release.
   - group changes by "Core libraries", "CLI", and "Desktop"
   - terse labeled lines: `**New:**` what users can do now that they could not before, `**Fixed:**` which known issues were fixed, `**Internal:**` (optional, last) changes with no user impact
   - omit labeled lines with no content instead of writing `Nothing this release.`
-  - no commit hashes, issue numbers or fragment bookkeeping; follow the voice of existing `CHANGELOG.md` sections
+  - no commit hashes, issue numbers or fragment bookkeeping; strip changeset-generated `### Minor Changes` / `### Patch Changes` / `Updated dependencies` boilerplate and follow the voice of existing `CHANGELOG.md` sections
+  - fold any unshipped pre-release sections (e.g. `1.0.0-rc1`) into the final release section across both root and workspace changelogs
 
 6. Commit with the subject `release: vX.Y.Z` and push
 
