@@ -1,6 +1,10 @@
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { SQLInputValue } from 'node:sqlite';
+
+import type { Bbox } from 'drone-path-core/geo';
+import { longitudeRanges } from 'drone-path-core/spatial';
 
 import type { ScanPoint, SparseSample } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
@@ -119,6 +123,16 @@ export class ArchiveStore {
     }));
   }
 
+  listClips(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedClip[] {
+    return this.selectClips(bbox, availability, false);
+  }
+
+  readTrackCandidates(bbox: Bbox): { clip: IndexedClip; samples: SparseSample[] }[] {
+    return this.transaction('BEGIN', () => this.selectClips(bbox, undefined, true).map((clip) => ({
+      clip, samples: this.readSamples(clip.key),
+    })));
+  }
+
   readOverview(key: string): ScanPoint[][] {
     const row = this.db.prepare('SELECT overview_json FROM clips WHERE clip_key = ?').get(key);
     return row ? JSON.parse(row.overview_json as string) as ScanPoint[][] : [];
@@ -153,6 +167,38 @@ export class ArchiveStore {
 
   private revision(): number {
     return this.db.prepare('SELECT revision FROM archive_revision').get()?.revision as number;
+  }
+
+  private selectClips(
+    bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined, includeArcs: boolean,
+  ): IndexedClip[] {
+    const clauses: string[] = [];
+    const values: SQLInputValue[] = [];
+    if (availability !== undefined) {
+      clauses.push('availability = ?');
+      values.push(availability);
+    }
+    if (bbox !== undefined) {
+      const ranges = longitudeRanges(bbox);
+      const longitude = ranges.map(() => '(min_lon <= ? AND max_lon >= ?)').join(' OR ');
+      const latitude = 'min_lat <= ? AND max_lat >= ?';
+      if (includeArcs) {
+        // An arc's length in degrees is at most the latitude difference plus the
+        // longitude span. An excursion beyond either latitude endpoint adds
+        // twice its height to that lower bound, so half the span covers it.
+        // Wider raw longitude ranges may span the antimeridian or contain a pole-crossing arc.
+        clauses.push(`(max_lon - min_lon >= 180 OR (
+          min_lat - (max_lon - min_lon) / 2 <= ? AND max_lat + (max_lon - min_lon) / 2 >= ?
+          AND (${longitude})
+        ))`);
+      } else {
+        clauses.push(`(${latitude}) AND (${longitude})`);
+      }
+      values.push(bbox.maxLat, bbox.minLat, ...ranges.flatMap(([west, east]) => [east, west]));
+    }
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+    const rows = this.db.prepare(`SELECT * FROM clips ${where} ORDER BY clip_key`).all(...values);
+    return (rows as unknown as ClipRow[]).map(decodeClip);
   }
 
   private transaction<T>(begin: 'BEGIN' | 'BEGIN IMMEDIATE', body: () => T): T {

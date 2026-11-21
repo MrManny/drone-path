@@ -38,6 +38,8 @@ requirements and install options are in
 
 Run `drone-path archive scan <folder> --recurse --json` to index MP4 recordings locally and print the inventory as newline-delimited JSON. Rescans reuse unchanged clips. See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for the record format and archive options.
 
+Use `drone-path archive list --status offline --json` to find disconnected recordings or `drone-path archive near 46.62,14.31 --radius 250 --json` to find the closest pass in each matching clip. See the [CLI manual](docs/user/cli.md#query-the-recording-library) for filters and result formats.
+
 
 ## User manual
 
