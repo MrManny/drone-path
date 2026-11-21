@@ -46,7 +46,7 @@ Use `drone-path archive export-map flights.html` for a standalone map or `drone-
 
 ### MCP server for AI agents
 
-Run `drone-path mcp --allow-root <dir>` to start a stdio JSON-RPC 2.0 MCP server exposing `archive_scan`, `archive_list_clips`, `archive_list_flights`, `archive_find_at_point`, `archive_list_segments`, `clip_get_telemetry`, `clip_extract_keyframes`, `export_markers`, and `render_map_video`. Pass `--archive-db <path>` to target a specific archive database; file and folder tools are strictly confined to `--allow-root` (defaulting to the current working directory). See the [CLI manual](docs/user/cli.md#mcp-server) for details.
+Run `drone-path mcp --allow-root <dir>` to start a stdio JSON-RPC 2.0 MCP server exposing `archive_scan`, `archive_list_clips`, `archive_list_flights`, `archive_find_at_point`, `archive_list_segments`, `clip_get_telemetry`, `clip_extract_keyframes`, `export_markers`, and `render_map_video`. Pass `--archive-db <path>` to target a specific archive database; `--allow-root` is required and strictly confines file and folder tools to the configured directories. See the [CLI manual](docs/user/cli.md#mcp-server) for details.
 
 
 ## User manual

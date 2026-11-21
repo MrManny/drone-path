@@ -12,9 +12,9 @@ export async function runMcp(argv: string[]): Promise<void> {
     .description('Run a stdio MCP server exposing archive, telemetry, keyframe, and rendering tools.')
     .exitOverride()
     .option('--archive-db <path>', 'override the per-user archive database path')
-    .option(
+    .requiredOption(
       '--allow-root <dir...>',
-      'restrict file and folder tool access to these root directories (defaults to the current working directory)',
+      'restrict file and folder tool access to these root directories (required)',
     );
 
   program.parse(argv, { from: 'user' });

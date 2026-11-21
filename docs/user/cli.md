@@ -225,10 +225,13 @@ server over `stdin` and `stdout` (diagnostics go to `stderr`):
 drone-path mcp --allow-root /path/to/footage --archive-db /path/to/archive.sqlite
 ```
 
-- `--allow-root <dir...>` restricts all file and folder inputs and outputs to
-  the specified root directories (resolved canonically against path traversal
-  and symlinks; defaults to the current working directory).
+- `--allow-root <dir...>` (required) restricts all file and folder inputs and
+  outputs to the specified root directories (resolved canonically against path
+  traversal and symlinks).
 - `--archive-db <path>` overrides the default per-user archive SQLite path.
+- `export_markers` refuses to overwrite an existing output file unless
+  `DRONE_PATH_MCP_ALLOW_OVERWRITE=1` (or `true`) is set in the server
+  environment.
 
 The server exposes nine typed tools: `archive_scan`, `archive_list_clips`,
 `archive_list_flights`, `archive_find_at_point`, `archive_list_segments`,

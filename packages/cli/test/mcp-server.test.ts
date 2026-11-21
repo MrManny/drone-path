@@ -81,12 +81,14 @@ vi.mock('node:child_process', async (importOriginal) => {
 
 import { main } from '../src/cli.js';
 import { createMcpServer } from '../src/mcp-server.js';
+import { sanitizeMcpErrorMessage } from '../src/mcp-tools.js';
 import { VERSION } from '../src/version.js';
 
 const TEST_PROTOCOL_VERSION = '2024-11-05';
 
 afterEach(() => {
   cleanupTmpDirs();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -651,5 +653,120 @@ describe('drone-path mcp CLI entrypoint', () => {
     const errText = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(errText).toContain('mcp stdio server ready');
     expect(errText).toContain(fs.realpathSync(root));
+  });
+
+  it('requires --allow-root when omitted from CLI and createMcpServer', async () => {
+    expect(() => createMcpServer()).toThrow(/at least one allowed root directory is required/);
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const prevExit = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      await main(['node', 'drone-path', 'mcp']);
+      expect(process.exitCode).toBe(1);
+      const errText = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(errText).toContain('--allow-root');
+    } finally {
+      process.exitCode = prevExit;
+    }
+  });
+});
+
+describe('MCP security hardening', () => {
+  it('refuses to overwrite existing marker files unless DRONE_PATH_MCP_ALLOW_OVERWRITE is enabled', async () => {
+    const workspace = tmpDir();
+    const footageDir = path.join(workspace, 'footage');
+    const archiveDb = path.join(tmpDir(), 'archive.sqlite');
+    fs.mkdirSync(footageDir, { recursive: true });
+    const videoPath = path.join(footageDir, 'DJI_0200.MP4');
+    fs.writeFileSync(videoPath, 'mp4');
+    fs.writeFileSync(path.join(footageDir, 'DJI_0200.SRT'), SAMPLE_SRT_FLIGHT);
+
+    const h = createHarness({ allowedRoots: [workspace], archiveDb });
+    await h.initialize();
+
+    await h.callTool('archive_scan', { dirs: [footageDir] });
+
+    const existingCsv = path.join(workspace, 'existing.csv');
+    fs.writeFileSync(existingCsv, 'keep-me');
+
+    const refusedRanges = await h.callTool('export_markers', {
+      outputPath: existingCsv,
+      ranges: [{ clipPath: videoPath, startSec: 0, endSec: 2, label: 'new-shot' }],
+    });
+    expect(refusedRanges.envelope.isError).toBe(true);
+    expect(refusedRanges.envelope.content[0]?.text).toMatch(
+      /refusing to overwrite existing marker output file/,
+    );
+    expect(fs.readFileSync(existingCsv, 'utf8')).toBe('keep-me');
+
+    const refusedArchive = await h.callTool('export_markers', {
+      outputPath: existingCsv,
+      filters: { segmentType: 'smooth-glide' },
+    });
+    expect(refusedArchive.envelope.isError).toBe(true);
+    expect(refusedArchive.envelope.content[0]?.text).toMatch(
+      /refusing to overwrite existing marker output file/,
+    );
+    expect(fs.readFileSync(existingCsv, 'utf8')).toBe('keep-me');
+
+    vi.stubEnv('DRONE_PATH_MCP_ALLOW_OVERWRITE', '1');
+    const allowedRanges = await h.callTool<{ count: number }>('export_markers', {
+      outputPath: existingCsv,
+      ranges: [{ clipPath: videoPath, startSec: 0, endSec: 2, label: 'new-shot' }],
+    });
+    expect(allowedRanges.envelope.isError).not.toBe(true);
+    expect(fs.readFileSync(existingCsv, 'utf8')).toContain('new-shot');
+
+    vi.stubEnv('DRONE_PATH_MCP_ALLOW_OVERWRITE', 'true');
+    const allowedArchive = await h.callTool<{ count: number }>('export_markers', {
+      outputPath: existingCsv,
+      filters: { segmentType: 'smooth-glide' },
+    });
+    expect(allowedArchive.envelope.isError).not.toBe(true);
+    expect(fs.readFileSync(existingCsv, 'utf8')).toContain('smooth-glide');
+
+    await h.shutdown();
+  });
+
+  it('redacts absolute filesystem paths from client error responses while logging raw errors', async () => {
+    expect(sanitizeMcpErrorMessage('failed at C:\\Users\\Alice Smith\\clip.mp4')).toBe(
+      'failed at <path>',
+    );
+    expect(sanitizeMcpErrorMessage('failed at \\\\nas\\share\\clip.mp4')).toBe(
+      'failed at <path>',
+    );
+    expect(sanitizeMcpErrorMessage("ENOENT: open '/var/tmp/my dir/clip.mp4'")).toBe(
+      "ENOENT: open '<path>'",
+    );
+    expect(sanitizeMcpErrorMessage('see https://example.com/a/b at 30/1 fps')).toBe(
+      'see https://example.com/a/b at 30/1 fps',
+    );
+
+    const parent = tmpDir();
+    const allowed = path.join(parent, 'allowed');
+    const outside = path.join(parent, 'secret-outside-folder');
+    fs.mkdirSync(allowed);
+    fs.mkdirSync(outside);
+    const outsideClip = path.join(outside, 'private.mp4');
+    fs.writeFileSync(outsideClip, 'mp4');
+
+    const h = createHarness({
+      allowedRoots: [allowed],
+      archiveDb: path.join(tmpDir(), 'archive.sqlite'),
+    });
+    await h.initialize();
+
+    const res = await h.callTool('clip_get_telemetry', { videoPath: outsideClip });
+    expect(res.envelope.isError).toBe(true);
+    const clientMsg = res.envelope.content[0]?.text ?? '';
+    expect(clientMsg).toContain('path is outside allowed roots: <path>');
+    expect(clientMsg).not.toContain('secret-outside-folder');
+    expect(clientMsg).not.toContain('private.mp4');
+    expect(h.logs.some((entry) => entry.includes('tool error:') && entry.includes(outsideClip))).toBe(
+      true,
+    );
+
+    await h.shutdown();
   });
 });

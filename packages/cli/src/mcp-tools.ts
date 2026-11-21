@@ -230,7 +230,14 @@ function serializeMarkers(format: 'csv' | 'fcpxml', markers: readonly MarkerRang
     : serializeFcpxmlMarkers(markers);
 }
 
-function toolHandler<TArgs>(handler: (args: TArgs) => Promise<unknown>) {
+const ABSOLUTE_PATH_RX =
+  /(^|[\s"'(=])(\\\\[^\s"')\],;<>|/\\\r\n]+(?:[\\/][^\s"')\],;<>|/\\\r\n]*)*(?: [^\s"')\],;<>|/\\\r\n]+(?:[\\/][^\s"')\],;<>|/\\\r\n]*)+)*|[A-Za-z]:[\\/][^\s"')\],;<>|/\\\r\n]*(?:[\\/][^\s"')\],;<>|/\\\r\n]*)*(?: [^\s"')\],;<>|/\\\r\n]+(?:[\\/][^\s"')\],;<>|/\\\r\n]*)+)*|\/[^\s"')\],;<>|/\\\r\n]+(?:[\\/][^\s"')\],;<>|/\\\r\n]*)*(?: [^\s"')\],;<>|/\\\r\n]+(?:[\\/][^\s"')\],;<>|/\\\r\n]*)+)*)/gu;
+
+export function sanitizeMcpErrorMessage(raw: string): string {
+  return raw.replace(ABSOLUTE_PATH_RX, '$1<path>');
+}
+
+function toolHandler<TArgs>(log: LogFn, handler: (args: TArgs) => Promise<unknown>) {
   return async (args: TArgs) => {
     try {
       const result = await handler(args);
@@ -238,8 +245,10 @@ function toolHandler<TArgs>(handler: (args: TArgs) => Promise<unknown>) {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
       };
     } catch (err) {
+      const raw = errorMessage(err);
+      log(`tool error: ${raw}`);
       return {
-        content: [{ type: 'text' as const, text: errorMessage(err) }],
+        content: [{ type: 'text' as const, text: sanitizeMcpErrorMessage(raw) }],
         isError: true,
       };
     }
@@ -247,6 +256,7 @@ function toolHandler<TArgs>(handler: (args: TArgs) => Promise<unknown>) {
 }
 
 export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): void {
+  const wrap = <TArgs>(handler: (args: TArgs) => Promise<unknown>) => toolHandler(ctx.log, handler);
   sdkServer.registerTool(
     'archive_scan',
     {
@@ -260,7 +270,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         })
         .strict(),
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const dirs = args.dirs.map((dir) => assertPathInAllowedRoots(dir, ctx.allowedRoots));
       const records = await scanArchive(dirs, {
         db: ctx.archiveDb,
@@ -280,7 +290,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         'List indexed recordings matching optional spatial, date, distance, availability, or kinematic shot filters.',
       inputSchema: ArchiveFiltersSchema,
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const clips = listArchive(ctx.archiveDb, toListFilters(args)).filter((clip) =>
         isPathInAllowedRoots(clip.path, ctx.allowedRoots),
       );
@@ -295,7 +305,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         'List indexed recordings grouped into inferred flights matching optional filters.',
       inputSchema: ArchiveFiltersSchema,
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const flights = listArchiveFlights(ctx.archiveDb, toListFilters(args))
         .map((flight) => ({
           ...flight,
@@ -320,7 +330,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         })
         .strict(),
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const hits = nearArchive(
         ctx.archiveDb,
         { lat: args.lat, lon: args.lon },
@@ -338,7 +348,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         'List indexed kinematic shot segments ordered by smoothness score and matching optional filters.',
       inputSchema: ArchiveFiltersSchema,
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const segments = listArchiveSegments(ctx.archiveDb, toListFilters(args)).filter((seg) =>
         isPathInAllowedRoots(seg.clip.path, ctx.allowedRoots),
       );
@@ -359,7 +369,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         })
         .strict(),
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const videoPath = assertPathInAllowedRoots(args.videoPath, ctx.allowedRoots);
       const tools = await ctx.getTools();
       const probe = await probeVideo(tools, videoPath);
@@ -444,7 +454,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         })
         .strict(),
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       const videoPath = assertPathInAllowedRoots(args.videoPath, ctx.allowedRoots);
       const outDir = assertPathInAllowedRoots(
         args.outDir ?? path.dirname(videoPath),
@@ -489,12 +499,21 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         })
         .strict(),
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       if (args.ranges !== undefined && args.filters !== undefined) {
         throw new Error('specify either ranges or filters, not both');
       }
       const outputPath = assertPathInAllowedRoots(args.outputPath, ctx.allowedRoots);
       assertNotArchiveDb(outputPath, ctx.archiveDb);
+      const envOverwrite = process.env.DRONE_PATH_MCP_ALLOW_OVERWRITE?.trim().toLowerCase();
+      const allowOverwrite = envOverwrite === '1' || envOverwrite === 'true';
+      const assertCanWriteOutput = () => {
+        if (fs.existsSync(outputPath) && !allowOverwrite) {
+          throw new Error(
+            'refusing to overwrite existing marker output file (set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
+          );
+        }
+      };
       const format = markerFormatOf(outputPath);
 
       if (args.ranges !== undefined) {
@@ -548,6 +567,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
           });
         }
         const content = serializeMarkers(format, markers);
+        assertCanWriteOutput();
         fs.mkdirSync(path.dirname(outputPath), { recursive: true });
         fs.writeFileSync(outputPath, content, 'utf8');
         return { outputPath, format, count: markers.length };
@@ -558,6 +578,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       const allowedSegments = allSegments.filter((seg) =>
         isPathInAllowedRoots(seg.clip.path, ctx.allowedRoots),
       );
+      assertCanWriteOutput();
       if (allowedSegments.length === allSegments.length) {
         exportArchiveMarkers(ctx.archiveDb, outputPath, { filters });
       } else {
@@ -613,7 +634,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         })
         .strict(),
     },
-    toolHandler(async (args) => {
+    wrap(async (args) => {
       if ((args.frameStart !== undefined) !== (args.frameEnd !== undefined)) {
         throw new Error('frameStart and frameEnd must be provided together');
       }

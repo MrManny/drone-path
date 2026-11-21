@@ -68,7 +68,10 @@ export function canonicalizePath(
 }
 
 export function resolveAllowedRoots(roots?: readonly string[]): string[] {
-  const candidates = roots && roots.length > 0 ? roots : [process.cwd()];
+  if (!roots || roots.length === 0) {
+    throw new Error('at least one allowed root directory is required (pass --allow-root <dir>)');
+  }
+  const candidates = roots;
   const resolved: string[] = [];
   const seen = new Set<string>();
 

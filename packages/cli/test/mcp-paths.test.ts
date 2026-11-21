@@ -16,10 +16,9 @@ import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 afterEach(cleanupTmpDirs);
 
 describe('resolveAllowedRoots', () => {
-  it('defaults to the current working directory when omitted or empty', () => {
-    const cwdReal = fs.realpathSync(process.cwd());
-    expect(resolveAllowedRoots()).toEqual([cwdReal]);
-    expect(resolveAllowedRoots([])).toEqual([cwdReal]);
+  it('throws when allowed roots are omitted or empty', () => {
+    expect(() => resolveAllowedRoots()).toThrow(/at least one allowed root directory is required/);
+    expect(() => resolveAllowedRoots([])).toThrow(/at least one allowed root directory is required/);
   });
 
   it('canonicalizes and deduplicates multiple root directories', () => {
