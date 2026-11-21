@@ -1,5 +1,18 @@
 # drone-path-desktop
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+  - drone-path-core@1.0.0
+  - drone-path-engine@1.0.0
+
 ## 1.0.0-rc1
 
 ### Patch Changes

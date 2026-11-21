@@ -1,6 +1,6 @@
 {
   "name": "drone-path-archive",
-  "version": "1.0.0-rc1",
+  "version": "1.0.0",
   "description": "Scan a local library of drone recordings.",
   "type": "module",
   "exports": {
@@ -29,7 +29,7 @@
     "directory": "packages/archive"
   },
   "dependencies": {
-    "drone-path-core": "~1.0.0-rc1",
+    "drone-path-core": "~1.0.0",
     "leaflet": "~1.9.4",
     "p-queue": "~10.0.0"
   }

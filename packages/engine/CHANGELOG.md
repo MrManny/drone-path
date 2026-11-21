@@ -1,5 +1,18 @@
 # drone-path-engine
 
+## 1.0.0
+
+### Patch Changes
+
+- f987b1b: Speed up DJI CAM meta telemetry extraction by reusing recording probes and reading supported MP4 sample tables directly. Other layouts continue to use FFmpeg, with binary output read in memory.
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+- Updated dependencies [f987b1b]
+  - drone-path-core@1.0.0
+
 ## 1.0.0-rc1
 
 ### Patch Changes

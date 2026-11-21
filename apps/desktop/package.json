@@ -1,6 +1,6 @@
 {
   "name": "drone-path-desktop",
-  "version": "1.0.0-rc1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "main": "app/main.mjs",
@@ -18,8 +18,8 @@
     "pack": "electron-builder --publish never"
   },
   "dependencies": {
-    "drone-path-core": "~1.0.0-rc1",
-    "drone-path-engine": "~1.0.0-rc1",
+    "drone-path-core": "~1.0.0",
+    "drone-path-engine": "~1.0.0",
     "electron-updater": "~6.8.11",
     "zod": "~4.6.7"
   },
