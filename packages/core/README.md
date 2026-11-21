@@ -15,9 +15,19 @@ import { parseSrt } from 'drone-path-core/srt';
 const result = await parseSrt('flight.SRT');
 ```
 
-Each module ships TypeScript declarations. Install `@types/node` for your
-Node.js major version and use a module resolution mode that reads package
-exports, such as `NodeNext`.
+Each module ships TypeScript declarations.
+
+Install `@types/node` for your Node.js major version. In TypeScript 6, list
+`node` in `compilerOptions.types` to load the Node declarations.
+
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "types": ["node"]
+  }
+}
+```
 
 Use `drone-path-engine` for render planning and video export.
 See the [project manual](https://github.com/MrManny/drone-path/tree/main/docs/user)

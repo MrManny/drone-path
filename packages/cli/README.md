@@ -15,3 +15,15 @@ for configuration, rendering requirements, and track export.
 The `drone-path` export provides typed CLI functions for Node.js. For
 telemetry and rendering APIs, use `drone-path-core` and
 `drone-path-engine`.
+
+Install `@types/node` for your Node.js major version. In TypeScript 6, list
+`node` in `compilerOptions.types` to load the Node declarations.
+
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "types": ["node"]
+  }
+}
+```

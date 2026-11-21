@@ -15,9 +15,19 @@ import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import { runBatch } from 'drone-path-engine/pipeline';
 ```
 
-Each module ships TypeScript declarations. Install `@types/node` for your
-Node.js major version and use a module resolution mode that reads package
-exports, such as `NodeNext`.
+Each module ships TypeScript declarations.
+
+Install `@types/node` for your Node.js major version. In TypeScript 6, list
+`node` in `compilerOptions.types` to load the Node declarations.
+
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "types": ["node"]
+  }
+}
+```
 
 See the [project manual](https://github.com/MrManny/drone-path/tree/main/docs/user)
 for browser, FFmpeg, and map tile requirements. Install `drone-path` for
