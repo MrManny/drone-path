@@ -101,7 +101,7 @@ The archive uses a per-user SQLite database at
 `$XDG_DATA_HOME/drone-path/archive.sqlite` on Linux
 (`~/.local/share/drone-path/archive.sqlite` by default). Use `--archive-db <path>`
 to choose another database. Rescans reuse records when the recording and its
-SRT sidecar are unchanged.
+SRT sidecar are unchanged and retry clips that had a scan error.
 
 When a clip is missing from a scanned folder, its record stays in the
 database as offline. Reconnect the drive and scan the same folder to mark the

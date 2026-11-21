@@ -114,7 +114,7 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
     if (!current) continue;
     seen.add(key);
     const prior = previous.get(key);
-    if (prior && matches(current, prior.fingerprint)) {
+    if (prior && prior.record.status !== 'error' && matches(current, prior.fingerprint)) {
       records.set(file, prior.record);
       onRecord?.(prior.record);
       if (prior.availability === 'offline') online.push(key);

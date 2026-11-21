@@ -70,6 +70,18 @@ it('reuses unchanged clips and reprobes after video and sidecar changes', async 
   expect(probe).toHaveBeenCalledTimes(5);
 });
 
+it('retries cached errors and reuses the record after a successful retry', async () => {
+  const { db, root, options } = setup();
+  probe.mockRejectedValueOnce(new Error('temporary probe failure'));
+  await expect(scanArchive([root], options)).resolves.toMatchObject([{ status: 'error' }]);
+  expect(inspect(db)).toMatchObject([{ record: { status: 'error', error: 'temporary probe failure' } }]);
+
+  const recovered = await scanArchive([root], options);
+  expect(recovered).toMatchObject([{ status: 'no-telemetry', error: null }]);
+  await expect(scanArchive([root], options)).resolves.toEqual(recovered);
+  expect(probe).toHaveBeenCalledTimes(2);
+});
+
 it('keeps disconnected clips offline, reconnects without probing, and prunes in scope', async () => {
   const { db, root, file, options } = setup();
   const other = path.join(path.dirname(root), 'media-other');
