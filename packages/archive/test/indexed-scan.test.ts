@@ -6,9 +6,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { probeVideo } from 'drone-path-core/ffmpeg';
 
-import { cleanupTmpDirs, probeFixture, SRT_SAMPLE, tmpDir } from '../../../test/fixtures/core.js';
+import { cleanupTmpDirs, probeFixture, productMetaPacket, SRT_SAMPLE, tmpDir } from '../../../test/fixtures/core.js';
+import { camMetaMp4 } from '../../../test/fixtures/mp4-cammeta.js';
 import { scanArchive } from '../src/indexed-scan.js';
-import { listArchiveFlights } from '../src/query.js';
+import { listArchiveFlights, nearArchive } from '../src/query.js';
 import { ArchiveStore } from '../src/store.js';
 
 vi.mock('drone-path-core/ffmpeg', { spy: true });
@@ -79,7 +80,7 @@ it('backfills flight memberships on query without invalidating existing media fi
   const before = inspect(db);
   const legacy = new DatabaseSync(db);
   try {
-    legacy.exec('DROP TABLE clip_flights; PRAGMA user_version = 1');
+    legacy.exec('DROP TABLE clip_gaze; DROP TABLE clip_flights; PRAGMA user_version = 1');
   } finally {
     legacy.close();
   }
@@ -188,4 +189,41 @@ it('leaves the index intact if a running scan is canceled', async () => {
   });
   await expect(scanArchive([root], { ...options, signal: controller.signal })).rejects.toBe(reason);
   expect(inspect(db)).toMatchObject([{ record: { size: 5 } }]);
+});
+
+it.each([true, false])('backfills migrated DVTM once even with usable gaze = %s', async (withAngle) => {
+  const { db, root, file, options } = setup();
+  const point = { lat: 46, lon: 14 };
+  const packet = productMetaPacket(point.lat, point.lon, {
+    relAltMm: 50000, ...(withAngle ? { gimbal: { pitch: -900 } } : {}),
+  });
+  fs.writeFileSync(file, camMetaMp4('ordinary', [packet, packet, packet]).file);
+  probe.mockResolvedValue(probeFixture({ camMeta: { index: 1, trackId: 3 } }));
+  await scanArchive([root], options);
+  const legacy = new DatabaseSync(db);
+  try {
+    legacy.exec('DROP TABLE clip_gaze; PRAGMA user_version = 2');
+  } finally {
+    legacy.close();
+  }
+  const matches = () => nearArchive(db, point, 10, true).filter(({ matchType }) => matchType === 'gaze');
+  expect(matches()).toEqual([]);
+  expect(probe).toHaveBeenCalledTimes(1);
+
+  const disconnected = root + '-disconnected';
+  fs.renameSync(root, disconnected);
+  await scanArchive([root], options);
+  expect(inspect(db)[0]).toMatchObject({ availability: 'offline', gazePending: true });
+  fs.renameSync(disconnected, root);
+
+  probe.mockRejectedValueOnce(new Error('temporary sharing violation'));
+  expect(await scanArchive([root], options)).toMatchObject([{ status: 'error' }]);
+  expect(inspect(db)[0]).toMatchObject({ availability: 'online', gazePending: true, record: { status: 'ok' } });
+  expect(await scanArchive([root], options)).toMatchObject([{ status: 'ok' }]);
+  expect(matches()).toHaveLength(withAngle ? 1 : 0);
+  if (withAngle) expect(matches()[0]?.tSec).toBe(0);
+  expect(inspect(db)[0]).toMatchObject({ gazePending: false });
+
+  await scanArchive([root], options);
+  expect(probe).toHaveBeenCalledTimes(3);
 });

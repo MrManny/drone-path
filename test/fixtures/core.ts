@@ -261,13 +261,13 @@ export const TRACK_KMZ_GOLDEN_HEX =
 
 function varint(value: number): Buffer {
   const bytes: number[] = [];
-  let v = value;
+  let v = BigInt.asUintN(64, BigInt(value));
   do {
-    let b = v & 0x7f;
-    v >>>= 7;
-    if (v > 0) b |= 0x80;
+    let b = Number(v & 0x7fn);
+    v >>= 7n;
+    if (v > 0n) b |= 0x80;
     bytes.push(b);
-  } while (v > 0);
+  } while (v > 0n);
   return Buffer.from(bytes);
 }
 

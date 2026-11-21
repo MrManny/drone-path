@@ -5,15 +5,17 @@ import type { SQLInputValue } from 'node:sqlite';
 
 import { groupFlights } from 'drone-path-core/flight-grouping';
 import type { FlightMembership } from 'drone-path-core/flight-grouping';
-import type { Bbox } from 'drone-path-core/geo';
+import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { bboxIntersects, longitudeRanges, resolveTrackBbox } from 'drone-path-core/spatial';
 
 import { zonedTimeMs } from './camera-time.js';
+import { gazeBbox } from './gaze.js';
+import type { GazeSample } from './gaze.js';
 import { groupSamples } from './scan-track.js';
 import type { ScanPoint, SparseSample } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 
-export const ARCHIVE_SCHEMA_VERSION = 2;
+export const ARCHIVE_SCHEMA_VERSION = 3;
 export const CLIP_FINGERPRINT_VERSION = 1;
 
 export interface ClipFingerprint {
@@ -34,6 +36,7 @@ export interface IndexedClip {
 export interface ClipUpdate extends IndexedClip {
   overview: ScanPoint[][];
   samples: SparseSample[];
+  gaze?: GazeSample[];
 }
 
 export interface IndexedFlightClip extends IndexedClip {
@@ -118,6 +121,18 @@ const FLIGHT_SCHEMA = `
   ) STRICT;
 `;
 
+const GAZE_SCHEMA = `
+  CREATE TABLE clip_gaze (
+    clip_key TEXT PRIMARY KEY REFERENCES clips (clip_key) ON DELETE CASCADE,
+    min_lat REAL,
+    max_lat REAL,
+    min_lon REAL,
+    max_lon REAL,
+    samples_json TEXT NOT NULL
+  ) STRICT;
+  CREATE INDEX clip_gaze_bbox ON clip_gaze (min_lat, max_lat, min_lon, max_lon);
+`;
+
 export class ArchiveStore {
   private readonly db: DatabaseSync;
 
@@ -134,12 +149,15 @@ export class ArchiveStore {
             throw new Error('existing database has no archive schema');
           }
           this.db.exec(SCHEMA);
-        } else if (version !== 1 && version !== ARCHIVE_SCHEMA_VERSION) {
+        } else if (version !== 1 && version !== 2 && version !== ARCHIVE_SCHEMA_VERSION) {
           throw new Error(`unsupported archive database schema version: ${String(version)}`);
         }
         if (version === 0 || version === 1) {
           this.db.exec(FLIGHT_SCHEMA);
           this.refreshFlights();
+        }
+        if (version !== ARCHIVE_SCHEMA_VERSION) {
+          this.db.exec(GAZE_SCHEMA);
           this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
         }
       });
@@ -153,10 +171,16 @@ export class ArchiveStore {
     this.db.close();
   }
 
-  snapshot(): { revision: number; clips: IndexedClip[] } {
+  snapshot(): { revision: number; clips: (IndexedClip & { gazePending: boolean })[] } {
     return this.transaction('BEGIN', () => ({
       revision: this.revision(),
-      clips: (this.db.prepare('SELECT * FROM clips ORDER BY clip_key').all() as unknown as ClipRow[]).map(decodeClip),
+      clips: (this.db.prepare(`
+        SELECT clips.*, clip_gaze.clip_key IS NULL AND
+          json_extract(record_json, '$.telemetry.method') IS 'dvtm-packets' AS gaze_pending
+        FROM clips LEFT JOIN clip_gaze USING (clip_key) ORDER BY clip_key
+      `).all() as unknown as (ClipRow & { gaze_pending: number })[]).map((row) => ({
+        ...decodeClip(row), gazePending: row.gaze_pending === 1,
+      })),
     }));
   }
 
@@ -171,9 +195,25 @@ export class ArchiveStore {
   }
 
   readTrackCandidates(bbox: Bbox): { clip: IndexedClip; samples: SparseSample[] }[] {
-    return this.transaction('BEGIN', () => this.selectClips(bbox, undefined, true).map((clip) => ({
-      clip, samples: this.readSamples(clip.key),
-    })));
+    return this.readNearCandidates(bbox).tracks;
+  }
+
+  readNearCandidates(bbox: Bbox, point?: LatLon) {
+    return this.transaction('BEGIN', () => ({
+      tracks: this.selectClips(bbox, undefined, true).map((clip) => ({ clip, samples: this.readSamples(clip.key) })),
+      gaze: point ? this.selectGazeCandidates(point) : [],
+    }));
+  }
+
+  private selectGazeCandidates({ lat, lon }: LatLon): { clip: IndexedClip; samples: GazeSample[] }[] {
+    const longitude = lon === 180 ? -180 : lon;
+    const rows = this.db.prepare(`
+      SELECT clips.*, samples_json FROM clips JOIN clip_gaze USING (clip_key)
+      WHERE clip_gaze.min_lat <= ? AND clip_gaze.max_lat >= ?
+        AND clip_gaze.min_lon <= ? AND clip_gaze.max_lon >= ?
+      ORDER BY clip_key
+    `).all(lat, lat, longitude, longitude) as unknown as (ClipRow & { samples_json: string })[];
+    return rows.map((row) => ({ clip: decodeClip(row), samples: JSON.parse(row.samples_json) as GazeSample[] }));
   }
 
   readOverview(key: string): ScanPoint[][] {
@@ -284,7 +324,7 @@ export class ArchiveStore {
     }
   }
 
-  private writeClip({ key, availability, fingerprint, record, overview, samples }: ClipUpdate): void {
+  private writeClip({ key, availability, fingerprint, record, overview, samples, gaze }: ClipUpdate): void {
     const { size, mtimeMs, srtSize, srtMtimeMs, schemaVersion } = fingerprint;
     const bbox = record.bbox;
     this.db.prepare(`
@@ -306,9 +346,20 @@ export class ArchiveStore {
       JSON.stringify(record), JSON.stringify(overview),
     );
     this.db.prepare('DELETE FROM clip_samples WHERE clip_key = ?').run(key);
+    this.writeGaze(key, gaze);
     const add = this.db.prepare('INSERT INTO clip_samples VALUES (?, ?, ?, ?, ?, ?)');
     for (const [index, sample] of samples.entries()) {
       add.run(key, sample.segment, index, sample.tSec, sample.lat, sample.lon);
     }
+  }
+
+  private writeGaze(key: string, gaze: GazeSample[] | undefined): void {
+    this.db.prepare('DELETE FROM clip_gaze WHERE clip_key = ?').run(key);
+    if (!gaze) return;
+    const bbox = gazeBbox(gaze);
+    this.db.prepare('INSERT INTO clip_gaze VALUES (?, ?, ?, ?, ?, ?)').run(
+      key, bbox?.minLat ?? null, bbox?.maxLat ?? null, bbox?.minLon ?? null, bbox?.maxLon ?? null,
+      JSON.stringify(gaze),
+    );
   }
 }
