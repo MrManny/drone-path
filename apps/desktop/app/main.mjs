@@ -18,7 +18,7 @@ import {
   emptyAppState,
   readAppState,
   rememberOpenedFile,
-  writeAppState,
+  saveAppStateSafely,
 } from '../dist/appstate.js';
 import { createAppSession } from '../dist/appsession.js';
 import { resolveConfig } from 'drone-path-engine/configfile';
@@ -30,6 +30,7 @@ import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 import { planByteRange } from 'drone-path-engine/range';
 import { createTileTraffic } from 'drone-path-engine/tiles';
 import { registerIpcHandlers } from './ipc.mjs';
+import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
 import { initUpdates } from './update.mjs';
 
 const SCHEME = 'app';
@@ -82,10 +83,6 @@ export function createShellState() {
   };
 }
 
-function translationFor(state) {
-  return translator(resolveLocale(state.appState.language, state.systemLanguages));
-}
-
 async function pickRecording(state) {
   const t = translationFor(state);
   const options = {
@@ -95,9 +92,7 @@ async function pickRecording(state) {
     // Back where the last recording came from, when that folder still exists.
     defaultPath: rememberedOpenDir(state) ?? undefined,
   };
-  const result = state.win
-    ? await dialog.showOpenDialog(state.win, options)
-    : await dialog.showOpenDialog(options);
+  const result = await showDialogWithParent(state, dialog.showOpenDialog.bind(dialog), options);
   const picked = result.canceled ? null : result.filePaths[0];
   if (picked) rememberPicked(state, picked);
   return picked;
@@ -110,12 +105,7 @@ function rememberedOpenDir(state) {
 
 function rememberPicked(state, filePath) {
   state.appState = rememberOpenedFile(state.appState, filePath);
-  try {
-    writeAppState(appStateFile(), state.appState);
-  } catch (e) {
-    // The pick and the look still apply when the state file cannot be written.
-    log(`app state not saved: ${errorMessage(e)}`);
-  }
+  saveAppStateSafely(appStateFile(), state.appState, log);
 }
 
 function fail(state, error) {
@@ -130,7 +120,7 @@ function fail(state, error) {
 }
 
 function sendToWindow(state, channel, payload) {
-  if (state.win && !state.win.isDestroyed()) state.win.webContents.send(channel, payload);
+  liveWindow(state)?.webContents.send(channel, payload);
 }
 
 export function handleExportDone(state, outcome) {
@@ -138,7 +128,8 @@ export function handleExportDone(state, outcome) {
   sendToWindow(state, 'dronepath:export:done', outcome);
   if (state.pendingClose) {
     state.pendingClose = false;
-    if (state.win && !state.win.isDestroyed()) state.win.close();
+    const win = liveWindow(state);
+    if (win) win.close();
     else app.quit();
   }
 }
@@ -308,14 +299,15 @@ export function installCloseGuard(state) {
       message: t('native.exportInProgress'),
       detail: t('native.closeExportDetail'),
     };
-    void (state.win ? dialog.showMessageBox(state.win, box) : dialog.showMessageBox(box))
+    void showDialogWithParent(state, dialog.showMessageBox.bind(dialog), box)
       .then(({ response }) => {
         state.closePromptOpen = false;
         if (response !== 0) return;
         // The export may have settled while the dialog was open; close
         // directly instead of setting pendingClose for an onDone that already ran.
         if (!state.exportRunner || !state.exportRunner.running()) {
-          if (state.win && !state.win.isDestroyed()) state.win.close();
+          const win = liveWindow(state);
+          if (win) win.close();
           else app.quit();
           return;
         }

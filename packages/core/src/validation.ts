@@ -37,3 +37,11 @@ export function strictShape<T extends z.ZodRawShape>(
 export function numberValue(name: string): z.ZodType<number> {
   return z.number({ error: invalidNumber(name) });
 }
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+export function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? (value) : {};
+}

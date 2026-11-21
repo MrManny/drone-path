@@ -375,22 +375,8 @@ async function tileWarmStage(
   return tileStats;
 }
 
-export async function prepareSession(
-  videoPath: string,
-  config: RenderConfig,
-  log: LogFn,
-  options: PipelineOptions = {},
-): Promise<PreparedRecording> {
-  const env: PrepareStageEnv = {
-    videoPath,
-    config,
-    log,
-    deps: resolveDeps(options.deps, config.tileCache),
-    tools: options.tools ?? resolveFfmpegTools(config),
-    report: createPrepareReporter(options.onProgress),
-  };
-
-  const { width, height } = config;
+async function prepareWithEnv(env: PrepareStageEnv): Promise<PreparedRecording> {
+  const { width, height } = env.config;
 
   const { probe, introOutro } = await probeStage(env);
   const { tel, frameValues, trackValues, protoFile, gimbalDevice, hud } = await telemetryStage(
@@ -414,6 +400,22 @@ export async function prepareSession(
     overview,
     frames,
   };
+}
+
+export async function prepareSession(
+  videoPath: string,
+  config: RenderConfig,
+  log: LogFn,
+  options: PipelineOptions = {},
+): Promise<PreparedRecording> {
+  return prepareWithEnv({
+    videoPath,
+    config,
+    log,
+    deps: resolveDeps(options.deps, config.tileCache),
+    tools: options.tools ?? resolveFfmpegTools(config),
+    report: createPrepareReporter(options.onProgress),
+  });
 }
 
 export function recordingPageOpts(
@@ -582,10 +584,13 @@ export async function processRecording(
   const tools = options.tools ?? resolveFfmpegTools(config);
   if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
 
-  const prep = await prepareSession(videoPath, config, log, {
-    ...options,
+  const prep = await prepareWithEnv({
+    videoPath,
+    config,
+    log,
     deps,
     tools,
+    report: createPrepareReporter(options.onProgress),
   });
 
   if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);

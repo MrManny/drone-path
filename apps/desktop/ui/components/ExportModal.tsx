@@ -7,7 +7,8 @@ import type { UiSession } from '../../src/appsession.js';
 import { normalizeDimensions } from 'drone-path-engine/config';
 import type { EncodeSettings, RenderConfig } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { appBridge } from '../lib/backend.js';
+import { appBridge, tryAppBridge } from '../lib/backend.js';
+import { useMountedRef } from '../hooks/useMountedRef.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
 import type { ExportFlowDeps } from '../lib/exportflow.js';
 import { cancelExport, chooseAndExport, runDoneAction } from '../lib/exportflow.js';
@@ -63,15 +64,8 @@ export function ExportModal({
     ),
   );
   const busy = state.phase === 'running';
-  const mountedRef = useRef(true);
+  const mountedRef = useMountedRef();
   const pickingRef = useRef(false);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   const dispatch = useCallback(
     (event: ExportEvent) => {
@@ -96,17 +90,12 @@ export function ExportModal({
   }, [busy, dispatchDialog]);
 
   useEffect(() => {
-    let offCapture: (() => void) | null = null;
-    let offDone: (() => void) | null = null;
-    try {
-      const bridge = appBridge();
-      offCapture = bridge.onExportCapture((progress) =>
-        dispatchRaw({ type: 'capture', progress }),
-      );
-      offDone = bridge.onExportDone((outcome) => dispatchRaw({ type: 'finish', outcome }));
-    } catch {
-      // Outside the app shell there is no backend: the form still renders.
-    }
+    const bridge = tryAppBridge();
+    if (!bridge) return;
+    const offCapture = bridge.onExportCapture?.((progress) =>
+      dispatchRaw({ type: 'capture', progress }),
+    );
+    const offDone = bridge.onExportDone?.((outcome) => dispatchRaw({ type: 'finish', outcome }));
     return () => {
       offCapture?.();
       offDone?.();

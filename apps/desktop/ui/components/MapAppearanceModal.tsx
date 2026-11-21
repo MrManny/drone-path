@@ -13,7 +13,7 @@ import { chipReadoutsAt } from '../lib/chipreadouts.js';
 import { previewFrame } from '../lib/exportstate.js';
 import { getExampleFlight } from '../lib/exampleflight.js';
 import { defaultAppearance, patchConfig, setHudChip } from '../lib/settings.js';
-import { restyleMeta } from '../lib/restylemeta.js';
+import { restyleSession } from '../lib/restylemeta.js';
 import { CameraControls } from './CameraControls.js';
 import { DialogShell } from './DialogShell.js';
 import { HudChips } from './HudChips.js';
@@ -44,14 +44,14 @@ export function MapAppearanceModal({ session, config, onChange, onClose }: MapAp
   const appearance = useMemo(() => appearanceOf(config), [config]);
 
   const preview = useMemo(() => {
-    const base = example ? example.baseScene : session!.scene;
-    const meta = example ? example.meta : restyleMeta(session!);
-    const data = restyleSceneData(base, appearance, meta, PREVIEW_SIZE);
+    const data = example
+      ? restyleSceneData(example.baseScene, appearance, example.meta, PREVIEW_SIZE)
+      : restyleSession(session!, config, PREVIEW_SIZE);
     // The chips over the preview stand in for the export frame's HUD pills,
     // so the renderer draws none of its own; the real HUD flags stay on the
     // data because the marker arrow follows the heading setting (#283).
     return { ...data, hudPills: false };
-  }, [session, example, appearance]);
+  }, [session, example, appearance, config]);
 
   const fps = example ? example.fps : session!.video.fps;
   const frames = example ? example.frames : session!.video.frames;

@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useReducer, useRef } from 'react';
 
 import type { FrameRange } from 'drone-path-core/frame-range';
 import { errorMessage } from 'drone-path-core/errors';
 import { appBridge } from '../lib/backend.js';
 import type { DialogEvent } from '../lib/dialogstate.js';
+import { UI_ERR_REVEAL } from '../lib/errortext.js';
 import type { TrackSavePhase } from '../lib/tracksave.js';
 import { trackSaveFlow, trackSaveReducer } from '../lib/tracksave.js';
+import { useMountedRef } from './useMountedRef.js';
 
 interface TrackSave {
   phase: TrackSavePhase | null;
@@ -22,16 +24,9 @@ export function useTrackSave(options: {
 }): TrackSave {
   const { range, scope, dispatchDialog } = options;
   const [phase, dispatch] = useReducer(trackSaveReducer, null);
-  const mountedRef = useRef(true);
+  const mountedRef = useMountedRef();
   const savingRef = useRef(false);
   const revealingRef = useRef(false);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   const save = useCallback((): void => {
     if (savingRef.current) return;
@@ -76,7 +71,7 @@ export function useTrackSave(options: {
         const ack = await appBridge().revealExportOutput({ out: done.path });
         if (!mountedRef.current) return;
         if (!ack.ok) {
-          dispatch({ type: 'revealFailed', error: ack.error ?? 'the file could not be revealed' });
+          dispatch({ type: 'revealFailed', error: ack.error ?? UI_ERR_REVEAL });
         }
       } catch (e) {
         if (!mountedRef.current) return;

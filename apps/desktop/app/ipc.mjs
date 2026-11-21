@@ -7,14 +7,16 @@ import path from 'node:path';
 import { dialog, ipcMain, shell } from 'electron';
 
 import { parsePickRequest, parseTrackSaveRequest } from '../dist/appsession.js';
-import { applyAppState, writeAppState } from '../dist/appstate.js';
+import { applyAppState, saveAppStateSafely, writeAppState } from '../dist/appstate.js';
 import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from 'drone-path-engine/config';
-import { isLocale, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
+import { isLocale, resolveLocale } from '../dist/desktop-i18n/messages.js';
 import { ERR_NO_RECORDING, errorMessage } from 'drone-path-core/errors';
+import { isRecord } from 'drone-path-core/validation';
 import { videoBaseName } from 'drone-path-engine/recordings';
 import { outputPathFor } from 'drone-path-engine/pipeline';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
+import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
 
 function sameOrigin(url, target) {
   try {
@@ -65,7 +67,7 @@ function requireVideo(state) {
 // (the last export or the last track file, both set only by trusted
 // handlers), never an arbitrary path.
 function knownOutputOf(state, payload) {
-  const out = payload && typeof payload === 'object' ? payload.out : null;
+  const out = isRecord(payload) ? payload.out : null;
   if (typeof out !== 'string' || (out !== state.lastExportOut && out !== state.lastTrackOut)) {
     throw new Error('unknown output');
   }
@@ -77,7 +79,7 @@ function knownOutputOf(state, payload) {
 // existing file is never replaced without a confirmation.
 async function confirmReplace(state, chosen) {
   if (!fs.existsSync(chosen)) return true;
-  const t = translator(languageSettings(state).locale);
+  const t = translationFor(state);
   const box = {
     type: 'warning',
     buttons: [t('native.replace'), t('native.cancel')],
@@ -86,9 +88,7 @@ async function confirmReplace(state, chosen) {
     message: t('native.replaceFile', { name: path.basename(chosen) }),
     detail: chosen,
   };
-  const confirm = state.win
-    ? await dialog.showMessageBox(state.win, box)
-    : await dialog.showMessageBox(box);
+  const confirm = await showDialogWithParent(state, dialog.showMessageBox.bind(dialog), box);
   return confirm.response === 0;
 }
 
@@ -115,9 +115,7 @@ export function resolveSavePath(typedPath, extensions, defaultExtension) {
 
 async function pickSavePath(state, { title, defaultPath, filters, extensions, defaultExtension }) {
   const options = { title, defaultPath, filters };
-  const result = state.win
-    ? await dialog.showSaveDialog(state.win, options)
-    : await dialog.showSaveDialog(options);
+  const result = await showDialogWithParent(state, dialog.showSaveDialog.bind(dialog), options);
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
   const chosen = resolveSavePath(result.filePath, extensions, defaultExtension);
   if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
@@ -135,12 +133,8 @@ function registerSettingsHandlers(state, devUrl, log) {
     const settings = parseSettingsPatch(raw, 'settings');
     state.appState = { ...state.appState, settings };
     state.config = applyAppState(state.config, state.appState);
-    try {
-      writeAppState(appStateFile(), state.appState);
-    } catch (e) {
-      // The look still applies when the state file cannot be written.
-      log(`app state not saved: ${errorMessage(e)}`);
-    }
+    // The look still applies when the state file cannot be written.
+    saveAppStateSafely(appStateFile(), state.appState, log);
     return { ok: true };
   });
 }
@@ -164,7 +158,7 @@ function registerLanguageHandlers(state, devUrl) {
 function registerExportHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:export:pick-output', async () => {
     const video = requireVideo(state);
-    const t = translator(languageSettings(state).locale);
+    const t = translationFor(state);
     return pickSavePath(state, {
       title: t('native.exportVideo'),
       defaultPath: exportDefaultFor(state, video),
@@ -199,7 +193,7 @@ function registerTrackHandlers(state, devUrl, log) {
     // (<basename>.telemetry.json); the typed name selects the format by its
     // extension, with the telemetry document as the bare-name default.
     const exportDefault = exportDefaultFor(state, video);
-    const t = translator(languageSettings(state).locale);
+    const t = translationFor(state);
     return pickSavePath(state, {
       title: t('native.exportTelemetry'),
       defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
@@ -239,7 +233,7 @@ function registerUpdateHandlers(state, devUrl, sendToWindow) {
 function registerWindowHandlers(state, devUrl) {
   handleQuery(devUrl, 'dronepath:window:close', () => {
     // The window's close handler runs the running-export guard.
-    if (state.win && !state.win.isDestroyed()) state.win.close();
+    liveWindow(state)?.close();
   });
 }
 

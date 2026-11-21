@@ -1,3 +1,4 @@
+import { MIN_DIMENSION } from './config.js';
 import type { MapStyle, RenderConfig } from './config.js';
 import { project } from 'drone-path-core/geo';
 import type { Bbox, MercatorPixel } from 'drone-path-core/geo';
@@ -107,8 +108,8 @@ export function computeOverview({
 }: OverviewPlanOptions): OverviewPlan {
   const padX = Math.round(width * 0.08);
   const padY = Math.round(height * 0.08);
-  const availW = Math.max(64, width - 2 * padX);
-  const availH = Math.max(64, height - 2 * padY);
+  const availW = Math.max(MIN_DIMENSION, width - 2 * padX);
+  const availH = Math.max(MIN_DIMENSION, height - 2 * padY);
 
   let zoom: number;
   if (zoomOverride > 0) {

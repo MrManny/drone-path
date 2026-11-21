@@ -1,7 +1,6 @@
 'use client';
 
-import { useTranslation } from '../lib/i18n.js';
-import { useId, useState } from 'react';
+import { DraftField } from './DraftField.js';
 
 export interface NumberFieldProps {
   label: string;
@@ -16,50 +15,19 @@ export interface NumberFieldProps {
 }
 
 export function NumberField({ label, value, min, rule, step, unit, hint, onValue }: NumberFieldProps) {
-  const t = useTranslation();
-  const id = useId();
-  const messageId = `${id}-message`;
-  const hintId = `${id}-hint`;
-  const [draft, setDraft] = useState<string | null>(null);
-  const [invalid, setInvalid] = useState(false);
   return (
-    <div className="settings-row">
-      <label className="settings-label" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        type="number"
-        min={min}
-        step={step ?? 1}
-        value={draft ?? String(value)}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? messageId : hint ? hintId : undefined}
-        onChange={(e) => {
-          const raw = e.target.value;
-          setDraft(raw);
-          const parsed = raw === '' ? Number.NaN : Number(raw);
-          if (!Number.isFinite(parsed) || parsed < min) {
-            setInvalid(true);
-            return;
-          }
-          setInvalid(!onValue(parsed));
-        }}
-        onBlur={() => {
-          setDraft(null);
-          setInvalid(false);
-        }}
-      />
-      {unit ? <span className="field-unit">{unit}</span> : null}
-      {invalid ? (
-        <span className="field-message" id={messageId}>
-          {t('field.mustBe', { rule })}
-        </span>
-      ) : hint ? (
-        <span className="hint" id={hintId}>
-          {hint}
-        </span>
-      ) : null}
-    </div>
+    <DraftField
+      label={label}
+      value={String(value)}
+      inputProps={{ type: 'number', min, step: step ?? 1 }}
+      parse={(raw) => {
+        const parsed = raw === '' ? Number.NaN : Number(raw);
+        return Number.isFinite(parsed) && parsed >= min ? { ok: true, value: parsed } : { ok: false };
+      }}
+      rule={rule}
+      hint={hint}
+      suffix={unit ? <span className="field-unit">{unit}</span> : null}
+      onValue={onValue}
+    />
   );
 }

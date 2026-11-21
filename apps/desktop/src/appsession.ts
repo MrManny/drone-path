@@ -8,7 +8,7 @@ import { parseAppearanceSettings } from 'drone-path-engine/config';
 import type { AppearanceSettings, RenderConfig } from 'drone-path-engine/config';
 import { parseFrameRange } from 'drone-path-core/frame-range';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { parseValue, strictShape } from 'drone-path-core/validation';
+import { asRecord, parseValue, strictShape } from 'drone-path-core/validation';
 import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from 'drone-path-core/errors';
 import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import { timeAt } from 'drone-path-core/frametime';
@@ -62,7 +62,7 @@ export interface PickRequest {
 }
 
 export function parsePickRequest(raw: unknown): PickRequest {
-  const input = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const input = asRecord(raw);
   return { settings: parseAppearanceSettings(input.settings) };
 }
 

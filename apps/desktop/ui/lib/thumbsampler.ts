@@ -3,8 +3,7 @@ export interface ThumbSampler {
   dispose(): void;
 }
 
-export const THUMB_WIDTH = 76;
-export const THUMB_HEIGHT = THUMB_WIDTH;
+export const THUMB_SIZE = 76;
 
 const SEEK_TIMEOUT_MS = 3000;
 
@@ -14,8 +13,8 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
   video.preload = 'auto';
   video.src = src;
   const canvas = doc.createElement('canvas');
-  canvas.width = THUMB_WIDTH;
-  canvas.height = THUMB_HEIGHT;
+  canvas.width = THUMB_SIZE;
+  canvas.height = THUMB_SIZE;
   const ctx = canvas.getContext('2d');
   let disposed = false;
   const pending = new Set<() => void>();
@@ -78,8 +77,8 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
         side,
         0,
         0,
-        THUMB_WIDTH,
-        THUMB_HEIGHT,
+        THUMB_SIZE,
+        THUMB_SIZE,
       );
       return await new Promise<string | null>((resolve) => {
         canvas.toBlob((blob) => {

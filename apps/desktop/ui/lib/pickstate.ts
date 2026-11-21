@@ -1,8 +1,6 @@
 import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
 import type { PrepareProgress } from 'drone-path-engine/plan';
 
-export const START_PREPARE_PROGRESS: PrepareProgress = INITIAL_PREPARE_PROGRESS;
-
 export type PickState =
   | { kind: 'idle' }
   | { kind: 'picking' }
@@ -26,7 +24,7 @@ export function pickReducer(state: PickState, event: PickEvent): PickState {
       return state.kind === 'picking' || state.kind === 'preparing' ? state : { kind: 'picking' };
     case 'preparing':
       return state.kind === 'picking'
-        ? { kind: 'preparing', progress: START_PREPARE_PROGRESS }
+        ? { kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS }
         : state;
     case 'progress':
       return state.kind === 'preparing' ? { kind: 'preparing', progress: event.progress } : state;

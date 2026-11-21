@@ -57,8 +57,12 @@ declare global {
   }
 }
 
+export function tryAppBridge(): AppBridge | null {
+  return window.dronepath ?? null;
+}
+
 export function appBridge(): AppBridge {
-  const bridge = window.dronepath;
+  const bridge = tryAppBridge();
   if (!bridge) throw new Error(ERR_APP_BRIDGE_UNAVAILABLE);
   return bridge;
 }

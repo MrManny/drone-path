@@ -23,11 +23,6 @@ export function normalizePinnedZoom(value: number, style: MapStyle): number {
   return Math.min(max, Math.max(min, level));
 }
 
-/** The values the Zoom field accepts: auto-fit or one whole usable level. */
-export function isZoomPinValue(value: number, style: MapStyle): boolean {
-  return value === normalizePinnedZoom(value, style);
-}
-
 /**
  * Steps one zoom level from the visible one and returns the level to pin, or
  * null at a planner limit where no step is possible. Basing the step on the

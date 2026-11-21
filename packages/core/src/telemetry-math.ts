@@ -171,6 +171,18 @@ function computeTrackStats(
   return { bbox, trackDistanceM };
 }
 
+function mapWindow<T>(
+  length: number,
+  span: number,
+  combine: (lo: number, hi: number) => T,
+): T[] {
+  const out: T[] = new Array(length);
+  for (let k = 0; k < length; k++) {
+    out[k] = combine(Math.max(0, k - span), Math.min(length - 1, k + span));
+  }
+  return out;
+}
+
 function computeSpeedByFix(fixes: FixSample[]): number[] {
   if (fixes.length === 2) {
     const dt = fixes[1].tSec - fixes[0].tSec;
@@ -188,9 +200,7 @@ function computeSpeedByFix(fixes: FixSample[]): number[] {
   rawSpeed[0] = rawSpeed[1] ?? 0;
   rawSpeed[fixes.length - 1] = rawSpeed[fixes.length - 2] ?? 0;
 
-  return fixes.map((_, k) => {
-    const lo = Math.max(0, k - SPEED_SMOOTHING_SPAN);
-    const hi = Math.min(fixes.length - 1, k + SPEED_SMOOTHING_SPAN);
+  return mapWindow(fixes.length, SPEED_SMOOTHING_SPAN, (lo, hi) => {
     let sum = 0;
     let count = 0;
     for (let j = lo; j <= hi; j++) {
@@ -225,9 +235,7 @@ function computeHeadingByFix(
   fillHeadingGaps(rawHeading);
 
   const defaultHeading = rawHeading[0] ?? firstKnownHeading(rawHeading) ?? 0;
-  const headingByFix = fixes.map((_, k) => {
-    const lo = Math.max(0, k - HEADING_SMOOTHING_SPAN);
-    const hi = Math.min(fixes.length - 1, k + HEADING_SMOOTHING_SPAN);
+  const headingByFix = mapWindow(fixes.length, HEADING_SMOOTHING_SPAN, (lo, hi) => {
     const window: number[] = [];
     for (let j = lo; j <= hi; j++) {
       window.push(rawHeading[j] ?? defaultHeading);
@@ -317,7 +325,7 @@ function buildFrameData(
 
 function bridgeMissingFramePositions(frameData: FrameData[]): void {
   const first = frameData.find((d) => d.fix !== null);
-  const last = [...frameData].reverse().find((d) => d.fix !== null);
+  const last = frameData.findLast((d) => d.fix !== null);
   if (!first || !last) return;
   let lead = 0;
   while (lead < frameData.length && frameData[lead].fix === null) {

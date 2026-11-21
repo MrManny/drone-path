@@ -340,12 +340,6 @@ interface RenderProfile {
   emitMs: number;
 }
 
-interface StageTiming {
-  evalMs: number;
-  captureMs: number;
-  emitMs: number;
-}
-
 interface RenderContext
   extends Pick<
     RenderJobOptions,
@@ -371,7 +365,7 @@ interface RenderContext
 interface RenderStageEnv {
   ctx: RenderContext;
   url: string;
-  timing: StageTiming;
+  timing: RenderProfile;
   workerCount: number;
 }
 
@@ -385,7 +379,7 @@ interface WorkerRun extends RenderContext {
   active: Browser;
   url: string;
   stream: OrderedFrameStream;
-  timing: StageTiming;
+  timing: RenderProfile;
 }
 
 async function captureFrame(
@@ -556,7 +550,7 @@ export async function renderVideo(
     tools,
   };
   if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
-  const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
+  const timing: RenderProfile = { evalMs: 0, captureMs: 0, emitMs: 0 };
   const { server, url } = await startServer({ html, style, tileCache, log });
   const env: RenderStageEnv = { ctx, url, timing, workerCount };
 

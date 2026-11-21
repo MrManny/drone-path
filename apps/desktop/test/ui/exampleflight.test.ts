@@ -5,7 +5,7 @@ import {
   getExampleFlight,
   EXAMPLE_FRAMES,
   EXAMPLE_FPS,
-  EXAMPLE_STATE_LABEL,
+  exampleStateLabel,
 } from '../../ui/lib/exampleflight.js';
 
 const { channels, bbox, baseScene, meta, durationSec } = getExampleFlight();
@@ -54,7 +54,7 @@ describe('the bundled example flight', () => {
   });
 
   it('names its state so it can never pass for the user recording', () => {
-    expect(EXAMPLE_STATE_LABEL).toContain('Example flight');
+    expect(exampleStateLabel()).toContain('Example flight');
   });
 
   it('plans a preview scene at the export frame size on the app tile base', () => {

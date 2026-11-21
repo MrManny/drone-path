@@ -25,8 +25,6 @@ const EXAMPLE_DURATION_SEC = EXAMPLE_FRAMES / EXAMPLE_FPS;
 export function exampleStateLabel(t: Translate = tEnglish): string {
   return t('exampleflight.preview');
 }
-
-export const EXAMPLE_STATE_LABEL = exampleStateLabel();
 /** Mirrors TILE_BASE in src/apppaths.ts, which cannot load in the browser. */
 const EXAMPLE_TILE_BASE = 'app://bundle/tiles';
 const PREVIEW_WIDTH = 1280;

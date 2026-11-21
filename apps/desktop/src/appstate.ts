@@ -11,7 +11,7 @@ import {
 } from 'drone-path-engine/config';
 import type { RenderConfig, SettingsPatch } from 'drone-path-engine/config';
 import { errorMessage } from 'drone-path-core/errors';
-import { parseValue, strictShape } from 'drone-path-core/validation';
+import { isRecord, parseValue, strictShape } from 'drone-path-core/validation';
 
 export const APP_STATE_VERSION = 1;
 
@@ -26,8 +26,8 @@ export function emptyAppState(): AppState {
 }
 
 function fillMissingSettings(raw: unknown): unknown {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
-  const filled = { ...(raw as Record<string, unknown>) };
+  if (!isRecord(raw) || Array.isArray(raw)) return raw;
+  const filled = { ...raw };
   for (const key of SETTINGS_KEYS) {
     if (!(key in filled)) filled[key] = DEFAULT_CONFIG[key];
   }
@@ -127,5 +127,17 @@ export function writeAppState(file: string, state: AppState): void {
     throw new Error(`cannot write app state ${file}: ${errorMessage(e)}`, {
       cause: e,
     });
+  }
+}
+
+export function saveAppStateSafely(
+  file: string,
+  state: AppState,
+  log: (msg: string) => void,
+): void {
+  try {
+    writeAppState(file, state);
+  } catch (e) {
+    log(`app state not saved: ${errorMessage(e)}`);
   }
 }

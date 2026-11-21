@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DEFAULT_LOCALE, translator } from '../../src/desktop-i18n/messages.js';
 import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
-import { appBridge } from '../lib/backend.js';
+import { appBridge, tryAppBridge } from '../lib/backend.js';
+import { useMountedRef } from './useMountedRef.js';
 
 export function useLanguageSettings() {
   const [language, setLanguage] = useState<LanguageSettings>({
@@ -13,26 +14,18 @@ export function useLanguageSettings() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
-  const mountedRef = useRef(true);
+  const mountedRef = useMountedRef();
   const savingRef = useRef(false);
   const editedRef = useRef(false);
 
   useEffect(() => {
-    mountedRef.current = true;
-    try {
-      void appBridge()
-        .getLanguage?.()
-        .then((resolved) => {
-          if (mountedRef.current && !editedRef.current) setLanguage(resolved);
-        })
-        .catch(() => {});
-    } catch {
-      // Outside the app shell there is no backend: keep the default locale.
-    }
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+    void tryAppBridge()
+      ?.getLanguage?.()
+      .then((resolved) => {
+        if (mountedRef.current && !editedRef.current) setLanguage(resolved);
+      })
+      .catch(() => {});
+  }, [mountedRef]);
 
   useEffect(() => {
     document.documentElement.lang = language.locale;

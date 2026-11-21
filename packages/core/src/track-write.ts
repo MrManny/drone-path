@@ -30,17 +30,11 @@ export interface TrackExportInput {
   track: TrackStream;
 }
 
-export function trackFileBytes(
-  file: string,
+function serializeTrack(
+  format: Exclude<ReturnType<typeof trackFormatOf>, 'json'>,
   input: TrackExportInput,
   range: FrameRange | null,
 ): string | Buffer {
-  const format = trackFormatOf(file);
-  if (format === 'json') {
-    return serializeTelemetryDocument(
-      buildTelemetryDocument(segmentTelemetryInput(input.document, range)),
-    );
-  }
   const track = buildTrack(selectTrackRecords(input.track, range));
   switch (format) {
     case 'gpx':
@@ -52,6 +46,20 @@ export function trackFileBytes(
     case 'kmz':
       return kmzBytes(serializeKml(track));
   }
+}
+
+export function trackFileBytes(
+  file: string,
+  input: TrackExportInput,
+  range: FrameRange | null,
+): string | Buffer {
+  const format = trackFormatOf(file);
+  if (format === 'json') {
+    return serializeTelemetryDocument(
+      buildTelemetryDocument(segmentTelemetryInput(input.document, range)),
+    );
+  }
+  return serializeTrack(format, input, range);
 }
 
 export function writeTrackFile(
@@ -66,5 +74,5 @@ export function writeTrackFile(
     writeTelemetryDocument(file, segmentTelemetryInput(input.document, range));
     return;
   }
-  fs.writeFileSync(file, trackFileBytes(file, input, range));
+  fs.writeFileSync(file, serializeTrack(format, input, range));
 }
