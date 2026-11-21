@@ -2,7 +2,7 @@ import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
-import { findSrtSidecar } from 'drone-path-core/srt-sidecar';
+import { createSrtSidecarLookup } from 'drone-path-core/srt-sidecar';
 
 import { decimateSegments, sampleSegments } from './scan-track.js';
 import { discoverRecordings, scanRecordings } from './scanner.js';
@@ -10,7 +10,7 @@ import type { ScanOptions, ScanRecord } from './scanner.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from './store.js';
 import type { ClipFingerprint, ClipUpdate } from './store.js';
 
-export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'onTrack' | 'onGaze'> {
+export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'sidecarFor' | 'onTrack' | 'onGaze'> {
   db: string;
   prune?: boolean;
   getTools: () => Promise<FfmpegToolPaths>;
@@ -41,21 +41,31 @@ async function fileStats(file: string) {
   }
 }
 
-async function fingerprint(file: string): Promise<ClipFingerprint | null> {
+interface ClipInput {
+  fingerprint: ClipFingerprint;
+  sidecar: string | null;
+}
+
+async function inspectInput(
+  file: string, sidecarFor: ReturnType<typeof createSrtSidecarLookup>,
+): Promise<ClipInput | null> {
   const video = await fileStats(file);
   if (!video) return null;
   let sidecar: string | null;
   try {
-    sidecar = findSrtSidecar(file);
+    sidecar = await sidecarFor(file);
   } catch (error) {
     if (!isMissing(error)) throw error;
     return null;
   }
   const srt = sidecar === null ? null : await fileStats(sidecar);
   return {
-    size: video.size, mtimeMs: video.mtimeMs,
-    srtSize: srt?.size ?? null, srtMtimeMs: srt?.mtimeMs ?? null,
-    schemaVersion: CLIP_FINGERPRINT_VERSION,
+    sidecar,
+    fingerprint: {
+      size: video.size, mtimeMs: video.mtimeMs,
+      srtSize: srt?.size ?? null, srtMtimeMs: srt?.mtimeMs ?? null,
+      schemaVersion: CLIP_FINGERPRINT_VERSION,
+    },
   };
 }
 
@@ -102,7 +112,8 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
   const { roots, present } = await scanRoots(dirs, clips.map(({ record }) => record.path), options);
   const files = await discoverRecordings(present, { recurse, signal });
   const records = new Map<string, ScanRecord>();
-  const pending = new Map<string, ClipFingerprint>();
+  const pending = new Map<string, ClipInput>();
+  const sidecarFor = createSrtSidecarLookup();
   const seen = new Set<string>();
   const backfills = new Set<string>();
   const online: string[] = [];
@@ -111,17 +122,18 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
     signal?.throwIfAborted();
     const key = clipKey(file);
     if (seen.has(key)) continue;
-    const current = await fingerprint(file);
+    const current = await inspectInput(file, sidecarFor);
     if (!current) continue;
     seen.add(key);
     const prior = previous.get(key);
-    if (prior && !prior.gazePending && prior.record.status !== 'error' && matches(current, prior.fingerprint)) {
+    const unchanged = prior && matches(current.fingerprint, prior.fingerprint);
+    if (unchanged && !prior.gazePending && prior.record.status !== 'error') {
       records.set(file, prior.record);
       onRecord?.(prior.record);
       if (prior.availability === 'offline') online.push(key);
     } else {
       pending.set(file, current);
-      if (prior?.gazePending && matches(current, prior.fingerprint)) {
+      if (unchanged && prior.gazePending) {
         backfills.add(file);
         if (prior.availability === 'offline') online.push(key);
       }
@@ -149,7 +161,7 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
 }
 
 async function probeChanges(
-  pending: ReadonlyMap<string, ClipFingerprint>, { concurrency, signal, getTools, onRecord }: IndexedScanOptions,
+  pending: ReadonlyMap<string, ClipInput>, { concurrency, signal, getTools, onRecord }: IndexedScanOptions,
 ): Promise<ClipUpdate[]> {
   if (pending.size === 0) return [];
   const tracks = new Map<string, Pick<ClipUpdate, 'overview' | 'samples'>>();
@@ -157,20 +169,23 @@ async function probeChanges(
   const tools = await getTools();
   const scanned = await scanRecordings([...pending.keys()], {
     tools, concurrency, signal, onRecord,
+    sidecarFor: (file) => pending.get(file)?.sidecar,
     onGaze: (file, samples) => gaze.set(file, samples),
     onTrack: (file, segments) => {
       tracks.set(file, { overview: decimateSegments(segments, 60, 9), samples: sampleSegments(segments) });
     },
   });
   const updates: ClipUpdate[] = [];
+  const sidecarFor = createSrtSidecarLookup();
   for (const record of scanned) {
     signal?.throwIfAborted();
     const original = pending.get(record.path)!;
-    if (!matches(original, await fingerprint(record.path))) {
+    const current = await inspectInput(record.path, sidecarFor);
+    if (!current || original.sidecar !== current.sidecar || !matches(original.fingerprint, current.fingerprint)) {
       throw new Error(`recording changed during scan, rerun the scan: ${record.path}`);
     }
     updates.push({
-      key: clipKey(record.path), availability: 'online', fingerprint: original, record,
+      key: clipKey(record.path), availability: 'online', fingerprint: original.fingerprint, record,
       ...tracks.get(record.path) ?? { overview: [], samples: [] },
       gaze: gaze.get(record.path),
     });

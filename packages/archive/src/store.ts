@@ -142,29 +142,36 @@ export class ArchiveStore {
     try {
       this.db.exec('PRAGMA busy_timeout = 5000');
       this.db.exec('PRAGMA foreign_keys = ON');
-      this.transaction('BEGIN IMMEDIATE', () => {
-        const version = this.db.prepare('PRAGMA user_version').get()?.user_version;
-        if (version === 0) {
-          if (this.db.prepare('SELECT 1 FROM sqlite_schema LIMIT 1').get()) {
-            throw new Error('existing database has no archive schema');
-          }
-          this.db.exec(SCHEMA);
-        } else if (version !== 1 && version !== 2 && version !== ARCHIVE_SCHEMA_VERSION) {
-          throw new Error(`unsupported archive database schema version: ${String(version)}`);
-        }
-        if (version === 0 || version === 1) {
-          this.db.exec(FLIGHT_SCHEMA);
-          this.refreshFlights();
-        }
-        if (version !== ARCHIVE_SCHEMA_VERSION) {
-          this.db.exec(GAZE_SCHEMA);
-          this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
-        }
-      });
+      if (this.schemaVersion() !== ARCHIVE_SCHEMA_VERSION) this.migrate();
     } catch (error) {
       this.db.close();
       throw error;
     }
+  }
+
+  private schemaVersion() {
+    return this.db.prepare('PRAGMA user_version').get()?.user_version;
+  }
+
+  private migrate(): void {
+    this.transaction('BEGIN IMMEDIATE', () => {
+      const version = this.schemaVersion();
+      if (version === ARCHIVE_SCHEMA_VERSION) return;
+      if (version === 0) {
+        if (this.db.prepare('SELECT 1 FROM sqlite_schema LIMIT 1').get()) {
+          throw new Error('existing database has no archive schema');
+        }
+        this.db.exec(SCHEMA);
+      } else if (version !== 1 && version !== 2) {
+        throw new Error(`unsupported archive database schema version: ${String(version)}`);
+      }
+      if (version === 0 || version === 1) {
+        this.db.exec(FLIGHT_SCHEMA);
+        this.refreshFlights();
+      }
+      this.db.exec(GAZE_SCHEMA);
+      this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
+    });
   }
 
   close(): void {

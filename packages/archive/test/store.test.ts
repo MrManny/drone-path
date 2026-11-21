@@ -8,6 +8,23 @@ import { ARCHIVE_SCHEMA_VERSION, ArchiveStore } from '../src/store.js';
 
 afterEach(cleanupTmpDirs);
 
+it('opens and reads a current archive while another connection holds a write reservation', () => {
+  const file = path.join(tmpDir(), 'archive.sqlite');
+  new ArchiveStore(file).close();
+  const writer = new DatabaseSync(file);
+  try {
+    writer.exec('BEGIN IMMEDIATE');
+    const reader = new ArchiveStore(file);
+    try {
+      expect(reader.listClips()).toEqual([]);
+    } finally {
+      reader.close();
+    }
+  } finally {
+    writer.close();
+  }
+});
+
 it('rejects an unsupported database schema and leaves its version intact', () => {
   const file = path.join(tmpDir(), 'archive.sqlite');
   const newer = ARCHIVE_SCHEMA_VERSION + 1;

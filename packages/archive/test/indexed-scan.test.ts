@@ -155,6 +155,17 @@ it('leaves the prior index intact when footage changes during a probe', async ()
   expect(inspect(db)).toMatchObject([{ record: { size: 5 } }]);
 });
 
+it('rechecks the directory when a sidecar appears during a probe', async () => {
+  const { db, root, options } = setup();
+  probe.mockImplementationOnce(async () => {
+    fs.writeFileSync(path.join(root, 'flight.SRT'), SRT_SAMPLE);
+    return meta;
+  });
+  await expect(scanArchive([root], options)).rejects.toThrow('recording changed during scan');
+  expect(inspect(db)).toEqual([]);
+  await expect(scanArchive([root], options)).resolves.toMatchObject([{ status: 'ok', telemetry: { source: 'srt' } }]);
+});
+
 it('rejects a stale concurrent scan and leaves the newer result intact', async () => {
   const { db, root, options } = setup();
   const started = Promise.withResolvers<void>();

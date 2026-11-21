@@ -13,6 +13,7 @@ import type { TrackSegment } from 'drone-path-core/track';
 
 import { archiveMapHtml } from './export-map.js';
 import type { MapFlight } from './export-map.js';
+import { groupFlightMembers } from './flight-members.js';
 import { matchesMetadata } from './query.js';
 import type { ListFilters } from './query.js';
 import { ArchiveStore } from './store.js';
@@ -37,14 +38,9 @@ function exportFlights(
       { redact, includeGaze: includeGaze && !redact },
     );
     const redactTrack = launchRedactor(endpoints, redactLaunchM);
-    const flights = new Map<string, typeof clips>();
-    for (const clip of clips) {
-      const members = flights.get(clip.flight.flightId);
-      if (members) members.push(clip);
-      else flights.set(clip.flight.flightId, [clip]);
-    }
+    const flights = groupFlightMembers(clips);
     return [...flights.values()].flatMap((members) => {
-      const selected = members.sort((a, b) => a.flight.order - b.flight.order).flatMap(({ record, availability, gaze }) => {
+      const selected = members.flatMap(({ record, availability, gaze }) => {
         const geometry = splitDateline ? splitTrackAtAntimeridian(record.track) : record.track;
         const track = redactTrack(geometry).map((segment) => segment.map(({ lat, lon }): LatLon => ({ lat, lon })));
         if (track.length === 0 && gaze.length === 0) return [];

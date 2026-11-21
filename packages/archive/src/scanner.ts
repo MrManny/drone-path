@@ -44,6 +44,7 @@ export interface ScanOptions {
   recurse?: boolean;
   concurrency?: number;
   signal?: AbortSignal;
+  sidecarFor?: (file: string) => string | null | undefined;
   onRecord?: (record: ScanRecord) => void;
   onTrack?: (file: string, segments: ScanPoint[][]) => void;
   onGaze?: (file: string, samples: GazeSample[]) => void;
@@ -78,7 +79,8 @@ export async function discoverRecordings(
 }
 
 export async function scanRecording(
-  file: string, { tools, signal, onTrack, onGaze }: Pick<ScanOptions, 'tools' | 'signal' | 'onTrack' | 'onGaze'>,
+  file: string, { tools, signal, sidecarFor, onTrack, onGaze }:
+    Pick<ScanOptions, 'tools' | 'signal' | 'sidecarFor' | 'onTrack' | 'onGaze'>,
 ): Promise<ScanRecord> {
   signal?.throwIfAborted();
   const record: ScanRecord = {
@@ -96,7 +98,7 @@ export async function scanRecording(
     record.video = { fps, frames, width, height, durationSec: Number.isFinite(durationSec) ? durationSec : null };
     record.cameraCreationTime = creationTime ?? null;
 
-    const loaded = await loadTelemetrySamples(tools, file, durationSec, camMeta, signal);
+    const loaded = await loadTelemetrySamples(tools, file, durationSec, camMeta, signal, sidecarFor?.(file));
     signal?.throwIfAborted();
     if (!loaded) {
       record.status = 'no-telemetry';

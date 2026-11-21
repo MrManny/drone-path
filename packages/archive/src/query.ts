@@ -3,6 +3,7 @@ import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { nearestOnTrack, radiusBbox } from 'drone-path-core/spatial';
 
 import { zonedTimeMs } from './camera-time.js';
+import { groupFlightMembers } from './flight-members.js';
 import { groupSamples } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 import { ArchiveStore } from './store.js';
@@ -66,15 +67,9 @@ export function listArchive(db: string, filters: ListFilters = {}): ArchiveClip[
 }
 
 export function listArchiveFlights(db: string, filters: ListFilters = {}): ArchiveFlight[] {
-  const flights = new Map<string, { order: number; clip: FlightListClip }[]>();
-  for (const { clip, flight } of matchingClips(db, filters)) {
-    const member = { order: flight.order, clip: { ...clip, splitFromKey: flight.splitFromKey } };
-    const members = flights.get(flight.flightId);
-    if (members) members.push(member);
-    else flights.set(flight.flightId, [member]);
-  }
+  const flights = groupFlightMembers(matchingClips(db, filters));
   return [...flights].map(([flightId, members]) => ({
-    flightId, clips: members.sort((a, b) => a.order - b.order).map(({ clip }) => clip),
+    flightId, clips: members.map(({ clip, flight }) => ({ ...clip, splitFromKey: flight.splitFromKey })),
   }));
 }
 

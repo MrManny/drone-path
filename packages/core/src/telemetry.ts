@@ -74,6 +74,7 @@ export async function loadTelemetrySamples(
   durationSec: number,
   camMeta?: CamMetaStream | null,
   signal?: AbortSignal,
+  sidecar?: string | null,
 ): Promise<SourceSamples | null> {
   const cam = await parseCamMeta(tools, videoPath, durationSec, { keepAll: true, stream: camMeta, signal });
   if (cam) {
@@ -91,7 +92,7 @@ export async function loadTelemetrySamples(
     };
   }
 
-  const srtPath = findSrtSidecar(videoPath);
+  const srtPath = sidecar === undefined ? findSrtSidecar(videoPath) : sidecar;
   if (srtPath) {
     const parsed = await parseSrt(srtPath, signal);
     if (parsed.count === 0) throw new Error(`SRT sidecar has no cues: ${srtPath}`);
