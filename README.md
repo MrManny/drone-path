@@ -44,6 +44,10 @@ Use `drone-path archive list --group-by flight` to see consecutive clips and spl
 
 Use `drone-path archive export-map flights.html` for a standalone map or `drone-path archive export-tracks flights.gpx` for a combined track file. Add `--redact-launch <m>` to remove geometry around indexed launch and landing points before sharing.
 
+### MCP server for AI agents
+
+Run `drone-path mcp --allow-root <dir>` to start a stdio JSON-RPC 2.0 MCP server exposing `archive_scan`, `archive_list_clips`, `archive_list_flights`, `archive_find_at_point`, `archive_list_segments`, `clip_get_telemetry`, `clip_extract_keyframes`, `export_markers`, and `render_map_video`. Pass `--archive-db <path>` to target a specific archive database; file and folder tools are strictly confined to `--allow-root` (defaulting to the current working directory). See the [CLI manual](docs/user/cli.md#mcp-server) for details.
+
 
 ## User manual
 

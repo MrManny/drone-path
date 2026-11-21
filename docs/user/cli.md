@@ -215,3 +215,22 @@ near the protected area. The saved index is unchanged. If a recording starts
 after takeoff or stops before landing, the indexed endpoints can differ from
 the actual launch and landing sites. The remaining route and its surroundings
 can still reveal where you flew.
+
+## MCP server
+
+Run `drone-path mcp` to start a stdio JSON-RPC 2.0 Model Context Protocol (MCP)
+server over `stdin` and `stdout` (diagnostics go to `stderr`):
+
+```sh
+drone-path mcp --allow-root /path/to/footage --archive-db /path/to/archive.sqlite
+```
+
+- `--allow-root <dir...>` restricts all file and folder inputs and outputs to
+  the specified root directories (resolved canonically against path traversal
+  and symlinks; defaults to the current working directory).
+- `--archive-db <path>` overrides the default per-user archive SQLite path.
+
+The server exposes nine typed tools: `archive_scan`, `archive_list_clips`,
+`archive_list_flights`, `archive_find_at_point`, `archive_list_segments`,
+`clip_get_telemetry`, `clip_extract_keyframes`, `export_markers`, and
+`render_map_video`.
