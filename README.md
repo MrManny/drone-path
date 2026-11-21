@@ -78,6 +78,33 @@ shared timeline.*
 If you want or need specific features, feel free to open an issue in this
 repository's issue tracker.
 
+## Releasing
+
+`npm run changeset:version` folds pending changesets and updates the lockfile.
+The three npm packages and the desktop app share one version. Update the root
+changelog in the release PR and use the matching `v<version>` GitHub release tag.
+From an installed, built checkout, preview the release without publishing with
+`node scripts/release-npm.mjs dry-run v<version>`.
+
+A published GitHub release runs the tag and quality checks, then publishes
+`drone-path-core`, `drone-path-engine`, and `drone-path` to npm in that order.
+Independent jobs attach the desktop installers, AppImage, and auto-update
+metadata to the same release. GitHub prereleases skip this workflow.
+
+For the first publication of a new package, use npm credentials that can
+create its public package name. A maintainer can bootstrap it manually or set
+the repository's `NPM_TOKEN` secret to a granular token authorized to create the
+new names and publish all packages in that release. The workflow uses
+`--provenance` with the token. Once each package exists, configure a
+[trusted publisher](https://docs.npmjs.com/trusted-publishers/) for it on npm
+with owner `MrManny`, repository `drone-path`, workflow `release.yml`, and
+permission for direct publishing. Remove `NPM_TOKEN` when all three are
+configured so subsequent releases use token-free trusted publishing.
+
+After a partial publish, check the package versions on npm and re-run failed
+jobs in GitHub Actions. Each package has its own job, so completed package jobs
+keep their successful result and dependent jobs resume in order.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
