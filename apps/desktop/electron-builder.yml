@@ -1,4 +1,4 @@
-extends: build/electron-version.cjs
+extends: build/electron-config.cjs
 appId: io.github.mrmanny.dronepath
 productName: Drone Path
 # Keep the installed app identity when the workspace has a distinct name.
@@ -19,9 +19,6 @@ files:
   - dist/**
   - app/**
   - ui/out/**
-  # The embedded ffmpeg/ffprobe binaries ship as extraResources: nothing may
-  # spawn them from inside the asar.
-  - "!node_modules/ffmpeg-ffprobe-static/**"
   # The window icon is read at runtime; build resources are not packed by default.
   - build/icon.ico
   - build/icons/256x256.png

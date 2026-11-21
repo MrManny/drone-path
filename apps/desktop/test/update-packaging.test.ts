@@ -88,10 +88,6 @@ describe('the packaged desktop app embeds ffmpeg/ffprobe', () => {
     }
   });
 
-  it('keeps the download package out of the asar file set', () => {
-    expect(builderConfig).toContain('"!node_modules/ffmpeg-ffprobe-static/**"');
-  });
-
   it('wires the afterPack guard into the build', () => {
     expect(builderConfig).toContain('afterPack: build/after-pack.cjs');
     expect(builderConfig).toContain('THIRD-PARTY-NOTICES.md');
@@ -132,6 +128,7 @@ describe('the afterPack guard', () => {
   it.each([
     ['win32', ['ffmpeg.exe', 'ffmpeg.exe.LICENSE'], 'ffprobe.exe'],
     ['linux', ['ffmpeg', 'ffprobe'], 'the GPL license text'],
+    ['linux', ['ffmpeg', 'ffprobe', 'unrelated.LICENSE'], 'ffmpeg.LICENSE'],
     ['win32', [] as const, 'ffmpeg.exe'],
   ] as const)('rejects the %s tool set missing %s', (platform, files, missing) => {
     expect(() => guard.assertFfResources(resourcesWith(files), platform)).toThrow(missing);

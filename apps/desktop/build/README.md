@@ -55,3 +55,23 @@ fs.writeFileSync('build/icon.ico', buf);
 
 Entries are 32-bit BMP + AND mask: the ICO embeds no PNG data and cannot carry
 PNG metadata.
+
+## Packaging checks
+
+The `afterPack` hook requires the FFmpeg and FFprobe executables and the
+platform's FFmpeg license under `resources/ff/`. The CI packaging smoke also
+checks that the ASAR contains the installed desktop production dependencies
+and that each packaged module resolves the version it uses in the workspace.
+The FFmpeg download package stays outside that graph because the app uses the
+executables bundled in `resources/ff/`.
+
+To inspect an unpacked Linux build from the repository root, run the checker
+with Electron's ASAR-aware Node mode.
+
+```sh
+ELECTRON_RUN_AS_NODE=1 npm exec --workspace drone-path-desktop -- \
+  electron build/verify-asar.cjs dist-electron/linux-unpacked/resources/app.asar
+```
+
+For Windows, set `ELECTRON_RUN_AS_NODE=1` in the shell and replace
+`linux-unpacked` with `win-unpacked`.
