@@ -19,7 +19,7 @@ import {
   resolveHudLayout,
   validateRenderConfig,
 } from '../src/config.js';
-import { ODD_DIMENSIONS } from './fixtures.js';
+import { ODD_DIMENSIONS } from '../../../test/fixtures/engine.js';
 
 describe('normalizeDimensions', () => {
   it.each([

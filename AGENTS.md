@@ -8,13 +8,15 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 - Node.js 24 or 26, npm. Use `npm ci` at the root for the shared lockfile.
 - `packages/core` owns telemetry extraction. Import its modules as
   `drone-path-core/<module>`. The render engine and option vocabulary live in
-  `packages/engine` and are imported as `drone-path-engine/<module>`. Root build
-  and test commands include both workspaces.
-- `npm run build` compiles the CLI (`dist/`), compiles the user manual into
+  `packages/engine` and are imported as `drone-path-engine/<module>`. The CLI lives in
+  `packages/cli`, the Electron app and UI in `apps/desktop`, and the manual
+  and build generators in `packages/tooling`. Root build and test commands
+  cover all workspaces.
+- `npm run build` compiles the CLI (`packages/cli/dist/`), compiles the user manual into
   the UI (`npm run build:manual`), injects the build identity shown by
-  Help → About (`npm run build:info`), and builds the UI export (`ui/out/`);
-  `npm run app` starts the Electron desktop app against it (packaging uses
-  `electron-builder`). `npm run docs:reference` regenerates the checked-in
+  Help → About (`npm run build:info`), and builds the UI export (`apps/desktop/ui/out/`);
+  `npm run app` starts Electron against the export. `npm run app:dev` starts
+  the development server and Electron together. `npm run docs:reference` regenerates the checked-in
   `docs/user/cli-reference.md` from the option vocabulary in `packages/engine/src/config.ts`.
 - `npm run app:pack` packages the desktop app with `electron-builder`.
 - When adding a new dependency, pin it to a patch-level range (i.e. `~1.2.3`);
@@ -23,7 +25,7 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 
 ## Testing
 
-- One `test/<module>.test.ts` per source module; fixtures in `test/fixtures.ts`
+- One `test/<module>.test.ts` per source module; shared fixtures in `test/fixtures/`
   (`tmpDir()` + `afterEach(cleanupTmpDirs)`).
 - Deterministic and offline, needing nothing beyond Node: no network, tile
   downloads, ffmpeg/ffprobe or browser.
@@ -34,13 +36,13 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 ## User manual
 
 `docs/user/*.md` is the user manual: plain GitHub Flavored Markdown, rendered
-on GitHub and compiled into the app's offline help by `src/manual/`. Internal
+on GitHub and compiled into the app's offline help by `packages/tooling/src/manual/`. Internal
 links are relative `.md` links with GitHub heading anchors; images live in
 `docs/images/` and are referenced as `../images/<file>`. `docs/user/README.md`
 is the navigation index and every page must be listed there.
 `docs/user/cli-reference.md` is generated (`npm run docs:reference`, never
 hand-edited), and `docs/user/keyboard-shortcuts.md` must cover the key
-vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
+vocabulary of `apps/desktop/ui/lib/hotkeys.ts`; `packages/tooling/test/userdocs.test.ts` gates all of this.
 
 ## Conventions
 
@@ -66,13 +68,13 @@ vocabulary of `ui/lib/hotkeys.ts`; `test/userdocs.test.ts` gates all of this.
 
 ## UI design
 
-Before changing anything under `ui/`, read
+Before changing anything under `apps/desktop/ui/`, read
 [docs/design-guidelines.md](docs/design-guidelines.md), the source of truth for
 UI tokens and design principles.
 
 ## Desktop localization
 
-- Desktop catalogs are in `src/desktop-i18n/catalogs/`. Keep the English copy in
+- Desktop catalogs are in `apps/desktop/src/desktop-i18n/catalogs/`. Keep the English copy in
   `en.json` and call `t('area.message')` with a literal key in React or the
   Electron main process. Provide named values for `{placeholders}`. For
   plurals, use an object of locale-specific plural categories with a required
@@ -91,7 +93,7 @@ UI tokens and design principles.
 ## Definition of done
 
 - `npm run lint`, `npm test`, `npm run build` green (CI gates on lint + test
-  over Node 24 + 26, then adds `npm pack --dry-run` and a desktop packaging
+  over Node 24 + 26, then adds a CLI pack dry run and a desktop packaging
   smoke on Node 24).
 - Docs updated (README: user-visible, here: commands and standards).
 - Release bookkeeping for `feat`/`fix` commits is defined in

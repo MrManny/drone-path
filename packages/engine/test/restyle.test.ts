@@ -7,8 +7,8 @@ import { buildSceneData } from '../src/render-page.js';
 import { prepareSession, recordingPageOpts } from '../src/pipeline.js';
 import { restyleSceneData } from '../src/restyle.js';
 import type { RestyleMeta } from '../src/restyle.js';
-import { stubDeps, testConfig } from './fixtures.js';
-import { cleanupTmpDirs, probeFixture, telemetryFixture } from '../../core/test/fixtures.js';
+import { stubDeps, testConfig } from '../../../test/fixtures/engine.js';
+import { cleanupTmpDirs, probeFixture, telemetryFixture } from '../../../test/fixtures/core.js';
 
 const VIDEO = path.join('clips', 'flight.mp4');
 

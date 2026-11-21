@@ -4,13 +4,21 @@ node_modules/
 # build output
 dist/
 dist-electron/
-ui/.next/
-ui/next-env.d.ts
-ui/lib/buildinfo/generated/
-ui/lib/manual/generated/
-src/desktop-i18n/generated/
-ui/public/
+apps/desktop/ui/.next/
+apps/desktop/ui/next-env.d.ts
+apps/desktop/ui/lib/buildinfo/generated/
+apps/desktop/ui/lib/manual/generated/
+apps/desktop/src/desktop-i18n/generated/
+apps/desktop/ui/public/
 *.tsbuildinfo
+
+# Pre-workspace output can remain after updating an existing checkout.
+/ui/.next/
+/ui/next-env.d.ts
+/ui/lib/buildinfo/generated/
+/ui/lib/manual/generated/
+/src/desktop-i18n/generated/
+/ui/public/
 
 # configuration, caches and renderings
 .dronepath.json

@@ -22,7 +22,7 @@ import {
   tmpDir,
   trackDocumentFixture,
   trackExportFixture,
-} from './fixtures.js';
+} from '../../../test/fixtures/core.js';
 
 afterEach(cleanupTmpDirs);
 

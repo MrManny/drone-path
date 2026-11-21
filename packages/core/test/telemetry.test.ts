@@ -19,8 +19,8 @@ import {
   productMetaPacket,
   tmpDir,
   writeSrt,
-} from './fixtures.js';
-import type { PacketMeta } from './fixtures.js';
+} from '../../../test/fixtures/core.js';
+import type { PacketMeta } from '../../../test/fixtures/core.js';
 
 const mocks = vi.hoisted(() => ({ ffprobeJson: vi.fn(), execFile: vi.fn() }));
 

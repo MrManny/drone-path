@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { mimeFor, resolveAsset, resolveTileRoute } from '../src/assets.js';
 import type { AssetRoutes } from '../src/assets.js';
-import { cleanupTmpDirs, tmpDir } from '../../core/test/fixtures.js';
+import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
 afterEach(cleanupTmpDirs);
 

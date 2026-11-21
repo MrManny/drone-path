@@ -107,15 +107,15 @@ jobs:
             # Installed apps read latest.yml from the release; the blockmap
             # gives them differential downloads. Each target builds in its own
             # job so only the NSIS build ever produces feed metadata.
-            artifact: dist-electron/*.exe dist-electron/latest.yml dist-electron/*.blockmap
+            artifact: apps/desktop/dist-electron/*.exe apps/desktop/dist-electron/latest.yml apps/desktop/dist-electron/*.blockmap
           - os: windows-latest
             label: win-x64-portable
             target: --win portable
-            artifact: dist-electron/*.exe
+            artifact: apps/desktop/dist-electron/*.exe
           - os: ubuntu-latest
             label: linux-x86_64
             target: --linux AppImage
-            artifact: dist-electron/*.AppImage dist-electron/latest-linux.yml
+            artifact: apps/desktop/dist-electron/*.AppImage apps/desktop/dist-electron/latest-linux.yml
     steps:
       # Full history with tags: the About dialog's build identity must see the
       # v<version> tag on HEAD, or release builds would show a commit hash.

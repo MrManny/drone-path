@@ -33,19 +33,29 @@ const noTestGating = {
 export default tseslint.config(
   {
     ignores: [
-      'dist/',
+      'apps/*/dist/',
       'packages/*/dist/',
       // Packaging output from npm run app:pack.
-      'dist-electron/',
+      'apps/*/dist-electron/',
       'node_modules/',
       // Agent scratch space is git-ignored and not linted on purpose.
       '.scratch/',
       // Generated output; rebuilt by npm run build and the issue-26 UI work.
       'out/',
+      'apps/desktop/ui/.next/',
+      'apps/desktop/ui/out/',
+      'apps/desktop/ui/next-env.d.ts',
+      'apps/desktop/ui/lib/buildinfo/generated/',
+      'apps/desktop/ui/lib/manual/generated/',
+      'apps/desktop/src/desktop-i18n/generated/',
+      'apps/desktop/ui/public/',
+      // Pre-workspace output can remain after updating an existing checkout.
+      'dist/',
+      'dist-electron/',
       'ui/.next/',
       'ui/out/',
       'ui/next-env.d.ts',
-      // Generated manual modules and assets (src/manual/build.ts output).
+      'ui/lib/buildinfo/generated/',
       'ui/lib/manual/generated/',
       'src/desktop-i18n/generated/',
       'ui/public/',
@@ -106,21 +116,22 @@ export default tseslint.config(
     },
   },
   {
-    files: ['test/**/*.ts', 'packages/*/test/**/*.ts'],
+    files: ['test/**/*.ts', 'packages/*/test/**/*.ts', 'apps/*/test/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': ['error', noProcessExit, noTestGating],
     },
   },
   {
-    files: ['ui/**/*.{ts,tsx}'],
+    files: ['apps/desktop/ui/**/*.{ts,tsx}'],
     ...reactHooks.configs.flat['recommended-latest'],
   },
   {
-    files: ['ui/**/*.{ts,tsx}'],
+    files: ['apps/desktop/ui/**/*.{ts,tsx}'],
     ...nextPlugin.configs['core-web-vitals'],
+    settings: { next: { rootDir: 'apps/desktop/ui' } },
   },
   {
-    files: ['app/**/*.mjs', 'scripts/**/*.mjs'],
+    files: ['apps/desktop/app/**/*.mjs', 'apps/desktop/scripts/**/*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly',
@@ -131,7 +142,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['app/**/*.cjs', 'build/**/*.cjs'],
+    files: ['apps/desktop/app/**/*.cjs', 'apps/desktop/build/**/*.cjs'],
     languageOptions: {
       globals: { require: 'readonly', module: 'readonly', __dirname: 'readonly' },
     },

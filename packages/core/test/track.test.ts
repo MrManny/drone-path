@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTrack, selectTrackRecords } from '../src/track.js';
 import type { TrackRecord } from '../src/track.js';
 import type { TelemetryFrameInput } from '../src/telemetry-json.js';
-import { TRACK_ROWS } from './fixtures.js';
+import { TRACK_ROWS } from '../../../test/fixtures/core.js';
 
 describe('buildTrack', () => {
   it('puts one vertex on every decoded GPS fix', () => {

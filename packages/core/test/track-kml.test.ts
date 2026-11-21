@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { serializeKml } from '../src/track-kml.js';
 import type { TrackSegment } from '../src/track.js';
 import { buildTrack } from '../src/track.js';
-import { TRACK_KML_GOLDEN, TRACK_ROWS } from './fixtures.js';
+import { TRACK_KML_GOLDEN, TRACK_ROWS } from '../../../test/fixtures/core.js';
 
 describe('serializeKml', () => {
   it('matches the golden bytes for the two-segment fixture', () => {

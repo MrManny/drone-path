@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { serializeGpx } from '../src/track-gpx.js';
 import type { TrackSegment } from '../src/track.js';
 import { buildTrack } from '../src/track.js';
-import { TRACK_GPX_GOLDEN, TRACK_ROWS } from './fixtures.js';
+import { TRACK_GPX_GOLDEN, TRACK_ROWS } from '../../../test/fixtures/core.js';
 
 describe('serializeGpx', () => {
   it('matches the golden bytes for the two-segment fixture', () => {
