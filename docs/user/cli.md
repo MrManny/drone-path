@@ -176,3 +176,38 @@ can vary, and the estimate does not account for terrain, zoom, or lens crop.
 The scanner skips frames with missing data or rays too close to the horizon.
 SRT-only clips still return track matches. Rescan previously indexed DVTM clips
 with the original files available to add their footprints.
+
+## Export the recording library
+
+Write a standalone map or a combined track file from the local index:
+
+```bash
+drone-path archive export-map flights.html --include-gaze
+drone-path archive export-tracks flights.geojson --status online
+drone-path archive export-map share.html --redact-launch 150
+```
+
+Open the HTML file directly in a browser to pan, zoom, and inspect clips.
+Tracks are colored by inferred flight. Add `--include-gaze` to show estimated
+camera footprints when the index has them. The map embeds Leaflet and the
+selected geometry. It uses a plain background and requires no tile server.
+
+For a combined track file, choose `.gpx`, `.geojson`, `.kml`, or `.kmz` in
+the output filename. The files preserve flight groups and the boundaries of
+indexed track segments. Tracks crossing the antimeridian are split at the
+meridian. The archive stores simplified tracks and clip-relative
+sample times, so exports omit absolute altitudes and UTC timestamps.
+
+Both commands accept `--archive-db` and the same clip filters as
+[`archive list`](#query-the-recording-library): `--in-bbox`, `--after`,
+`--before`, `--min-dist`, and `--status`.
+
+Use `--redact-launch <m>` before sharing to remove track vertices and nearby
+lines around each exported flight's first and last indexed GPS fixes. The
+protected fixes come from the full flight, even when a filter excludes its
+first or last clip. A positive radius also removes camera footprints and clip
+labels from HTML. Tracks may lose extra line segments where a line passes
+near the protected area. The saved index is unchanged. If a recording starts
+after takeoff or stops before landing, the indexed endpoints can differ from
+the actual launch and landing sites. The remaining route and its surroundings
+can still reveal where you flew.

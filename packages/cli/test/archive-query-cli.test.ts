@@ -2,12 +2,14 @@ import path from 'node:path';
 
 import { afterEach, expect, it, vi } from 'vitest';
 
+import { exportArchiveMap, exportArchiveTracks } from 'drone-path-archive/export';
 import { listArchive, listArchiveFlights, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveClip } from 'drone-path-archive/query';
 
 import { main } from '../src/cli.js';
 
 vi.mock('drone-path-archive/query', { spy: true });
+vi.mock('drone-path-archive/export');
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -84,4 +86,17 @@ it.each([
   } finally {
     process.exitCode = previous;
   }
+});
+
+
+it('routes archive export commands through the list filters', async () => {
+  await main(['node', 'drone-path', 'archive', 'export-map', 'out.html',
+    '--archive-db', 'query.sqlite', '--status', 'offline', '--redact-launch', '150', '--include-gaze']);
+  await main(['node', 'drone-path', 'archive', 'export-tracks', 'out.kmz', '--after', '2025-01-01']);
+  expect(exportArchiveMap).toHaveBeenCalledWith(path.resolve('query.sqlite'), 'out.html', {
+    filters: expect.objectContaining({ availability: 'offline' }), redactLaunchM: 150, includeGaze: true,
+  });
+  expect(exportArchiveTracks).toHaveBeenCalledWith(expect.any(String), 'out.kmz', {
+    filters: expect.objectContaining({ afterMs: parseDateBound('2025-01-01') }), redactLaunchM: undefined,
+  });
 });

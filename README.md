@@ -42,6 +42,8 @@ Use `drone-path archive list --status offline --json` to find disconnected recor
 
 Use `drone-path archive list --group-by flight` to see consecutive clips and split recordings grouped into inferred flights. Add `--include-gaze` to `archive near` to also search estimated DVTM camera footprints.
 
+Use `drone-path archive export-map flights.html` for a standalone map or `drone-path archive export-tracks flights.gpx` for a combined track file. Add `--redact-launch <m>` to remove geometry around indexed launch and landing points before sharing.
+
 
 ## User manual
 
