@@ -7,7 +7,7 @@ import { findSrtSidecar } from 'drone-path-core/srt-sidecar';
 import { decimateSegments, sampleSegments } from './scan-track.js';
 import { discoverRecordings, scanRecordings } from './scanner.js';
 import type { ScanOptions, ScanRecord } from './scanner.js';
-import { ARCHIVE_SCHEMA_VERSION, ArchiveStore } from './store.js';
+import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from './store.js';
 import type { ClipFingerprint, ClipUpdate } from './store.js';
 
 export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'onTrack'> {
@@ -55,7 +55,7 @@ async function fingerprint(file: string): Promise<ClipFingerprint | null> {
   return {
     size: video.size, mtimeMs: video.mtimeMs,
     srtSize: srt?.size ?? null, srtMtimeMs: srt?.mtimeMs ?? null,
-    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+    schemaVersion: CLIP_FINGERPRINT_VERSION,
   };
 }
 

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -7,6 +8,7 @@ import { probeVideo } from 'drone-path-core/ffmpeg';
 
 import { cleanupTmpDirs, probeFixture, SRT_SAMPLE, tmpDir } from '../../../test/fixtures/core.js';
 import { scanArchive } from '../src/indexed-scan.js';
+import { listArchiveFlights } from '../src/query.js';
 import { ArchiveStore } from '../src/store.js';
 
 vi.mock('drone-path-core/ffmpeg', { spy: true });
@@ -68,6 +70,27 @@ it('reuses unchanged clips and reprobes after video and sidecar changes', async 
   await expect(scanArchive([root], options)).resolves.toMatchObject([{ status: 'no-telemetry' }]);
   expect(inspect(db)[0]?.samples).toEqual([]);
   expect(probe).toHaveBeenCalledTimes(5);
+});
+
+it('backfills flight memberships on query without invalidating existing media fingerprints or samples', async () => {
+  const { db, root, file, options } = setup();
+  fs.writeFileSync(path.join(root, 'flight.SRT'), SRT_SAMPLE);
+  const first = await scanArchive([root], options);
+  const before = inspect(db);
+  const legacy = new DatabaseSync(db);
+  try {
+    legacy.exec('DROP TABLE clip_flights; PRAGMA user_version = 1');
+  } finally {
+    legacy.close();
+  }
+
+  const flights = listArchiveFlights(db);
+  expect(flights).toMatchObject([{ flightId: expect.any(String), clips: [{ path: file, splitFromKey: null }] }]);
+  await expect(scanArchive([root], options)).resolves.toEqual(first);
+  expect(getTools).toHaveBeenCalledTimes(1);
+  expect(probe).toHaveBeenCalledTimes(1);
+  expect(inspect(db)).toEqual(before);
+  expect(listArchiveFlights(db)).toEqual(flights);
 });
 
 it('retries cached errors and reuses the record after a successful retry', async () => {
