@@ -3,6 +3,12 @@
   "version": "0.13.0",
   "description": "Render flight-path map overlay videos (exactly the source frame rate and frame count) from DJI drone recordings - telemetry from the embedded CAM-meta (DVTM) stream or the .SRT sidecar.",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
   "bin": {
     "drone-path": "bin/drone-path.mjs"
   },
@@ -26,19 +32,22 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MrManny/drone-path.git"
+    "url": "git+https://github.com/MrManny/drone-path.git",
+    "directory": "packages/cli"
   },
   "bugs": {
     "url": "https://github.com/MrManny/drone-path/issues"
   },
   "homepage": "https://github.com/MrManny/drone-path#readme",
   "files": [
-    "bin",
-    "dist",
-    "LICENSE"
+    "bin/drone-path.mjs",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "THIRD-PARTY-NOTICES.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.json",
+    "prepack": "npm run build:cli --prefix ../.."
   },
   "dependencies": {
     "commander": "~15.1.0",
