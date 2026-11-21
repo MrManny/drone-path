@@ -35,6 +35,7 @@ function fakeL(host: HTMLElement): {
     urls: string[];
     options: Array<{ maxZoom: number; maxNativeZoom?: number }>;
     handlers: Record<string, () => void>;
+    onceEvents: string[];
   };
   map: { views: Array<[LatLngExpression, number]>; invalidations: number; removed: number };
   removals: { count: number };
@@ -47,6 +48,7 @@ function fakeL(host: HTMLElement): {
     urls: [] as string[],
     options: [] as Array<{ maxZoom: number; maxNativeZoom?: number }>,
     handlers: {} as Record<string, () => void>,
+    onceEvents: [] as string[],
   };
   const map = { views: [] as Array<[LatLngExpression, number]>, invalidations: 0, removed: 0 };
 
@@ -82,6 +84,13 @@ function fakeL(host: HTMLElement): {
         },
         on: (event: string, handler: () => void) => {
           tile.handlers[event] = handler;
+        },
+        once: (event: string, handler: () => void) => {
+          tile.onceEvents.push(event);
+          tile.handlers[event] = () => {
+            delete tile.handlers[event];
+            handler();
+          };
         },
       };
     },
@@ -445,12 +454,19 @@ describe('createScene', () => {
     expect(resolved).toBe(true);
   });
 
-  it('resolves ready when the first tile pass finishes', async () => {
+  it('resolves ready when the first tile pass finishes and clears the 12s timer (#314)', async () => {
+    vi.useFakeTimers();
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
     const { host } = mount();
     const { L, tile } = fakeL(host);
     const scene = createScene(host, sceneData(), { L });
+    expect(tile.onceEvents).toEqual(['load']);
+    const timersBeforeLoad = vi.getTimerCount();
     tile.handlers['load']?.();
     await expect(scene.ready).resolves.toBeUndefined();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(timersBeforeLoad - 1);
+    expect(tile.handlers['load']).toBeUndefined();
   });
 
   it('falls back to the warm-up timeout when tiles never finish', async () => {
@@ -614,6 +630,49 @@ describe('Scene.update', () => {
       13,
     ]);
   });
+
+  it('updates coordinates and bounds when only lon changes (#314)', async () => {
+    const { host } = mount();
+    const { L, markers } = fakeL(host);
+    const base = sceneData();
+    const scene = createScene(host, base, { L });
+    await applyFrame(scene, 1);
+
+    await restyle(scene, {
+      ...base,
+      lon: [15.1, 15.2, 15.3],
+      trailLon: [15.1, 15.3],
+    });
+
+    const drone = markers.filter((m) => m.kind === 'marker').at(-1) as MarkerRecord;
+    expect(drone.latlngs.at(-1)).toEqual([46.611, 15.2]);
+  });
+
+  it('clamps curIdx when updating to a shorter track (#314)', async () => {
+    const { host } = mount();
+    const { L, markers } = fakeL(host);
+    const base = sceneData({ view: 'follow' });
+    const scene = createScene(host, base, { L });
+    await applyFrame(scene, 2);
+
+    await restyle(scene, {
+      ...base,
+      lat: [46.61, 46.611],
+      lon: [14.26, 14.261],
+      alt: [10, 22],
+      speed: [1.0, 4.2],
+      headingDeg: [0, 45],
+      trailLat: [46.61, 46.611],
+      trailLon: [14.26, 14.261],
+      trailFrame: [0, 1],
+    });
+
+    const drone = markers.filter((m) => m.kind === 'marker').at(-1) as MarkerRecord;
+    expect(drone.latlngs.at(-1)).toEqual([46.611, 14.261]);
+    expect(host.querySelector('#chip-alt .num')?.textContent).toBe('22');
+    expect(host.querySelector('#chip-speed .num')?.textContent).toBe('4.2');
+    expect((host.querySelector('#drone-arrow') as HTMLElement).style.transform).toBe('rotate(45deg)');
+  });
 });
 
 describe('coexisting scenes', () => {
@@ -695,5 +754,9 @@ describe('coexisting scenes', () => {
     expect(document.head.querySelectorAll('style').length).toBe(stylesBefore - 1);
     expect(map.removed).toBe(1);
     await expect(scene.ready).resolves.toBeUndefined();
+
+    const invalidationsBefore = map.invalidations;
+    scene.relayout();
+    expect(map.invalidations).toBe(invalidationsBefore);
   });
 });

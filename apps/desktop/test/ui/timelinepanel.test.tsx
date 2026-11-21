@@ -327,7 +327,7 @@ describe('TimelinePanel track', () => {
     expect(document.querySelectorAll('.loop-handle')).toHaveLength(0);
   });
 
-  it('drags the loop in handle, clamped inside the loop, until release', () => {
+  it('forwards raw pointer frames for the loop in handle without stale pre-clamping until release', () => {
     const { setLoopFrame } = renderPanel({ loop: { in: 30, out: 60 } });
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       left: 0,
@@ -336,7 +336,7 @@ describe('TimelinePanel track', () => {
     const handle = document.querySelector('.loop-handle-in') as HTMLElement;
     pointer('pointerdown', handle);
     pointer('pointermove', window, { clientX: 90 });
-    expect(setLoopFrame).toHaveBeenLastCalledWith('in', 59);
+    expect(setLoopFrame).toHaveBeenLastCalledWith('in', 80);
     pointer('pointermove', window, { clientX: 10 });
     expect(setLoopFrame).toHaveBeenLastCalledWith('in', 9);
     pointer('pointerup', window);
@@ -344,7 +344,7 @@ describe('TimelinePanel track', () => {
     expect(setLoopFrame).toHaveBeenCalledTimes(2);
   });
 
-  it('drags the loop out handle within its own clamp', () => {
+  it('forwards raw pointer frames for the loop out handle without stale pre-clamping', () => {
     const { setLoopFrame } = renderPanel({ loop: { in: 30, out: 60 } });
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       left: 0,
@@ -353,7 +353,63 @@ describe('TimelinePanel track', () => {
     const handle = document.querySelector('.loop-handle-out') as HTMLElement;
     pointer('pointerdown', handle);
     pointer('pointermove', window, { clientX: 5 });
-    expect(setLoopFrame).toHaveBeenLastCalledWith('out', 31);
+    expect(setLoopFrame).toHaveBeenLastCalledWith('out', 4);
+    pointer('pointerup', window);
+  });
+
+  it('cleans up window pointer listeners when unmounted mid-drag (#314)', () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const removeSpy = vi.spyOn(window, 'removeEventListener');
+    const dispatch = vi.fn();
+    const setLoopFrame = vi.fn();
+    const scrubTo = vi.fn();
+    const scrubRef = createRef<HTMLInputElement>();
+    const playheadRef = createRef<HTMLDivElement>();
+    const { unmount } = render(
+      <TimelinePanel
+        dispatch={dispatch}
+        loop={{ in: 30, out: 60 }}
+        setLoopFrame={setLoopFrame}
+        fps={30}
+        frames={90}
+        durationSec={3}
+        maxFrame={89}
+        scrubTo={scrubTo}
+        scrubRef={scrubRef}
+        playheadRef={playheadRef}
+        src="/video"
+      />,
+    );
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    const handle = document.querySelector('.loop-handle-in') as HTMLElement;
+    pointer('pointerdown', handle);
+    const addedEvents = addSpy.mock.calls.map(([event]) => event);
+    expect(addedEvents).toEqual(['pointermove', 'pointerup', 'pointercancel']);
+
+    unmount();
+
+    const removedEvents = removeSpy.mock.calls.map(([event]) => event);
+    expect(removedEvents).toEqual(['pointermove', 'pointerup', 'pointercancel']);
+    pointer('pointermove', window, { clientX: 50 });
+    expect(setLoopFrame).not.toHaveBeenCalled();
+  });
+
+  it('cancels a prior drag before attaching listeners for a new drag (#314)', () => {
+    const { setLoopFrame } = renderPanel({ loop: { in: 30, out: 60 } });
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 100,
+    } as DOMRect);
+    const inHandle = document.querySelector('.loop-handle-in') as HTMLElement;
+    const outHandle = document.querySelector('.loop-handle-out') as HTMLElement;
+    pointer('pointerdown', inHandle);
+    pointer('pointerdown', outHandle);
+    pointer('pointermove', window, { clientX: 50 });
+    expect(setLoopFrame).toHaveBeenCalledTimes(1);
+    expect(setLoopFrame).toHaveBeenLastCalledWith('out', 45);
     pointer('pointerup', window);
   });
 
