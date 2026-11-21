@@ -1,0 +1,34 @@
+{
+  "name": "drone-path-archive",
+  "version": "1.0.0-rc1",
+  "description": "Scan a local library of drone recordings.",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.json",
+    "prepack": "npm run build --workspace drone-path-core --prefix ../.. && npm run build"
+  },
+  "author": "Manuel Warum",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrManny/drone-path.git",
+    "directory": "packages/archive"
+  },
+  "dependencies": {
+    "drone-path-core": "~1.0.0-rc1",
+    "p-queue": "~10.0.0"
+  }
+}

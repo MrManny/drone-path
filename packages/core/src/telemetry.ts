@@ -61,28 +61,23 @@ function toTrackRecords<T extends { tSec: number }>(
   return items.map((item) => ({ ...toValues(item), tSec: item.tSec }));
 }
 
-interface SourceSamples extends TelemetrySamples {
+export interface SourceSamples extends TelemetrySamples {
   frameValues: TelemetryFrameInput[];
   trackValues: TrackRecord[];
   protoFile: string | null;
   gimbalDevice: GimbalDeviceConstants | null;
 }
 
-async function loadSamples(
+export async function loadTelemetrySamples(
   tools: FfmpegToolPaths,
   videoPath: string,
   durationSec: number,
   camMeta?: CamMetaStream | null,
-): Promise<SourceSamples> {
-  const cam = await parseCamMeta(tools, videoPath, durationSec, { keepAll: true, stream: camMeta });
+  signal?: AbortSignal,
+): Promise<SourceSamples | null> {
+  const cam = await parseCamMeta(tools, videoPath, durationSec, { keepAll: true, stream: camMeta, signal });
   if (cam) {
     const fixSamples = cam.samples.filter((sample) => sample.fix !== null);
-    if (fixSamples.length === 0) {
-      throw new Error(
-        `${ERR_NO_TELEMETRY}the CAM meta (DVTM) stream has no GPS fix pairs; ` +
-          'the .SRT sidecar is only consulted when no CAM meta stream is present',
-      );
-    }
     return {
       samples: fixSamples,
       source: 'cammeta',
@@ -98,7 +93,7 @@ async function loadSamples(
 
   const srtPath = findSrtSidecar(videoPath);
   if (srtPath) {
-    const parsed = await parseSrt(srtPath);
+    const parsed = await parseSrt(srtPath, signal);
     if (parsed.count === 0) throw new Error(`SRT sidecar has no cues: ${srtPath}`);
     return {
       samples: parsed.cues.map((cue) => ({
@@ -118,9 +113,7 @@ async function loadSamples(
     };
   }
 
-  throw new Error(
-    `${ERR_NO_TELEMETRY}no CAM meta (DVTM) stream and no .SRT sidecar`,
-  );
+  return null;
 }
 
 export async function loadTelemetry(
@@ -139,7 +132,14 @@ export async function loadTelemetry(
     camMeta?: CamMetaStream | null;
   },
 ): Promise<RecordingTelemetry> {
-  const loaded = await loadSamples(tools, videoPath, durationSec, camMeta);
+  const loaded = await loadTelemetrySamples(tools, videoPath, durationSec, camMeta);
+  if (!loaded) throw new Error(`${ERR_NO_TELEMETRY}no CAM meta (DVTM) stream and no .SRT sidecar`);
+  if (loaded.source === 'cammeta' && loaded.samples.length === 0) {
+    throw new Error(
+      `${ERR_NO_TELEMETRY}the CAM meta (DVTM) stream has no GPS fix pairs; ` +
+        'the .SRT sidecar is only consulted when no CAM meta stream is present',
+    );
+  }
   const { frameValues, trackValues, protoFile, gimbalDevice, ...samples } = loaded;
   return {
     telemetry: computeTelemetry(samples, { frames, fpsValue }),

@@ -8,6 +8,7 @@
   "name": "drone-path-workspace",
   "workspaces": [
     "packages/core",
+    "packages/archive",
     "packages/engine",
     "packages/cli",
     "apps/desktop",
@@ -19,8 +20,8 @@
     "app:pack": "npm run pack --workspace drone-path-desktop --",
     "build": "npm run build:packages && npm run build:manual --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling && npm run build:ui",
     "build:shared": "npm run build --workspace drone-path-core && npm run build --workspace drone-path-engine",
-    "build:packages": "npm run build:shared && npm run build --workspace drone-path && npm run build --workspace drone-path-tooling && npm run build --workspace drone-path-desktop",
-    "build:cli": "npm run build:shared && npm run build --workspace drone-path",
+    "build:packages": "npm run build:cli && npm run build --workspace drone-path-tooling && npm run build --workspace drone-path-desktop",
+    "build:cli": "npm run build:shared && npm run build --workspace drone-path-archive && npm run build --workspace drone-path",
     "build:info": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling",
     "build:manual": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run build:manual --workspace drone-path-tooling",
     "build:ui": "npm run build:ui --workspace drone-path-desktop",
@@ -29,7 +30,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version && npm install --package-lock-only",
     "test": "npm run build:packages && npm run build:manual --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling && npm run typecheck:test && vitest run",
-    "typecheck:test": "tsc --noEmit -p test/tsconfig.json && tsc --noEmit -p packages/core/test/tsconfig.json && tsc --noEmit -p packages/engine/test/tsconfig.json && tsc --noEmit -p packages/cli/test/tsconfig.json && tsc --noEmit -p packages/tooling/test/tsconfig.json && tsc --noEmit -p apps/desktop/test/tsconfig.json",
+    "typecheck:test": "tsc --noEmit -p test/tsconfig.json && tsc --noEmit -p packages/core/test/tsconfig.json && tsc --noEmit -p packages/archive/test/tsconfig.json && tsc --noEmit -p packages/engine/test/tsconfig.json && tsc --noEmit -p packages/cli/test/tsconfig.json && tsc --noEmit -p packages/tooling/test/tsconfig.json && tsc --noEmit -p apps/desktop/test/tsconfig.json",
     "lint": "eslint .",
     "prepare": "npm run build"
   },

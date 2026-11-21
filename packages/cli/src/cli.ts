@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { Command, Option } from 'commander';
 
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
+import { runArchive } from './archive-cli.js';
 import { VERSION } from './version.js';
 import {
   CONFIG_FILE_OPTION,
@@ -50,7 +51,7 @@ export function buildProgram(): Command {
   }
   program.addOption(new Option(TELEMETRY_JSON_ALIAS.flags, TELEMETRY_JSON_ALIAS.help));
   program.option(CONFIG_FILE_OPTION.flags, CONFIG_FILE_OPTION.help);
-  return program;
+  return program.addHelpText('after', '\nLibrary inventory: drone-path archive scan --help');
 }
 
 function givenOnCommandLine(
@@ -193,6 +194,10 @@ async function runPipeline(
 
 export async function main(argv: string[] = process.argv): Promise<void> {
   try {
+    if (argv[2] === 'archive') {
+      await runArchive(argv.slice(3));
+      return;
+    }
     const invocation = resolveInvocation(argv);
     // Deprecation warnings are not progress output: they print even with --quiet.
     for (const warning of invocation.deprecationWarnings) {

@@ -65,20 +65,21 @@ function getChild(container: Buffer, type: string): Buffer {
   return getBox(container, childBoxes(container), type);
 }
 
-async function readExactly(file: FileHandle, buffer: Buffer, position: number): Promise<void> {
+async function readExactly(file: FileHandle, buffer: Buffer, position: number, signal?: AbortSignal): Promise<void> {
   for (let offset = 0; offset < buffer.length;) {
+    signal?.throwIfAborted();
     const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, position + offset);
     requireLayout(bytesRead > 0);
     offset += bytesRead;
   }
 }
 
-async function readTopLevel(file: FileHandle, size: number): Promise<Box[]> {
+async function readTopLevel(file: FileHandle, size: number, signal?: AbortSignal): Promise<Box[]> {
   const boxes: Box[] = [];
   for (let offset = 0; offset < size;) {
     requireLayout(boxes.length < MAX_TOP_LEVEL_BOXES);
     const header = Buffer.alloc(Math.min(16, size - offset));
-    await readExactly(file, header, offset);
+    await readExactly(file, header, offset, signal);
     const box = boxAt(header, offset, size);
     boxes.push(box);
     offset = box.end;
@@ -206,14 +207,14 @@ function readChunkLayout(table: Buffer, boxes: Box[], sizes: number[], mediaData
   return chunks;
 }
 
-async function readTrack(file: FileHandle, size: number, trackId: number): Promise<CamMetaTrack> {
-  const top = await readTopLevel(file, size);
+async function readTrack(file: FileHandle, size: number, trackId: number, signal?: AbortSignal): Promise<CamMetaTrack> {
+  const top = await readTopLevel(file, size, signal);
   const movies = top.filter(({ type }) => type === 'moov');
   requireLayout(movies.length === 1 && !top.some(({ type }) => type === 'moof'));
   const [{ payload, end }] = movies;
   requireLayout(end - payload <= MAX_BOX_BYTES);
   const movie = Buffer.alloc(end - payload);
-  await readExactly(file, movie, payload);
+  await readExactly(file, movie, payload, signal);
   const movieBoxes = childBoxes(movie);
   requireLayout(!movieBoxes.some(({ type }) => type === 'mvex'));
 
@@ -236,22 +237,24 @@ async function readTrack(file: FileHandle, size: number, trackId: number): Promi
   const buffer = Buffer.alloc(bytes);
   let target = 0;
   for (const chunk of chunks) {
-    await readExactly(file, buffer.subarray(target, target + chunk.size), chunk.offset);
+    await readExactly(file, buffer.subarray(target, target + chunk.size), chunk.offset, signal);
     target += chunk.size;
   }
   return { buffer, packets };
 }
 
-export async function readCamMetaTrack(videoPath: string, trackId: number): Promise<CamMetaTrack | null> {
+export async function readCamMetaTrack(videoPath: string, trackId: number, signal?: AbortSignal): Promise<CamMetaTrack | null> {
+  signal?.throwIfAborted();
   try {
     const file = await open(videoPath, 'r');
     try {
       const { size } = await file.stat();
-      return await readTrack(file, size, trackId);
+      return await readTrack(file, size, trackId, signal);
     } finally {
       await file.close();
     }
   } catch (error) {
+    signal?.throwIfAborted();
     if (error instanceof UnsupportedLayout || error instanceof RangeError ||
       (error instanceof Error && 'code' in error)) return null;
     throw error;

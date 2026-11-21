@@ -29,11 +29,11 @@ const INSTALL_HINT =
 const FFPROBE_MAX_BUFFER = 64 * 1024 * 1024;
 const TOOL_VERSION_MAX_BUFFER = 1 << 20;
 
-export async function requireFfmpegTools(tools: FfmpegToolPaths): Promise<void> {
+export async function requireFfmpegTools(tools: FfmpegToolPaths, signal?: AbortSignal): Promise<void> {
   for (const tool of FFMPEG_TOOL_NAMES) {
     const command = tools[tool];
     try {
-      await runTool(command, ['-version'], { maxBuffer: TOOL_VERSION_MAX_BUFFER });
+      await runTool(command, ['-version'], { maxBuffer: TOOL_VERSION_MAX_BUFFER, signal });
     } catch (e) {
       throw new Error(
         `${tool} is required but could not be run (${command}) - ${INSTALL_HINT}`,
@@ -47,11 +47,12 @@ export async function ffprobeJson(
   tools: FfmpegToolPaths,
   videoPath: string,
   args: string[],
+  signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
   const { stdout } = await runTool(
     tools.ffprobe,
     ['-v', 'error', ...args, videoPath],
-    { maxBuffer: FFPROBE_MAX_BUFFER },
+    { maxBuffer: FFPROBE_MAX_BUFFER, signal },
   );
   return JSON.parse(stdout || '{}') as Record<string, unknown>;
 }
@@ -96,13 +97,14 @@ export async function probeVideo(
   tools: FfmpegToolPaths,
   videoPath: string,
   log: (msg: string) => void = () => {},
+  signal?: AbortSignal,
 ): Promise<VideoProbe> {
   const j = await ffprobeJson(tools, videoPath, [
     '-show_entries',
     'stream=index,id,codec_type,r_frame_rate,avg_frame_rate,nb_frames,width,height' +
       ':stream_tags=handler_name:format=duration:format_tags=creation_time',
     '-of', 'json',
-  ]);
+  ], signal);
   const streams = (j['streams'] ?? []) as ProbeStream[];
   const stream = streams.find(({ codec_type }) => codec_type === 'video') ?? {};
   const format = (j['format'] as ProbeFormat | undefined) ?? {};
