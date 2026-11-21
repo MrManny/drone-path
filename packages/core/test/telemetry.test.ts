@@ -95,6 +95,66 @@ describe('loadTelemetry (SRT source)', () => {
     expect(tel.fixCount).toBe(2);
   });
 
+  it('preserves speed and COG heading across mid-flight SRT no-lock cues', async () => {
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
+    const dir = tmpDir();
+    const video = path.join(dir, 'nolock-midflight.mp4');
+    fs.writeFileSync(video, '');
+    const cues = [
+      [46.613, 14.262],
+      [46.613, 14.26213],
+      [0, 0],
+      [46.613, 14.26239],
+    ]
+      .map(
+        ([lat, lon], i) =>
+          `${i + 1}\n00:00:0${i},000 --> 00:00:0${i + 1},000\n` +
+          `[latitude: ${lat}] [longitude: ${lon}] [rel_alt: 10.0 abs_alt: 310.0]`,
+      )
+      .join('\n\n');
+    writeSrt(video, cues);
+
+    const { telemetry: tel } = await loadTelemetry(video, {
+      frames: 4,
+      fpsValue: 1,
+      durationSec: 4,
+      tools: TOOLS,
+    });
+
+    expect(tel.sampleCount).toBe(4);
+    expect(tel.fixCount).toBe(3);
+    expect(tel.noLock).toBe(1);
+    expect(tel.frames[2].speed).toBeGreaterThan(5);
+    expect(Math.abs(tel.frames[2].headingDeg - 90)).toBeLessThan(10);
+  });
+
+  it('computes forward-difference speed and COG heading for 2-fix SRT tracks', async () => {
+    mocks.ffprobeJson.mockResolvedValue({ streams: [] });
+    const dir = tmpDir();
+    const video = path.join(dir, 'two-fix.mp4');
+    fs.writeFileSync(video, '');
+    writeSrt(
+      video,
+      [
+        '1\n00:00:00,000 --> 00:00:01,000\n[latitude: 46.613000] [longitude: 14.262000]',
+        '2\n00:00:01,000 --> 00:00:02,000\n[latitude: 46.613000] [longitude: 14.262200]',
+      ].join('\n\n'),
+    );
+
+    const { telemetry: tel } = await loadTelemetry(video, {
+      frames: 2,
+      fpsValue: 1,
+      durationSec: 2,
+      tools: TOOLS,
+    });
+
+    expect(tel.fixCount).toBe(2);
+    expect(tel.frames[0].speed).toBeGreaterThan(10);
+    expect(Math.abs(tel.frames[0].headingDeg - 90)).toBeLessThan(5);
+    expect(tel.frames[1].speed).toBe(tel.frames[0].speed);
+    expect(tel.frames[1].headingDeg).toBe(tel.frames[0].headingDeg);
+  });
+
   it('rejects videos without any telemetry source', async () => {
     mocks.ffprobeJson.mockResolvedValue({ streams: [] });
     const dir = tmpDir();
