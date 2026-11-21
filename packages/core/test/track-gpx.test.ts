@@ -44,3 +44,14 @@ describe('serializeGpx', () => {
     );
   });
 });
+
+it('writes XML Schema decimal coordinates and elevations without exponent notation', () => {
+  const gpx = serializeGpx([[
+    { lat: 1e-7, lon: -2.5e-8, altM: 3e-7, timeMs: null },
+    { lat: -1e-7, lon: 180, altM: 1.25e21, timeMs: null },
+  ]]);
+  expect(gpx).toContain('<trkpt lat="0.0000001" lon="-0.000000025">');
+  expect(gpx).toContain('<ele>0.0000003</ele>');
+  expect(gpx).toContain('<trkpt lat="-0.0000001" lon="179.99999999999997">');
+  expect(gpx).toContain('<ele>1250000000000000000000</ele>');
+});

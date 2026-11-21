@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const packages = new URL('../packages/', import.meta.url);
 const workspace = relative(fileURLToPath(packages), process.cwd());
-if (!['core', 'engine', 'cli'].includes(workspace)) {
+if (!['core', 'archive', 'engine', 'cli'].includes(workspace)) {
   throw new Error('run this script from a publishable workspace');
 }
 rmSync(new URL(`${workspace}/dist/`, packages), { recursive: true, force: true });

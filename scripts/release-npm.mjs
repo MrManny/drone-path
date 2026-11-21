@@ -12,6 +12,7 @@ import { execOrThrow, npm } from './lib/exec.mjs';
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
 const publishedWorkspaces = [
   { name: 'drone-path-core', directory: 'packages/core' },
+  { name: 'drone-path-archive', directory: 'packages/archive' },
   { name: 'drone-path-engine', directory: 'packages/engine' },
   { name: 'drone-path', directory: 'packages/cli' },
 ];
@@ -38,7 +39,7 @@ function main([command, tag]) {
     throw new Error('usage: node scripts/release-npm.mjs <verify|dry-run> <tag>');
   }
   const { version, workspaces } = releasePlan(tag);
-  console.error(`release tag matches CLI, engine, core, and desktop version ${version}`);
+  console.error(`release tag matches CLI, engine, archive, core, and desktop version ${version}`);
   if (command === 'dry-run') {
     for (const workspace of workspaces) {
       console.error(`packing ${workspace}@${version} (dry run)`);

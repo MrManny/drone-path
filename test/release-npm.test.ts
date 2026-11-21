@@ -8,6 +8,7 @@ import { cleanupTmpDirs, tmpDir } from './fixtures/core.js';
 
 const manifests = {
   'packages/core': 'drone-path-core',
+  'packages/archive': 'drone-path-archive',
   'packages/engine': 'drone-path-engine',
   'packages/cli': 'drone-path',
   'apps/desktop': 'drone-path-desktop',
@@ -29,7 +30,7 @@ afterEach(cleanupTmpDirs);
 it.for(['v0.13.0', '0.13.0'])('plans release %s in dependency order', (tag) => {
   expect(releasePlan(tag, checkout())).toEqual({
     version: '0.13.0',
-    workspaces: ['drone-path-core', 'drone-path-engine', 'drone-path'],
+    workspaces: ['drone-path-core', 'drone-path-archive', 'drone-path-engine', 'drone-path'],
   });
 });
 

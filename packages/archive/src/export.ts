@@ -1,0 +1,98 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+import type { LatLon } from 'drone-path-core/geo';
+import { launchRedactor } from 'drone-path-core/launch-redaction';
+import { splitTrackAtAntimeridian } from 'drone-path-core/track-antimeridian';
+import { trackFormatOf } from 'drone-path-core/track-format';
+import { serializeGeoJsonTracks } from 'drone-path-core/track-geojson';
+import { serializeGpxTracks } from 'drone-path-core/track-gpx';
+import { serializeKmlTracks } from 'drone-path-core/track-kml';
+import { kmzBytes } from 'drone-path-core/track-kmz';
+import type { TrackSegment } from 'drone-path-core/track';
+
+import { archiveMapHtml } from './export-map.js';
+import type { MapFlight } from './export-map.js';
+import { groupFlightMembers } from './flight-members.js';
+import { matchesMetadata } from './query.js';
+import type { ListFilters } from './query.js';
+import { ArchiveStore } from './store.js';
+
+interface ExportOptions {
+  filters?: ListFilters;
+  redactLaunchM?: number;
+  includeGaze?: boolean;
+}
+
+function exportFlights(
+  db: string, { filters = {}, redactLaunchM = 0, includeGaze = false }: ExportOptions, splitDateline = false,
+): MapFlight[] {
+  if (!Number.isFinite(redactLaunchM) || redactLaunchM < 0) {
+    throw new Error('expected a nonnegative launch redaction radius in meters');
+  }
+  const redact = redactLaunchM > 0;
+  const store = new ArchiveStore(db);
+  try {
+    const { clips, endpoints } = store.readExportCandidates(
+      filters.bbox, filters.availability, ({ record }) => matchesMetadata(record, filters),
+      { redact, includeGaze: includeGaze && !redact },
+    );
+    const redactTrack = launchRedactor(endpoints, redactLaunchM);
+    const flights = groupFlightMembers(clips);
+    return [...flights.values()].flatMap((members) => {
+      const selected = members.flatMap(({ record, availability, gaze }) => {
+        const geometry = splitDateline ? splitTrackAtAntimeridian(record.track) : record.track;
+        const track = redactTrack(geometry).map((segment) => segment.map(({ lat, lon }): LatLon => ({ lat, lon })));
+        if (track.length === 0 && gaze.length === 0) return [];
+        return [{
+          track,
+          gaze: gaze.map(({ polygon }) => polygon),
+          label: redact ? undefined : record.path.split(/[\\/]/u).at(-1),
+          availability: redact ? undefined : availability,
+        }];
+      });
+      return selected.length > 0 ? [{ clips: selected }] : [];
+    });
+  } finally {
+    store.close();
+  }
+}
+
+function writeExport(db: string, output: string, content: string | Buffer): void {
+  const resolved = (file: string) => fs.existsSync(file) ? fs.realpathSync(file) : path.resolve(file);
+  const outputPath = resolved(output);
+  const databasePath = resolved(db);
+  const samePath = process.platform === 'win32' ?
+    outputPath.toLowerCase() === databasePath.toLowerCase() : outputPath === databasePath;
+  if (samePath) throw new Error('export file cannot overwrite the archive database');
+  if (fs.existsSync(output) && fs.existsSync(db)) {
+    const target = fs.statSync(output, { bigint: true });
+    const database = fs.statSync(db, { bigint: true });
+    if (target.dev === database.dev && target.ino === database.ino) {
+      throw new Error('export file cannot overwrite the archive database');
+    }
+  }
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, content);
+}
+
+export function exportArchiveMap(db: string, output: string, options: ExportOptions = {}): void {
+  if (path.extname(output).toLowerCase() !== '.html') throw new Error('expected an .html output file');
+  writeExport(db, output, archiveMapHtml(exportFlights(db, options)));
+}
+
+export function exportArchiveTracks(db: string, output: string, options: Omit<ExportOptions, 'includeGaze'> = {}): void {
+  const format = trackFormatOf(output);
+  if (format === 'json') throw new Error('expected a .gpx, .geojson, .kml, or .kmz output file');
+  const tracks: TrackSegment[][] = exportFlights(db, { ...options, includeGaze: false }, true).map(({ clips }) =>
+    clips.flatMap(({ track }) => track.map((segment) =>
+      segment.map(({ lat, lon }) => ({ lat, lon, altM: null, timeMs: null })),
+    )),
+  );
+  switch (format) {
+    case 'gpx': return writeExport(db, output, serializeGpxTracks(tracks));
+    case 'geojson': return writeExport(db, output, serializeGeoJsonTracks(tracks));
+    case 'kml': return writeExport(db, output, serializeKmlTracks(tracks));
+    case 'kmz': return writeExport(db, output, kmzBytes(serializeKmlTracks(tracks)));
+  }
+}

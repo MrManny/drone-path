@@ -34,6 +34,17 @@ overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback. All
 requirements and install options are in
 [Getting started](docs/user/getting-started.md).
 
+### Scan a recording library
+
+Run `drone-path archive scan <folder> --recurse --json` to index MP4 recordings locally and print the inventory as newline-delimited JSON. Rescans reuse unchanged clips. See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for the record format and archive options.
+
+Use `drone-path archive list --status offline --json` to find disconnected recordings or `drone-path archive near 46.62,14.31 --radius 250 --json` to find the closest pass in each matching clip. See the [CLI manual](docs/user/cli.md#query-the-recording-library) for filters and result formats.
+
+Use `drone-path archive list --group-by flight` to see consecutive clips and split recordings grouped into inferred flights. Add `--include-gaze` to `archive near` to also search estimated DVTM camera footprints.
+
+Use `drone-path archive export-map flights.html` for a standalone map or `drone-path archive export-tracks flights.gpx` for a combined track file. Add `--redact-launch <m>` to remove geometry around indexed launch and landing points before sharing.
+
+
 ## User manual
 
 The user manual lives in [docs/user/](docs/user/README.md); the desktop app
@@ -94,16 +105,16 @@ node packages/cli/bin/drone-path.mjs "my-flight.mp4"
 ## Releasing
 
 `npm run changeset:version` folds pending changesets and updates the lockfile.
-The three npm packages and the desktop app share one version. Update the root
+The four npm packages and the desktop app share one version. Update the root
 changelog in the release PR and use the matching `v<version>` GitHub release tag.
 From an installed, built checkout, preview the release without publishing with
 `node scripts/release-npm.mjs dry-run v<version>`.
 
 A published GitHub release runs the tag and quality checks, then publishes
-`drone-path-core`, `drone-path-engine`, and `drone-path` to npm in that order.
-Independent jobs attach the desktop installers, AppImage, and auto-update
-metadata to the same release. GitHub prereleases publish to npm under the
-`next` dist-tag instead of `latest`.
+`drone-path-core`, `drone-path-archive`, `drone-path-engine`, and `drone-path` to
+npm in dependency order. Independent jobs attach the desktop installers, AppImage,
+and auto-update metadata to the same release. GitHub prereleases publish to npm
+under the `next` dist-tag instead of `latest`.
 
 Reserve the release's exact package versions for GitHub Actions. To publish
 the first release, set the repository's `NPM_TOKEN` secret to a granular token
@@ -119,7 +130,7 @@ versions to be unused.
 Once each package exists, configure its
 [trusted publisher](https://docs.npmjs.com/trusted-publishers/) on npm
 with owner `MrManny`, repository `drone-path`, workflow `release.yml`, and
-permission for direct publishing. Remove `NPM_TOKEN` when all three are
+permission for direct publishing. Remove `NPM_TOKEN` when all four are
 configured so subsequent releases use token-free trusted publishing.
 
 After a partial publish, check the package versions on npm and re-run failed

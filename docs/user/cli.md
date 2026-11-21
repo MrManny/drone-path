@@ -81,3 +81,133 @@ The document follows the checked-in `docs/telemetry-json.schema.json`; `SensorTe
 ## Options and reference
 
 Run `npx drone-path --help` for the built-in overview. The complete table of options and config keys lives in [CLI and config reference](cli-reference.md); persistent settings are covered in [Config file](config-file.md).
+
+## Scan a recording library
+
+Run `drone-path archive scan <dirs...>` to index recordings from one or more folders. Add
+`--recurse` to scan subfolders and `--json` to write one JSON object per
+recording to stdout in path order. Progress goes to stderr. Drone Path skips
+non-MP4 files and generated `*_map.mp4` overlays.
+
+Each record reports the canonical path, file size and modification time, video
+metadata, and a status of `ok`, `no-telemetry`, `no-gps`, or `error`. If present,
+`cameraCreationTime` contains the original, unverified camera tag. Track points
+use seconds from the start of the clip. Bounding boxes and tracks are available
+for clips with GPS fixes.
+
+The archive uses a per-user SQLite database at
+`%LOCALAPPDATA%/drone-path/archive.sqlite` on Windows,
+`~/Library/Application Support/drone-path/archive.sqlite` on macOS, and
+`$XDG_DATA_HOME/drone-path/archive.sqlite` on Linux
+(`~/.local/share/drone-path/archive.sqlite` by default). Use `--archive-db <path>`
+to choose another database. Rescans reuse records when the recording and its
+SRT sidecar are unchanged and retry clips that had a scan error.
+
+When a clip is missing from a scanned folder, its record stays in the
+database as offline. Reconnect the drive and scan the same folder to mark the
+clip online again. Add `--prune` to remove missing clips in the scanned folders
+from the database.
+
+The index stores overview tracks of up to 60 vertices, detail tracks of up to
+500, and timestamped GPS fixes at roughly one-second intervals. These tracks
+and samples summarize the source telemetry, so a lookup can miss motion
+between retained fixes.
+
+## Query the recording library
+
+Run `drone-path archive list` to list indexed recordings in path order. Combine
+any of these filters.
+
+| Option | Filter |
+| --- | --- |
+| `--in-bbox <s,w,n,e>` | The clip bounding box touches the viewport. Coordinates are inclusive. A west value greater than east crosses the antimeridian. |
+| `--after <date>` | The camera tag is at or after the bound. |
+| `--before <date>` | The camera tag is earlier than the bound. |
+| `--min-dist <m>` | The GPS track traveled at least this many meters. |
+| `--status <state>` | The clip is `online` or `offline`. |
+
+Date bounds accept `YYYY-MM-DD` at midnight UTC or an ISO timestamp with an
+explicit time zone. Date filters compare the original, unverified camera tag
+when the tag includes a time zone. File modification times and camera tags
+without a time zone do not participate in date filters.
+
+The viewport filter uses the indexed track to resolve bounding boxes for clips
+that cross the antimeridian.
+
+Add `--group-by flight` to group the matching clips in recording order. Groups
+are inferred from consecutive DJI clip numbers in the same folder, unverified
+camera tags with time zones, and nearby GPS endpoints. Missing or ambiguous
+evidence leaves clips in their own groups. A gap of more than 45 seconds
+starts a new group. A clip near the 4 GB split limit can link to its successor
+when recording time and position are closely continuous. File paths stay the
+same, and opening an existing archive computes groups from the saved index.
+
+Grouped JSON contains `{ flightId, clips }` entries. Each clip includes
+`splitFromKey`, which is the predecessor's canonical archive path key
+(lowercase on Windows) for a split continuation and `null` otherwise.
+Filters determine which clips appear, so a referenced predecessor may be
+outside the result.
+
+Run `drone-path archive near 46.62,14.31 --radius 250` to find indexed clips
+whose GPS tracks pass within 250 meters of the point. The default radius is 100
+meters. Results include offline clips and sort by closest distance. Southern
+latitudes use a minus sign, as in `drone-path archive near -33.86,151.21`.
+
+Both commands accept `--archive-db <path>` and `--json`. JSON output is a single
+array, including `[]` when nothing matches. List entries contain the [scan
+record](#scan-a-recording-library) fields plus `availability`. Each near hit
+contains `clip` (the same fields as a list entry), `tSec` (seconds from the
+start of the clip), `distanceM`, and `matchType: "track"`. The reported time
+is interpolated between sampled fixes in the same continuous GPS segment. Its
+accuracy depends on the original telemetry and the sampling interval.
+
+Add `--include-gaze` to find clips whose camera may have seen the point, even
+when the drone was outside the search radius. A matching clip can have both a
+track hit and a `matchType: "gaze"` hit. For gaze, `distanceM` is zero because
+the target is inside the footprint, and `tSec` is the original time of the
+first matching sampled frame. The index stores roughly one footprint per
+second, so brief views can be missed.
+
+Footprints use DVTM gimbal attitude and altitude above takeoff, assumed to be
+height above flat ground. The estimate uses a 75-degree horizontal and
+50-degree vertical field of view and interprets gimbal yaw as clockwise from
+north in the recorded NED convention. The compass reference and calibration
+can vary, and the estimate does not account for terrain, zoom, or lens crop.
+The scanner skips frames with missing data or rays too close to the horizon.
+SRT-only clips still return track matches. Rescan previously indexed DVTM clips
+with the original files available to add their footprints.
+
+## Export the recording library
+
+Write a standalone map or a combined track file from the local index:
+
+```bash
+drone-path archive export-map flights.html --include-gaze
+drone-path archive export-tracks flights.geojson --status online
+drone-path archive export-map share.html --redact-launch 150
+```
+
+Open the HTML file directly in a browser to pan, zoom, and inspect clips.
+Tracks are colored by inferred flight. Add `--include-gaze` to show estimated
+camera footprints when the index has them. The map embeds Leaflet and the
+selected geometry. It uses a plain background and requires no tile server.
+
+For a combined track file, choose `.gpx`, `.geojson`, `.kml`, or `.kmz` in
+the output filename. The files preserve flight groups and the boundaries of
+indexed track segments. Tracks crossing the antimeridian are split at the
+meridian. The archive stores simplified tracks and clip-relative
+sample times, so exports omit absolute altitudes and UTC timestamps.
+
+Both commands accept `--archive-db` and the same clip filters as
+[`archive list`](#query-the-recording-library): `--in-bbox`, `--after`,
+`--before`, `--min-dist`, and `--status`.
+
+Use `--redact-launch <m>` before sharing to remove track vertices and nearby
+lines around each exported flight's first and last indexed GPS fixes. The
+protected fixes come from the full flight, even when a filter excludes its
+first or last clip. A positive radius also removes camera footprints and clip
+labels from HTML. Tracks may lose extra line segments where a line passes
+near the protected area. The saved index is unchanged. If a recording starts
+after takeoff or stops before landing, the indexed endpoints can differ from
+the actual launch and landing sites. The remaining route and its surroundings
+can still reveal where you flew.
