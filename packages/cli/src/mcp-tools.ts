@@ -42,6 +42,7 @@ import {
 import type { ConfigOverrides } from 'drone-path-engine/config';
 import { resolveConfig } from 'drone-path-engine/configfile';
 import type { LogFn } from 'drone-path-engine/logging';
+import { planOutputs } from 'drone-path-engine/pipeline';
 import type { RecordingSummary, runBatch } from 'drone-path-engine/pipeline';
 import { collectRecordings } from 'drone-path-engine/recordings';
 
@@ -124,11 +125,13 @@ function toListFilters(raw: RawArchiveFilters): ListFilters {
 
 function sampleTrackRecords(records: readonly TrackRecord[], maxSamples: number) {
   if (records.length === 0) return [];
-  const step = records.length <= maxSamples ? 1 : (records.length - 1) / (maxSamples - 1);
   const indices: number[] = [];
-  if (step === 1) {
+  if (maxSamples === 1) {
+    indices.push(0);
+  } else if (records.length <= maxSamples) {
     for (let i = 0; i < records.length; i++) indices.push(i);
   } else {
+    const step = (records.length - 1) / (maxSamples - 1);
     for (let i = 0; i < maxSamples; i++) {
       indices.push(Math.round(i * step));
     }
@@ -447,6 +450,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         args.outDir ?? path.dirname(videoPath),
         ctx.allowedRoots,
       );
+      assertNotArchiveDb(outDir, ctx.archiveDb);
       const requests = parseAtSpec(args.at);
       const tools = await ctx.getTools();
       const keyframes = await extractKeyframes(videoPath, {
@@ -671,15 +675,23 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       });
       if (config.outDir) {
         assertPathInAllowedRoots(config.outDir, ctx.allowedRoots);
+        assertNotArchiveDb(config.outDir, ctx.archiveDb);
       }
       if (config.trackOut) {
         assertPathInAllowedRoots(config.trackOut, ctx.allowedRoots);
         assertNotArchiveDb(config.trackOut, ctx.archiveDb);
       }
+      if (/[\\/\0]/u.test(config.outSuffix)) {
+        throw new Error('outSuffix must not contain path separators');
+      }
 
       const videos = collectRecordings(inputs, { recurse: config.recurse });
       for (const video of videos) {
         assertPathInAllowedRoots(video, ctx.allowedRoots);
+      }
+      for (const plan of planOutputs(videos, config)) {
+        assertPathInAllowedRoots(plan.out, ctx.allowedRoots);
+        assertNotArchiveDb(plan.out, ctx.archiveDb);
       }
 
       const tools = await ctx.getTools();

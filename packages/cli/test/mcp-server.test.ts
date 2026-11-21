@@ -355,6 +355,24 @@ describe('MCP path boundary enforcement', () => {
         },
         /path is outside allowed roots/,
       ],
+      [
+        'render_map_video',
+        {
+          inputs: [allowedClip],
+          outDir: path.join(allowed, 'out'),
+          outSuffix: '/../../outside/pwn',
+        },
+        /outSuffix must not contain path separators/,
+      ],
+      [
+        'render_map_video',
+        {
+          inputs: [allowedClip],
+          outDir: path.join(allowed, 'out'),
+          outSuffix: '..\\..\\outside\\pwn',
+        },
+        /outSuffix must not contain path separators/,
+      ],
     ];
 
     for (const [toolName, args, pattern] of checks) {
@@ -366,6 +384,8 @@ describe('MCP path boundary enforcement', () => {
     await h.shutdown();
 
     // Guard against overwriting archiveDb when archiveDb resides inside an allowed root.
+    const sameRootClip = path.join(dbDir, 'DJI_0001.MP4');
+    fs.writeFileSync(sameRootClip, 'mp4');
     const sameRoot = createHarness({ allowedRoots: [dbDir], archiveDb });
     await sameRoot.initialize();
     const overwriteCheck = await sameRoot.callTool('export_markers', {
@@ -374,6 +394,21 @@ describe('MCP path boundary enforcement', () => {
     });
     expect(overwriteCheck.envelope.isError).toBe(true);
     expect(overwriteCheck.envelope.content[0]?.text).toMatch(/archive database/);
+
+    const kfOverwriteCheck = await sameRoot.callTool('clip_extract_keyframes', {
+      videoPath: sameRootClip,
+      at: '1.0',
+      outDir: archiveDb,
+    });
+    expect(kfOverwriteCheck.envelope.isError).toBe(true);
+    expect(kfOverwriteCheck.envelope.content[0]?.text).toMatch(/archive database/);
+
+    const renderOverwriteCheck = await sameRoot.callTool('render_map_video', {
+      inputs: [sameRootClip],
+      outDir: archiveDb,
+    });
+    expect(renderOverwriteCheck.envelope.isError).toBe(true);
+    expect(renderOverwriteCheck.envelope.content[0]?.text).toMatch(/archive database/);
     await sameRoot.shutdown();
   });
 
@@ -498,13 +533,19 @@ describe('end-to-end offline MCP workflow', () => {
     const tel = await h.callTool<{
       status: string;
       segments: Array<{ type: string }>;
-      samples: unknown[];
+      samples: Array<{ tSec: number }>;
       totalTrackRecords: number;
     }>('clip_get_telemetry', { videoPath, maxSamples: 3 });
     expect(tel.parsed?.status).toBe('ok');
     expect(tel.parsed?.segments[0]?.type).toBe('smooth-glide');
     expect(tel.parsed?.totalTrackRecords).toBe(5);
     expect(tel.parsed?.samples).toHaveLength(3);
+
+    const telOne = await h.callTool<{
+      samples: Array<{ tSec: number }>;
+    }>('clip_get_telemetry', { videoPath, maxSamples: 1 });
+    expect(telOne.parsed?.samples).toHaveLength(1);
+    expect(telOne.parsed?.samples[0]?.tSec).toBe(0);
 
     const keyframes = await h.callTool<{
       count: number;
