@@ -6,7 +6,7 @@ import type { RefObject } from 'react';
 // Everything a keyboard user can reach inside the panel; surfaces that manage
 // their own roving focus (like menu rows) opt out with tabindex="-1".
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * Modal focus for dialogs and overlays: focus moves in on open, returns to the
@@ -37,9 +37,10 @@ export function useModalFocus(panelRef: RefObject<HTMLElement | null>): void {
       }
     };
 
-    panel.addEventListener('keydown', onKeyDown);
+    // Listen on document so Tab stays trapped even when focus falls back to <body>.
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      panel.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown);
       opener?.focus();
     };
   }, [panelRef]);

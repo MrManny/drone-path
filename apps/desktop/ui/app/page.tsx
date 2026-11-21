@@ -42,6 +42,7 @@ export default function Page() {
   const { phase: updatePhase, failure: updateFailure } = update;
   const nextId = useRef(0);
   const picking = useRef(false);
+  const settingsVersion = useRef(0);
   const restarting = useRef(false);
 
   const handleRestartFailed = useCallback(
@@ -56,11 +57,14 @@ export default function Page() {
 
   useEffect(() => {
     let cancelled = false;
+    const version = settingsVersion.current;
     void (async () => {
       try {
         const resolved = await appBridge().getSettings();
         // Stored settings may predate the Zoom field rule (#271).
-        if (!cancelled) setSettings(normalizeZoom(resolved));
+        if (!cancelled && settingsVersion.current === version) {
+          setSettings(normalizeZoom(resolved));
+        }
       } catch {
         // Outside the app shell there is no backend: keep the defaults.
       }
@@ -71,6 +75,7 @@ export default function Page() {
   }, []);
 
   const handleSettingsChange = useCallback((next: RenderConfig) => {
+    settingsVersion.current += 1;
     setSettings(next);
     try {
       void appBridge()

@@ -811,3 +811,58 @@ describe('ExportModal map-only note', () => {
     expect(screen.getByTestId('export-preview').getAttribute('data-note')).toBe('0');
   });
 });
+
+describe('ExportModal save-picker guards (#313)', () => {
+  it('ignores duplicate Start export triggers while the save picker is open and unlocks after cancel', async () => {
+    let resolvePick: (result: { ok: boolean; canceled?: boolean; path?: string }) => void = () => {};
+    const { bridge } = installBridge({
+      pickExportOutput: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolvePick = resolve;
+          }),
+      ),
+    });
+    renderModal({ in: null, out: null });
+    const startButton = screen.getByRole('button', { name: 'Start export' });
+    fireEvent.click(startButton);
+    fireEvent.click(startButton);
+    expect(bridge.pickExportOutput).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePick({ ok: false, canceled: true });
+    });
+
+    fireEvent.click(startButton);
+    expect(bridge.pickExportOutput).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      resolvePick({ ok: true, path: '/exports/a.mp4' });
+    });
+    expect(bridge.startExport).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts without starting an export if the modal closes while the save picker is open', async () => {
+    let resolvePick: (result: { ok: boolean; path?: string }) => void = () => {};
+    const onRunEvent = vi.fn();
+    const { bridge } = installBridge({
+      pickExportOutput: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolvePick = resolve;
+          }),
+      ),
+    });
+    renderModal({ in: null, out: null }, onRunEvent);
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    expect(bridge.pickExportOutput).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
+
+    await act(async () => {
+      resolvePick({ ok: true, path: '/exports/a.mp4' });
+    });
+    expect(bridge.startExport).not.toHaveBeenCalled();
+    expect(onRunEvent).not.toHaveBeenCalled();
+  });
+});

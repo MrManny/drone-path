@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DEFAULT_LOCALE, translator } from '../../src/desktop-i18n/messages.js';
 import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
@@ -13,17 +13,25 @@ export function useLanguageSettings() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const mountedRef = useRef(true);
+  const savingRef = useRef(false);
+  const editedRef = useRef(false);
 
   useEffect(() => {
-    let canceled = false;
+    mountedRef.current = true;
     try {
-      void appBridge().getLanguage?.().then((resolved) => {
-        if (!canceled) setLanguage(resolved);
-      }).catch(() => {});
+      void appBridge()
+        .getLanguage?.()
+        .then((resolved) => {
+          if (mountedRef.current && !editedRef.current) setLanguage(resolved);
+        })
+        .catch(() => {});
     } catch {
       // Outside the app shell there is no backend: keep the default locale.
     }
-    return () => { canceled = true; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -31,20 +39,27 @@ export function useLanguageSettings() {
     document.title = translator(language.locale)('app.title');
   }, [language.locale]);
 
-  async function selectLanguage(preference: Locale | null) {
-    if (saving) return;
+  const selectLanguage = useCallback(async (preference: Locale | null) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(false);
     try {
       const result = await appBridge().saveLanguage(preference);
-      if (result.ok) setLanguage(result);
-      else setError(true);
+      if (!mountedRef.current) return;
+      if (result.ok) {
+        editedRef.current = true;
+        setLanguage(result);
+      } else {
+        setError(true);
+      }
     } catch {
-      setError(true);
+      if (mountedRef.current) setError(true);
     } finally {
-      setSaving(false);
+      savingRef.current = false;
+      if (mountedRef.current) setSaving(false);
     }
-  }
+  }, []);
 
   return { ...language, saving, error, selectLanguage };
 }

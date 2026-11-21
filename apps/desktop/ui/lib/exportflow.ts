@@ -82,10 +82,14 @@ export async function chooseAndExport(
   deps: ExportFlowDeps,
   input: ExportFlowInput,
   emit: EmitExportEvent,
+  isMounted: () => boolean = () => true,
 ): Promise<void> {
-  const outPath = await pickDestination(deps, emit);
-  if (outPath === null) return;
-  await startJob(deps, buildRequest(input, outPath), emit);
+  const safeEmit: EmitExportEvent = (event) => {
+    if (isMounted()) emit(event);
+  };
+  const outPath = await pickDestination(deps, safeEmit);
+  if (outPath === null || !isMounted()) return;
+  await startJob(deps, buildRequest(input, outPath), safeEmit);
 }
 
 export function cancelExport(deps: ExportFlowDeps, emit: EmitExportEvent): void {

@@ -65,7 +65,7 @@ function mountTrackSave() {
     save();
     await waitFor(() => expect(view.result.current.phase).toEqual(DONE));
   };
-  return { result: view.result, dispatchDialog, save, reveal, reachDone };
+  return { result: view.result, dispatchDialog, save, reveal, reachDone, unmount: view.unmount };
 }
 
 describe('useTrackSave save', () => {
@@ -87,6 +87,68 @@ describe('useTrackSave save', () => {
     await waitFor(() =>
       expect(track.result.current.phase).toEqual({ kind: 'error', message: 'disk full' }),
     );
+  });
+
+  it('ignores duplicate concurrent save triggers while the picker is open and unlocks afterward (#313)', async () => {
+    let resolvePick: (result: PickOutputResult) => void = () => {};
+    const bridge = installBridge({
+      pickTrackOutput: () =>
+        new Promise<PickOutputResult>((resolve) => {
+          resolvePick = resolve;
+        }),
+    });
+    const track = mountTrackSave();
+    track.save();
+    track.save();
+    expect(bridge.pickTrackOutput).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePick({ ok: false, canceled: true });
+    });
+
+    track.save();
+    expect(bridge.pickTrackOutput).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      resolvePick({ ok: true, path: '/exports/flight.telemetry.json' });
+    });
+    await waitFor(() => expect(track.result.current.phase).toEqual(DONE));
+  });
+
+  it('aborts save and skips dispatchDialog if unmounted while the picker is pending (#313)', async () => {
+    let resolvePick: (result: PickOutputResult) => void = () => {};
+    const bridge = installBridge({
+      pickTrackOutput: () =>
+        new Promise<PickOutputResult>((resolve) => {
+          resolvePick = resolve;
+        }),
+    });
+    const track = mountTrackSave();
+    track.save();
+    track.unmount();
+
+    await act(async () => {
+      resolvePick({ ok: true, path: '/exports/flight.telemetry.json' });
+    });
+    expect(bridge.saveTrack).not.toHaveBeenCalled();
+    expect(track.dispatchDialog).not.toHaveBeenCalled();
+  });
+
+  it('skips dispatchDialog if unmounted when the picker rejects (#313)', async () => {
+    let rejectPick: (reason: Error) => void = () => {};
+    installBridge({
+      pickTrackOutput: () =>
+        new Promise<PickOutputResult>((_resolve, reject) => {
+          rejectPick = reject;
+        }),
+    });
+    const track = mountTrackSave();
+    track.save();
+    track.unmount();
+
+    await act(async () => {
+      rejectPick(new Error('picker failed'));
+    });
+    expect(track.dispatchDialog).not.toHaveBeenCalled();
   });
 });
 
@@ -196,5 +258,49 @@ describe('useTrackSave reveal', () => {
     track.reveal();
     expect(bridge.revealExportOutput).not.toHaveBeenCalled();
     expect(track.result.current.phase).toEqual({ kind: 'error', message: 'disk full' });
+  });
+
+  it('ignores duplicate concurrent reveal calls while one is in flight (#313)', async () => {
+    let settleReveal: (ack: ExportAck) => void = () => {};
+    const bridge = installBridge({
+      revealExportOutput: () =>
+        new Promise<ExportAck>((resolve) => {
+          settleReveal = resolve;
+        }),
+    });
+    const track = mountTrackSave();
+    await track.reachDone();
+
+    track.reveal();
+    track.reveal();
+    expect(bridge.revealExportOutput).toHaveBeenCalledTimes(1);
+
+    settleReveal({ ok: true });
+    await act(async () => {});
+
+    track.reveal();
+    expect(bridge.revealExportOutput).toHaveBeenCalledTimes(2);
+    settleReveal({ ok: true });
+    await act(async () => {});
+  });
+
+  it('ignores reveal refusal if unmounted while reveal is pending (#313)', async () => {
+    let settleReveal: (ack: ExportAck) => void = () => {};
+    const bridge = installBridge({
+      revealExportOutput: () =>
+        new Promise<ExportAck>((resolve) => {
+          settleReveal = resolve;
+        }),
+    });
+    const track = mountTrackSave();
+    await track.reachDone();
+
+    track.reveal();
+    expect(bridge.revealExportOutput).toHaveBeenCalledTimes(1);
+    track.unmount();
+
+    settleReveal({ ok: false, error: 'the folder is missing' });
+    await act(async () => {});
+    expect(track.result.current.phase).toEqual(DONE);
   });
 });

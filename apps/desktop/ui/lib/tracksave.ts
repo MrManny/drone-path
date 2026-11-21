@@ -76,10 +76,11 @@ export async function trackSaveFlow(
   deps: TrackSaveDeps,
   range: FrameRange | null,
   onSaving: () => void,
+  isMounted: () => boolean = () => true,
 ): Promise<TrackSaveEvent> {
   try {
     const picked = await deps.pickTrackOutput();
-    if (picked.canceled) return { type: 'canceled' };
+    if (!isMounted() || picked.canceled) return { type: 'canceled' };
     if (!picked.ok || picked.path === undefined) {
       return { type: 'failed', message: picked.error ?? ERR_UNKNOWN };
     }
