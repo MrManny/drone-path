@@ -256,6 +256,34 @@ describe('processRecording tile pre-warm', () => {
       processRecording(VIDEO, testConfig(), () => {}, path.join(tmpDir(), 'out.mp4'), { deps }),
     ).rejects.toThrow('tile download exploded');
   });
+
+  it('forwards the abort signal to prefetchTiles and cancels immediately', async () => {
+    const controller = new AbortController();
+    const deps = stubDeps({
+      prefetchTiles: ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          expect(signal).toBe(controller.signal);
+          signal?.addEventListener('abort', () => reject(new Error('tile download canceled')), {
+            once: true,
+          });
+        }),
+      renderVideo: async () => {
+        throw new Error('renderVideo must not run after pre-warm cancel');
+      },
+    });
+
+    const pending = processRecording(
+      VIDEO,
+      testConfig(),
+      () => {},
+      path.join(tmpDir(), 'out.mp4'),
+      { deps, signal: controller.signal },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.abort();
+
+    await expect(pending).rejects.toThrow('tile download canceled');
+  });
 });
 
 describe('processRecording deps overrides', () => {
@@ -327,6 +355,32 @@ describe('processRecording failure handling', () => {
       processRecording(VIDEO, testConfig(), () => {}, out, { deps }),
     ).rejects.toThrow('ffprobe exploded');
     expect(fs.existsSync(out)).toBe(false);
+  });
+
+  it('retries partial output removal on transient EBUSY and preserves the render error if removal fails', async () => {
+    const out = path.join(tmpDir(), 'out.mp4');
+    const rmSpy = vi.spyOn(fs, 'rmSync').mockImplementation(() => {
+      const err = new Error('EBUSY: resource busy or locked') as NodeJS.ErrnoException;
+      err.code = 'EBUSY';
+      throw err;
+    });
+    const deps = stubDeps({
+      renderVideo: async ({ outPath }) => {
+        fs.writeFileSync(outPath, 'partial');
+        throw new Error('render exploded');
+      },
+    });
+    const logs: string[] = [];
+
+    try {
+      await expect(
+        processRecording(VIDEO, testConfig(), (msg) => logs.push(msg), out, { deps }),
+      ).rejects.toThrow('render exploded');
+      expect(rmSpy).toHaveBeenCalledWith(out, { force: true, maxRetries: 5, retryDelay: 50 });
+      expect(logs.some((l) => l.includes('could not remove partial output'))).toBe(true);
+    } finally {
+      rmSpy.mockRestore();
+    }
   });
 });
 

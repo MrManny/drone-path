@@ -174,6 +174,92 @@ describe('createTileTraffic ensure', () => {
     expect(recovered).toBe(path.join(dir, 'opentopomap', '1', '2', '3.png'));
     expect(fs.existsSync(recovered)).toBe(true);
   });
+
+  it('waits RETRY_DELAY_MS after a non-ok HTTP response and skips sleeping after the final failure', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const t0 = Date.now();
+    const starts: number[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        starts.push(Date.now() - t0);
+        return new Response('nope', { status: 500 });
+      }),
+    );
+
+    let settled = false;
+    const pending = createTileTraffic(dir)
+      .ensure('satellite', T0)
+      .then((file) => {
+        settled = true;
+        return file;
+      });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(starts).toEqual([0]);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(399);
+    expect(starts).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(starts).toEqual([0, 500]);
+    expect(settled).toBe(true);
+    await expect(pending).resolves.toContain('placeholder');
+  });
+
+  it('deduplicates concurrent requests across now and background priorities', async () => {
+    const dir = tmpDir();
+    const fetchStub = okFetch();
+    vi.stubGlobal('fetch', fetchStub);
+    const traffic = createTileTraffic(dir);
+
+    const [warmStats, ensureFile] = await Promise.all([
+      traffic.stream({ style: 'satellite', tiles: [T0] }),
+      traffic.ensure('satellite', T0),
+    ]);
+
+    expect(warmStats).toEqual({ downloaded: 1, failed: 0, total: 1 });
+    expect(ensureFile).toBe(path.join(dir, 'esri-imagery', '1', '0', '0.png'));
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets an on-demand request succeed even if a shared pre-warm is canceled', async () => {
+    const dir = tmpDir();
+    let resolveFirstFetch!: () => void;
+    let calls = 0;
+    const fetchStub = vi.fn(
+      (_url: string, init: { signal?: AbortSignal }) =>
+        new Promise<Response>((resolve, reject) => {
+          calls++;
+          if (calls === 1) {
+            resolveFirstFetch = () => resolve(new Response(new Uint8Array([1]), { status: 200 }));
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+            return;
+          }
+          resolve(new Response(new Uint8Array([2]), { status: 200 }));
+        }),
+    );
+    vi.stubGlobal('fetch', fetchStub);
+    const traffic = createTileTraffic(dir);
+    const controller = new AbortController();
+
+    const warm = traffic.stream({
+      style: 'satellite',
+      tiles: [T0],
+      signal: controller.signal,
+    });
+    const warmFails = expect(warm).rejects.toThrow('tile download canceled');
+    const onDemand = traffic.ensure('satellite', T0);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    controller.abort();
+    await warmFails;
+    await expect(onDemand).resolves.toBe(path.join(dir, 'esri-imagery', '1', '0', '0.png'));
+    expect(calls).toBe(2);
+    resolveFirstFetch();
+  });
 });
 
 describe('createTileTraffic stream', () => {
@@ -386,6 +472,56 @@ describe('createTileTraffic stream', () => {
       false,
     );
   });
+
+  it('rejects an already-aborted stream even when all tiles are cached', async () => {
+    const dir = tmpDir();
+    const cachePath = path.join(dir, 'esri-imagery', '1', '0', '0.png');
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, 'cached');
+    const controller = new AbortController();
+    controller.abort();
+
+    const error = await rejected(
+      createTileTraffic(dir).stream({
+        style: 'satellite',
+        tiles: [T0],
+        signal: controller.signal,
+      }),
+    );
+
+    expect(error.message).toBe('tile download canceled');
+  });
+
+  it('aborts immediately when canceled during the retry delay', async () => {
+    vi.useFakeTimers();
+    const dir = tmpDir();
+    const fetchStub = vi.fn(async () => new Response('nope', { status: 500 }));
+    vi.stubGlobal('fetch', fetchStub);
+    const controller = new AbortController();
+
+    let settled = false;
+    const warm = createTileTraffic(dir)
+      .stream({
+        style: 'satellite',
+        tiles: [T0],
+        signal: controller.signal,
+      })
+      .catch((e: unknown) => {
+        settled = true;
+        throw e;
+      });
+    const warmFails = expect(warm).rejects.toThrow('tile download canceled');
+
+    await vi.advanceTimersByTimeAsync(10);
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false);
+
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(true);
+    await warmFails;
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('prefetchTiles', () => {
@@ -531,5 +667,20 @@ describe('cache write failures', () => {
     expect(error.message).toMatch(/^cache write failed: /);
     expect(error.message).toContain(placeholder);
     expect(fetchStub).toHaveBeenCalledTimes(2);
+  });
+
+  it('writes tiles atomically via rename and cleans up temp files if rename fails', async () => {
+    const dir = tmpDir();
+    vi.stubGlobal('fetch', okFetch());
+    const renameSpy = vi.spyOn(fs, 'renameSync').mockImplementationOnce(() => {
+      throw new Error('EPERM: operation not permitted, rename');
+    });
+
+    const error = await rejected(createTileTraffic(dir).ensure('satellite', { z: 1, x: 2, y: 3 }));
+
+    expect(renameSpy).toHaveBeenCalledTimes(1);
+    expect(error.message).toMatch(/^cache write failed: /);
+    const tileDir = path.join(dir, 'esri-imagery', '1', '2');
+    expect(fs.readdirSync(tileDir)).toEqual([]);
   });
 });

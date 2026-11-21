@@ -24,10 +24,12 @@ function startServer({
   html,
   style,
   tileCache,
+  log,
 }: {
   html: string;
   style: MapStyle;
   tileCache: string;
+  log?: LogFn;
 }): Promise<ServerHandle> {
   const server = http.createServer((req, res) => {
     let url: string;
@@ -47,8 +49,16 @@ function startServer({
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('not found');
   });
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const onListenError = (err: Error): void => {
+      reject(new Error(`local render server error: ${err.message}`, { cause: err }));
+    };
+    server.once('error', onListenError);
     server.listen(0, '127.0.0.1', () => {
+      server.off('error', onListenError);
+      server.on('error', (err: Error) => {
+        log?.(`render server error: ${err.message}`);
+      });
       const addr = server.address();
       const port = addr && typeof addr === 'object' ? addr.port : 0;
       resolve({ server, url: `http://127.0.0.1:${port}/` });
@@ -92,6 +102,7 @@ interface Encoder {
   stopped: Promise<string>;
   closed: Promise<number | null>;
   stderrText(): string;
+  spawnError(): Error | null;
   kill(): void;
 }
 
@@ -118,20 +129,32 @@ function spawnEncoder(
     '-crf', String(CRF[encode.codec][encode.quality]),
     '-pix_fmt', 'yuv420p', '-r', fpsStr,
     '-movflags', '+faststart', outPath,
-  ], { stdio: ['pipe', 'ignore', 'pipe'] });
+  ], { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
 
   let stderr = '';
   ffmpegProcess.stderr?.on('data', (d: Buffer) => {
     stderr += d.toString();
   });
 
-  // ffmpeg's stdin must never surface an unhandled 'error' (EPIPE on early exit); a drain-waiter must wake when the encoder dies.
+  // ffmpeg's process and stdin must never surface unhandled 'error' events (ENOENT on spawn, EPIPE on early exit); waiters must wake when the encoder dies.
+  let procError: Error | null = null;
   const closed = new Promise<number | null>((resolve) => {
     ffmpegProcess.once('close', (code) => resolve(code));
+    ffmpegProcess.once('error', (e: Error) => {
+      procError = e;
+      resolve(null);
+    });
   });
+  ffmpegProcess.on('error', () => {});
   const stopped = new Promise<string>((resolve) => {
     ffmpegProcess.stdin.on('error', (e: Error) => resolve(`ffmpeg stdin error: ${e.message}`));
-    void closed.then((code) => resolve(`ffmpeg exited with code ${code}`));
+    void closed.then((code) =>
+      resolve(
+        procError
+          ? `ffmpeg process error: ${procError.message}`
+          : `ffmpeg exited with code ${code}`,
+      ),
+    );
   });
 
   return {
@@ -139,41 +162,130 @@ function spawnEncoder(
     stopped,
     closed,
     stderrText: () => stderr,
+    spawnError: () => procError,
     kill: () => ffmpegProcess.kill(),
   };
 }
 
-class OrderedFrameStream {
+export class OrderedFrameStream {
   private readonly pending = new Map<number, Buffer>();
   private nextIndex = 0;
+  private flushing: Promise<void> | null = null;
+  private waiters: Array<{ resolve: () => void; reject: (err: unknown) => void }> = [];
+  private abortedError: unknown = null;
+  private abortReject: ((err: unknown) => void) | null = null;
+  private readonly abortPromise: Promise<never>;
 
-  constructor(private readonly encoder: Encoder) {}
-
-  async submit(index: number, frame: Buffer): Promise<void> {
-    this.pending.set(index, frame);
-    await this.flushReady();
+  constructor(
+    private readonly encoder: Pick<Encoder, 'stdin' | 'stopped' | 'stderrText'>,
+    private readonly maxPending: number = 1,
+  ) {
+    this.abortPromise = new Promise<never>((_resolve, reject) => {
+      this.abortReject = reject;
+    });
+    this.abortPromise.catch(() => {});
   }
 
-  async flushReady(): Promise<void> {
-    while (this.pending.has(this.nextIndex)) {
-      const frame = this.pending.get(this.nextIndex) as Buffer;
-      this.pending.delete(this.nextIndex);
-      if (!this.encoder.stdin.write(frame)) {
-        const woke = await Promise.race([
-          once(this.encoder.stdin, 'drain').then(() => 'drain' as const),
-          this.encoder.stopped,
-        ]);
-        if (woke !== 'drain') {
-          const stderr = this.encoder.stderrText().trim();
-          throw new Error(`${woke}${stderr ? `: ${stderr}` : ''}`);
-        }
-      }
-      this.nextIndex++;
+  async submit(index: number, frame: Buffer): Promise<void> {
+    if (this.abortedError !== null) throw this.abortedError;
+    this.pending.set(index, frame);
+    if (this.flushing) {
+      await this.flushing;
+    } else if (this.pending.has(this.nextIndex)) {
+      await this.flushReady();
     }
+    if (this.abortedError !== null) throw this.abortedError;
+    while (this.pending.size >= this.maxPending || this.flushing !== null) {
+      if (this.pending.has(this.nextIndex) && this.flushing === null) {
+        await this.flushReady();
+      } else if (this.flushing !== null) {
+        await this.flushing;
+      } else {
+        await this.waitForSpace();
+      }
+      if (this.abortedError !== null) throw this.abortedError;
+    }
+  }
+
+  flushReady(): Promise<void> {
+    if (this.flushing) return this.flushing;
+    if (this.abortedError !== null) return Promise.reject(this.abortedError);
+    const run = this.drainReady().finally(() => {
+      if (this.flushing === run) this.flushing = null;
+      this.wakeWaiters();
+    });
+    this.flushing = run;
+    return run;
+  }
+
+  abort(err: unknown): void {
+    if (this.abortedError !== null) return;
+    this.abortedError = err;
+    this.pending.clear();
+    this.abortReject?.(err);
+    this.rejectWaiters(err);
   }
 
   end(): void {
     this.encoder.stdin.end();
+  }
+
+  private async drainReady(): Promise<void> {
+    try {
+      while (this.pending.has(this.nextIndex)) {
+        if (this.abortedError !== null) throw this.abortedError;
+        const frame = this.pending.get(this.nextIndex) as Buffer;
+        this.pending.delete(this.nextIndex);
+        if (!this.encoder.stdin.write(frame)) {
+          const raceAc = new AbortController();
+          try {
+            const woke = await Promise.race([
+              once(this.encoder.stdin, 'drain', { signal: raceAc.signal }).then(
+                () => 'drain' as const,
+              ),
+              this.encoder.stopped,
+              this.abortPromise,
+            ]);
+            if (woke !== 'drain') {
+              const stderr = this.encoder.stderrText().trim();
+              throw new Error(`${woke}${stderr ? `: ${stderr}` : ''}`);
+            }
+          } finally {
+            raceAc.abort();
+          }
+        }
+        this.nextIndex++;
+      }
+    } catch (e) {
+      if (this.abortedError === null) {
+        this.abortedError = e;
+        this.pending.clear();
+        this.rejectWaiters(e);
+      }
+      throw e;
+    }
+  }
+
+  private waitForSpace(): Promise<void> {
+    if (this.abortedError !== null) return Promise.reject(this.abortedError);
+    return new Promise<void>((resolve, reject) => {
+      this.waiters.push({ resolve, reject });
+    });
+  }
+
+  private wakeWaiters(): void {
+    if (this.abortedError !== null || this.flushing !== null || this.pending.size >= this.maxPending) {
+      return;
+    }
+    const queued = this.waiters;
+    this.waiters = [];
+    for (const w of queued) w.resolve();
+  }
+
+  private rejectWaiters(err: unknown): void {
+    const queued = this.waiters;
+    this.waiters = [];
+    for (const w of queued) w.reject(err);
   }
 }
 
@@ -338,6 +450,7 @@ async function runWorkers(run: WorkerRun, workerCount: number): Promise<void> {
     Array.from({ length: workerCount }, (_, i) =>
       workerLoop(run, loop, i + 1).catch((e) => {
         loop.failed = true;
+        run.stream.abort(e);
         throw e;
       }),
     ),
@@ -357,6 +470,10 @@ async function finishEncode(
   await stream.flushReady();
   stream.end();
   const code = await encoder.closed;
+  const procError = encoder.spawnError();
+  if (procError) {
+    throw new Error(`ffmpeg process error: ${procError.message}`, { cause: procError });
+  }
   if (code !== 0) {
     throw new Error(`ffmpeg exited with code ${code}: ${encoder.stderrText().trim()}`);
   }
@@ -374,17 +491,27 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
   const { ctx, url, timing, workerCount } = env;
   const { fpsStr, codec, quality, preset, outPath, signal, log, tools } = ctx;
   const encoder = spawnEncoder(tools.ffmpeg, fpsStr, { codec, quality, preset }, outPath);
-  const killOnAbort = (): void => encoder.kill();
-  signal?.addEventListener('abort', killOnAbort, { once: true });
-  const stream = new OrderedFrameStream(encoder);
+  const stream = new OrderedFrameStream(encoder, workerCount);
+  const abortEncode = (): void => {
+    encoder.kill();
+    stream.abort(new Error(ERR_RENDER_CANCELED));
+  };
+  signal?.addEventListener('abort', abortEncode, { once: true });
   try {
     await runWorkers({ ...ctx, active, url, stream, timing }, workerCount);
+    if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
     await finishEncode(encoder, stream, log, outPath);
   } catch (e) {
     encoder.kill();
+    await encoder.closed;
+    if (signal?.aborted) {
+      throw e instanceof Error && e.message === ERR_RENDER_CANCELED
+        ? e
+        : new Error(ERR_RENDER_CANCELED, { cause: e });
+    }
     throw e;
   } finally {
-    signal?.removeEventListener('abort', killOnAbort);
+    signal?.removeEventListener('abort', abortEncode);
   }
 }
 
@@ -430,7 +557,7 @@ export async function renderVideo(
   };
   if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
   const timing: StageTiming = { evalMs: 0, captureMs: 0, emitMs: 0 };
-  const { server, url } = await startServer({ html, style, tileCache });
+  const { server, url } = await startServer({ html, style, tileCache, log });
   const env: RenderStageEnv = { ctx, url, timing, workerCount };
 
   let browser: Browser | null = null;
@@ -439,6 +566,7 @@ export async function renderVideo(
     await captureAndEncode(browser, env);
   } finally {
     await browser?.close().catch(() => {});
+    server.closeAllConnections?.();
     server.close();
   }
 

@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import http from 'node:http';
+import { Writable } from 'node:stream';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import { mocks, renderOpts, TOOLS } from '../../../test/fixtures/render.js';
-import { renderVideo } from '../src/render.js';
+import { OrderedFrameStream, renderVideo } from '../src/render.js';
 
 describe('renderVideo encode and capture failures', () => {
   it('rejects with the ffmpeg error when the encoder exits non-zero', async () => {
@@ -14,6 +17,46 @@ describe('renderVideo encode and capture failures', () => {
   it('rejects when a screenshot fails', async () => {
     mocks.screenshotFailAt = 2;
     await expect(renderVideo(renderOpts())).rejects.toThrow('screenshot failed');
+  });
+
+  it('rejects cleanly without an unhandled error when ffmpeg fails to spawn', async () => {
+    mocks.spawnError = new Error('spawn /opt/ff/ffmpeg ENOENT');
+    await expect(renderVideo(renderOpts())).rejects.toThrow(
+      'ffmpeg process error: spawn /opt/ff/ffmpeg ENOENT',
+    );
+  });
+
+  it('rejects cleanly when the local render server fails to listen', async () => {
+    const createServerSpy = vi.spyOn(http, 'createServer').mockImplementationOnce(
+      () =>
+        ({
+          once: vi.fn((event: string, cb: (err: Error) => void) => {
+            if (event === 'error') queueMicrotask(() => cb(new Error('EACCES: permission denied')));
+          }),
+          off: vi.fn(),
+          on: vi.fn(),
+          listen: vi.fn(),
+          close: vi.fn(),
+        }) as unknown as http.Server,
+    );
+
+    try {
+      await expect(renderVideo(renderOpts())).rejects.toThrow(
+        'local render server error: EACCES: permission denied',
+      );
+    } finally {
+      createServerSpy.mockRestore();
+    }
+  });
+
+  it('awaits encoder exit before rejecting after a failure', async () => {
+    mocks.screenshotFailAt = 2;
+    mocks.closeDelayMs = 40;
+    const start = Date.now();
+
+    await expect(renderVideo(renderOpts())).rejects.toThrow('screenshot failed');
+    expect(mocks.killed).toBe(1);
+    expect(Date.now() - start).toBeGreaterThanOrEqual(30);
   });
 });
 
@@ -82,5 +125,118 @@ describe('encoder arguments', () => {
   it('keeps h264 output untagged', async () => {
     await renderVideo(renderOpts({ codec: 'h264' }));
     expect(mocks.spawnArgs[0]).not.toContain('-tag:v');
+  });
+
+  it('spawns ffmpeg with windowsHide enabled', async () => {
+    await renderVideo(renderOpts());
+    expect(mocks.spawnOpts[0]).toMatchObject({
+      stdio: ['pipe', 'ignore', 'pipe'],
+      windowsHide: true,
+    });
+  });
+});
+
+describe('OrderedFrameStream backpressure', () => {
+  function backpressuredEncoder() {
+    let releaseDrain: (() => void) | null = null;
+    const written: string[] = [];
+    const stdin = new Writable({
+      highWaterMark: 1,
+      write(chunk: Buffer, _enc, cb) {
+        written.push(chunk.toString());
+        releaseDrain = cb;
+      },
+    });
+    return {
+      stdin,
+      written,
+      drainNext: (): void => {
+        const cb = releaseDrain;
+        releaseDrain = null;
+        cb?.();
+      },
+      stopped: new Promise<string>(() => {}),
+      stderrText: () => '',
+    };
+  }
+
+  it('pauses all workers while stdin is draining instead of buffering unbounded frames', async () => {
+    const encoder = backpressuredEncoder();
+    const stream = new OrderedFrameStream(encoder, 3);
+
+    const w1 = stream.submit(0, Buffer.from('f0'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(encoder.written).toEqual(['f0']);
+
+    let w2Done = false;
+    let w3Done = false;
+    const w2 = stream.submit(1, Buffer.from('f1')).then(() => {
+      w2Done = true;
+    });
+    const w3 = stream.submit(2, Buffer.from('f2')).then(() => {
+      w3Done = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Both remaining workers must stay blocked until frame 0 drains and their frames flush.
+    expect(w2Done).toBe(false);
+    expect(w3Done).toBe(false);
+
+    encoder.drainNext();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(encoder.written).toEqual(['f0', 'f1']);
+    expect(w2Done).toBe(false);
+
+    encoder.drainNext();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(encoder.written).toEqual(['f0', 'f1', 'f2']);
+
+    encoder.drainNext();
+    await Promise.all([w1, w2, w3]);
+    expect(w2Done).toBe(true);
+    expect(w3Done).toBe(true);
+  });
+
+  it('bounds out-of-order buffered frames across workers when an earlier frame is delayed', async () => {
+    const written: string[] = [];
+    const stdin = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        written.push(chunk.toString());
+        cb();
+      },
+    });
+    const stream = new OrderedFrameStream(
+      { stdin, stopped: new Promise<string>(() => {}), stderrText: () => '' },
+      2,
+    );
+
+    // Worker 2 submits frame 1 (< maxPending=2), then frame 2 (reaches maxPending=2 and blocks).
+    await stream.submit(1, Buffer.from('f1'));
+    let blockedDone = false;
+    const blocked = stream.submit(2, Buffer.from('f2')).then(() => {
+      blockedDone = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(blockedDone).toBe(false);
+    expect(written).toEqual([]);
+
+    // Worker 1 delivers frame 0, flushing 0..2 in order and unblocking worker 2.
+    await stream.submit(0, Buffer.from('f0'));
+    await blocked;
+    expect(blockedDone).toBe(true);
+    expect(written).toEqual(['f0', 'f1', 'f2']);
+  });
+
+  it('unblocks waiting workers with the error when aborted', async () => {
+    const encoder = backpressuredEncoder();
+    const stream = new OrderedFrameStream(encoder, 2);
+
+    const w1 = stream.submit(0, Buffer.from('f0'));
+    const w2 = stream.submit(1, Buffer.from('f1'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    stream.abort(new Error('render canceled'));
+    await expect(w1).rejects.toThrow('render canceled');
+    await expect(w2).rejects.toThrow('render canceled');
   });
 });
