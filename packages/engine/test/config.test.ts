@@ -574,6 +574,7 @@ describe('parseSettingsPatch', () => {
     ['zoom', 'invalid number for test: zoom: null'],
     ['style', 'invalid value for test: style: null (use satellite | topo)'],
     ['codec', 'invalid value for test: codec: null (use h264 | h265)'],
+    ['hud', 'invalid value for test: hud'],
   ] as Array<[keyof typeof complete, string]>)(
     'rejects null for non-nullable key %s with a type error instead of missing-key',
     (key, message) => {

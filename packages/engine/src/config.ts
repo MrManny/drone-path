@@ -183,7 +183,7 @@ function hudSpecSchema(name: string): z.ZodType<HudLayout> {
 }
 
 function patchHud(value: unknown, name: string): HudLayout | undefined {
-  if (value === undefined || value === null) return undefined;
+  if (value === undefined) return undefined;
   return typeof value === 'string'
     ? parseHud(parseValue(stringValue(name), value))
     : parseValue(hudSpecSchema(name), value);
