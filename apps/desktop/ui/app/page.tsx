@@ -43,6 +43,17 @@ export default function Page() {
   const nextId = useRef(0);
   const picking = useRef(false);
   const settingsVersion = useRef(0);
+  const restarting = useRef(false);
+
+  const handleRestartFailed = useCallback(
+    (message: string) => {
+      if (!restarting.current) return;
+      restarting.current = false;
+      dispatchUpdate({ type: 'restartFailed', message });
+      dispatchDialog({ type: 'runFinished' });
+    },
+    [dispatchDialog],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -98,10 +109,7 @@ export default function Page() {
     let offFailed: (() => void) | null = null;
     try {
       offReady = appBridge().onUpdateReady(() => dispatchUpdate({ type: 'ready' }));
-      offFailed = appBridge().onUpdateRestartFailed((message) => {
-        dispatchUpdate({ type: 'restartFailed', message });
-        dispatchDialog({ type: 'runFinished' });
-      });
+      offFailed = appBridge().onUpdateRestartFailed(handleRestartFailed);
       void appBridge()
         .getUpdateState()
         .then((state) => {
@@ -116,7 +124,7 @@ export default function Page() {
       offReady?.();
       offFailed?.();
     };
-  }, [dispatchDialog]);
+  }, [handleRestartFailed]);
 
   useEffect(() => {
     if (!shouldPrompt(updatePhase, modalOpen)) return;
@@ -151,23 +159,20 @@ export default function Page() {
   const dismissOpen = useCallback(() => dispatch({ type: 'dismiss' }), []);
 
   const restartUpdate = useCallback(() => {
+    restarting.current = true;
     dispatchUpdate({ type: 'restart' });
     dispatchDialog({ type: 'runStarted' });
-    const failed = (message: string) => {
-      dispatchUpdate({ type: 'restartFailed', message });
-      dispatchDialog({ type: 'runFinished' });
-    };
     try {
       void appBridge()
         .restartToUpdate()
         .then((ack) => {
-          if (!ack.ok) failed(ack.error ?? ERR_UNKNOWN);
+          if (!ack.ok) handleRestartFailed(ack.error ?? ERR_UNKNOWN);
         })
-        .catch((e) => failed(errorMessage(e)));
+        .catch((e) => handleRestartFailed(errorMessage(e)));
     } catch {
-      failed(ERR_UNKNOWN);
+      handleRestartFailed(ERR_UNKNOWN);
     }
-  }, [dispatchDialog]);
+  }, [dispatchDialog, handleRestartFailed]);
 
   const postponeUpdate = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 

@@ -144,6 +144,28 @@ describe('export runner: failures never destroy the destination', () => {
     expect(fs.existsSync(out)).toBe(false);
   });
 
+  it('does not replace outPath if canceled just as run resolves', async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'flight_map.mp4');
+    fs.writeFileSync(out, 'precious original');
+    let working = '';
+    let resolveRun!: (summary: RecordingSummary) => void;
+    const { runner, settled } = harness((_v, _r, _log, w) => {
+      working = w;
+      fs.writeFileSync(w, 'finished-too-late');
+      return new Promise<RecordingSummary>((resolve) => {
+        resolveRun = resolve;
+      });
+    });
+    runner.start(SOURCE, requestFor(out));
+    runner.cancel();
+    // Simulate a pipeline stage resolving normally right after abort is signaled.
+    resolveRun(summaryFor(working));
+    expect(await settled()).toEqual({ status: 'canceled' });
+    expect(fs.existsSync(working)).toBe(false);
+    expect(fs.readFileSync(out, 'utf8')).toBe('precious original');
+  });
+
   it('keeps the finished render and reports an error when the final swap fails', async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'flight_map.mp4');

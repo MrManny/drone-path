@@ -22,7 +22,7 @@ const fakeL = vi.hoisted((): LeafletApi => {
       invalidateSize: () => {},
       remove: () => {},
     }),
-    tileLayer: () => ({ ...layer, on: () => {}, setUrl: () => {} }),
+    tileLayer: () => ({ ...layer, on: () => {}, once: () => {}, setUrl: () => {} }),
     latLngBounds: () => ({
       getCenter: () => ({ lat: 46.61, lng: 14.26 }),
       getNorthWest: () => ({ lat: 46.62, lng: 14.25 }),

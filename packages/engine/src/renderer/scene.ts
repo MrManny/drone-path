@@ -115,6 +115,7 @@ class SceneState implements Scene {
   /** External strips get the column markup; the export frame keeps its pills. */
   private readonly externalHud: boolean;
   private curIdx = 0;
+  private disposed = false;
 
   constructor(host: HTMLElement, firstData: SceneData, L: LeafletApi, hudHost?: HTMLElement) {
     this.host = host;
@@ -164,9 +165,13 @@ class SceneState implements Scene {
     this.rebuildHud();
 
     this.ready = new Promise<void>((resolve) => {
-      const markReady = (): void => resolve();
+      const markReady = (): void => {
+        clearTimeout(this.readyTimer);
+        this.readyTimer = undefined;
+        resolve();
+      };
       this.settleReady = markReady;
-      this.tiles.on('load', markReady);
+      this.tiles.once('load', markReady);
       this.readyTimer = setTimeout(markReady, 12000);
     });
   }
@@ -439,6 +444,7 @@ class SceneState implements Scene {
   }
 
   relayout(): void {
+    if (this.disposed) return;
     this.layoutMap();
     void this.setFrame(this.curIdx);
   }
@@ -446,7 +452,7 @@ class SceneState implements Scene {
   update(next: SceneData): Promise<void> {
     const prev = this.data;
     this.data = next;
-    if (next.lat !== prev.lat) {
+    if (next.lat !== prev.lat || next.lon !== prev.lon) {
       this.latlngs = this.latlngsOf(next);
       this.bb = this.L.latLngBounds(this.latlngs);
     }
@@ -469,7 +475,10 @@ class SceneState implements Scene {
       next.style !== prev.style ||
       next.trailColor !== prev.trailColor ||
       next.trailLat !== prev.trailLat ||
+      next.trailLon !== prev.trailLon ||
+      next.trailFrame !== prev.trailFrame ||
       next.lat !== prev.lat ||
+      next.lon !== prev.lon ||
       next.width !== prev.width ||
       next.height !== prev.height;
     if (decorInvalidated) this.rebuildDecor();
@@ -480,11 +489,14 @@ class SceneState implements Scene {
       next.stripLabels?.altitude !== prev.stripLabels?.altitude
     ) this.rebuildHud();
     this.layoutMap();
+    this.curIdx = Math.max(0, Math.min(this.curIdx, this.latlngs.length - 1));
     return this.setFrame(this.curIdx);
   }
 
   dispose(): void {
+    this.disposed = true;
     clearTimeout(this.readyTimer);
+    this.readyTimer = undefined;
     this.settleReady();
     this.map.remove();
     this.styleEl.remove();

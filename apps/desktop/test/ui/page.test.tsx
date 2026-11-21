@@ -703,6 +703,32 @@ describe('update prompt', () => {
     expect(screen.getByText('restart failed')).toBeTruthy();
   });
 
+  it('ignores a duplicate restart failure for the same attempt and allows retrying', async () => {
+    const harness = installBridge();
+    let resolveRestart!: (ack: { ok: boolean; error?: string }) => void;
+    harness.bridge.restartToUpdate.mockImplementationOnce(
+      () =>
+        new Promise<{ ok: boolean; error?: string }>((resolve) => {
+          resolveRestart = resolve;
+        }),
+    );
+    openWorkspace();
+    harness.updateReady();
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    harness.restartFailed();
+    await act(async () => {
+      resolveRestart({ ok: false, error: 'duplicate error' });
+    });
+
+    expect(screen.getByText('restart failed')).toBeTruthy();
+    expect(screen.queryByText('duplicate error')).toBeNull();
+
+    // A subsequent retry can report its own failure cleanly.
+    harness.bridge.restartToUpdate.mockResolvedValueOnce({ ok: false, error: 'retry failed' });
+    fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
+    await waitFor(() => expect(screen.getByText('retry failed')).toBeTruthy());
+  });
+
   it('picks up a download that finished before the subscription', async () => {
     const harness = installBridge();
     harness.bridge.getUpdateState.mockResolvedValueOnce({ ready: true });

@@ -58,7 +58,7 @@ const exportRoot = uiExportRoot(import.meta.dirname);
 // window lifecycle handlers share it, so each writer (export completion, the
 // close guard, window-all-closed) is a named handler instead of a nested
 // closure over scattered module globals.
-function createShellState() {
+export function createShellState() {
   return {
     win: null,
     session: null,
@@ -133,7 +133,7 @@ function sendToWindow(state, channel, payload) {
   if (state.win && !state.win.isDestroyed()) state.win.webContents.send(channel, payload);
 }
 
-function handleExportDone(state, outcome) {
+export function handleExportDone(state, outcome) {
   if (outcome.status === 'ok') state.lastExportOut = outcome.summary.out;
   sendToWindow(state, 'dronepath:export:done', outcome);
   if (state.pendingClose) {
@@ -289,7 +289,7 @@ function createWindow(state) {
 
 // Closing the window must not silently kill a running export and strand
 // minutes of work; the user chooses between stopping and keeping it.
-function installCloseGuard(state) {
+export function installCloseGuard(state) {
   state.win.on('close', (e) => {
     // A close already confirmed by the user, or with nothing running, passes.
     if (state.pendingClose || !state.exportRunner || !state.exportRunner.running()) return;
@@ -308,16 +308,28 @@ function installCloseGuard(state) {
       message: t('native.exportInProgress'),
       detail: t('native.closeExportDetail'),
     };
-    void (state.win ? dialog.showMessageBox(state.win, box) : dialog.showMessageBox(box)).then(
-      ({ response }) => {
+    void (state.win ? dialog.showMessageBox(state.win, box) : dialog.showMessageBox(box))
+      .then(({ response }) => {
         state.closePromptOpen = false;
         if (response !== 0) return;
+        // The export may have settled while the dialog was open; close
+        // directly instead of setting pendingClose for an onDone that already ran.
+        if (!state.exportRunner || !state.exportRunner.running()) {
+          if (state.win && !state.win.isDestroyed()) state.win.close();
+          else app.quit();
+          return;
+        }
         // Cancellation settles asynchronously: the close completes from the
         // job's onDone, never from a synchronous running() check.
         state.pendingClose = true;
         state.exportRunner.cancel();
-      },
-    );
+      })
+      .catch((err) => {
+        log(`close guard dialog failed: ${errorMessage(err)}`);
+      })
+      .finally(() => {
+        state.closePromptOpen = false;
+      });
   });
 }
 
@@ -327,7 +339,7 @@ async function loadUi(state) {
 
 // The window is the app: closing it quits. A still-running export delays the
 // quit until its job has settled and cleaned up after itself.
-function handleWindowAllClosed(state) {
+export function handleWindowAllClosed(state) {
   if (state.exportRunner && state.exportRunner.running()) {
     state.pendingClose = true;
     state.exportRunner.cancel();

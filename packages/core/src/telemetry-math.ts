@@ -54,8 +54,6 @@ type FramePosition = Pick<FrameData, 'fix' | 'alt'>;
 
 type FixSample = TelemetrySample & { fix: LatLon };
 
-type FixRef = FixSample & { index: number };
-
 const MAX_INTERPOLATION_GAP_S = 3;
 const SPEED_SMOOTHING_SPAN = 5;
 const HEADING_MIN_MOVE_M = 1.5;
@@ -66,14 +64,6 @@ const HEADING_SMOOTHING_SPAN = 4;
 
 function isFixSample(sample: TelemetrySample): sample is FixSample {
   return sample.fix !== null;
-}
-
-function fixRefs(samples: TelemetrySample[]): FixRef[] {
-  const refs: FixRef[] = [];
-  samples.forEach((sample, index) => {
-    if (isFixSample(sample)) refs.push({ ...sample, index });
-  });
-  return refs;
 }
 
 function altitudeOf(sample: TelemetrySample): number | null {
@@ -158,7 +148,7 @@ function nearestSampleIndex(samples: TelemetrySample[], t: number): number {
 }
 
 function computeTrackStats(
-  fixes: FixRef[],
+  fixes: FixSample[],
 ): { bbox: Bbox; trackDistanceM: number } {
   const bbox: Bbox = {
     minLat: Infinity,
@@ -181,10 +171,13 @@ function computeTrackStats(
   return { bbox, trackDistanceM };
 }
 
-function computeSpeedBySample(
-  sampleCount: number,
-  fixes: FixRef[],
-): number[] {
+function computeSpeedByFix(fixes: FixSample[]): number[] {
+  if (fixes.length === 2) {
+    const dt = fixes[1].tSec - fixes[0].tSec;
+    const speed = dt > 0.001 ? haversineM(fixes[0].fix, fixes[1].fix) / dt : 0;
+    return [speed, speed];
+  }
+
   const rawSpeed: (number | null)[] = new Array(fixes.length).fill(null);
   for (let k = 1; k < fixes.length - 1; k++) {
     const dt = fixes[k + 1].tSec - fixes[k - 1].tSec;
@@ -195,8 +188,7 @@ function computeSpeedBySample(
   rawSpeed[0] = rawSpeed[1] ?? 0;
   rawSpeed[fixes.length - 1] = rawSpeed[fixes.length - 2] ?? 0;
 
-  const speedBySample = new Array<number>(sampleCount).fill(0);
-  for (let k = 0; k < fixes.length; k++) {
+  return fixes.map((_, k) => {
     const lo = Math.max(0, k - SPEED_SMOOTHING_SPAN);
     const hi = Math.min(fixes.length - 1, k + SPEED_SMOOTHING_SPAN);
     let sum = 0;
@@ -208,48 +200,45 @@ function computeSpeedBySample(
         count++;
       }
     }
-    speedBySample[fixes[k].index] = count ? sum / count : 0;
-  }
-  return speedBySample;
+    return count ? sum / count : 0;
+  });
 }
 
 interface HeadingResult {
-  headingBySample: number[];
+  headingByFix: number[];
   headingMode: HeadingMode;
 }
 
-function computeHeadingBySample(
-  samples: TelemetrySample[],
-  fixes: FixRef[],
-  speedBySample: number[],
+function computeHeadingByFix(
+  fixes: FixSample[],
+  speedByFix: number[],
 ): HeadingResult {
-  const hasYaw = samples.some((sample) => sample.yawDeg !== null);
+  const hasYaw = fixes.some((fix) => fix.yawDeg !== null);
   const headingMode: HeadingMode = hasYaw ? 'yaw' : 'cog';
 
   const rawHeading: (number | null)[] = new Array(fixes.length).fill(null);
   if (hasYaw) {
     fillYawHeadings(fixes, rawHeading);
   } else {
-    fillCourseOverGroundHeadings(fixes, speedBySample, rawHeading);
+    fillCourseOverGroundHeadings(fixes, speedByFix, rawHeading);
   }
   fillHeadingGaps(rawHeading);
 
   const defaultHeading = rawHeading[0] ?? firstKnownHeading(rawHeading) ?? 0;
-  const headingBySample = new Array<number>(samples.length).fill(defaultHeading);
-  for (let k = 0; k < fixes.length; k++) {
+  const headingByFix = fixes.map((_, k) => {
     const lo = Math.max(0, k - HEADING_SMOOTHING_SPAN);
     const hi = Math.min(fixes.length - 1, k + HEADING_SMOOTHING_SPAN);
     const window: number[] = [];
     for (let j = lo; j <= hi; j++) {
       window.push(rawHeading[j] ?? defaultHeading);
     }
-    headingBySample[fixes[k].index] = circularMeanDeg(window);
-  }
-  return { headingBySample, headingMode };
+    return circularMeanDeg(window);
+  });
+  return { headingByFix, headingMode };
 }
 
 function fillYawHeadings(
-  fixes: FixRef[],
+  fixes: FixSample[],
   rawHeading: (number | null)[],
 ): void {
   for (let k = 0; k < fixes.length; k++) {
@@ -259,13 +248,13 @@ function fillYawHeadings(
 }
 
 function fillCourseOverGroundHeadings(
-  fixes: FixRef[],
-  speedBySample: number[],
+  fixes: FixSample[],
+  speedByFix: number[],
   rawHeading: (number | null)[],
 ): void {
   for (let k = 0; k < fixes.length; k++) {
     const tk = fixes[k].tSec;
-    if ((speedBySample[fixes[k].index] ?? 0) < HEADING_MIN_SPEED_MPS) continue;
+    if ((speedByFix[k] ?? 0) < HEADING_MIN_SPEED_MPS) continue;
     let ka = k;
     let kb = k;
     let displacement = 0;
@@ -304,21 +293,23 @@ function firstKnownHeading(rawHeading: (number | null)[]): number | null {
 
 function buildFrameData(
   samples: TelemetrySample[],
+  fixes: FixSample[],
   frames: number,
   fpsValue: number,
-  speedBySample: number[],
-  headingBySample: number[],
+  speedByFix: number[],
+  headingByFix: number[],
 ): FrameData[] {
   const frameData: FrameData[] = [];
   for (let frame = 0; frame < frames; frame++) {
     const t = timeAt(frame, fpsValue);
     const pos = positionAt(samples, t);
-    const si = nearestSampleIndex(samples, t);
+    // Look up the nearest valid fix so mid-flight no-lock cues do not zero speed or reset heading.
+    const fi = nearestSampleIndex(fixes, t);
     frameData.push({
       fix: pos.fix,
       alt: pos.alt,
-      speed: Math.round(speedBySample[si] * 10) / 10,
-      headingDeg: Math.round(headingBySample[si] * 10) / 10,
+      speed: Math.round(speedByFix[fi] * 10) / 10,
+      headingDeg: Math.round(headingByFix[fi] * 10) / 10,
     });
   }
   return frameData;
@@ -345,23 +336,20 @@ export function computeTelemetry(
   timing: { frames: number; fpsValue: number },
 ): Telemetry {
   const { samples, source, method, noLock } = loaded;
-  const fixes = fixRefs(samples);
+  const fixes = samples.filter(isFixSample);
   if (fixes.length < 2) throw new Error('telemetry has fewer than 2 GPS fixes');
 
   const { bbox, trackDistanceM } = computeTrackStats(fixes);
-  const speedBySample = computeSpeedBySample(samples.length, fixes);
-  const { headingBySample, headingMode } = computeHeadingBySample(
-    samples,
-    fixes,
-    speedBySample,
-  );
+  const speedByFix = computeSpeedByFix(fixes);
+  const { headingByFix, headingMode } = computeHeadingByFix(fixes, speedByFix);
 
   const frameData = buildFrameData(
     samples,
+    fixes,
     timing.frames,
     timing.fpsValue,
-    speedBySample,
-    headingBySample,
+    speedByFix,
+    headingByFix,
   );
   bridgeMissingFramePositions(frameData);
 

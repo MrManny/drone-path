@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { ArrowLeftFromLine, ArrowRightFromLine, X } from 'lucide-react';
@@ -9,7 +9,7 @@ import { ArrowLeftFromLine, ArrowRightFromLine, X } from 'lucide-react';
 import { formatLoopReadout, formatTime, formatTimeReadout, timelineTicks } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 import type { LoopState } from '../lib/loop.js';
-import { clampHandleFrame, frameAtPointer, hasLoop, resolveLoop } from '../lib/loop.js';
+import { frameAtPointer, hasLoop, resolveLoop } from '../lib/loop.js';
 import { Filmstrip } from './Filmstrip.js';
 
 interface TimelinePanelProps {
@@ -43,6 +43,21 @@ export function TimelinePanel({
 }: TimelinePanelProps) {
   const t = useTranslation();
   const trackRef = useRef<HTMLDivElement>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  const setLoopFrameRef = useRef(setLoopFrame);
+  const maxFrameRef = useRef(maxFrame);
+
+  useEffect(() => {
+    setLoopFrameRef.current = setLoopFrame;
+    maxFrameRef.current = maxFrame;
+  });
+
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+
+  useEffect(() => {
+    if (disabled) dragCleanupRef.current?.();
+  }, [disabled]);
+
   const bandPct = (i: number): number => (maxFrame > 0 ? (i / maxFrame) * 100 : 0);
   const loopPoints = resolveLoop(loop, maxFrame);
   const loopReadout = formatLoopReadout(loop, fps, maxFrame, t);
@@ -60,20 +75,24 @@ export function TimelinePanel({
   // enhancement of the I/O keys and the in/out-point buttons, which stay the
   // keyboard path (documented in docs/user/keyboard-shortcuts.md).
   const startDrag = (which: 'in' | 'out'): void => {
+    dragCleanupRef.current?.();
     const track = trackRef.current;
-    if (!track) return;
+    if (!track || disabled) return;
     const move = (ev: PointerEvent): void => {
-      const frame = frameAtPointer(ev.clientX, track.getBoundingClientRect(), maxFrame);
-      setLoopFrame(which, clampHandleFrame(which, frame, loop, maxFrame));
+      const frame = frameAtPointer(ev.clientX, track.getBoundingClientRect(), maxFrameRef.current);
+      // Forward the raw pointer frame so setLoopFrame clamps against live loop state.
+      setLoopFrameRef.current(which, frame);
     };
-    const up = (): void => {
+    const stop = (): void => {
       window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      if (dragCleanupRef.current === stop) dragCleanupRef.current = null;
     };
+    dragCleanupRef.current = stop;
     window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
   };
 
   return (
