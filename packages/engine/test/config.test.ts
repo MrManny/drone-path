@@ -100,16 +100,38 @@ describe('normalizeOverrides', () => {
     );
   });
 
-  it('skips null and undefined values', () => {
-    expect(normalizeOverrides({ outDir: null, zoom: undefined }, 'test')).toEqual({});
+  it('skips undefined values', () => {
+    expect(normalizeOverrides({ outDir: undefined, zoom: undefined }, 'test')).toEqual({});
   });
 
-  it('carries an explicit null for keys whose default is null (a reset to default)', () => {
-    expect(normalizeOverrides({ trailColor: null, browser: null }, 'test')).toEqual({
-      trailColor: null,
-      browser: null,
-    });
-    expect(normalizeOverrides({ zoom: null }, 'test')).toEqual({});
+  it.each(['outDir', 'trailColor', 'browser', 'ffmpeg', 'ffprobe', 'trackOut'] as const)(
+    'normalizes null and empty string to null for nullable key %s',
+    (key) => {
+      expect(normalizeOverrides({ [key]: null }, 'test')).toEqual({ [key]: null });
+      expect(normalizeOverrides({ [key]: '' }, 'test')).toEqual({ [key]: null });
+    },
+  );
+
+  it.each([
+    ['number key zoom', { zoom: null }, 'invalid number for test: zoom: null'],
+    ['string key outSuffix', { outSuffix: null }, 'invalid value for test: outSuffix: null'],
+    [
+      'enum key style',
+      { style: null },
+      'invalid value for test: style: null (use satellite | topo)',
+    ],
+    ['boolean key skipExisting', { skipExisting: null }, 'invalid value for test: skipExisting: null'],
+  ] as Array<[string, Record<string, unknown>, string]>)(
+    'rejects null for non-nullable %s',
+    (_label, raw, message) => {
+      expect(() => normalizeOverrides(raw, 'test')).toThrow(message);
+    },
+  );
+
+  it('rejects non-string values for outDir', () => {
+    expect(() => normalizeOverrides({ outDir: 42 }, 'test')).toThrow(
+      'invalid value for test: outDir: 42',
+    );
   });
 
   it('normalizes the track-out path as a nullable string', () => {
@@ -547,6 +569,17 @@ describe('parseSettingsPatch', () => {
       'invalid value for test: trailColor:  neon  (use hex like #e63946 or #e63946cc)',
     );
   });
+
+  it.each([
+    ['zoom', 'invalid number for test: zoom: null'],
+    ['style', 'invalid value for test: style: null (use satellite | topo)'],
+    ['codec', 'invalid value for test: codec: null (use h264 | h265)'],
+  ] as Array<[keyof typeof complete, string]>)(
+    'rejects null for non-nullable key %s with a type error instead of missing-key',
+    (key, message) => {
+      expect(() => parseSettingsPatch({ ...complete, [key]: null }, 'test')).toThrow(message);
+    },
+  );
 
   it.each([
     ['an index-keyed array', ['heading'], 'unknown key 0 in test: hud'],

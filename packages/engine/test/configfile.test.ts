@@ -123,6 +123,16 @@ describe('resolveConfig', () => {
     expect(config.outDir).toBe(path.join(root, 'out'));
   });
 
+  it('respects outDir: null in the config file instead of falling back to out', () => {
+    const root = tmpDir();
+    const file = path.join(root, '.dronepath.json');
+    fs.writeFileSync(file, JSON.stringify({ outDir: null }));
+    expect(resolveConfig({ configPath: file, cwd: root }).config.outDir).toBeNull();
+    expect(
+      resolveConfig({ cli: { outDir: 'custom' }, configPath: file, cwd: root }).config.outDir,
+    ).toBe(path.join(root, 'custom'));
+  });
+
   it('fills the per-user tile cache when no layer sets one', () => {
     const { config } = resolveConfig({ configPath: null, cwd: tmpDir() });
     expect(config.tileCache).toBe(defaultTileCache());

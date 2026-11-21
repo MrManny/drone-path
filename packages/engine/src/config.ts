@@ -518,7 +518,6 @@ export function normalizeOverrides(
     const normalize = OVERRIDE_NORMALIZERS[key as keyof RenderConfig];
     const value = raw[key];
     if (value === undefined) continue;
-    if (value === null && DEFAULT_CONFIG[key as keyof RenderConfig] !== null) continue;
     Object.assign(out, normalize(value, `${origin}: ${key}`));
   }
   // Both spellings at once is ambiguous and rejected; the alias alone warns
