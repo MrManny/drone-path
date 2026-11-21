@@ -9,6 +9,10 @@ Development instructions; the user manual lives in [docs/user/](docs/user/README
 - Node.js 24 or 26, npm. Use `npm ci` at the root for the shared lockfile.
 - Run `npm run lint`, `npm test`, and `npm run build` at the root to
   check the whole repository.
+- When updating an existing checkout from before the workspace layout, remove
+  any leftover root build outputs (`dist/`, `dist-electron/`, `ui/`, and
+  `src/desktop-i18n/generated/`, plus empty `src/` if present) before running
+  `npm run lint`.
 
 When adding a dependency, pin it to a patch-level range (for example,
 `~1.2.3`). New dependencies must have no high or critical security issues.

@@ -49,16 +49,6 @@ export default tseslint.config(
       'apps/desktop/ui/lib/manual/generated/',
       'apps/desktop/src/desktop-i18n/generated/',
       'apps/desktop/ui/public/',
-      // Pre-workspace output can remain after updating an existing checkout.
-      'dist/',
-      'dist-electron/',
-      'ui/.next/',
-      'ui/out/',
-      'ui/next-env.d.ts',
-      'ui/lib/buildinfo/generated/',
-      'ui/lib/manual/generated/',
-      'src/desktop-i18n/generated/',
-      'ui/public/',
       // Agent helper scripts are not linted on purpose (accepted risk).
       'scripts/start-work.mjs',
       'scripts/safe-push.mjs',
