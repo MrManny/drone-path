@@ -271,4 +271,53 @@ describe('segmentFlightShots', () => {
     expect(shots).toHaveLength(1);
     expect(shots[0].type).toBe('takeoff');
   });
+
+  it('does not bleed an exposure step at a window boundary into the following stable segment', () => {
+    const records = makeLinearTrack(8, 1, (t) => ({
+      tSec: t,
+      ...offsetPoint(t <= 3 ? 0 : (t - 3) * 4, 0),
+      altRel: 25,
+      yawDeg: 0,
+      iso: t >= 3 ? 400 : 100,
+      shutterTime: 0.01,
+      whiteBalanceCctK: 5500,
+    }));
+    const shots = segmentFlightShots(records);
+    expect(shots.map((s) => [s.type, s.exposureStable])).toEqual([
+      ['hover', false],
+      ['smooth-glide', true],
+    ]);
+  });
+
+  it('does not classify > 3 s GPS gaps as hover', () => {
+    const records = makeLinearTrack(12, 1, (t) => {
+      const hasFix = t <= 3 || t >= 8;
+      return {
+        ...(hasFix ? offsetPoint(0, 0) : { lat: null, lng: null }),
+        altRel: 30,
+        yawDeg: 0,
+      };
+    });
+    const shots = segmentFlightShots(records);
+    expect(shots.map((s) => s.type)).toEqual(['hover', 'reposition', 'hover']);
+  });
+
+  it.each([
+    { name: 'clockwise 350 -> 10 wrap', startDeg: 340, rateDegPerSec: 15, expectedType: 'orbit' as const },
+    { name: 'counter-clockwise 10 -> 350 wrap', startDeg: 25, rateDegPerSec: -15, expectedType: 'orbit' as const },
+    { name: 'gentle 358 -> 2 glide wrap', startDeg: 358, rateDegPerSec: 1, expectedType: 'smooth-glide' as const },
+  ])('handles 0/360 yaw wrap-around for $name', ({ startDeg, rateDegPerSec, expectedType }) => {
+    const records = makeLinearTrack(6, 10, (t) => {
+      const yawDeg = (((startDeg + rateDegPerSec * t) % 360) + 360) % 360;
+      return {
+        ...offsetPoint(t * 4, 0),
+        altRel: 30,
+        yawDeg,
+      };
+    });
+    const shots = segmentFlightShots(records);
+    expect(shots).toHaveLength(1);
+    expect(shots[0].type).toBe(expectedType);
+    expect(shots[0].meanYawRateDegPerSec).toBeCloseTo(rateDegPerSec, 1);
+  });
 });

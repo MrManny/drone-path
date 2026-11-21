@@ -29,6 +29,7 @@ interface AnalysisWindow {
   startSec: number;
   endSec: number;
   centerSec: number;
+  hasFix: boolean;
   speedMps: number;
   signedAccelMps2: number;
   yawRateDegPerSec: number;
@@ -227,8 +228,12 @@ function isWindowExposureStable(
 ): boolean {
   const firstIdx = lowerBoundTime(records, wStart);
   const slice: TrackRecord[] = [];
-  // Include the immediately preceding sample so 1 Hz inter-cue jumps are caught in the window they occur.
-  if (firstIdx > 0 && wStart - records[firstIdx - 1].tSec <= MAX_INTERPOLATION_GAP_S) {
+  // Include the preceding sample only when no record sits on wStart so an exposure step before wStart does not bleed into the next window.
+  if (
+    firstIdx > 0 &&
+    (firstIdx >= records.length || records[firstIdx].tSec > wStart) &&
+    wStart - records[firstIdx - 1].tSec <= MAX_INTERPOLATION_GAP_S
+  ) {
     slice.push(records[firstIdx - 1]);
   }
   for (let i = firstIdx; i < records.length && records[i].tSec <= wEnd; i++) {
@@ -256,7 +261,7 @@ function classifyWindow(
   minT: number,
   maxT: number,
 ): ShotType {
-  const { speedMps, signedAccelMps2, yawRateDegPerSec, signedGimbalPitchRate, altRateMps, startSec, endSec } = window;
+  const { hasFix, speedMps, signedAccelMps2, yawRateDegPerSec, signedGimbalPitchRate, altRateMps, startSec, endSec } = window;
   const absAccel = Math.abs(signedAccelMps2);
   const absYawRate = Math.abs(yawRateDegPerSec);
   const absGimbalPitchRate = signedGimbalPitchRate === null ? null : Math.abs(signedGimbalPitchRate);
@@ -268,7 +273,7 @@ function classifyWindow(
   if (maxT - startSec <= TERMINAL_PHASE_WINDOW_S && altRateMps !== null && altRateMps <= -0.8) {
     return 'landing';
   }
-  if (speedMps < 0.8 && absAltRate < 0.5 && (absGimbalPitchRate === null || absGimbalPitchRate < 3)) {
+  if (hasFix && speedMps < 0.8 && absAltRate < 0.5 && (absGimbalPitchRate === null || absGimbalPitchRate < 3)) {
     return 'hover';
   }
   if (absGimbalPitchRate !== null && absGimbalPitchRate >= 4 && absAccel < 3) {
@@ -292,6 +297,7 @@ function buildWindows(records: readonly TrackRecord[], minT: number, maxT: numbe
     const fixEnd = sampleFixAt(records, endSec);
 
     let speedMps = 0;
+    const hasFix = Boolean(fixStart && fixEnd);
     if (fixStart && fixEnd) {
       const distM = fixMid
         ? haversineM(fixStart, fixMid) + haversineM(fixMid, fixEnd)
@@ -326,6 +332,7 @@ function buildWindows(records: readonly TrackRecord[], minT: number, maxT: numbe
       startSec,
       endSec,
       centerSec: (startSec + endSec) / 2,
+      hasFix,
       speedMps,
       directYawRate,
       cogHeading,
@@ -360,6 +367,7 @@ function buildWindows(records: readonly TrackRecord[], minT: number, maxT: numbe
       startSec: w.startSec,
       endSec: w.endSec,
       centerSec: w.centerSec,
+      hasFix: w.hasFix,
       speedMps: w.speedMps,
       signedAccelMps2,
       yawRateDegPerSec,
