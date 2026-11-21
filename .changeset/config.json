@@ -3,7 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [
-    ["drone-path-core", "drone-path-engine", "drone-path", "drone-path-desktop"]
+    ["drone-path-core", "drone-path-archive", "drone-path-engine", "drone-path", "drone-path-desktop"]
   ],
   "linked": [],
   "access": "public",
