@@ -5,22 +5,21 @@ description: Launch, drive and instrument the Drone Path Electron app from an ag
 
 # Automating the Electron App
 
-Re-check `package.json` and `app/main.mjs` before relying on exact flags.
+Re-check `apps/desktop/package.json` and `apps/desktop/app/main.mjs` before relying on exact flags.
 
 ## How the app launches
 
-- **Production:** `npm run build`, then `npm run app` (`electron
-  app/main.mjs`). `npm ci` runs `build` via `prepare`, so a fresh checkout is
+- **Production:** `npm run build`, then `npm run app` (starts Electron from `apps/desktop`). `npm ci` runs `build` via `prepare`, so a fresh checkout is
   launchable as-is.
 - **Dev:** `npm run app:dev` serves the UI at `http://localhost:3210` and
   launches Electron with `--dev-url http://localhost:3210` once the server
   responds (see AGENTS.md for the webpack build note).
-- The shell (`app/main.mjs`) is thin: one window, a privileged `app://bundle`
-  scheme serving `ui/out` plus media and tiles, and three IPC handlers
+- The shell (`apps/desktop/app/main.mjs`) is thin: one window, a privileged `app://bundle`
+  scheme serving `apps/desktop/ui/out` plus media and tiles, and three IPC handlers
   (`dronepath:pick`, `-:session`, `-:settings`) bridged through
-  `app/preload.cjs` as `window.dronepath`.
+  `apps/desktop/app/preload.cjs` as `window.dronepath`.
 - **Tool check at startup:** ffmpeg/ffprobe resolve via
-  `src/ffmpeg-tools.ts` (`resolveFfmpegTools()`: config override, embedded
+  `packages/core/src/ffmpeg-tools.ts` (`resolveFfmpegTools()`: config override, embedded
   binaries, then PATH); without a runnable pair the app dies at startup
   behind a native error box. Check first (`where.exe ffmpeg` /
   `where.exe ffprobe` or the bundled pair).
@@ -28,14 +27,14 @@ Re-check `package.json` and `app/main.mjs` before relying on exact flags.
 ## Recommended: Playwright's Electron launcher
 
 `playwright-core` (a runtime dependency for headless rendering in
-`src/render.ts`) exports the `_electron` launcher — **zero new dependencies**:
+`packages/engine/src/render.ts`) exports the `_electron` launcher — **zero new dependencies**:
 
 ```js
 import { _electron } from 'playwright-core';
 
 const app = await _electron.launch({
   executablePath: 'node_modules/electron/dist/electron.exe', // explicit is safest on Windows
-  args: ['app/main.mjs'], // add '--dev-url', 'http://localhost:3210' for dev mode
+  args: ['apps/desktop/app/main.mjs'], // add '--dev-url', 'http://localhost:3210' for dev mode
   cwd: 'E:/DJI_001/scripts/neo2-flightpath', // repo root
   // Harness shells may export ELECTRON_RUN_AS_NODE; see the notes below.
   env: Object.fromEntries(
@@ -63,13 +62,13 @@ window-level screenshot.
 
 ## The one real obstacle: the native file dialog
 
-`pickRecording()` opens a native `dialog.showOpenDialog` (`app/main.mjs`),
+`pickRecording()` opens a native `dialog.showOpenDialog` (`apps/desktop/app/main.mjs`),
 which Playwright cannot automate (`page.on('dialog')` handles only JS
 dialogs). Two solutions:
 
 1. **Monkey-patch, no code change:** patch `dialog.showOpenDialog` via
    `app.evaluate` to return a fixed path (as above). Works because
-   `app/main.mjs` resolves the method at call time on the shared `dialog`
+   `apps/desktop/app/main.mjs` resolves the method at call time on the shared `dialog`
    object.
 2. **Cleaner long-term (small future change):** a flag such as `--open <path>`
    (or an env var) so `pickFile` skips the dialog when a path is supplied —
@@ -82,7 +81,7 @@ recordings in sequence.
 ## Fallback: raw CDP
 
 If the app is already running (or the Playwright driver misbehaves), launch
-with `electron app/main.mjs --remote-debugging-port=9223` and attach with
+with `npm run app -- --remote-debugging-port=9223` and attach with
 `chromium.connectOverCDP('http://127.0.0.1:9223')` from `playwright-core`.
 Same page driving, less convenient for main-process access. The IPC trust
 check accepts both `app://bundle/...` frames and the dev URL, so the preload
@@ -120,7 +119,7 @@ seconds per lane: give generous timeouts.
   (`taskkill /PID <pid> /T /F` or `Stop-Process -Name electron`); a killed
   `npm`/`pwsh` wrapper can orphan `electron.exe`.
 - **Dev vs. prod:** iterate in dev (`--dev-url`, hot reload); verify in
-  production (`ui/out`) — deterministic and what users run.
+  production (`apps/desktop/ui/out`) — deterministic and what users run.
 - **Missing electron binary:** `node_modules/electron` can exist without
   `dist/electron.exe` (some environments skip the postinstall download). Run
   `node install.js` inside the package to fetch it; the cache in

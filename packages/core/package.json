@@ -1,0 +1,37 @@
+{
+  "name": "drone-path-core",
+  "version": "1.0.0-rc1",
+  "description": "Extract drone telemetry from DJI CAM-meta video streams and SRT sidecars.",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "author": "Manuel Warum",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrManny/drone-path.git",
+    "directory": "packages/core"
+  },
+  "dependencies": {
+    "zod": "~4.6.7"
+  },
+  "optionalDependencies": {
+    "ffmpeg-ffprobe-static": "~7.1.0-rc.1"
+  }
+}

@@ -1,6 +1,3 @@
-> [!NOTE]
-> Head's up! This repo will be restructured as a monorepo in the near future.
-
 # Drone Path
 
 This handy little tool renders flight-path map videos from DJI drone
@@ -20,10 +17,6 @@ recording and watch its flight path on the map in sync as you play.
 ## Quick start
 
 ```sh
-# from GitHub
-npx github:MrManny/drone-path "my-flight.mp4"
-
-# from npm
 npx drone-path "my-flight.mp4"
 
 # topographic map, altitude + speed HUD
@@ -77,6 +70,60 @@ shared timeline.*
 
 If you want or need specific features, feel free to open an issue in this
 repository's issue tracker.
+
+## Repository layout
+
+Run `npm ci`, `npm run lint`, `npm test`, and `npm run build` from the
+repository root. The workspaces share a single lockfile.
+
+| Workspace | Owns |
+| --- | --- |
+| [`packages/core`](packages/core/) | Telemetry extraction, frame ranges, and tool discovery |
+| [`packages/engine`](packages/engine/) | Configuration, rendering, and map tiles |
+| [`packages/cli`](packages/cli/) | The `drone-path` command and CLI API |
+| [`packages/tooling`](packages/tooling/) | Manual, schema, build identity, and localization generators |
+| [`apps/desktop`](apps/desktop/) | Electron shell, Next.js UI, and desktop packaging |
+
+To run the CLI from a checkout after `npm ci`:
+
+```sh
+npm run build:cli
+node packages/cli/bin/drone-path.mjs "my-flight.mp4"
+```
+
+## Releasing
+
+`npm run changeset:version` folds pending changesets and updates the lockfile.
+The three npm packages and the desktop app share one version. Update the root
+changelog in the release PR and use the matching `v<version>` GitHub release tag.
+From an installed, built checkout, preview the release without publishing with
+`node scripts/release-npm.mjs dry-run v<version>`.
+
+A published GitHub release runs the tag and quality checks, then publishes
+`drone-path-core`, `drone-path-engine`, and `drone-path` to npm in that order.
+Independent jobs attach the desktop installers, AppImage, and auto-update
+metadata to the same release. GitHub prereleases skip this workflow.
+
+Reserve the release's exact package versions for GitHub Actions. To publish
+the first release, set the repository's `NPM_TOKEN` secret to a granular token
+authorized to create the new public package names and publish all packages in
+the release. The workflow uses `--provenance` with the token.
+
+For a manual bootstrap, use npm credentials that can create the new names.
+Publish a distinct, earlier prerelease for each new name under a non-default
+dist-tag such as `bootstrap` (`npm publish --workspace <name> --access public --tag bootstrap`).
+npm package versions are immutable, so the workflow needs the exact release
+versions to be unused.
+
+Once each package exists, configure its
+[trusted publisher](https://docs.npmjs.com/trusted-publishers/) on npm
+with owner `MrManny`, repository `drone-path`, workflow `release.yml`, and
+permission for direct publishing. Remove `NPM_TOKEN` when all three are
+configured so subsequent releases use token-free trusted publishing.
+
+After a partial publish, check the package versions on npm and re-run failed
+jobs in GitHub Actions. Each package has its own job, so completed package jobs
+keep their successful result and dependent jobs resume in order.
 
 ## License
 

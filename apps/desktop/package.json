@@ -1,0 +1,47 @@
+{
+  "name": "drone-path-desktop",
+  "version": "1.0.0-rc1",
+  "private": true,
+  "type": "module",
+  "main": "app/main.mjs",
+  "description": "Desktop flight-path viewer and overlay renderer for DJI drone recordings.",
+  "author": "Manuel Warum",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build-desktop-catalogs.mjs && tsc -p tsconfig.json",
+    "build:ui": "next build ui --webpack",
+    "start": "electron app/main.mjs",
+    "dev": "concurrently -k \"next dev ui --webpack -p 3210\" \"wait-on http://127.0.0.1:3210 && electron app/main.mjs --dev-url http://localhost:3210\"",
+    "pack": "electron-builder --publish never"
+  },
+  "dependencies": {
+    "drone-path-core": "~1.0.0-rc1",
+    "drone-path-engine": "~1.0.0-rc1",
+    "electron-updater": "~6.8.11",
+    "zod": "~4.6.7"
+  },
+  "optionalDependencies": {
+    "ffmpeg-ffprobe-static": "~7.1.0-rc.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "~16.3.3",
+    "@testing-library/user-event": "~14.6.10",
+    "@types/leaflet": "~1.9.22",
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "concurrently": "~10.0.7",
+    "drone-path-tooling": "~1.0.0-rc1",
+    "electron": "~45.3.1",
+    "electron-builder": "~26.18.0",
+    "jsdom": "~31.0.1",
+    "leaflet": "~1.9.4",
+    "lucide-react": "~1.73.0",
+    "next": "~16.4.6",
+    "react": "~19.3.1",
+    "react-dom": "~19.3.1",
+    "wait-on": "~9.5.1"
+  }
+}

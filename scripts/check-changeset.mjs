@@ -2,9 +2,9 @@ import { pathToFileURL } from 'node:url';
 
 // The gate imports the TypeScript source directly: Node >= 24 strips the
 // types, so CI needs no build and the gate cannot test stale compiled output.
-import { evaluateGate, prNeedsArtifact } from '../src/changeset-gate.ts';
+import { evaluateGate, prNeedsArtifact } from '../packages/tooling/src/changeset-gate.ts';
 import { execOrThrow } from './lib/exec.mjs';
-import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
+import { ERROR_PREFIX, errorMessage } from '../packages/core/src/errors.ts';
 
 export function listChangedFiles(baseSha, headSha) {
   // -z keeps non-ASCII and space-bearing paths unquoted; ACMR drops pure

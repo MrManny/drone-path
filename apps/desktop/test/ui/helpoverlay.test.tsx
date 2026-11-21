@@ -1,0 +1,158 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { HelpOverlay } from '../../ui/components/HelpOverlay.js';
+import { MANUAL } from '../../ui/lib/manual/generated/manual.js';
+import type { ManualBundle } from 'drone-path-tooling/manual/model';
+
+afterEach(cleanup);
+
+const BUNDLE: ManualBundle = {
+  nav: [
+    { slug: 'index', label: 'User manual' },
+    { slug: 'shortcuts', label: 'Keyboard shortcuts' },
+  ],
+  pages: {
+    index: {
+      slug: 'index',
+      title: 'User manual',
+      headings: [{ id: 'user-manual', text: 'User manual', level: 1 }],
+      html:
+        '<h1 id="user-manual">User manual</h1><p>See ' +
+        '<a href="#manual/shortcuts" data-manual-slug="shortcuts">Keyboard shortcuts</a>.</p>',
+    },
+    shortcuts: {
+      slug: 'shortcuts',
+      title: 'Keyboard shortcuts',
+      headings: [
+        { id: 'keyboard-shortcuts', text: 'Keyboard shortcuts', level: 1 },
+        { id: 'playback', text: 'Playback', level: 2 },
+      ],
+      html:
+        '<h1 id="keyboard-shortcuts">Keyboard shortcuts</h1>' +
+        '<h2 id="playback">Playback</h2><p>Space plays.</p>' +
+        '<p><a href="#manual/shortcuts" data-manual-slug="shortcuts" data-manual-anchor="playback">jump</a></p>' +
+        '<p><a href="https://example.com" target="_blank" rel="noopener noreferrer">web</a></p>',
+    },
+  },
+};
+
+const nav = () => screen.getByRole('navigation', { name: 'Manual pages' });
+
+function renderHelp(onClose = vi.fn()) {
+  render(<HelpOverlay bundle={BUNDLE} onClose={onClose} />);
+  return onClose;
+}
+
+describe('HelpOverlay', () => {
+  it('opens on the manual home with the navigation', () => {
+    renderHelp();
+    expect(screen.getByRole('dialog', { name: 'Help' })).toBeTruthy();
+    expect(nav()).toBeTruthy();
+    expect(within(nav()).getByRole('link', { name: 'User manual' }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(screen.getByText('See', { exact: false })).toBeTruthy();
+  });
+
+  it('lists the compiled manual pages once without an in-page index list', () => {
+    render(<HelpOverlay bundle={MANUAL} onClose={vi.fn()} />);
+    expect(document.querySelector('.help-content ol')).toBeNull();
+    expect(screen.getAllByRole('link', { name: 'Keyboard shortcuts' })).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'CLI usage' })).toHaveLength(1);
+  });
+
+  it('moves to another page from the navigation', async () => {
+    renderHelp();
+    await userEvent.click(within(nav()).getByRole('link', { name: 'Keyboard shortcuts' }));
+    expect(screen.getByText('Space plays.')).toBeTruthy();
+    expect(
+      within(nav()).getByRole('link', { name: 'Keyboard shortcuts' }).getAttribute('aria-current'),
+    ).toBe('page');
+    expect(within(nav()).getByRole('link', { name: 'User manual' }).getAttribute('aria-current')).toBeNull();
+  });
+
+  it('follows internal content links in place', async () => {
+    renderHelp();
+    await userEvent.click(within(nav()).getByRole('link', { name: 'Keyboard shortcuts' }));
+    await userEvent.click(screen.getByRole('link', { name: 'jump' }));
+    expect(screen.getByText('Space plays.')).toBeTruthy();
+  });
+
+  it('scrolls to an anchor target after navigating', async () => {
+    Element.prototype.scrollIntoView = () => {};
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderHelp();
+    await userEvent.click(within(nav()).getByRole('link', { name: 'Keyboard shortcuts' }));
+    await userEvent.click(screen.getByRole('link', { name: 'jump' }));
+    expect(scroll.mock.instances).toContain(screen.getByText('Playback'));
+    scroll.mockRestore();
+  });
+
+  it('leaves web links to the shell', async () => {
+    renderHelp();
+    await userEvent.click(within(nav()).getByRole('link', { name: 'Keyboard shortcuts' }));
+    const web = screen.getByRole('link', { name: 'web' });
+    expect(web.getAttribute('target')).toBe('_blank');
+    expect(web.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(web.hasAttribute('data-manual-slug')).toBe(false);
+  });
+
+  it('closes through the header close', async () => {
+    const onClose = renderHelp();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes through the backdrop', () => {
+    const onClose = renderHelp();
+    fireEvent.click(screen.getByRole('dialog', { name: 'Help' }).parentElement as HTMLElement);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps clicks inside the panel from closing it', () => {
+    const onClose = renderHelp();
+    fireEvent.click(screen.getByRole('dialog', { name: 'Help' }));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('HelpOverlay focus management (#238)', () => {
+  it('takes focus on open and restores it to the opener on close', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const view = render(<HelpOverlay bundle={BUNDLE} onClose={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'Help' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(dialog);
+    view.unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it('wraps Tab inside the overlay', () => {
+    renderHelp();
+    const dialog = screen.getByRole('dialog', { name: 'Help' });
+    const controls = [
+      ...dialog.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('button, a[href]'),
+    ];
+    const last = controls[controls.length - 1];
+    last.focus();
+    expect(fireEvent.keyDown(last, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(controls[0]);
+  });
+
+  it('wraps Shift+Tab inside the overlay', () => {
+    renderHelp();
+    const dialog = screen.getByRole('dialog', { name: 'Help' });
+    const controls = [
+      ...dialog.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('button, a[href]'),
+    ];
+    controls[0].focus();
+    expect(fireEvent.keyDown(controls[0], { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(controls[controls.length - 1]);
+  });
+});

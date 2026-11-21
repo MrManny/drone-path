@@ -10,7 +10,7 @@
 import { pathToFileURL } from 'node:url';
 import { setIssueStatus } from './lib/project.mjs';
 import { execOrThrow } from './lib/exec.mjs';
-import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
+import { ERROR_PREFIX, errorMessage } from '../packages/core/src/errors.ts';
 
 function runStartWork(argv) {
   const branch = argv[0];

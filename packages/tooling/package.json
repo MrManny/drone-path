@@ -1,0 +1,24 @@
+{
+  "name": "drone-path-tooling",
+  "version": "1.0.0-rc1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./manual/model": {
+      "types": "./dist/manual/model.d.ts",
+      "default": "./dist/manual/model.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:manual": "node dist/manual/build.js",
+    "build:info": "node dist/buildinfo.js",
+    "docs:reference": "node dist/manual/reference.js",
+    "docs:schema": "node dist/telemetry-json-schema.js"
+  },
+  "dependencies": {
+    "drone-path-core": "~1.0.0-rc1",
+    "drone-path-engine": "~1.0.0-rc1",
+    "marked": "~18.2.0"
+  }
+}

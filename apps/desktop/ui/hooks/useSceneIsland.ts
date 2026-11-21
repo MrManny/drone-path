@@ -1,0 +1,69 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+
+import { bootScene } from 'drone-path-engine/renderer/boot';
+import type { LeafletApi, Scene, SceneData } from 'drone-path-engine/renderer/scene';
+
+export interface SceneIslandOptions {
+  data: SceneData;
+  frame?: number;
+  onScene?: (scene: Scene) => void;
+  /** External chip container (a map-card strip) outside the map image. */
+  hudHostRef?: RefObject<HTMLElement | null>;
+}
+
+export function useSceneIsland({ data, frame, onScene, hudHostRef }: SceneIslandOptions) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<Scene | null>(null);
+  const dataRef = useRef(data);
+  const frameRef = useRef(frame);
+  const onSceneRef = useRef(onScene);
+  const hudHostRefRef = useRef(hudHostRef);
+
+  useEffect(() => {
+    dataRef.current = data;
+    frameRef.current = frame;
+    onSceneRef.current = onScene;
+    hudHostRefRef.current = hudHostRef;
+  });
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let cancelled = false;
+    const observer = new ResizeObserver(() => sceneRef.current?.relayout());
+    observer.observe(host);
+    void (async () => {
+      // Leaflet's UMD build exposes the namespace on `default` while the types
+      // declare named exports only, so the interop shape is asserted here.
+      const { default: L } = (await import('leaflet')) as unknown as {
+        default: LeafletApi;
+      };
+      if (cancelled) return;
+      const created = bootScene(host, dataRef.current, L, {
+        hudHost: hudHostRefRef.current?.current ?? undefined,
+      });
+      sceneRef.current = created;
+      onSceneRef.current?.(created);
+      if (frameRef.current !== undefined) created.setFrame(frameRef.current);
+    })();
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      sceneRef.current?.dispose();
+      sceneRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    sceneRef.current?.update(data);
+  }, [data]);
+
+  useEffect(() => {
+    if (frame !== undefined) sceneRef.current?.setFrame(frame);
+  }, [frame]);
+
+  return hostRef;
+}

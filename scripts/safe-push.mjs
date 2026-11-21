@@ -7,7 +7,7 @@
 // is pushed. No parameters.
 // Part of the agent tooling in scripts/; not shipped in the app or bundle.
 import { pathToFileURL } from 'node:url';
-import { ERROR_PREFIX, errorMessage } from '../src/errors.ts';
+import { ERROR_PREFIX, errorMessage } from '../packages/core/src/errors.ts';
 import { exec, npm } from './lib/exec.mjs';
 
 const steps = [

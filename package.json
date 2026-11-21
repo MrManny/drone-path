@@ -1,101 +1,48 @@
 {
-  "name": "drone-path",
-  "version": "0.13.0",
-  "description": "Render flight-path map overlay videos (exactly the source frame rate and frame count) from DJI drone recordings - telemetry from the embedded CAM-meta (DVTM) stream or the .SRT sidecar.",
+  "version": "1.0.0-rc1",
+  "private": true,
   "type": "module",
-  "main": "app/main.mjs",
-  "bin": {
-    "drone-path": "bin/drone-path.mjs"
-  },
-  "files": [
-    "app",
-    "bin",
-    "dist",
-    "CHANGELOG.md",
-    "README.md",
-    "LICENSE",
-    "THIRD-PARTY-NOTICES.md"
-  ],
   "engines": {
     "node": ">=24"
   },
+  "name": "drone-path-workspace",
+  "workspaces": [
+    "packages/core",
+    "packages/engine",
+    "packages/cli",
+    "apps/desktop",
+    "packages/tooling"
+  ],
   "scripts": {
-    "app": "electron app/main.mjs",
-    "app:dev": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && concurrently -k \"next dev ui --webpack -p 3210\" \"wait-on http://127.0.0.1:3210 && electron app/main.mjs --dev-url http://localhost:3210\"",
-    "app:pack": "electron-builder --publish never",
-    "build": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && npm run build:ui",
-    "build:cli": "node scripts/build-desktop-catalogs.mjs && tsc -p tsconfig.json",
-    "build:info": "npm run build:cli && node dist/buildinfo.js",
-    "build:manual": "npm run build:cli && node dist/manual/build.js",
-    "build:ui": "next build ui --webpack",
-    "docs:reference": "npm run build:cli && node dist/manual/reference.js",
-    "docs:schema": "npm run build:cli && node dist/telemetry-json-schema.js",
+    "app": "npm run start --workspace drone-path-desktop --",
+    "app:dev": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run build --workspace drone-path-desktop && npm run build:manual --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling && npm run dev --workspace drone-path-desktop",
+    "app:pack": "npm run pack --workspace drone-path-desktop --",
+    "build": "npm run build:packages && npm run build:manual --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling && npm run build:ui",
+    "build:shared": "npm run build --workspace drone-path-core && npm run build --workspace drone-path-engine",
+    "build:packages": "npm run build:shared && npm run build --workspace drone-path && npm run build --workspace drone-path-tooling && npm run build --workspace drone-path-desktop",
+    "build:cli": "npm run build:shared && npm run build --workspace drone-path",
+    "build:info": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling",
+    "build:manual": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run build:manual --workspace drone-path-tooling",
+    "build:ui": "npm run build:ui --workspace drone-path-desktop",
+    "docs:reference": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run docs:reference --workspace drone-path-tooling",
+    "docs:schema": "npm run build:shared && npm run build --workspace drone-path-tooling && npm run docs:schema --workspace drone-path-tooling",
     "changeset": "changeset",
     "changeset:version": "changeset version && npm install --package-lock-only",
-    "test": "npm run build:cli && node dist/manual/build.js && node dist/buildinfo.js && npm run typecheck:test && vitest run",
-    "typecheck:test": "tsc --noEmit -p test/tsconfig.json",
+    "test": "npm run build:packages && npm run build:manual --workspace drone-path-tooling && npm run build:info --workspace drone-path-tooling && npm run typecheck:test && vitest run",
+    "typecheck:test": "tsc --noEmit -p test/tsconfig.json && tsc --noEmit -p packages/core/test/tsconfig.json && tsc --noEmit -p packages/engine/test/tsconfig.json && tsc --noEmit -p packages/cli/test/tsconfig.json && tsc --noEmit -p packages/tooling/test/tsconfig.json && tsc --noEmit -p apps/desktop/test/tsconfig.json",
     "lint": "eslint .",
     "prepare": "npm run build"
-  },
-  "keywords": [
-    "dji",
-    "drone",
-    "telemetry",
-    "srt",
-    "cam-meta",
-    "dvtm",
-    "flight-path",
-    "map",
-    "video",
-    "ffmpeg",
-    "leaflet"
-  ],
-  "author": "Manuel Warum",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MrManny/drone-path.git"
-  },
-  "bugs": {
-    "url": "https://github.com/MrManny/drone-path/issues"
-  },
-  "homepage": "https://github.com/MrManny/drone-path#readme",
-  "dependencies": {
-    "commander": "~15.1.0",
-    "electron-updater": "~6.8.11",
-    "leaflet": "~1.9.4",
-    "p-queue": "~10.0.0",
-    "playwright-core": "~1.65.0",
-    "zod": "~4.6.7"
-  },
-  "optionalDependencies": {
-    "ffmpeg-ffprobe-static": "~7.1.0-rc.1"
   },
   "devDependencies": {
     "@changesets/cli": "~3.0.3",
     "@eslint/js": "~10.0.1",
     "@next/eslint-plugin-next": "~16.4.6",
-    "@testing-library/react": "~16.3.3",
-    "@testing-library/user-event": "~14.6.10",
-    "@types/leaflet": "~1.9.22",
     "@types/node": "~24.19.2",
-    "@types/react": "~19.3.0",
-    "@types/react-dom": "~19.3.0",
-    "concurrently": "~10.0.7",
-    "electron": "~45.3.1",
-    "electron-builder": "~26.18.0",
     "eslint": "~10.15.0",
     "eslint-plugin-react-hooks": "~7.1.1",
-    "jsdom": "~31.0.1",
-    "lucide-react": "~1.73.0",
-    "marked": "~18.2.0",
-    "next": "~16.4.6",
-    "react": "~19.3.1",
-    "react-dom": "~19.3.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "~8.72.2",
-    "vitest": "~5.1.0",
-    "wait-on": "~9.5.1"
+    "vitest": "~5.1.0"
   },
   "allowScripts": {
     "electron-winstaller@5.4.0": true,

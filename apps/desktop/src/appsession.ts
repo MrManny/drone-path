@@ -1,0 +1,220 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { z } from 'zod';
+
+import { TILE_BASE, mediaUrlFor } from './apppaths.js';
+import { parseAppearanceSettings } from 'drone-path-engine/config';
+import type { AppearanceSettings, RenderConfig } from 'drone-path-engine/config';
+import { parseFrameRange } from 'drone-path-core/frame-range';
+import type { FrameRange } from 'drone-path-core/frame-range';
+import { parseValue, strictShape } from 'drone-path-core/validation';
+import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from 'drone-path-core/errors';
+import type { VideoProbe } from 'drone-path-core/ffmpeg';
+import { timeAt } from 'drone-path-core/frametime';
+import type { Bbox } from 'drone-path-core/geo';
+import { isRecordingName } from 'drone-path-engine/recordings';
+import { buildSceneData } from 'drone-path-engine/render-page';
+import type { SceneData } from 'drone-path-engine/renderer/scene';
+import {
+  prepareSession,
+  recordingPageOpts,
+  telemetryExportInput,
+  trackExportStream,
+} from 'drone-path-engine/pipeline';
+import type { LogFn } from 'drone-path-engine/logging';
+import type { PipelineDeps, PrepareProgressFn } from 'drone-path-engine/pipeline';
+import type { TelemetryDocumentInput } from 'drone-path-core/telemetry-json';
+import { trackFormatOf } from 'drone-path-core/track-format';
+import { writeTrackFile } from 'drone-path-core/track-write';
+import type { TrackStream } from 'drone-path-core/track';
+
+export interface PageVideo {
+  src: string;
+  fps: number;
+  frames: number;
+  width: number;
+  height: number;
+}
+
+export function frameExactDuration(probe: VideoProbe): number {
+  return timeAt(probe.frames, probe.fps.value);
+}
+
+export interface UiSession {
+  scene: SceneData;
+  video: PageVideo;
+  tileBase: string;
+  bbox: Bbox;
+  durationSec: number;
+}
+
+export interface IpcResult {
+  ok: boolean;
+  canceled?: boolean;
+  error?: string;
+}
+
+export type PickResult = IpcResult;
+
+export interface PickRequest {
+  settings: AppearanceSettings;
+}
+
+export function parsePickRequest(raw: unknown): PickRequest {
+  const input = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  return { settings: parseAppearanceSettings(input.settings) };
+}
+
+export interface TrackSaveRequest {
+  outPath: string;
+  range: FrameRange | null;
+}
+
+const TRACK_SAVE_SHAPE = {
+  outPath: z.unknown().optional(),
+  range: z.unknown().optional(),
+} as z.ZodRawShape;
+
+export function parseTrackSaveRequest(raw: unknown): TrackSaveRequest {
+  const request = parseValue(
+    strictShape(TRACK_SAVE_SHAPE, {
+      invalid: 'invalid track save request',
+      unknownKey: (key) => `unknown track save request key ${key}`,
+    }),
+    raw,
+  );
+  const outPath = parseValue(
+    z
+      .string({ error: () => 'invalid track save request: outPath' })
+      .min(1, { error: () => 'invalid track save request: outPath' }),
+    request.outPath,
+  );
+  try {
+    trackFormatOf(outPath);
+  } catch (e) {
+    throw new Error(
+      `invalid track save request: outPath must be a .gpx, .geojson, .kml, .kmz or .json file: ${outPath}`,
+      { cause: e },
+    );
+  }
+  const range =
+    request.range === undefined || request.range === null
+      ? null
+      : parseFrameRange(request.range);
+  return { outPath, range };
+}
+
+export type PrepareUiSessionFn = (
+  videoPath: string,
+  config: RenderConfig,
+  log: LogFn,
+  onProgress: PrepareProgressFn | undefined,
+  deps?: Partial<PipelineDeps>,
+) => Promise<PreparedUiSession>;
+
+export interface PreparedUiSession {
+  session: UiSession;
+  telemetry: TelemetryDocumentInput;
+  // Fix-faithful records for the track formats; main-side only, never sent
+  // over IPC. The .json document keeps reading `telemetry`.
+  track: TrackStream;
+}
+
+export const prepareUiSession: PrepareUiSessionFn = async (
+  videoPath,
+  config,
+  log,
+  onProgress,
+  deps,
+) => {
+  const prep = await prepareSession(videoPath, config, log, {
+    onProgress,
+    deps,
+  });
+  return {
+    session: {
+      scene: buildSceneData(recordingPageOpts(prep, config), TILE_BASE),
+      video: {
+        src: mediaUrlFor(videoPath),
+        fps: prep.probe.fps.value,
+        frames: prep.probe.frames,
+        width: prep.probe.width,
+        height: prep.probe.height,
+      },
+      tileBase: TILE_BASE,
+      bbox: prep.tel.bbox,
+      durationSec: frameExactDuration(prep.probe),
+    },
+    telemetry: telemetryExportInput(prep),
+    track: trackExportStream(prep),
+  };
+};
+
+interface AppSessionOptions {
+  config: RenderConfig;
+  pickFile: () => Promise<string | null>;
+  prepare?: PrepareUiSessionFn;
+  log?: (msg: string) => void;
+  onPreparing?: (videoPath: string) => void;
+  onPrepareProgress?: PrepareProgressFn;
+}
+
+export interface AppSession {
+  pick(request: PickRequest): Promise<PickResult>;
+  getSession(): UiSession | null;
+  videoPath(): string | null;
+  saveTrack(file: string, range: FrameRange | null): void;
+}
+
+function isReadableVideo(filePath: string): boolean {
+  if (!isRecordingName(filePath)) return false;
+  try {
+    return fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+export function createAppSession(options: AppSessionOptions): AppSession {
+  const { config, pickFile } = options;
+  const prepare = options.prepare ?? prepareUiSession;
+  const log = options.log ?? ((): void => {});
+  const onPreparing = options.onPreparing ?? ((): void => {});
+  const onPrepareProgress = options.onPrepareProgress ?? ((): void => {});
+  let prepared: PreparedUiSession | null = null;
+  let videoPath: string | null = null;
+  let picking = false;
+
+  return {
+    async pick(request: PickRequest): Promise<PickResult> {
+      if (picking) return { ok: false, error: 'a pick is already in progress' };
+      picking = true;
+      try {
+        const picked = await pickFile();
+        if (picked === null) return { ok: false, canceled: true };
+        const resolved = path.resolve(picked);
+        if (!isReadableVideo(resolved)) {
+          log(`rejected: ${resolved}`);
+          return { ok: false, error: `${ERR_NOT_READABLE_MP4}${resolved}` };
+        }
+        onPreparing(resolved);
+        prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
+        videoPath = resolved;
+        log(`loaded: ${resolved}`);
+        return { ok: true };
+      } catch (e) {
+        log(`error: ${errorMessage(e)}`);
+        return { ok: false, error: errorMessage(e) };
+      } finally {
+        picking = false;
+      }
+    },
+    getSession: () => prepared?.session ?? null,
+    videoPath: () => videoPath,
+    saveTrack(file: string, range: FrameRange | null): void {
+      if (!prepared) throw new Error(ERR_NO_RECORDING);
+      writeTrackFile(file, { document: prepared.telemetry, track: prepared.track }, range);
+    },
+  };
+}

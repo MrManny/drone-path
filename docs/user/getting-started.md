@@ -10,7 +10,13 @@ Drone Path renders flight-path map-overlay videos from DJI drone recordings (the
 
 ## Getting it
 
-Run it from npm with `npx drone-path`, or from GitHub with `npx github:MrManny/drone-path`. To work from a checkout instead, clone the repository and run `npm ci`.
+Run the CLI from npm with `npx drone-path`. To run from source, clone the GitHub repository and run these commands from the checkout:
+
+```sh
+npm ci
+npm run build:cli
+node packages/cli/bin/drone-path.mjs "my-flight.mp4"
+```
 
 ## Requirements
 
@@ -24,10 +30,6 @@ Run it from npm with `npx drone-path`, or from GitHub with `npx github:MrManny/d
 ## Quick start
 
 ```sh
-# from GitHub
-npx github:MrManny/drone-path "my-flight.mp4"
-
-# from npm
 npx drone-path "my-flight.mp4"
 
 # topographic map, altitude + speed HUD

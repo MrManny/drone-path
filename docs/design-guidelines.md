@@ -1,6 +1,6 @@
 # Design guidelines: Drone Path desktop UI
 
-Standing reference for the Electron desktop UI. Read before changing anything under `ui/`.
+Standing reference for the Electron desktop UI. Read before changing anything under `apps/desktop/ui/`.
 
 ## Principles
 
@@ -16,7 +16,7 @@ Look and feel: layered neutral surfaces, 1 px hairline borders, one warm coral a
 
 ## Color
 
-Color tokens live in the `:root` block of `ui/app/globals.css`. The values below are the agreed reference:
+Color tokens live in the `:root` block of `apps/desktop/ui/app/globals.css`. The values below are the agreed reference:
 
 | Token(s) | Value | Role |
 |---|---|---|
@@ -38,7 +38,7 @@ Color tokens live in the `:root` block of `ui/app/globals.css`. The values below
 | `--loop` / `--loop-text` | `#ecc9a8` / `#f4e2d2` | Loop band and ring / loop readout |
 
 - **Accent** marks the primary action, the selected segment, a checked toggle, the playhead and the progress fills. In the menu bar accent additionally carries menu state: the open top-level label and the hovered or keyboard-focused row (see [Menu bar](#menu-bar)). **Loop** colors mark only the loop band, its handles and the loop readout. **Warning** appears only in notices; **danger** appears in notices and on invalid fields; **danger text** colors field messages.
-- **The flight trail is the accent:** `TRAIL_COLOR` in `src/renderer/theme.ts` mirrors `--accent` and derives the trail glow.
+- **The flight trail is the accent:** `TRAIL_COLOR` in `packages/engine/src/renderer/theme.ts` mirrors `--accent` and derives the trail glow.
 - **Warm ramp discipline:** page and surfaces stay dark neutral grays; the warm ramp is reserved for accent, loop and semantic states — never surfaces, body text or decoration.
 - **Never color alone:** every state also has text — a label, `aria-invalid` with a message, or notice wording.
 - **Contrast:** text needs 4.5:1 on its surface; focus, state fills and meaningful icons need 3:1. Disabled controls are exempt. `--accent-text` and `--danger-text` exist so accent- and danger-colored text can meet 4.5:1 on `--surface-1` and `--surface-2`.
@@ -79,7 +79,7 @@ Measured contrast (WCAG): open label 6.1:1, hover label 8.9:1, hover hint/icon 5
 
 ## Keyboard
 
-The key vocabulary lives in `ui/lib/hotkeys.ts` and is documented in
+The key vocabulary lives in `apps/desktop/ui/lib/hotkeys.ts` and is documented in
 [keyboard-shortcuts.md](user/keyboard-shortcuts.md). Behavior rules: only the
 arrow keys repeat when held; while a menu is open it owns the keyboard and the
 player shortcuts stay inert; menus follow the Windows menu key conventions.
@@ -88,11 +88,11 @@ disabled rows hold focus through `aria-disabled`, and Tab closes an open menu.
 
 ## Components, copy and errors
 
-- **Controls:** 36px buttons and fields, 8px radii (pills for segmented groups), 1 px `--hairline-strong` borders on `--surface-2`; hover lightens, pressed darkens and shifts 1px down, `:focus-visible` shows a 2px `--focus` outline at 2px offset, disabled drops to 0.45 opacity. Segments, HUD chips, and the strip stepper use 30px controls. Sliders and toggle hit areas use 20px. The menu has a 32px structure bar plus its seam. Small details such as checkboxes, thumbs, the loop band, thumbnail corners, and inline code may use a 4px micro-radius. The HUD mirror pills use white on translucent navy to match the rendered HUD. Exact recipes live in `ui/components/`.
+- **Controls:** 36px buttons and fields, 8px radii (pills for segmented groups), 1 px `--hairline-strong` borders on `--surface-2`; hover lightens, pressed darkens and shifts 1px down, `:focus-visible` shows a 2px `--focus` outline at 2px offset, disabled drops to 0.45 opacity. Segments, HUD chips, and the strip stepper use 30px controls. Sliders and toggle hit areas use 20px. The menu has a 32px structure bar plus its seam. Small details such as checkboxes, thumbs, the loop band, thumbnail corners, and inline code may use a 4px micro-radius. The HUD mirror pills use white on translucent navy to match the rendered HUD. Exact recipes live in `apps/desktop/ui/components/`.
 - **Notices** (`Notice`, `ErrorNotice`): info, warning and danger tones over `--surface-1`, with a "Technical details" disclosure; danger is an alert, the others status messages. When the workspace is empty, Open notices sit in the CTA stack. With footage loaded, they sit top-center over the stage.
 - **Dialogs:** top edge 56px below the window, `--shadow-float` panel over the scrim blur; the export dialog locks dismissal while it runs. Player shortcuts pause while a modal is open. Settings and decision dialogs fit without scrolling at the default window size (1600×950). The Help manual scrolls its navigation and content independently. Footer actions sit at the bottom on the shared 16px rhythm. The header uses “Close,” task dismissal uses “Cancel,” and live-apply settings use “Done.” Reserve the accent for the forward or commit action.
 - **Settings around a live preview** (the Map appearance dialog is the reference): one preview of the output beside grouped setting cards; every change shows in the preview at once. Values get explicit controls — enum styles with a visual identity as thumbnail tiles, colors as a swatch row whose first entry names the fallback (*Style default*, never an empty hex), name special values in their readouts or supporting hints, such as *auto-fit* for map zoom and *0 s disables it* for segment duration. Use number fields with persistent units for durations and a slider with a readout where a continuous zoom control is provided. Readouts double as toggles (the HUD chips), and off states show the dimmed `--` of the map strip. Groups fit the reference window without scrolling.
 - **Copy:** verb-first actions ("Open…", "Start export"), nouns for toggles and destinations; sentence case; American English; "…" for dialogs and work in progress; no exclamation marks. Use a consistent term for the same concept and name dialog actions by role.
 - **Selection:** use a fill for compact choice buttons, an outline for tiles and diagram elements, and a tint for menu state.
 - **Action groups:** pills indicate membership in a set, standalone buttons handle media commands, and the map strip stepper uses bare buttons.
-- **Errors:** failures read as sentences — what happened and what to do next. Node codes, stack text and paths stay under "Technical details" (`ui/lib/errortext.ts`); field validation uses "Must be {rule}.".
+- **Errors:** failures read as sentences — what happened and what to do next. Node codes, stack text and paths stay under "Technical details" (`apps/desktop/ui/lib/errortext.ts`); field validation uses "Must be {rule}.".
