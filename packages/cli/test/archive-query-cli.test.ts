@@ -3,8 +3,8 @@ import path from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { exportArchiveMap, exportArchiveTracks } from 'drone-path-archive/export';
-import { listArchive, listArchiveFlights, nearArchive, parseDateBound } from 'drone-path-archive/query';
-import type { ArchiveClip } from 'drone-path-archive/query';
+import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from 'drone-path-archive/query';
+import type { ArchiveClip, ArchiveSegment } from 'drone-path-archive/query';
 
 import { main } from '../src/cli.js';
 
@@ -74,6 +74,8 @@ it.each([
   [['list', '--in-bbox', '5,0,2,0'], 'expected south latitude'],
   [['list', '--status', 'ok'], 'expected online or offline'],
   [['list', '--after', '2025-02-01', '--before', '2025-01-01'], 'expected --after at or before --before'],
+  [['list', '--min-smoothness', '1.5'], 'expected a smoothness score between 0 and 1'],
+  [['list', '--min-smoothness', '-0.1'], 'expected a smoothness score between 0 and 1'],
 ])('rejects invalid query arguments %j', async (args, message) => {
   const previous = process.exitCode;
   const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
@@ -82,6 +84,20 @@ it.each([
     await main(['node', 'drone-path', 'archive', ...args]);
     expect(process.exitCode).toBe(1);
     expect(error.mock.calls).toEqual([[expect.stringContaining(`[drone-path] ERROR: ${message}`)]]);
+    expect(output).not.toHaveBeenCalled();
+  } finally {
+    process.exitCode = previous;
+  }
+});
+
+it('rejects invalid --segment-type choices via Commander', async () => {
+  const previous = process.exitCode;
+  const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+  const error = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  try {
+    await main(['node', 'drone-path', 'archive', 'list', '--segment-type', 'invalid-shot']);
+    expect(process.exitCode).toBe(1);
+    expect(error.mock.calls).toEqual([[expect.stringContaining('Allowed choices are')]]);
     expect(output).not.toHaveBeenCalled();
   } finally {
     process.exitCode = previous;
@@ -99,4 +115,44 @@ it('routes archive export commands through the list filters', async () => {
   expect(exportArchiveTracks).toHaveBeenCalledWith(expect.any(String), 'out.kmz', {
     filters: expect.objectContaining({ afterMs: parseDateBound('2025-01-01') }), redactLaunchM: undefined,
   });
+});
+
+it('queries ranked segments when --segment-type or --min-smoothness is given', async () => {
+  const segments: ArchiveSegment[] = [{
+    clip,
+    type: 'smooth-glide',
+    startSec: 2,
+    endSec: 14,
+    durationSec: 12,
+    smoothness: 0.912,
+    exposureStable: true,
+    meanSpeedMps: 4.5,
+    meanYawRateDegPerSec: 0.2,
+  }];
+  vi.mocked(listArchiveSegments).mockReturnValue(segments);
+  const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+  const error = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  await main([
+    'node', 'drone-path', 'archive', 'list',
+    '--segment-type', 'smooth-glide', '--min-smoothness', '0.7', '--archive-db', 'query.sqlite', '--json',
+  ]);
+  expect(listArchiveSegments).toHaveBeenCalledWith(path.resolve('query.sqlite'), {
+    bbox: undefined, afterMs: undefined, beforeMs: undefined, minDistanceM: undefined, availability: undefined,
+    segmentType: 'smooth-glide', minSmoothness: 0.7,
+  });
+  expect(listArchive).not.toHaveBeenCalled();
+  expect(output.mock.calls).toEqual([[JSON.stringify(segments) + '\n']]);
+  expect(error).not.toHaveBeenCalled();
+});
+
+it('keeps --group-by flight routing when combined with segment filters', async () => {
+  const grouped = [{ flightId: 'first', clips: [{ ...clip, splitFromKey: null }] }];
+  vi.mocked(listArchiveFlights).mockReturnValue(grouped);
+  const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+  await main([
+    'node', 'drone-path', 'archive', 'list', '--group-by', 'flight', '--segment-type', 'orbit', '--json',
+  ]);
+  expect(listArchiveFlights).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ segmentType: 'orbit' }));
+  expect(listArchiveSegments).not.toHaveBeenCalled();
+  expect(output.mock.calls).toEqual([[JSON.stringify(grouped) + '\n']]);
 });

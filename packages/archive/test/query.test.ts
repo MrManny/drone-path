@@ -3,7 +3,7 @@ import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 
 import { cleanupTmpDirs, probeFixture, tmpDir } from '../../../test/fixtures/core.js';
-import { listArchive, listArchiveFlights, nearArchive, parseDateBound } from '../src/query.js';
+import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from '../src/query.js';
 import type { SparseSample } from '../src/scan-track.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from '../src/store.js';
 import type { ClipUpdate } from '../src/store.js';
@@ -176,4 +176,48 @@ it('finds a gaze match outside the track radius without adding gaze to SRT clips
   ]);
   expect(nearArchive(db, { lat: 45, lon: 0 }, 15, true)).toEqual([]);
   expect(nearArchive(db, point, 500, true).map(({ matchType }) => matchType)).toEqual(['gaze', 'track', 'track']);
+});
+
+it('lists and filters ranked segments and matching clips/flights', () => {
+  const points = [{ lat: 46, lon: 14, tSec: 1, segment: 0 }];
+  const alpha = clip('alpha.mp4', points, 'online');
+  alpha.segments = [
+    {
+      type: 'smooth-glide', startSec: 0, endSec: 5, durationSec: 5,
+      smoothness: 0.72, exposureStable: true, meanSpeedMps: 4, meanYawRateDegPerSec: 0.5,
+    },
+    {
+      type: 'reposition', startSec: 5, endSec: 8, durationSec: 3,
+      smoothness: 0.3, exposureStable: false, meanSpeedMps: 7, meanYawRateDegPerSec: 60,
+    },
+  ];
+  const beta = clip('beta.mp4', points, 'offline');
+  beta.segments = [
+    {
+      type: 'smooth-glide', startSec: 2, endSec: 9, durationSec: 7,
+      smoothness: 0.94, exposureStable: true, meanSpeedMps: 5, meanYawRateDegPerSec: 0.1,
+    },
+    {
+      type: 'smooth-glide', startSec: 10, endSec: 14, durationSec: 4,
+      smoothness: 0.65, exposureStable: true, meanSpeedMps: 4.5, meanYawRateDegPerSec: 0.2,
+    },
+  ];
+  const gamma = clip('gamma.mp4', points, 'online');
+  gamma.segments = [
+    {
+      type: 'hover', startSec: 0, endSec: 6, durationSec: 6,
+      smoothness: 0.98, exposureStable: true, meanSpeedMps: 0.1, meanYawRateDegPerSec: 0,
+    },
+  ];
+  const db = index(alpha, beta, gamma);
+
+  const ranked = listArchiveSegments(db, { segmentType: 'smooth-glide', minSmoothness: 0.7 });
+  expect(ranked.map(({ clip: c, smoothness, startSec }) => [c.path, smoothness, startSec])).toEqual([
+    ['beta.mp4', 0.94, 2],
+    ['alpha.mp4', 0.72, 0],
+  ]);
+  expect(listArchiveSegments(db, { segmentType: 'smooth-glide', availability: 'online' })).toHaveLength(1);
+  expect(listArchive(db, { segmentType: 'smooth-glide', minSmoothness: 0.8 }).map(({ path: p }) => p)).toEqual(['beta.mp4']);
+  expect(listArchiveFlights(db, { segmentType: 'hover' }).map(({ clips }) => clips[0].path)).toEqual(['gamma.mp4']);
+  expect(() => listArchiveSegments(db, { minSmoothness: 1.5 })).toThrow('expected a smoothness score between 0 and 1');
 });

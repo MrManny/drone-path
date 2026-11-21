@@ -10,7 +10,7 @@ import type { ScanOptions, ScanRecord } from './scanner.js';
 import { CLIP_FINGERPRINT_VERSION, withArchiveStoreAsync } from './store.js';
 import type { ArchiveStore, ClipFingerprint, ClipUpdate } from './store.js';
 
-export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'sidecarFor' | 'onTrack' | 'onGaze'> {
+export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'sidecarFor' | 'onTrack' | 'onGaze' | 'onSegments'> {
   db: string;
   prune?: boolean;
   getTools: () => Promise<FfmpegToolPaths>;
@@ -122,13 +122,14 @@ async function indexFolders(store: ArchiveStore, dirs: readonly string[], option
     seen.add(key);
     const prior = previous.get(key);
     const unchanged = prior && matches(current.fingerprint, prior.fingerprint);
-    if (unchanged && !prior.gazePending && prior.record.status !== 'error') {
+    const needsBackfill = prior !== undefined && (prior.gazePending || prior.segmentsPending);
+    if (unchanged && !needsBackfill && prior.record.status !== 'error') {
       records.set(file, prior.record);
       onRecord?.(prior.record);
       if (prior.availability === 'offline') online.push(key);
     } else {
       pending.set(file, current);
-      if (unchanged && prior.gazePending) {
+      if (unchanged && needsBackfill) {
         backfills.add(file);
         if (prior.availability === 'offline') online.push(key);
       }
@@ -161,11 +162,13 @@ async function probeChanges(
   if (pending.size === 0) return [];
   const tracks = new Map<string, Pick<ClipUpdate, 'overview' | 'samples'>>();
   const gaze = new Map<string, NonNullable<ClipUpdate['gaze']>>();
+  const segmentsByFile = new Map<string, NonNullable<ClipUpdate['segments']>>();
   const tools = await getTools();
   const scanned = await scanRecordings([...pending.keys()], {
     tools, concurrency, signal, onRecord,
     sidecarFor: (file) => pending.get(file)?.sidecar,
     onGaze: (file, samples) => gaze.set(file, samples),
+    onSegments: (file, shots) => segmentsByFile.set(file, shots),
     onTrack: (file, segments) => {
       tracks.set(file, { overview: decimateSegments(segments, 60, 9), samples: sampleSegments(segments) });
     },
@@ -183,6 +186,7 @@ async function probeChanges(
       key: clipKey(record.path), availability: 'online', fingerprint: original.fingerprint, record,
       ...tracks.get(record.path) ?? { overview: [], samples: [] },
       gaze: gaze.get(record.path),
+      segments: segmentsByFile.get(record.path),
     });
   }
   return updates;

@@ -6,6 +6,7 @@ import type { SQLInputValue } from 'node:sqlite';
 import { groupFlights } from 'drone-path-core/flight-grouping';
 import type { FlightMembership } from 'drone-path-core/flight-grouping';
 import type { Bbox, LatLon } from 'drone-path-core/geo';
+import type { KinematicShot, ShotType } from 'drone-path-core/shot-segmentation';
 import { bboxIntersects, longitudeRanges, resolveTrackBbox } from 'drone-path-core/spatial';
 
 import { zonedTimeMs } from './camera-time.js';
@@ -15,8 +16,13 @@ import { groupSamples } from './scan-track.js';
 import type { ScanPoint, SparseSample } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 
-export const ARCHIVE_SCHEMA_VERSION = 3;
+export const ARCHIVE_SCHEMA_VERSION = 4;
 export const CLIP_FINGERPRINT_VERSION = 1;
+
+export interface SegmentFilter {
+  segmentType?: ShotType;
+  minSmoothness?: number;
+}
 
 export interface ClipFingerprint {
   size: number;
@@ -37,6 +43,7 @@ export interface ClipUpdate extends IndexedClip {
   overview: ScanPoint[][];
   samples: SparseSample[];
   gaze?: GazeSample[];
+  segments?: KinematicShot[];
 }
 
 export interface IndexedFlightClip extends IndexedClip {
@@ -58,6 +65,17 @@ interface FlightClipRow extends ClipRow {
   flight_id: string;
   flight_order: number;
   split_from_key: string | null;
+}
+
+interface SegmentRow {
+  segment_type: ShotType;
+  start_sec: number;
+  end_sec: number;
+  duration_sec: number;
+  smoothness: number;
+  exposure_stable: number;
+  mean_speed_mps: number;
+  mean_yaw_rate_deg_per_sec: number;
 }
 
 function decodeClip(row: ClipRow): IndexedClip {
@@ -82,6 +100,19 @@ function decodeFlightClip(row: FlightClipRow): IndexedFlightClip {
   };
 }
 
+function decodeSegment(row: SegmentRow): KinematicShot {
+  return {
+    type: row.segment_type,
+    startSec: row.start_sec,
+    endSec: row.end_sec,
+    durationSec: row.duration_sec,
+    smoothness: row.smoothness,
+    exposureStable: row.exposure_stable === 1,
+    meanSpeedMps: row.mean_speed_mps,
+    meanYawRateDegPerSec: row.mean_yaw_rate_deg_per_sec,
+  };
+}
+
 const SCHEMA = `
   CREATE TABLE archive_revision (revision INTEGER NOT NULL) STRICT;
   INSERT INTO archive_revision VALUES (0);
@@ -98,7 +129,8 @@ const SCHEMA = `
     max_lat REAL,
     max_lon REAL,
     record_json TEXT NOT NULL,
-    overview_json TEXT NOT NULL
+    overview_json TEXT NOT NULL,
+    segments_indexed INTEGER NOT NULL DEFAULT 0
   ) STRICT;
   CREATE INDEX clips_bbox ON clips (min_lat, max_lat, min_lon, max_lon);
   CREATE TABLE clip_samples (
@@ -133,6 +165,23 @@ const GAZE_SCHEMA = `
   CREATE INDEX clip_gaze_bbox ON clip_gaze (min_lat, max_lat, min_lon, max_lon);
 `;
 
+const SEGMENTS_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS segments (
+    clip_key TEXT NOT NULL REFERENCES clips (clip_key) ON DELETE CASCADE,
+    segment_index INTEGER NOT NULL,
+    segment_type TEXT NOT NULL,
+    start_sec REAL NOT NULL,
+    end_sec REAL NOT NULL,
+    duration_sec REAL NOT NULL,
+    smoothness REAL NOT NULL,
+    exposure_stable INTEGER NOT NULL,
+    mean_speed_mps REAL NOT NULL,
+    mean_yaw_rate_deg_per_sec REAL NOT NULL,
+    PRIMARY KEY (clip_key, segment_index)
+  ) STRICT;
+  CREATE INDEX IF NOT EXISTS segments_type_smoothness ON segments (segment_type, smoothness DESC);
+`;
+
 export class ArchiveStore {
   private readonly db: DatabaseSync;
 
@@ -157,19 +206,29 @@ export class ArchiveStore {
     this.transaction('BEGIN IMMEDIATE', () => {
       const version = this.schemaVersion();
       if (version === ARCHIVE_SCHEMA_VERSION) return;
+      if (typeof version !== 'number' || !Number.isInteger(version) || version < 0 || version > ARCHIVE_SCHEMA_VERSION) {
+        throw new Error(`unsupported archive database schema version: ${String(version)}`);
+      }
       if (version === 0) {
         if (this.db.prepare('SELECT 1 FROM sqlite_schema LIMIT 1').get()) {
           throw new Error('existing database has no archive schema');
         }
         this.db.exec(SCHEMA);
-      } else if (version !== 1 && version !== 2) {
-        throw new Error(`unsupported archive database schema version: ${String(version)}`);
       }
-      if (version === 0 || version === 1) {
+      if (version < 2) {
         this.db.exec(FLIGHT_SCHEMA);
-        this.refreshFlights();
+        if (version === 1) this.refreshFlights();
       }
-      this.db.exec(GAZE_SCHEMA);
+      if (version < 3) {
+        this.db.exec(GAZE_SCHEMA);
+      }
+      if (version < 4) {
+        const columns = this.db.prepare('PRAGMA table_info(clips)').all() as { name: string }[];
+        if (!columns.some((col) => col.name === 'segments_indexed')) {
+          this.db.exec('ALTER TABLE clips ADD COLUMN segments_indexed INTEGER NOT NULL DEFAULT 0');
+        }
+        this.db.exec(SEGMENTS_SCHEMA);
+      }
       this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
     });
   }
@@ -178,41 +237,57 @@ export class ArchiveStore {
     this.db.close();
   }
 
-  snapshot(): { revision: number; clips: (IndexedClip & { gazePending: boolean })[] } {
+  snapshot(): { revision: number; clips: (IndexedClip & { gazePending: boolean; segmentsPending: boolean })[] } {
     return this.transaction('BEGIN', () => ({
       revision: this.revision(),
       clips: (this.db.prepare(`
-        SELECT clips.*, clip_gaze.clip_key IS NULL AND
-          json_extract(record_json, '$.telemetry.method') IS 'dvtm-packets' AS gaze_pending
+        SELECT clips.*,
+          clip_gaze.clip_key IS NULL AND
+            json_extract(record_json, '$.telemetry.method') IS 'dvtm-packets' AS gaze_pending,
+          segments_indexed = 0 AND
+            json_extract(record_json, '$.status') IS 'ok' AS segments_pending
         FROM clips LEFT JOIN clip_gaze USING (clip_key) ORDER BY clip_key
-      `).all() as unknown as (ClipRow & { gaze_pending: number })[]).map((row) => ({
-        ...decodeClip(row), gazePending: row.gaze_pending === 1,
+      `).all() as unknown as (ClipRow & { gaze_pending: number; segments_pending: number })[]).map((row) => ({
+        ...decodeClip(row),
+        gazePending: row.gaze_pending === 1,
+        segmentsPending: row.segments_pending === 1,
       })),
     }));
   }
 
-  listClips(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
-    if (bbox === undefined) return this.selectClips(undefined, availability, false);
-    return this.transaction('BEGIN', () => this.selectClipViewport(bbox, availability));
+  listClips(
+    bbox?: Bbox,
+    availability?: IndexedClip['availability'],
+    segmentFilter?: SegmentFilter,
+  ): IndexedFlightClip[] {
+    if (bbox === undefined) return this.selectClips(undefined, availability, false, segmentFilter);
+    return this.transaction('BEGIN', () => this.selectClipViewport(bbox, availability, segmentFilter));
   }
 
-  private selectClipViewport(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
-    const clips = this.selectClips(bbox, availability, false);
+  private clipMatchesViewport(bbox: Bbox, key: string, record: ScanRecord): boolean {
+    const raw = record.bbox;
+    if (raw === null) return false;
+    if (raw.maxLon - raw.minLon <= 180) return true;
+    return bboxIntersects(bbox, resolveTrackBbox(raw, [...record.track, ...groupSamples(this.readSamples(key))]));
+  }
+
+  private selectClipViewport(
+    bbox?: Bbox,
+    availability?: IndexedClip['availability'],
+    segmentFilter?: SegmentFilter,
+  ): IndexedFlightClip[] {
+    const clips = this.selectClips(bbox, availability, false, segmentFilter);
     if (bbox === undefined) return clips;
-    return clips.filter(({ key, record }) => {
-      const raw = record.bbox;
-      if (raw === null) return false;
-      if (raw.maxLon - raw.minLon <= 180) return true;
-      return bboxIntersects(bbox, resolveTrackBbox(raw, [...record.track, ...groupSamples(this.readSamples(key))]));
-    });
+    return clips.filter(({ key, record }) => this.clipMatchesViewport(bbox, key, record));
   }
 
   readExportCandidates(
     bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined,
     matches: (clip: IndexedClip) => boolean, options: { includeGaze: boolean; redact: boolean },
+    segmentFilter?: SegmentFilter,
   ) {
     return this.transaction('BEGIN', () => {
-      const clips = this.selectClipViewport(bbox, availability).filter(matches);
+      const clips = this.selectClipViewport(bbox, availability, segmentFilter).filter(matches);
       const endpoints = options.redact ? this.readLaunchEndpoints(new Set(clips.map(({ flight }) => flight.flightId))) : [];
       const gaze = options.includeGaze ? this.db.prepare('SELECT samples_json FROM clip_gaze WHERE clip_key = ?') : undefined;
       return {
@@ -275,6 +350,59 @@ export class ArchiveStore {
     `).all(key) as unknown as SparseSample[];
   }
 
+  readSegments(key: string): KinematicShot[] {
+    const rows = this.db.prepare(`
+      SELECT segment_type, start_sec, end_sec, duration_sec, smoothness,
+        exposure_stable, mean_speed_mps, mean_yaw_rate_deg_per_sec
+      FROM segments WHERE clip_key = ? ORDER BY segment_index
+    `).all(key) as unknown as SegmentRow[];
+    return rows.map(decodeSegment);
+  }
+
+  listSegments(filters: {
+    bbox?: Bbox;
+    availability?: IndexedClip['availability'];
+    segmentType?: ShotType;
+    minSmoothness?: number;
+  } = {}): { clip: IndexedClip; segment: KinematicShot }[] {
+    return this.transaction('BEGIN', () => {
+      const { clauses, values } = this.clipFilterClauses(filters.bbox, filters.availability, false);
+      if (filters.segmentType !== undefined) {
+        clauses.push('segments.segment_type = ?');
+        values.push(filters.segmentType);
+      }
+      if (filters.minSmoothness !== undefined) {
+        clauses.push('segments.smoothness >= ?');
+        values.push(filters.minSmoothness);
+      }
+      const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+      const rows = this.db.prepare(`
+        SELECT clips.*, segments.segment_type, segments.start_sec, segments.end_sec,
+          segments.duration_sec, segments.smoothness, segments.exposure_stable,
+          segments.mean_speed_mps, segments.mean_yaw_rate_deg_per_sec
+        FROM segments JOIN clips USING (clip_key)
+        ${where}
+        ORDER BY segments.smoothness DESC, segments.clip_key ASC, segments.start_sec ASC
+      `).all(...values) as unknown as (ClipRow & SegmentRow)[];
+
+      const viewportCache = new Map<string, boolean>();
+      const results: { clip: IndexedClip; segment: KinematicShot }[] = [];
+      for (const row of rows) {
+        const clip = decodeClip(row);
+        if (filters.bbox !== undefined) {
+          let matches = viewportCache.get(clip.key);
+          if (matches === undefined) {
+            matches = this.clipMatchesViewport(filters.bbox, clip.key, clip.record);
+            viewportCache.set(clip.key, matches);
+          }
+          if (!matches) continue;
+        }
+        results.push({ clip, segment: decodeSegment(row) });
+      }
+      return results;
+    });
+  }
+
   commit(
     expectedRevision: number, updates: readonly ClipUpdate[],
     online: readonly string[], offline: readonly string[], removed: readonly string[],
@@ -300,33 +428,56 @@ export class ArchiveStore {
     return this.db.prepare('SELECT revision FROM archive_revision').get()?.revision as number;
   }
 
-  private selectClips(
-    bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined, includeArcs: boolean,
-  ): IndexedFlightClip[] {
+  private clipFilterClauses(
+    bbox: Bbox | undefined,
+    availability: IndexedClip['availability'] | undefined,
+    includeArcs: boolean,
+    segmentFilter?: SegmentFilter,
+  ): { clauses: string[]; values: SQLInputValue[] } {
     const clauses: string[] = [];
     const values: SQLInputValue[] = [];
     if (availability !== undefined) {
-      clauses.push('availability = ?');
+      clauses.push('clips.availability = ?');
       values.push(availability);
     }
     if (bbox !== undefined) {
       const ranges = longitudeRanges(bbox);
-      const longitude = ranges.map(() => '(min_lon <= ? AND max_lon >= ?)').join(' OR ');
-      const latitude = 'min_lat <= ? AND max_lat >= ?';
+      const longitude = ranges.map(() => '(clips.min_lon <= ? AND clips.max_lon >= ?)').join(' OR ');
+      const latitude = 'clips.min_lat <= ? AND clips.max_lat >= ?';
       if (includeArcs) {
         // An arc's length in degrees is at most the latitude difference plus the
         // longitude span. An excursion beyond either latitude endpoint adds
         // twice its height to that lower bound, so half the span covers it.
         // Wider raw longitude ranges may span the antimeridian or contain a pole-crossing arc.
-        clauses.push(`(max_lon - min_lon >= 180 OR (
-          min_lat - (max_lon - min_lon) / 2 <= ? AND max_lat + (max_lon - min_lon) / 2 >= ?
+        clauses.push(`(clips.max_lon - clips.min_lon >= 180 OR (
+          clips.min_lat - (clips.max_lon - clips.min_lon) / 2 <= ? AND clips.max_lat + (clips.max_lon - clips.min_lon) / 2 >= ?
           AND (${longitude})
         ))`);
       } else {
-        clauses.push(`(${latitude}) AND (max_lon - min_lon > 180 OR (${longitude}))`);
+        clauses.push(`(${latitude}) AND (clips.max_lon - clips.min_lon > 180 OR (${longitude}))`);
       }
       values.push(bbox.maxLat, bbox.minLat, ...ranges.flatMap(([west, east]) => [east, west]));
     }
+    if (segmentFilter?.segmentType !== undefined || segmentFilter?.minSmoothness !== undefined) {
+      const segClauses: string[] = ['segments.clip_key = clips.clip_key'];
+      if (segmentFilter.segmentType !== undefined) {
+        segClauses.push('segments.segment_type = ?');
+        values.push(segmentFilter.segmentType);
+      }
+      if (segmentFilter.minSmoothness !== undefined) {
+        segClauses.push('segments.smoothness >= ?');
+        values.push(segmentFilter.minSmoothness);
+      }
+      clauses.push(`EXISTS (SELECT 1 FROM segments WHERE ${segClauses.join(' AND ')})`);
+    }
+    return { clauses, values };
+  }
+
+  private selectClips(
+    bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined, includeArcs: boolean,
+    segmentFilter?: SegmentFilter,
+  ): IndexedFlightClip[] {
+    const { clauses, values } = this.clipFilterClauses(bbox, availability, includeArcs, segmentFilter);
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = this.db.prepare(`
       SELECT * FROM clips JOIN clip_flights USING (clip_key) ${where} ORDER BY clip_key
@@ -371,14 +522,15 @@ export class ArchiveStore {
     }
   }
 
-  private writeClip({ key, availability, fingerprint, record, overview, samples, gaze }: ClipUpdate): void {
+  private writeClip({ key, availability, fingerprint, record, overview, samples, gaze, segments }: ClipUpdate): void {
     const { size, mtimeMs, srtSize, srtMtimeMs, schemaVersion } = fingerprint;
     const bbox = record.bbox;
+    const segmentsIndexed = segments !== undefined ? 1 : 0;
     this.db.prepare(`
       INSERT INTO clips (
         clip_key, availability, size, mtime_ms, srt_size, srt_mtime_ms, schema_version,
-        min_lat, min_lon, max_lat, max_lon, record_json, overview_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        min_lat, min_lon, max_lat, max_lon, record_json, overview_json, segments_indexed
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (clip_key) DO UPDATE SET
         availability = excluded.availability,
         size = excluded.size, mtime_ms = excluded.mtime_ms,
@@ -386,14 +538,16 @@ export class ArchiveStore {
         schema_version = excluded.schema_version,
         min_lat = excluded.min_lat, min_lon = excluded.min_lon,
         max_lat = excluded.max_lat, max_lon = excluded.max_lon,
-        record_json = excluded.record_json, overview_json = excluded.overview_json
+        record_json = excluded.record_json, overview_json = excluded.overview_json,
+        segments_indexed = excluded.segments_indexed
     `).run(
       key, availability, size, mtimeMs, srtSize, srtMtimeMs, schemaVersion,
       bbox?.minLat ?? null, bbox?.minLon ?? null, bbox?.maxLat ?? null, bbox?.maxLon ?? null,
-      JSON.stringify(record), JSON.stringify(overview),
+      JSON.stringify(record), JSON.stringify(overview), segmentsIndexed,
     );
     this.db.prepare('DELETE FROM clip_samples WHERE clip_key = ?').run(key);
     this.writeGaze(key, gaze);
+    this.writeSegments(key, segments);
     const add = this.db.prepare('INSERT INTO clip_samples VALUES (?, ?, ?, ?, ?, ?)');
     for (const [index, sample] of samples.entries()) {
       add.run(key, sample.segment, index, sample.tSec, sample.lat, sample.lon);
@@ -408,6 +562,24 @@ export class ArchiveStore {
       key, bbox?.minLat ?? null, bbox?.maxLat ?? null, bbox?.minLon ?? null, bbox?.maxLon ?? null,
       JSON.stringify(gaze),
     );
+  }
+
+  private writeSegments(key: string, segments: readonly KinematicShot[] | undefined): void {
+    this.db.prepare('DELETE FROM segments WHERE clip_key = ?').run(key);
+    if (!segments) return;
+    const add = this.db.prepare(`
+      INSERT INTO segments (
+        clip_key, segment_index, segment_type, start_sec, end_sec, duration_sec,
+        smoothness, exposure_stable, mean_speed_mps, mean_yaw_rate_deg_per_sec
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const [index, segment] of segments.entries()) {
+      add.run(
+        key, index, segment.type, segment.startSec, segment.endSec, segment.durationSec,
+        segment.smoothness, segment.exposureStable ? 1 : 0,
+        segment.meanSpeedMps, segment.meanYawRateDegPerSec,
+      );
+    }
   }
 }
 

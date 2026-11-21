@@ -125,6 +125,10 @@ any of these filters.
 | `--before <date>` | The camera tag is earlier than the bound. |
 | `--min-dist <m>` | The GPS track traveled at least this many meters. |
 | `--status <state>` | The clip is `online` or `offline`. |
+| `--segment-type <type>` | Match clips/segments with kinematic shot type (`takeoff`, `landing`, `hover`, `smooth-glide`, `orbit`, `gimbal-reveal`, or `reposition`). |
+| `--min-smoothness <score>` | Match segments with smoothness score at or above `<score>` (`0` to `1`). |
+
+Without `--group-by flight`, passing `--segment-type` or `--min-smoothness` lists ranked candidate intervals ordered by smoothness instead of whole clips.
 
 Date bounds accept `YYYY-MM-DD` at midnight UTC or an ISO timestamp with an
 explicit time zone. Date filters compare the original, unverified camera tag

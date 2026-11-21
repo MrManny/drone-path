@@ -9,7 +9,7 @@ import { probeVideo } from 'drone-path-core/ffmpeg';
 import { cleanupTmpDirs, probeFixture, productMetaPacket, SRT_SAMPLE, tmpDir } from '../../../test/fixtures/core.js';
 import { camMetaMp4 } from '../../../test/fixtures/mp4-cammeta.js';
 import { scanArchive } from '../src/indexed-scan.js';
-import { listArchiveFlights, nearArchive } from '../src/query.js';
+import { listArchiveFlights, listArchiveSegments, nearArchive } from '../src/query.js';
 import { ArchiveStore } from '../src/store.js';
 
 vi.mock('drone-path-core/ffmpeg', { spy: true });
@@ -36,6 +36,7 @@ function inspect(db: string) {
       ...clip,
       overview: store.readOverview(clip.key),
       samples: store.readSamples(clip.key),
+      segments: store.readSegments(clip.key),
     }));
   } finally {
     store.close();
@@ -237,4 +238,46 @@ it.each([true, false])('backfills migrated DVTM once even with usable gaze = %s'
 
   await scanArchive([root], options);
   expect(probe).toHaveBeenCalledTimes(3);
+});
+
+it('persists kinematic shot segments during scan and backfills migrated segments once', async () => {
+  const { db, root, file, options } = setup();
+  const srtLines = [0, 1, 2, 3, 4].map((sec) => {
+    const lat = (46.6 + sec * 0.00004).toFixed(6);
+    return `${sec + 1}\n00:00:0${sec},000 --> 00:00:0${sec + 1},000\n` +
+      `[iso: 100] [shutter: 1/200.0] [ct: 5500] [latitude: ${lat}] [longitude: 14.260000] [rel_alt: 25.000 abs_alt: 325.000]\n`;
+  }).join('\n');
+  fs.writeFileSync(path.join(root, 'flight.SRT'), srtLines);
+  probe.mockResolvedValue(probeFixture({ camMeta: null, durationSec: 5, frames: 150 }));
+
+  await scanArchive([root], options);
+  const initialSegments = listArchiveSegments(db, { segmentType: 'smooth-glide' });
+  expect(initialSegments).toHaveLength(1);
+  expect(initialSegments[0]).toMatchObject({
+    clip: { path: file },
+    type: 'smooth-glide',
+    startSec: 0,
+    endSec: 4,
+    exposureStable: true,
+  });
+  expect(inspect(db)[0]).toMatchObject({ segmentsPending: false });
+
+  // Rescanning unchanged clip does not reprobe
+  await scanArchive([root], options);
+  expect(probe).toHaveBeenCalledTimes(1);
+
+  // Simulate an upgraded DB whose segments have not been indexed yet
+  const legacy = new DatabaseSync(db);
+  try {
+    legacy.exec('DELETE FROM segments; UPDATE clips SET segments_indexed = 0');
+  } finally {
+    legacy.close();
+  }
+  expect(listArchiveSegments(db)).toEqual([]);
+  await scanArchive([root], options);
+  expect(probe).toHaveBeenCalledTimes(2);
+  expect(listArchiveSegments(db, { segmentType: 'smooth-glide' })).toHaveLength(1);
+
+  await scanArchive([root], options);
+  expect(probe).toHaveBeenCalledTimes(2);
 });

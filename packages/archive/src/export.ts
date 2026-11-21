@@ -14,7 +14,7 @@ import type { TrackSegment } from 'drone-path-core/track';
 import { archiveMapHtml } from './export-map.js';
 import type { MapFlight } from './export-map.js';
 import { groupFlightMembers } from './flight-members.js';
-import { matchesMetadata } from './query.js';
+import { matchesMetadata, segmentFilterOf } from './query.js';
 import type { ListFilters } from './query.js';
 import { withArchiveStore } from './store.js';
 
@@ -31,10 +31,12 @@ function exportFlights(
     throw new Error('expected a nonnegative launch redaction radius in meters');
   }
   const redact = redactLaunchM > 0;
+  const segmentFilter = segmentFilterOf(filters);
   return withArchiveStore(db, (store) => {
     const { clips, endpoints } = store.readExportCandidates(
       filters.bbox, filters.availability, ({ record }) => matchesMetadata(record, filters),
       { redact, includeGaze: includeGaze && !redact },
+      segmentFilter,
     );
     const redactTrack = launchRedactor(endpoints, redactLaunchM);
     const flights = groupFlightMembers(clips);
