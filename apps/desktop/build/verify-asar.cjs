@@ -26,13 +26,13 @@ function productionDependencies(manifest) {
   return dependencies;
 }
 
-function installedDirectory(from, name, workspaceRoot) {
+function resolvePackageDirectory(from, name, root) {
   // Search Node's dependency paths without requiring a package to export its
   // package.json or execute its main module.
   const fromPackage = createRequire(path.join(from, 'package.json'));
   const lookup = fromPackage.resolve.paths(`${name}/package.json`) ?? [];
   return lookup
-    .filter((dir) => dir.startsWith(workspaceRoot + path.sep))
+    .filter((dir) => dir.startsWith(root + path.sep))
     .map((dir) => path.join(dir, name))
     .find((dir) => fs.existsSync(path.join(dir, 'package.json')));
 }
@@ -44,32 +44,37 @@ function identity(name, manifest) {
 
 function installedPackages(appDirectory, skipFfmpegDownload) {
   const packages = new Map();
-  const visited = new Set();
-  const workspaceRoot = path.resolve(appDirectory, '..', '..');
-  const pending = [appDirectory];
+  const dependenciesByDirectory = new Map();
+  const workspaceRoot = fs.realpathSync(path.resolve(appDirectory, '..', '..'));
+  const app = fs.realpathSync(appDirectory);
+  const pending = [app];
   while (pending.length > 0) {
-    const directory = fs.realpathSync(pending.pop());
-    if (visited.has(directory)) continue;
-    visited.add(directory);
+    const directory = pending.pop();
+    if (dependenciesByDirectory.has(directory)) continue;
+    const dependencies = new Map();
+    dependenciesByDirectory.set(directory, dependencies);
 
     for (const [name, optional] of productionDependencies(readManifest(directory))) {
       // The app uses the separately bundled tools under resources/ff.
       if (skipFfmpegDownload && name === ffmpegDownloadPackage) continue;
-      const dependency = installedDirectory(directory, name, workspaceRoot);
+      const dependency = resolvePackageDirectory(directory, name, workspaceRoot);
       if (!dependency) {
         if (optional) continue;
         throw new Error(`missing installed dependency '${name}' of ${directory}`);
       }
-      packages.set(identity(name, readManifest(dependency)), name);
-      pending.push(dependency);
+      const dependencyDirectory = fs.realpathSync(dependency);
+      const packageIdentity = identity(name, readManifest(dependencyDirectory));
+      packages.set(packageIdentity, name);
+      dependencies.set(name, { directory: dependencyDirectory, packageIdentity });
+      pending.push(dependencyDirectory);
     }
   }
-  return packages;
+  return { packages, dependenciesByDirectory, app };
 }
 
 function ffmpegDownloadExclusions(appDirectory) {
-  const runtimeNames = new Set(installedPackages(appDirectory, true).values());
-  const installedNames = new Set(installedPackages(appDirectory, false).values());
+  const runtimeNames = new Set(installedPackages(appDirectory, true).packages.values());
+  const installedNames = new Set(installedPackages(appDirectory, false).packages.values());
   return [...installedNames]
     .filter((name) => !runtimeNames.has(name))
     .sort()
@@ -104,8 +109,34 @@ function packagedPackages(archive) {
   return packages;
 }
 
+function verifyPackageResolution(installed, archive) {
+  const pending = [{ source: installed.app, packed: archive }];
+  const visited = new Set();
+  while (pending.length > 0) {
+    const { source, packed } = pending.pop();
+    // The same packaged directory can represent different installed copies.
+    const pair = JSON.stringify([source, packed]);
+    if (visited.has(pair)) continue;
+    visited.add(pair);
+
+    for (const [name, expected] of installed.dependenciesByDirectory.get(source)) {
+      const directory = resolvePackageDirectory(packed, name, archive);
+      const actual = directory ? identity(name, readManifest(directory)) : null;
+      if (actual !== expected.packageIdentity) {
+        const owner = path.relative(archive, packed) || 'the app root';
+        throw new Error(
+          `the desktop ASAR cannot resolve ${expected.packageIdentity} from ${owner}` +
+            (actual ? ` (found ${actual})` : ''),
+        );
+      }
+      pending.push({ source: expected.directory, packed: directory });
+    }
+  }
+}
+
 function verifyPackageDependencies(appDirectory, archive) {
-  const expected = installedPackages(appDirectory, true);
+  const installed = installedPackages(appDirectory, true);
+  const expected = installed.packages;
   const packed = packagedPackages(archive);
   const missing = [...expected.keys()].filter((entry) => !packed.has(entry)).sort();
   const unexpected = [...packed].filter((entry) => !expected.has(entry)).sort();
@@ -116,6 +147,7 @@ function verifyPackageDependencies(appDirectory, archive) {
         (unexpected.length ? `\n  unexpected: ${unexpected.join(', ')}` : ''),
     );
   }
+  verifyPackageResolution(installed, archive);
   return [...packed].sort();
 }
 

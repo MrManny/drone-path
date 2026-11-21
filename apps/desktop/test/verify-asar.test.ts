@@ -22,13 +22,18 @@ function fixture() {
   const archive = path.join(root, 'app.asar');
   writePackage(desktop, {
     name: 'drone-path-desktop',
-    dependencies: { 'drone-path-engine': '~1.0.0' },
+    dependencies: { 'drone-path-core': '~1.0.0', 'drone-path-engine': '~1.0.0' },
     optionalDependencies: {
       'ffmpeg-ffprobe-static': '~7.1.0',
       'platform-tools': '~1.0.0',
     },
     devDependencies: { electron: '~45.3.0' },
   });
+  const core = { name: 'drone-path-core', version: '1.0.0' };
+  const installedCore = path.join(root, 'node_modules', core.name);
+  const packagedCore = path.join(archive, 'node_modules', core.name);
+  writePackage(installedCore, core);
+  writePackage(packagedCore, core);
   writePackage(path.join(root, 'node_modules', 'drone-path-engine'), {
     name: 'drone-path-engine',
     version: '1.0.0',
@@ -58,6 +63,8 @@ function fixture() {
     desktop,
     root,
     archive,
+    installedCore,
+    packagedCore,
     playwright: path.join(archive, 'node_modules', 'playwright-core'),
   };
 }
@@ -77,7 +84,7 @@ describe('the desktop ASAR dependency inventory', () => {
     const { desktop, archive, playwright } = fixture();
     writePackage(playwright, { name: 'playwright-core', version: '1.0.0' });
     expect(verifyPackageDependencies(desktop, archive)).toEqual([
-      '@scope/helper@2.0.0', 'drone-path-engine@1.0.0', 'playwright-core@1.0.0',
+      '@scope/helper@2.0.0', 'drone-path-core@1.0.0', 'drone-path-engine@1.0.0', 'playwright-core@1.0.0',
     ]);
   });
 
@@ -91,6 +98,40 @@ describe('the desktop ASAR dependency inventory', () => {
     writePackage(playwright, { name: 'playwright-core', version: '2.0.0' });
     expect(() => verifyPackageDependencies(desktop, archive)).toThrow(
       /missing: playwright-core@1.0.0\s+unexpected: playwright-core@2.0.0/,
+    );
+  });
+
+  it('rejects the expected package when the engine cannot reach its location', () => {
+    const { desktop, archive, packagedCore } = fixture();
+    writePackage(path.join(packagedCore, 'node_modules', 'playwright-core'), {
+      name: 'playwright-core',
+      version: '1.0.0',
+    });
+    expect(() => verifyPackageDependencies(desktop, archive)).toThrow(
+      /cannot resolve playwright-core@1.0.0 from .*drone-path-engine/,
+    );
+  });
+
+  it('rejects a hoisted version that shadows the version required by one owner', () => {
+    const { desktop, archive, installedCore, packagedCore, playwright } = fixture();
+    writePackage(installedCore, {
+      name: 'drone-path-core',
+      version: '1.0.0',
+      dependencies: { 'playwright-core': '~2.0.0' },
+    });
+    writePackage(path.join(installedCore, 'node_modules', 'playwright-core'), {
+      name: 'playwright-core',
+      version: '2.0.0',
+    });
+    writePackage(playwright, { name: 'playwright-core', version: '1.0.0' });
+    const nestedPlaywright = path.join(packagedCore, 'node_modules', 'playwright-core');
+    writePackage(nestedPlaywright, { name: 'playwright-core', version: '2.0.0' });
+    expect(verifyPackageDependencies(desktop, archive)).toContain('playwright-core@2.0.0');
+
+    writePackage(playwright, { name: 'playwright-core', version: '2.0.0' });
+    writePackage(nestedPlaywright, { name: 'playwright-core', version: '1.0.0' });
+    expect(() => verifyPackageDependencies(desktop, archive)).toThrow(
+      /cannot resolve playwright-core@1.0.0 from .*drone-path-engine \(found playwright-core@2.0.0\)/,
     );
   });
 

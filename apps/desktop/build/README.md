@@ -60,9 +60,10 @@ PNG metadata.
 
 The `afterPack` hook requires the FFmpeg and FFprobe executables and the
 platform's FFmpeg license under `resources/ff/`. The CI packaging smoke also
-compares the ASAR's package names and versions with the installed desktop
-production dependency graph. The FFmpeg download package stays outside that
-graph because the app uses the executables bundled in `resources/ff/`.
+checks that the ASAR contains the installed desktop production dependencies
+and that each packaged module resolves the version it uses in the workspace.
+The FFmpeg download package stays outside that graph because the app uses the
+executables bundled in `resources/ff/`.
 
 To inspect an unpacked Linux build from the repository root, run the checker
 with Electron's ASAR-aware Node mode.
