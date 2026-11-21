@@ -1,5 +1,12 @@
 # drone-path
 
+## Unreleased
+
+- npm installs still use the `drone-path` package and command. Its tarball
+  now contains the CLI and depends on the separately packaged
+  `drone-path-core` telemetry library and `drone-path-engine` renderer.
+  Desktop installers remain available from GitHub Releases.
+
 ## 0.13.0
 
 - **New:** Choose English, German, Spanish, French or Japanese in desktop
