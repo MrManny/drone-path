@@ -60,6 +60,22 @@ describe('trackSaveFlow', () => {
     expect(d.saveTrack).not.toHaveBeenCalled();
     expect(onSaving).not.toHaveBeenCalled();
   });
+
+  it('aborts before saving when unmounted during the save dialog', async () => {
+    let mounted = true;
+    const d = deps({
+      pickTrackOutput: vi.fn(async (): Promise<PickOutputResult> => {
+        mounted = false;
+        return { ok: true, path: '/exports/flight.telemetry.json' };
+      }),
+    });
+    const onSaving = vi.fn();
+    const event = await trackSaveFlow(d, RANGE, onSaving, () => mounted);
+
+    expect(event).toEqual({ type: 'canceled' });
+    expect(onSaving).not.toHaveBeenCalled();
+    expect(d.saveTrack).not.toHaveBeenCalled();
+  });
 });
 
 describe.each<{

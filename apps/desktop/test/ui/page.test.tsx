@@ -757,3 +757,31 @@ describe('desktop language selector', () => {
     expect(document.documentElement.lang).toBe('de');
   });
 });
+
+describe('initial getSettings race guard (#313)', () => {
+  it('does not overwrite an earlier user settings edit when getSettings resolves late', async () => {
+    let resolveSettings: (config: RenderConfig) => void = () => {};
+    const harness = installBridge();
+    harness.bridge.getSettings.mockImplementation(
+      () =>
+        new Promise<RenderConfig>((resolve) => {
+          resolveSettings = resolve;
+        }),
+    );
+
+    openWorkspace();
+    clickMenuItem('Map appearance…');
+    fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));
+    expect(harness.bridge.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ style: 'topo' }),
+    );
+
+    await act(async () => {
+      resolveSettings({ ...DEFAULT_CONFIG, style: 'satellite' });
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Topographic' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+  });
+});

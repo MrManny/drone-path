@@ -70,4 +70,63 @@ describe('useModalFocus', () => {
     expect(fireEvent.keyDown(panel(), { key: 'Tab', shiftKey: true })).toBe(false);
     expect(document.activeElement).toBe(last);
   });
+
+  it('traps Tab and Shift+Tab when focus falls back to document.body', () => {
+    const view = render(<Panel />);
+    const [first, , last] = buttons();
+    document.body.focus();
+    expect(fireEvent.keyDown(document.body, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(first);
+
+    document.body.focus();
+    expect(fireEvent.keyDown(document.body, { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(last);
+
+    view.unmount();
+    expect(fireEvent.keyDown(document.body, { key: 'Tab' })).toBe(true);
+  });
+
+  it('keeps Tab on the panel when a focused control disables and leaves no focusable items', () => {
+    function EmptyPanel() {
+      const panelRef = useRef<HTMLDivElement | null>(null);
+      useModalFocus(panelRef);
+      return (
+        <div ref={panelRef} tabIndex={-1} data-testid="panel">
+          <button disabled>Restarting</button>
+        </div>
+      );
+    }
+
+    render(<EmptyPanel />);
+    document.body.focus();
+    expect(fireEvent.keyDown(document.body, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(panel());
+  });
+
+  it('includes summary disclosures in the Tab cycle', () => {
+    function DetailsPanel() {
+      const panelRef = useRef<HTMLDivElement | null>(null);
+      useModalFocus(panelRef);
+      return (
+        <div ref={panelRef} tabIndex={-1} data-testid="panel">
+          <button>First</button>
+          <details>
+            <summary>Technical details</summary>
+            <pre>trace</pre>
+          </details>
+        </div>
+      );
+    }
+
+    render(<DetailsPanel />);
+    const first = screen.getByRole('button', { name: 'First' });
+    const summary = screen.getByText('Technical details');
+    first.focus();
+    expect(fireEvent.keyDown(first, { key: 'Tab' })).toBe(true);
+    summary.focus();
+    expect(fireEvent.keyDown(summary, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(first);
+    expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(summary);
+  });
 });

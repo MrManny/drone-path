@@ -162,6 +162,32 @@ describe('chooseAndExport event ordering', () => {
     await chooseAndExport(run.deps, INPUT, run.emit);
     expect(run.events).toEqual([{ type: 'failed', error: 'the app backend went away' }]);
   });
+
+  it('aborts without starting or emitting when unmounted before the picker resolves', async () => {
+    let mounted = true;
+    const run = flowRun({
+      pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => {
+        mounted = false;
+        return { ok: true, path: '/exports/a.mp4' };
+      }),
+    });
+    await chooseAndExport(run.deps, INPUT, run.emit, () => mounted);
+    expect(run.deps.startExport).not.toHaveBeenCalled();
+    expect(run.events).toEqual([]);
+  });
+
+  it('suppresses picker failure events after unmount', async () => {
+    let mounted = true;
+    const run = flowRun({
+      pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => {
+        mounted = false;
+        throw new Error('the app backend went away');
+      }),
+    });
+    await chooseAndExport(run.deps, INPUT, run.emit, () => mounted);
+    expect(run.deps.startExport).not.toHaveBeenCalled();
+    expect(run.events).toEqual([]);
+  });
 });
 
 describe('cancelExport event ordering', () => {

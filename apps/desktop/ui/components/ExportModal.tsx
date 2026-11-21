@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import type { UiSession } from '../../src/appsession.js';
 import { normalizeDimensions } from 'drone-path-engine/config';
@@ -63,6 +63,15 @@ export function ExportModal({
     ),
   );
   const busy = state.phase === 'running';
+  const mountedRef = useRef(true);
+  const pickingRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const dispatch = useCallback(
     (event: ExportEvent) => {
@@ -131,6 +140,19 @@ export function ExportModal({
     onEncoderChange(patch);
   };
 
+  const startExportFlow = (): void => {
+    if (pickingRef.current) return;
+    pickingRef.current = true;
+    void chooseAndExport(
+      flowDeps(),
+      { settings, form, segment },
+      dispatch,
+      () => mountedRef.current,
+    ).finally(() => {
+      pickingRef.current = false;
+    });
+  };
+
   return (
     <DialogShell
       title={t('exportModal.exportVideo')}
@@ -182,7 +204,7 @@ export function ExportModal({
               type="button"
               className="dialog-primary"
               data-phase-focus
-              onClick={() => void chooseAndExport(flowDeps(), { settings, form, segment }, dispatch)}
+              onClick={startExportFlow}
             >
               {t('exportModal.startExport')}
             </button>
