@@ -16,6 +16,7 @@ description: Release workflow. Use when preparing a release.
 4. Switch to a dedicated release branch `release/vX.Y.Z`
 
 5. Rewrite the new `CHANGELOG.md` section as prose release notes before committing
+  - group changes by "Core libraries", "CLI", and "Desktop"
   - terse labeled lines: `**New:**` what users can do now that they could not before, `**Fixed:**` which known issues were fixed, `**Internal:**` (optional, last) changes with no user impact
   - omit labeled lines with no content instead of writing `Nothing this release.`
   - no commit hashes, issue numbers or fragment bookkeeping; follow the voice of existing `CHANGELOG.md` sections
@@ -31,3 +32,5 @@ description: Release workflow. Use when preparing a release.
 10. When the user has merged the PR, draft the release with `gh release create vX.Y.Z --draft --notes-file <file>`: tag and title `vX.Y.Z`, description = the new `CHANGELOG.md` section for `vX.Y.Z` (extract it to a file)
 
 11. Once the user has published the release, watch the Release workflow. After the tag check, lint, and tests, it publishes core, archive, engine, and CLI to npm in dependency order. Separate jobs attach the Windows installer and portable exe, Linux AppImage, and auto-update feed. Verify the npm versions and GitHub assets (`gh release view vX.Y.Z --json assets`). If a job fails, use the failed-jobs retry so successful publish jobs keep their result. See [Releasing](../../../README.md#releasing) for trusted-publisher bootstrap.
+
+Final checks before considering the release successful: packages are published on the NPM registry.
