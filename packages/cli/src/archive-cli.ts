@@ -6,20 +6,18 @@ import { archiveDbPath } from 'drone-path-archive/paths';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
 import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 
-import { addArchiveQueries } from './archive-query-cli.js';
+import { addArchiveQueries, archiveCommand } from './archive-query-cli.js';
 
 export async function runArchive(argv: string[]): Promise<void> {
   const program = new Command('drone-path archive')
     .description('Inspect a library of drone recordings.')
     .exitOverride();
-  const scan = program.command('scan')
+  const scan = archiveCommand(program.command('scan'))
     .description('Scan folders for drone recordings.')
     .argument('<dirs...>', 'folders to scan for recordings')
     .option('--recurse', 'include subfolders')
-    .option('--archive-db <path>', 'override the per-user archive database path')
     .option('--prune', 'remove missing recordings from the index')
     .option('--json', 'write one JSON record per clip to stdout')
-    .exitOverride()
     .action(async (dirs: string[]) => {
       const { recurse, json, archiveDb, prune } = scan.opts<{
         recurse?: boolean; json?: boolean; archiveDb?: string; prune?: boolean;

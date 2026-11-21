@@ -1,8 +1,6 @@
-import { EARTH_RADIUS_M } from './geo.js';
+import { DEG_TO_RAD, EARTH_RADIUS_M, RAD_TO_DEG } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
 
-const DEG_TO_RAD = Math.PI / 180;
-const RAD_TO_DEG = 180 / Math.PI;
 const ANGLE_EPSILON = 1e-12;
 
 export interface TimedPoint extends LatLon {

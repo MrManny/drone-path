@@ -65,11 +65,14 @@ function listOptions(options: ListOptions): ListFilters {
   return { bbox: inBbox, afterMs: after, beforeMs: before, minDistanceM: minDist, availability: status };
 }
 
-function queryOptions(command: Command): Command {
+export function archiveCommand(command: Command): Command {
   return command
     .option('--archive-db <path>', 'override the per-user archive database path')
-    .option('--json', 'write a JSON array to stdout')
     .exitOverride();
+}
+
+function queryOptions(command: Command): Command {
+  return archiveCommand(command).option('--json', 'write a JSON array to stdout');
 }
 
 function listFilters(command: Command): Command {
@@ -86,10 +89,8 @@ interface ExportOptions extends ListOptions {
 }
 
 function exportOptions(command: Command): Command {
-  return listFilters(command)
-    .option('--archive-db <path>', 'override the per-user archive database path')
-    .option('--redact-launch <m>', 'exclude geometry near the first and last indexed fix of each flight', meters)
-    .exitOverride();
+  return archiveCommand(listFilters(command))
+    .option('--redact-launch <m>', 'exclude geometry near the first and last indexed fix of each flight', meters);
 }
 
 export function addArchiveQueries(program: Command): void {

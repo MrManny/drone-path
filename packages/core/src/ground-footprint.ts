@@ -1,9 +1,8 @@
-import { EARTH_RADIUS_M } from './geo.js';
+import { DEG_TO_RAD, EARTH_RADIUS_M } from './geo.js';
 import type { Bbox, LatLon } from './geo.js';
 import { bboxIntersects } from './spatial.js';
 
-const RAD = Math.PI / 180;
-const MIN_DOWN = Math.sin(5 * RAD);
+const MIN_DOWN = Math.sin(5 * DEG_TO_RAD);
 const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const;
 
 export const DEFAULT_CAMERA_FOV = { horizontalDeg: 75, verticalDeg: 50 } as const;
@@ -30,11 +29,11 @@ export function projectGroundFootprint(
     || Math.abs(lat) >= 90 || Math.abs(lon) > 180 || altitudeM <= 0 || pitchDeg >= 0 || pitchDeg < -90
     || horizontalDeg <= 0 || horizontalDeg >= 180 || verticalDeg <= 0 || verticalDeg >= 180) return null;
 
-  const pitch = -pitchDeg * RAD;
-  const yaw = yawDeg * RAD;
-  const roll = rollDeg * RAD;
-  const halfWidth = Math.tan(horizontalDeg * RAD / 2);
-  const halfHeight = Math.tan(verticalDeg * RAD / 2);
+  const pitch = -pitchDeg * DEG_TO_RAD;
+  const yaw = yawDeg * DEG_TO_RAD;
+  const roll = rollDeg * DEG_TO_RAD;
+  const halfWidth = Math.tan(horizontalDeg * DEG_TO_RAD / 2);
+  const halfHeight = Math.tan(verticalDeg * DEG_TO_RAD / 2);
   const polygon: GroundFootprint = [];
   const offsets: number[] = [];
   for (const [x, y] of CORNERS) {
@@ -46,8 +45,8 @@ export function projectGroundFootprint(
     const forward = Math.cos(pitch) + up * Math.sin(pitch);
     const north = depth * (forward * Math.cos(yaw) - right * Math.sin(yaw));
     const east = depth * (forward * Math.sin(yaw) + right * Math.cos(yaw));
-    const vertexLat = lat + north / (EARTH_RADIUS_M * RAD);
-    const deltaLon = east / (EARTH_RADIUS_M * RAD * Math.cos(lat * RAD));
+    const vertexLat = lat + north / (EARTH_RADIUS_M * DEG_TO_RAD);
+    const deltaLon = east / (EARTH_RADIUS_M * DEG_TO_RAD * Math.cos(lat * DEG_TO_RAD));
     if (Math.abs(vertexLat) >= 90 || Math.abs(deltaLon) >= 90) return null;
     offsets.push(deltaLon);
     polygon.push({ lat: vertexLat, lon: wrapLon(lon + deltaLon) });

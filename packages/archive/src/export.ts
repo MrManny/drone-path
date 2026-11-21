@@ -16,7 +16,7 @@ import type { MapFlight } from './export-map.js';
 import { groupFlightMembers } from './flight-members.js';
 import { matchesMetadata } from './query.js';
 import type { ListFilters } from './query.js';
-import { ArchiveStore } from './store.js';
+import { withArchiveStore } from './store.js';
 
 interface ExportOptions {
   filters?: ListFilters;
@@ -31,8 +31,7 @@ function exportFlights(
     throw new Error('expected a nonnegative launch redaction radius in meters');
   }
   const redact = redactLaunchM > 0;
-  const store = new ArchiveStore(db);
-  try {
+  return withArchiveStore(db, (store) => {
     const { clips, endpoints } = store.readExportCandidates(
       filters.bbox, filters.availability, ({ record }) => matchesMetadata(record, filters),
       { redact, includeGaze: includeGaze && !redact },
@@ -53,9 +52,7 @@ function exportFlights(
       });
       return selected.length > 0 ? [{ clips: selected }] : [];
     });
-  } finally {
-    store.close();
-  }
+  });
 }
 
 function writeExport(db: string, output: string, content: string | Buffer): void {

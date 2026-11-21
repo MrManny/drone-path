@@ -7,8 +7,8 @@ import { createSrtSidecarLookup } from 'drone-path-core/srt-sidecar';
 import { decimateSegments, sampleSegments } from './scan-track.js';
 import { discoverRecordings, scanRecordings } from './scanner.js';
 import type { ScanOptions, ScanRecord } from './scanner.js';
-import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from './store.js';
-import type { ClipFingerprint, ClipUpdate } from './store.js';
+import { CLIP_FINGERPRINT_VERSION, withArchiveStoreAsync } from './store.js';
+import type { ArchiveStore, ClipFingerprint, ClipUpdate } from './store.js';
 
 export interface IndexedScanOptions extends Omit<ScanOptions, 'tools' | 'sidecarFor' | 'onTrack' | 'onGaze'> {
   db: string;
@@ -97,12 +97,7 @@ async function scanRoots(
 }
 
 export async function scanArchive(dirs: readonly string[], options: IndexedScanOptions): Promise<ScanRecord[]> {
-  const store = new ArchiveStore(options.db);
-  try {
-    return await indexFolders(store, dirs, options);
-  } finally {
-    store.close();
-  }
+  return withArchiveStoreAsync(options.db, (store) => indexFolders(store, dirs, options));
 }
 
 async function indexFolders(store: ArchiveStore, dirs: readonly string[], options: IndexedScanOptions): Promise<ScanRecord[]> {
