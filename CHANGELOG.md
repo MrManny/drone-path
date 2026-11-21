@@ -1,7 +1,24 @@
 # drone-path
 
-## 1.0.0-rc1
+## 1.0.0
 
+- **New:** Scan folders into a local SQLite archive index with
+  `drone-path archive scan`. Scans skip unchanged clips, include recordings
+  without telemetry or GPS lock, and retain missing clips as offline until
+  pruned.
+- **New:** Query indexed recordings with `archive list` (filtering by viewport,
+  camera date, track distance, or availability) and rank nearby tracks with
+  `archive near`, including clip-relative closest-pass times and camera
+  footprint search (`--include-gaze`) for DVTM clips.
+- **New:** Group contiguous DJI recordings into inferred flights with
+  `archive list --group-by flight`, and export indexed flight groups as
+  offline HTML maps or GPX, GeoJSON, KML, and KMZ tracks with optional
+  launch-area redaction.
+- **New:** Faster DJI CAM meta telemetry extraction by reusing recording probes
+  and reading supported MP4 sample tables directly.
+- **Fixed:** Archive queries can now open an existing index while a scan holds a
+  SQLite write reservation, and SRT sidecar scanning avoids repeated directory
+  reads.
 - **Fixed:** `.SRT` no-lock gaps now preserve the nearest valid fix's speed and
   heading instead of dropping to zero or the default heading, and two-fix
   tracks compute forward-difference speed and course-over-ground heading.
@@ -17,9 +34,9 @@
   exports never overwrite finished files, and updater restart failures and
   duplicate save-picker triggers are handled cleanly.
 - **Internal:** Split the codebase into monorepo packages: `drone-path` now
-  depends on `drone-path-core` and `drone-path-engine`, while desktop
-  installers continue to ship from GitHub Releases. Scoped GitHub Project
-  status helpers to issues in the current repository.
+  depends on `drone-path-core`, `drone-path-engine`, and `drone-path-archive`,
+  while desktop installers continue to ship from GitHub Releases. Scoped GitHub
+  Project status helpers to issues in the current repository.
 
 ## 0.13.0
 
