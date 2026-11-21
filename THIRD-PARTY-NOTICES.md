@@ -1,12 +1,17 @@
 # Third-party notices
 
+This file accompanies the desktop distribution. The published npm packages
+include their own notices for [core](https://github.com/MrManny/drone-path/blob/main/packages/core/THIRD-PARTY-NOTICES.md),
+[engine](https://github.com/MrManny/drone-path/blob/main/packages/engine/THIRD-PARTY-NOTICES.md), and
+[CLI](https://github.com/MrManny/drone-path/blob/main/packages/cli/THIRD-PARTY-NOTICES.md).
+
 The UI icons render from the [Lucide](https://lucide.dev) icon set via the
 `lucide-react` npm package, a runtime dependency of the UI bundle; the
 package's own LICENSE file ships with every install. Lucide releases its icons
 under the ISC License below. Icons Lucide derives from the Feather project
 additionally carry the MIT License below — among the icons this app renders,
-`x`, `power`, `info` and `help-circle` are Feather-derived. `ui/icons/` holds
-only the GitHub brand mark; see its note below.
+`x`, `power`, `info` and `help-circle` are Feather-derived.
+`apps/desktop/ui/icons/` holds only the GitHub brand mark; see its note below.
 
 ## Lucide — ISC License
 
@@ -48,12 +53,12 @@ SOFTWARE.
 
 ## FFmpeg and FFprobe (embedded binaries) — GPL-3.0-or-later
 
-The desktop app distributions and the npm package may carry static `ffmpeg`
-and `ffprobe` binaries so renders need no local install. They are the FFmpeg
-and ffprobe 7.1.0 builds downloaded by the `ffmpeg-ffprobe-static` optional
-dependency from release `b7.1.0-rc.1` of
-https://github.com/descriptinc/ffmpeg-ffprobe-static and are spawned as
-separate processes; x264/x265 make these GPL-3.0-or-later builds.
+The desktop distributions bundle static `ffmpeg` and `ffprobe` binaries.
+The core npm package supplies them through an optional dependency.
+`ffmpeg-ffprobe-static` downloads the 7.1.0 builds from release `b7.1.0-rc.1` of
+https://github.com/descriptinc/ffmpeg-ffprobe-static. Drone Path spawns the
+binaries as separate processes. The x264 and x265 encoders make these builds
+GPL-3.0-or-later.
 
 Build provenance and corresponding source per platform:
 
@@ -78,7 +83,7 @@ GPL-3.0-or-later.
 
 ## GitHub mark
 
-`ui/icons/GitHubIcon.tsx` draws the GitHub octocat mark, used nominatively and
-solely to link to the project's own GitHub repository from the About dialog.
+`apps/desktop/ui/icons/GitHubIcon.tsx` draws the GitHub octocat mark,
+used nominatively and solely to link to the project's own GitHub repository from the About dialog.
 The mark is a trademark of GitHub, Inc.; this use implies no affiliation with
 or endorsement by GitHub.

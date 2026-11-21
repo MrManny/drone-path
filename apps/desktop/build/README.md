@@ -14,7 +14,7 @@ Source artwork and derived platform formats for the desktop app icon.
 - `icon.ico` — Windows icon (`win.icon`), 16 to 256; the never-displayed
   256x256 entry is required by electron-builder's converter.
 - `icon.ico` and `icons/256x256.png` are the runtime window icon
-  (`app/main.mjs`), listed in `files` because build resources are not packed
+  (`../app/main.mjs`), listed in `files` because build resources are not packed
   into the app by default.
 
 ## Provenance
@@ -37,8 +37,8 @@ added to the project.
    source-neighborhood min/max so resampling cannot ring outside the source's
    support.
 
-Packed with [`png-to-ico`](https://www.npmjs.com/package/png-to-ico) (MIT,
-installed temporarily under `.scratch/`) via its array API — its CLI packs one
+From `apps/desktop`, pack with [`png-to-ico`](https://www.npmjs.com/package/png-to-ico) (MIT,
+installed temporarily under `.scratch/`) via its array API. Its CLI packs one
 file into fixed 16/32/48/256 sizes:
 
 ```js

@@ -1,6 +1,6 @@
 {
   "name": "drone-path",
-  "version": "0.13.0",
+  "version": "1.0.0-rc1",
   "description": "Render flight-path map overlay videos (exactly the source frame rate and frame count) from DJI drone recordings - telemetry from the embedded CAM-meta (DVTM) stream or the .SRT sidecar.",
   "type": "module",
   "exports": {
@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "commander": "~15.1.0",
-    "drone-path-core": "~0.13.0",
-    "drone-path-engine": "~0.13.0"
+    "drone-path-core": "~1.0.0-rc1",
+    "drone-path-engine": "~1.0.0-rc1"
   }
 }
