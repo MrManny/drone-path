@@ -10,7 +10,7 @@ import { readCamMetaTrack } from '../src/mp4-cammeta.js';
 afterEach(cleanupTmpDirs);
 
 describe('readCamMetaTrack', () => {
-  it.for(['ordinary', 'wide', 'identity-edit'] as const)('reads sample bytes and PTS for %s', async (layout) => {
+  it.for(['ordinary', 'wide', 'identity-edit', 'rounding-tie'] as const)('reads sample bytes and PTS for %s', async (layout) => {
     const { file, buffer, packets } = camMetaMp4(layout);
     const video = path.join(tmpDir(), 'cammeta.mp4');
     writeFileSync(video, file);

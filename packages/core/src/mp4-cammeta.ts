@@ -116,18 +116,29 @@ function sampleSizes(table: Buffer): number[] {
   return Array.from({ length: count }, (_, sample) => constant || table.readUInt32BE(12 + sample * 4));
 }
 
+function packetTimestamp(seconds: number): number {
+  // ffprobe prints six decimal places and rounds exact halfway values to even.
+  // After factoring out powers of five, binary halfway values are odd / 128.
+  const ticksAt128Hz = seconds * 128;
+  if (ticksAt128Hz % 4 === 1) {
+    const micros = BigInt(ticksAt128Hz) * 15_625n / 2n;
+    return Number(`${micros}e-6`);
+  }
+  return Number(seconds.toFixed(6));
+}
+
 function readPacketTimes(table: Buffer, sizes: number[], timescale: number) {
   const packets: CamMetaPacket[] = [];
   let ticks = 0;
   const count = entryCount(table, 8);
+  const timeBase = 1 / timescale;
   for (let entry = 0; entry < count; entry++) {
     const offset = 8 + entry * 8;
     const samples = table.readUInt32BE(offset);
     const delta = table.readUInt32BE(offset + 4);
     requireLayout(samples > 0 && delta > 0 && packets.length + samples <= sizes.length);
     for (let sample = 0; sample < samples; sample++) {
-      // Match the six decimal places emitted by the ffprobe packet listing.
-      packets.push({ tSec: Number((ticks / timescale).toFixed(6)), size: sizes[packets.length] });
+      packets.push({ tSec: packetTimestamp(ticks * timeBase), size: sizes[packets.length] });
       ticks += delta;
     }
     requireLayout(Number.isSafeInteger(ticks));
