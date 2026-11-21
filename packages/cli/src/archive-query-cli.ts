@@ -1,6 +1,7 @@
+import { Option } from 'commander';
 import type { Command } from 'commander';
 import { archiveDbPath } from 'drone-path-archive/paths';
-import { DEFAULT_RADIUS_M, listArchive, nearArchive, parseDateBound } from 'drone-path-archive/query';
+import { DEFAULT_RADIUS_M, listArchive, listArchiveFlights, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveAvailability, ListFilters } from 'drone-path-archive/query';
 import type { Bbox, LatLon } from 'drone-path-core/geo';
 
@@ -10,6 +11,7 @@ interface QueryOptions {
 }
 
 interface ListOptions extends QueryOptions {
+  groupBy?: 'flight';
   inBbox?: Bbox;
   after?: number;
   before?: number;
@@ -77,8 +79,23 @@ export function addArchiveQueries(program: Command): void {
     .option('--before <date>', 'latest camera date or timestamp, exclusive', parseDateBound)
     .option('--min-dist <m>', 'minimum track distance in meters', meters)
     .option('--status <state>', 'filter by online or offline availability', availability)
+    .addOption(new Option('--group-by <kind>', 'group matching clips into flights').choices(['flight']))
     .action((options: ListOptions) => {
-      const clips = listArchive(archiveDbPath(options.archiveDb), listOptions(options));
+      const db = archiveDbPath(options.archiveDb);
+      const filters = listOptions(options);
+      if (options.groupBy === 'flight') {
+        const flights = listArchiveFlights(db, filters);
+        if (options.json) writeJson(flights);
+        else for (const { flightId, clips } of flights) {
+          process.stdout.write(`Flight ${flightId}\n`);
+          for (const clip of clips) {
+            const continuation = clip.splitFromKey === null ? '' : ' (split continuation)';
+            process.stdout.write(`  [${clip.availability}] ${clip.path}${continuation}\n`);
+          }
+        }
+        return;
+      }
+      const clips = listArchive(db, filters);
       if (options.json) writeJson(clips);
       else for (const clip of clips) process.stdout.write(`[${clip.availability}] ${clip.path}\n`);
     });

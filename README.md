@@ -40,6 +40,8 @@ Run `drone-path archive scan <folder> --recurse --json` to index MP4 recordings 
 
 Use `drone-path archive list --status offline --json` to find disconnected recordings or `drone-path archive near 46.62,14.31 --radius 250 --json` to find the closest pass in each matching clip. See the [CLI manual](docs/user/cli.md#query-the-recording-library) for filters and result formats.
 
+Use `drone-path archive list --group-by flight` to see consecutive clips and split recordings grouped into inferred flights.
+
 
 ## User manual
 

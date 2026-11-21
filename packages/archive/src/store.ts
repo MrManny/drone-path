@@ -3,14 +3,18 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLInputValue } from 'node:sqlite';
 
+import { groupFlights } from 'drone-path-core/flight-grouping';
+import type { FlightMembership } from 'drone-path-core/flight-grouping';
 import type { Bbox } from 'drone-path-core/geo';
 import { bboxIntersects, longitudeRanges, resolveTrackBbox } from 'drone-path-core/spatial';
 
+import { zonedTimeMs } from './camera-time.js';
 import { groupSamples } from './scan-track.js';
 import type { ScanPoint, SparseSample } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 
-export const ARCHIVE_SCHEMA_VERSION = 1;
+export const ARCHIVE_SCHEMA_VERSION = 2;
+export const CLIP_FINGERPRINT_VERSION = 1;
 
 export interface ClipFingerprint {
   size: number;
@@ -32,6 +36,10 @@ export interface ClipUpdate extends IndexedClip {
   samples: SparseSample[];
 }
 
+export interface IndexedFlightClip extends IndexedClip {
+  flight: FlightMembership;
+}
+
 interface ClipRow {
   clip_key: string;
   availability: IndexedClip['availability'];
@@ -41,6 +49,12 @@ interface ClipRow {
   srt_mtime_ms: number | null;
   schema_version: number;
   record_json: string;
+}
+
+interface FlightClipRow extends ClipRow {
+  flight_id: string;
+  flight_order: number;
+  split_from_key: string | null;
 }
 
 function decodeClip(row: ClipRow): IndexedClip {
@@ -53,6 +67,15 @@ function decodeClip(row: ClipRow): IndexedClip {
       schemaVersion: row.schema_version,
     },
     record: JSON.parse(row.record_json) as ScanRecord,
+  };
+}
+
+function decodeFlightClip(row: FlightClipRow): IndexedFlightClip {
+  return {
+    ...decodeClip(row),
+    flight: {
+      key: row.clip_key, flightId: row.flight_id, order: row.flight_order, splitFromKey: row.split_from_key,
+    },
   };
 }
 
@@ -86,6 +109,15 @@ const SCHEMA = `
   ) STRICT;
 `;
 
+const FLIGHT_SCHEMA = `
+  CREATE TABLE clip_flights (
+    clip_key TEXT PRIMARY KEY REFERENCES clips (clip_key) ON DELETE CASCADE,
+    flight_id TEXT NOT NULL,
+    flight_order INTEGER NOT NULL,
+    split_from_key TEXT REFERENCES clips (clip_key) ON DELETE SET NULL
+  ) STRICT;
+`;
+
 export class ArchiveStore {
   private readonly db: DatabaseSync;
 
@@ -102,9 +134,13 @@ export class ArchiveStore {
             throw new Error('existing database has no archive schema');
           }
           this.db.exec(SCHEMA);
-          this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
-        } else if (version !== ARCHIVE_SCHEMA_VERSION) {
+        } else if (version !== 1 && version !== ARCHIVE_SCHEMA_VERSION) {
           throw new Error(`unsupported archive database schema version: ${String(version)}`);
+        }
+        if (version === 0 || version === 1) {
+          this.db.exec(FLIGHT_SCHEMA);
+          this.refreshFlights();
+          this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
         }
       });
     } catch (error) {
@@ -124,7 +160,7 @@ export class ArchiveStore {
     }));
   }
 
-  listClips(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedClip[] {
+  listClips(bbox?: Bbox, availability?: IndexedClip['availability']): IndexedFlightClip[] {
     if (bbox === undefined) return this.selectClips(undefined, availability, false);
     return this.transaction('BEGIN', () => this.selectClips(bbox, availability, false).filter(({ key, record }) => {
       const raw = record.bbox;
@@ -166,6 +202,7 @@ export class ArchiveStore {
       for (const key of offline) setAvailability.run('offline', key);
       const remove = this.db.prepare('DELETE FROM clips WHERE clip_key = ?');
       for (const key of removed) remove.run(key);
+      if (updates.length + removed.length > 0) this.refreshFlights();
       if (updates.length + online.length + offline.length + removed.length > 0) {
         this.db.exec('UPDATE archive_revision SET revision = revision + 1');
       }
@@ -178,7 +215,7 @@ export class ArchiveStore {
 
   private selectClips(
     bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined, includeArcs: boolean,
-  ): IndexedClip[] {
+  ): IndexedFlightClip[] {
     const clauses: string[] = [];
     const values: SQLInputValue[] = [];
     if (availability !== undefined) {
@@ -204,8 +241,35 @@ export class ArchiveStore {
       values.push(bbox.maxLat, bbox.minLat, ...ranges.flatMap(([west, east]) => [east, west]));
     }
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-    const rows = this.db.prepare(`SELECT * FROM clips ${where} ORDER BY clip_key`).all(...values);
-    return (rows as unknown as ClipRow[]).map(decodeClip);
+    const rows = this.db.prepare(`
+      SELECT * FROM clips JOIN clip_flights USING (clip_key) ${where} ORDER BY clip_key
+    `).all(...values);
+    return (rows as unknown as FlightClipRow[]).map(decodeFlightClip);
+  }
+
+  private refreshFlights(): void {
+    const rows = this.db.prepare(`
+      SELECT clip_key, size, json_extract(record_json, '$.cameraCreationTime') AS camera_time,
+        json_extract(record_json, '$.video.durationSec') AS duration_sec
+      FROM clips ORDER BY clip_key
+    `).all() as { clip_key: string; size: number; camera_time: string | null; duration_sec: number | null }[];
+    const first = this.db.prepare(`
+      SELECT lat, lon, t_sec AS tSec FROM clip_samples
+      WHERE clip_key = ? ORDER BY segment, sample_index LIMIT 1
+    `);
+    const last = this.db.prepare(`
+      SELECT lat, lon, t_sec AS tSec FROM clip_samples
+      WHERE clip_key = ? ORDER BY segment DESC, sample_index DESC LIMIT 1
+    `);
+    const memberships = groupFlights(rows.map(({ clip_key, size, camera_time, duration_sec }) => ({
+      key: clip_key, size, startMs: camera_time === null ? null : zonedTimeMs(camera_time),
+      durationSec: duration_sec,
+      firstFix: first.get(clip_key) as unknown as ScanPoint | undefined,
+      lastFix: last.get(clip_key) as unknown as ScanPoint | undefined,
+    })));
+    this.db.exec('DELETE FROM clip_flights');
+    const add = this.db.prepare('INSERT INTO clip_flights VALUES (?, ?, ?, ?)');
+    for (const { key, flightId, order, splitFromKey } of memberships) add.run(key, flightId, order, splitFromKey);
   }
 
   private transaction<T>(begin: 'BEGIN' | 'BEGIN IMMEDIATE', body: () => T): T {

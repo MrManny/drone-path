@@ -1,14 +1,23 @@
 import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { nearestOnTrack, radiusBbox } from 'drone-path-core/spatial';
 
+import { zonedTimeMs } from './camera-time.js';
 import { groupSamples } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 import { ArchiveStore } from './store.js';
 import type { IndexedClip } from './store.js';
 
+export { parseDateBound } from './camera-time.js';
+
 export const DEFAULT_RADIUS_M = 100;
 export type ArchiveAvailability = IndexedClip['availability'];
 export type ArchiveClip = ScanRecord & { availability: ArchiveAvailability };
+export type FlightListClip = ArchiveClip & { splitFromKey: string | null };
+
+export interface ArchiveFlight {
+  flightId: string;
+  clips: FlightListClip[];
+}
 
 export interface ListFilters {
   bbox?: Bbox;
@@ -25,25 +34,6 @@ export interface NearHit {
   matchType: 'track';
 }
 
-const ISO_ZONED_TIME = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/u;
-const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/u;
-
-function validCalendarDay(day: string): boolean {
-  const epoch = Date.parse(day);
-  return Number.isFinite(epoch) && new Date(epoch).toISOString().slice(0, 10) === day;
-}
-
-function zonedTimeMs(time: string): number {
-  const day = ISO_ZONED_TIME.exec(time)?.[1];
-  return day && validCalendarDay(day) ? Date.parse(time) : NaN;
-}
-
-export function parseDateBound(time: string): number {
-  const epoch = ISO_DAY.test(time) && validCalendarDay(time) ? Date.parse(time) : zonedTimeMs(time);
-  if (!Number.isFinite(epoch)) throw new Error('expected an ISO date or timestamp with a time zone');
-  return epoch;
-}
-
 function matchesMetadata(clip: ArchiveClip, { afterMs, beforeMs, minDistanceM }: ListFilters): boolean {
   if (minDistanceM !== undefined &&
       (clip.telemetry === null || clip.telemetry.trackDistanceM < minDistanceM)) return false;
@@ -58,14 +48,33 @@ function toClip({ record, availability }: IndexedClip): ArchiveClip {
   return { ...record, availability };
 }
 
-export function listArchive(db: string, filters: ListFilters = {}): ArchiveClip[] {
+function matchingClips(db: string, filters: ListFilters) {
   const store = new ArchiveStore(db);
   try {
-    return store.listClips(filters.bbox, filters.availability).map(toClip)
-      .filter((clip) => matchesMetadata(clip, filters));
+    return store.listClips(filters.bbox, filters.availability).flatMap((indexed) => {
+      const clip = toClip(indexed);
+      return matchesMetadata(clip, filters) ? [{ clip, flight: indexed.flight }] : [];
+    });
   } finally {
     store.close();
   }
+}
+
+export function listArchive(db: string, filters: ListFilters = {}): ArchiveClip[] {
+  return matchingClips(db, filters).map(({ clip }) => clip);
+}
+
+export function listArchiveFlights(db: string, filters: ListFilters = {}): ArchiveFlight[] {
+  const flights = new Map<string, { order: number; clip: FlightListClip }[]>();
+  for (const { clip, flight } of matchingClips(db, filters)) {
+    const member = { order: flight.order, clip: { ...clip, splitFromKey: flight.splitFromKey } };
+    const members = flights.get(flight.flightId);
+    if (members) members.push(member);
+    else flights.set(flight.flightId, [member]);
+  }
+  return [...flights].map(([flightId, members]) => ({
+    flightId, clips: members.sort((a, b) => a.order - b.order).map(({ clip }) => clip),
+  }));
 }
 
 export function nearArchive(db: string, point: LatLon, radiusM: number = DEFAULT_RADIUS_M): NearHit[] {

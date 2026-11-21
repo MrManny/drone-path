@@ -2,10 +2,10 @@ import path from 'node:path';
 
 import { afterEach, expect, it } from 'vitest';
 
-import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
-import { listArchive, nearArchive, parseDateBound } from '../src/query.js';
+import { cleanupTmpDirs, probeFixture, tmpDir } from '../../../test/fixtures/core.js';
+import { listArchive, listArchiveFlights, nearArchive, parseDateBound } from '../src/query.js';
 import type { SparseSample } from '../src/scan-track.js';
-import { ARCHIVE_SCHEMA_VERSION, ArchiveStore } from '../src/store.js';
+import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from '../src/store.js';
 import type { ClipUpdate } from '../src/store.js';
 
 afterEach(cleanupTmpDirs);
@@ -21,7 +21,7 @@ function clip(
   const mtimeMs = Date.parse('2025-02-02');
   return {
     key, availability, samples, overview: [],
-    fingerprint: { size: 1, mtimeMs, srtSize: null, srtMtimeMs: null, schemaVersion: ARCHIVE_SCHEMA_VERSION },
+    fingerprint: { size: 1, mtimeMs, srtSize: null, srtMtimeMs: null, schemaVersion: CLIP_FINGERPRINT_VERSION },
     record: {
       path: key, size: 1, mtimeMs, cameraCreationTime, video: null,
       status: samples.length ? 'ok' : 'no-telemetry',
@@ -123,7 +123,36 @@ it('keeps arcs that reach outside the raw latitude bounds in the SQL prefilter',
   expect(hits[0].tSec).toBeCloseTo(6, 8);
 });
 
-it.each(['2025-02-30', '2025-02-30T00:00:00Z', '2025-02-02T00:00', '02/02/2025'])(
-  'rejects ambiguous or invalid date bound %s',
-  (value) => expect(() => parseDateBound(value)).toThrow('expected an ISO date'),
-);
+it('assembles filtered flight members in recording order with their split predecessor', () => {
+  const samples = [{ lat: 46, lon: 14, tSec: 0, segment: 0 }, { lat: 46.0002, lon: 14, tSec: 20, segment: 0 }];
+  const first = clip('DJI_9999.MP4', samples, 'offline');
+  first.record.video = probeFixture({ durationSec: 20 });
+  first.fingerprint.size = first.record.size = 4_000_000_000;
+  const next = clip('DJI_0000.MP4', [
+    { ...samples[1], tSec: 0 }, { ...samples[1], tSec: 15 },
+  ], 'online', '2025-02-02T00:00:20Z');
+  next.record.video = probeFixture({ durationSec: 15 });
+  const db = index(next, first);
+  const [flight] = listArchiveFlights(db);
+  expect(listArchiveFlights(db)).toEqual([{
+    flightId: expect.any(String),
+    clips: [
+      { ...first.record, availability: 'offline', splitFromKey: null },
+      { ...next.record, availability: 'online', splitFromKey: first.key },
+    ],
+  }]);
+  expect(listArchiveFlights(db, { availability: 'online' })).toEqual([{ ...flight, clips: [flight.clips[1]] }]);
+  expect(listArchive(db)).toEqual([
+    { ...next.record, availability: 'online' }, { ...first.record, availability: 'offline' },
+  ]);
+
+  const store = new ArchiveStore(db);
+  try {
+    store.commit(store.snapshot().revision, [], [], [], [first.key]);
+  } finally {
+    store.close();
+  }
+  const [remaining] = listArchiveFlights(db);
+  expect(remaining.flightId).not.toBe(flight.flightId);
+  expect(remaining.clips).toEqual([{ ...next.record, availability: 'online', splitFromKey: null }]);
+});

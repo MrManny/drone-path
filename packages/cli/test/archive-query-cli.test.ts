@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { listArchive, nearArchive, parseDateBound } from 'drone-path-archive/query';
+import { listArchive, listArchiveFlights, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveClip } from 'drone-path-archive/query';
 
 import { main } from '../src/cli.js';
@@ -42,6 +42,17 @@ it('routes negative near coordinates followed by flags', async () => {
   await main(['node', 'drone-path', 'archive', 'near', '-20,179.5', '--json', '--radius', '50']);
   expect(nearArchive).toHaveBeenCalledWith(expect.any(String), { lat: -20, lon: 179.5 }, 50);
   expect(output.mock.calls).toEqual([[JSON.stringify(hits) + '\n']]);
+  expect(error).not.toHaveBeenCalled();
+});
+
+it('lists flight groups as JSON while honoring clip filters', async () => {
+  const grouped = [{ flightId: 'first', clips: [{ ...clip, splitFromKey: null }] }];
+  vi.mocked(listArchiveFlights).mockReturnValue(grouped);
+  const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+  const error = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+  await main(['node', 'drone-path', 'archive', 'list', '--group-by', 'flight', '--status', 'online', '--json']);
+  expect(listArchiveFlights).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ availability: 'online' }));
+  expect(output.mock.calls).toEqual([[JSON.stringify(grouped) + '\n']]);
   expect(error).not.toHaveBeenCalled();
 });
 

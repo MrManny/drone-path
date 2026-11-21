@@ -134,6 +134,20 @@ without a time zone do not participate in date filters.
 The viewport filter uses the indexed track to resolve bounding boxes for clips
 that cross the antimeridian.
 
+Add `--group-by flight` to group the matching clips in recording order. Groups
+are inferred from consecutive DJI clip numbers in the same folder, unverified
+camera tags with time zones, and nearby GPS endpoints. Missing or ambiguous
+evidence leaves clips in their own groups. A gap of more than 45 seconds
+starts a new group. A clip near the 4 GB split limit can link to its successor
+when recording time and position are closely continuous. File paths stay the
+same, and opening an existing archive computes groups from the saved index.
+
+Grouped JSON contains `{ flightId, clips }` entries. Each clip includes
+`splitFromKey`, which is the predecessor's canonical archive path key
+(lowercase on Windows) for a split continuation and `null` otherwise.
+Filters determine which clips appear, so a referenced predecessor may be
+outside the result.
+
 Run `drone-path archive near 46.62,14.31 --radius 250` to find indexed clips
 whose GPS tracks pass within 250 meters of the point. The default radius is 100
 meters. Results include offline clips and sort by closest distance. Southern
