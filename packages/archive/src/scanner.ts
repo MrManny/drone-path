@@ -43,6 +43,7 @@ export interface ScanOptions {
   concurrency?: number;
   signal?: AbortSignal;
   onRecord?: (record: ScanRecord) => void;
+  onTrack?: (file: string, segments: ScanPoint[][]) => void;
 }
 
 function isRecording(name: string): boolean {
@@ -73,7 +74,9 @@ export async function discoverRecordings(
   return found.sort();
 }
 
-export async function scanRecording(file: string, { tools, signal }: Pick<ScanOptions, 'tools' | 'signal'>): Promise<ScanRecord> {
+export async function scanRecording(
+  file: string, { tools, signal, onTrack }: Pick<ScanOptions, 'tools' | 'signal' | 'onTrack'>,
+): Promise<ScanRecord> {
   signal?.throwIfAborted();
   const record: ScanRecord = {
     path: file, size: null, mtimeMs: null, status: 'error', video: null,
@@ -100,7 +103,9 @@ export async function scanRecording(file: string, { tools, signal }: Pick<ScanOp
       throw new Error('cam meta stream contains no readable telemetry samples');
     }
 
-    const { bbox, track, fixCount, trackDistanceM } = summarizeTrack(loaded.trackValues);
+    const { bbox, track, fixCount, trackDistanceM } = summarizeTrack(
+      loaded.trackValues, onTrack && ((segments) => onTrack(file, segments)),
+    );
     record.bbox = bbox;
     record.track = track;
     record.telemetry = { source: loaded.source, method: loaded.method, fixCount, noLock: loaded.noLock, trackDistanceM };
@@ -114,6 +119,10 @@ export async function scanRecording(file: string, { tools, signal }: Pick<ScanOp
 
 export async function scanFolders(dirs: readonly string[], options: ScanOptions): Promise<ScanRecord[]> {
   const files = await discoverRecordings(dirs, options);
+  return scanRecordings(files, options);
+}
+
+export async function scanRecordings(files: readonly string[], options: ScanOptions): Promise<ScanRecord[]> {
   const queue = new PQueue({ concurrency: options.concurrency ?? 4 });
   // Wait for active tasks to release their file handles and child processes after abort.
   const results = await Promise.allSettled(files.map((file) => queue.add(async () => {

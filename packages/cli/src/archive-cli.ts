@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 
 import { Command } from 'commander';
-import { scanFolders } from 'drone-path-archive/scanner';
+import { scanArchive } from 'drone-path-archive/indexed-scan';
+import { archiveDbPath } from 'drone-path-archive/paths';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
 import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 
@@ -13,18 +14,25 @@ export async function runArchive(argv: string[]): Promise<void> {
     .description('Scan folders for drone recordings.')
     .argument('<dirs...>', 'folders to scan for recordings')
     .option('--recurse', 'include subfolders')
+    .option('--archive-db <path>', 'override the per-user archive database path')
+    .option('--prune', 'remove missing recordings from the index')
     .option('--json', 'write one JSON record per clip to stdout')
     .exitOverride()
     .action(async (dirs: string[]) => {
-      const { recurse, json } = scan.opts<{ recurse?: boolean; json?: boolean }>();
+      const { recurse, json, archiveDb, prune } = scan.opts<{
+        recurse?: boolean; json?: boolean; archiveDb?: string; prune?: boolean;
+      }>();
       const controller = new AbortController();
       const interrupt = () => controller.abort(new Error('archive scan canceled'));
       process.on('SIGINT', interrupt);
       try {
-        const tools = resolveFfmpegTools({ ffmpeg: null, ffprobe: null });
-        await requireFfmpegTools(tools, controller.signal);
-        const records = await scanFolders(dirs, {
-          tools, recurse, signal: controller.signal,
+        const records = await scanArchive(dirs, {
+          db: archiveDbPath(archiveDb), recurse, prune, signal: controller.signal,
+          getTools: async () => {
+            const tools = resolveFfmpegTools({ ffmpeg: null, ffprobe: null });
+            await requireFfmpegTools(tools, controller.signal);
+            return tools;
+          },
           onRecord: (record) => {
             process.stderr.write(`[drone-path] ${record.status}: ${record.path}\n`);
           },

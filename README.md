@@ -36,7 +36,7 @@ requirements and install options are in
 
 ### Scan a recording library
 
-Run `drone-path archive scan <folder> --recurse --json` to inventory MP4 recordings as newline-delimited JSON. See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for the record format.
+Run `drone-path archive scan <folder> --recurse --json` to index MP4 recordings locally and print the inventory as newline-delimited JSON. Rescans reuse unchanged clips. See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for the record format and archive options.
 
 
 ## User manual
