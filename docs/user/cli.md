@@ -84,7 +84,7 @@ Run `npx drone-path --help` for the built-in overview. The complete table of opt
 
 ## Scan a recording library
 
-Run `drone-path archive scan <dirs...>` to inspect one or more folders. Add
+Run `drone-path archive scan <dirs...>` to index recordings from one or more folders. Add
 `--recurse` to scan subfolders and `--json` to write one JSON object per
 recording to stdout in path order. Progress goes to stderr. Drone Path skips
 non-MP4 files and generated `*_map.mp4` overlays.
@@ -94,3 +94,21 @@ metadata, and a status of `ok`, `no-telemetry`, `no-gps`, or `error`. If present
 `cameraCreationTime` contains the original, unverified camera tag. Track points
 use seconds from the start of the clip. Bounding boxes and tracks are available
 for clips with GPS fixes.
+
+The archive uses a per-user SQLite database at
+`%LOCALAPPDATA%/drone-path/archive.sqlite` on Windows,
+`~/Library/Application Support/drone-path/archive.sqlite` on macOS, and
+`$XDG_DATA_HOME/drone-path/archive.sqlite` on Linux
+(`~/.local/share/drone-path/archive.sqlite` by default). Use `--archive-db <path>`
+to choose another database. Rescans reuse records when the recording and its
+SRT sidecar are unchanged and retry clips that had a scan error.
+
+When a clip is missing from a scanned folder, its record stays in the
+database as offline. Reconnect the drive and scan the same folder to mark the
+clip online again. Add `--prune` to remove missing clips in the scanned folders
+from the database.
+
+The index stores overview tracks of up to 60 vertices, detail tracks of up to
+500, and timestamped GPS fixes at roughly one-second intervals. These tracks
+and samples summarize the source telemetry, so a lookup can miss motion
+between retained fixes.
