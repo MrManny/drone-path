@@ -52,7 +52,7 @@ export function useLanguageSettings() {
       savingRef.current = false;
       if (mountedRef.current) setSaving(false);
     }
-  }, []);
+  }, [mountedRef]);
 
   return { ...language, saving, error, selectLanguage };
 }
