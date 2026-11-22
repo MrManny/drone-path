@@ -1,9 +1,9 @@
-import { tEnglish } from '../../src/desktop-i18n/messages.js';
-import type { Translate } from '../../src/desktop-i18n/messages.js';
+import { tEnglish } from '../../shared/desktop-i18n/loader.js';
+import type { Translate } from '../../shared/desktop-i18n/loader.js';
 import type { ExportRequest } from 'drone-path-engine/config';
 import { normalizeDimensions } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import type { ExportOutcome } from '../../src/exportjob.js';
+import type { ExportOutcome } from '../../shared/contracts.js';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import type { RecordingSummary } from 'drone-path-engine/pipeline';
 

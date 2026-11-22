@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { vi } from 'vitest';
 
-import type { UiSession } from '../../src/appsession.js';
+import type { UiSession } from '../../shared/contracts.js';
 import type { Scene } from 'drone-path-engine/renderer/scene';
 
 type FrameCallback = (now: number) => void;

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "main": "app/main.mjs",
+  "imports": {
+    "#shared/*": "./dist/shared/*"
+  },
   "description": "Desktop flight-path viewer and overlay renderer for DJI drone recordings.",
   "author": "Manuel Warum",
   "license": "MIT",
@@ -11,7 +14,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "node scripts/build-desktop-catalogs.mjs && tsc -p tsconfig.json && tsc --noEmit -p app/tsconfig.json",
+    "build": "node scripts/build-desktop-catalogs.mjs && tsc -p shared/tsconfig.json && tsc -p tsconfig.json && tsc --noEmit -p app/tsconfig.json",
     "build:ui": "next build ui --webpack",
     "start": "electron app/main.mjs",
     "dev": "concurrently -k \"next dev ui --webpack -p 3210\" \"wait-on http://127.0.0.1:3210 && electron app/main.mjs --dev-url http://localhost:3210\"",

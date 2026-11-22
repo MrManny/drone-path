@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
+import type { LanguageSettings, Locale } from '../../shared/desktop-i18n/loader.js';
 import { useLanguageSettings } from '../../ui/hooks/useLanguageSettings.js';
 
 type LanguageSaveResult = (LanguageSettings & { ok: true }) | { ok: false; error?: string };

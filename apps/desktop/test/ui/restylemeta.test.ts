@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { UiSession } from '../../src/appsession.js';
+import type { UiSession } from '../../shared/contracts.js';
 import { restyleMeta } from '../../ui/lib/restylemeta.js';
 
 const SESSION = {

@@ -1,5 +1,5 @@
-import { tEnglish } from '../../src/desktop-i18n/messages.js';
-import type { Translate } from '../../src/desktop-i18n/messages.js';
+import { tEnglish } from '../../shared/desktop-i18n/loader.js';
+import type { Translate } from '../../shared/desktop-i18n/loader.js';
 type TrailSwatchId = 'style-default' | 'coral' | 'white' | 'black' | 'custom';
 
 interface TrailSwatch {

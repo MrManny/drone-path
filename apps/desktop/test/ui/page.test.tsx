@@ -6,9 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type * as GeneratedCatalogs from '../../src/desktop-i18n/generated/catalogs.js';
-
-import type { PickResult } from '../../src/appsession.js';
+import type { PickResult } from '../../shared/contracts.js';
 import type { PickOutputResult } from '../../ui/lib/backend.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
@@ -17,21 +15,19 @@ import type { Scene } from 'drone-path-engine/renderer/scene';
 import Page from '../../ui/app/page.js';
 import { SESSION, flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
 
-vi.mock('../../src/desktop-i18n/generated/catalogs.js', async (importOriginal) => {
-  const { catalogs } = await importOriginal<typeof GeneratedCatalogs>();
-  return {
-    catalogs: {
-      en: catalogs.en,
-      de: {
+vi.mock('../../shared/desktop-i18n/generated/loaders.js', () => ({
+  localeLoaders: {
+    de: async () => ({
+      catalog: {
         'app.title': 'Deutscher Fenstertitel',
         'emptyStage.open': 'Öffnen…',
         'settings.title': 'Einstellungen',
         'settings.language': 'Sprache',
         'settings.system': 'Systemstandard',
       },
-    },
-  };
-});
+    }),
+  },
+}));
 
 vi.mock('../../ui/components/MapIsland.js', async () => {
   const { createFakeScene, delayedMapIslandMock } = await import('./harness.js');

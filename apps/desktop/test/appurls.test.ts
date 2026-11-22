@@ -8,7 +8,7 @@ import {
   mediaUrlFor,
   parseLoopbackDevUrl,
   resolveDevUrl,
-} from '../src/appurls.js';
+} from '../shared/appurls.js';
 
 describe('protocol and URL constants', () => {
   it('derives tile and media URLs from APP_ORIGIN', () => {

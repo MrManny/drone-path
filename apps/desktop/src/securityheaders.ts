@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { APP_ORIGIN } from './appurls.js';
+import { APP_ORIGIN } from '#shared/appurls.js';
 
 export const X_CONTENT_TYPE_OPTIONS = 'nosniff';
 

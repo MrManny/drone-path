@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { mimeFor } from 'drone-path-engine/assets';
-import { MEDIA_PATH } from './appurls.js';
+import { MEDIA_PATH } from '#shared/appurls.js';
 import type { MapStyle } from 'drone-path-engine/config';
 import type { TileCoord } from 'drone-path-engine/plan';
 import { parseTilePathname } from 'drone-path-engine/tilecache';

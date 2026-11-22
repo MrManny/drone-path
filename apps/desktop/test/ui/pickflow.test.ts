@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { PickResult, UiSession } from '../../src/appsession.js';
+import type { PickResult, UiSession } from '../../shared/contracts.js';
 import { pickRecordingFlow } from '../../ui/lib/pickflow.js';
 
 const SESSION = {

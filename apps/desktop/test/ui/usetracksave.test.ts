@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { TrackSaveRequest } from '../../src/appsession.js';
+import type { TrackSaveRequest } from '../../shared/contracts.js';
 import { useTrackSave } from '../../ui/hooks/useTrackSave.js';
 import type { ExportAck, ExportOutputPayload, PickOutputResult } from '../../ui/lib/backend.js';
 

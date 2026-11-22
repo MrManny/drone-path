@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TrackSaveRequest } from '../../src/appsession.js';
+import type { TrackSaveRequest } from '../../shared/contracts.js';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';
 import {
   trackPhaseText,

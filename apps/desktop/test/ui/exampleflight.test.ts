@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { TILE_BASE } from '../../src/appurls.js';
+import { TILE_BASE } from '../../shared/appurls.js';
 import {
   getExampleFlight,
   EXAMPLE_FRAMES,

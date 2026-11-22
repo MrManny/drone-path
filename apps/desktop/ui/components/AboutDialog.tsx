@@ -1,17 +1,20 @@
 'use client';
 
+import { aboutContent } from '../lib/abouttext.js';
+import type { BuildGit } from '../lib/buildversion.js';
 import { useTranslation } from '../lib/i18n.js';
-import type { AboutContent } from '../lib/abouttext.js';
 import { GitHubIcon } from '../icons/GitHubIcon.js';
 import { DialogShell } from './DialogShell.js';
 
 interface AboutDialogProps {
-  content: AboutContent;
+  version: string;
+  git: BuildGit | null;
   onClose: () => void;
 }
 
-export function AboutDialog({ content, onClose }: AboutDialogProps) {
+export function AboutDialog({ version, git, onClose }: AboutDialogProps) {
   const t = useTranslation();
+  const content = aboutContent(version, git, t);
   return (
     <DialogShell title={t('aboutDialog.about')} onClose={onClose} panelClass="about-panel">
       <div className="about-body">

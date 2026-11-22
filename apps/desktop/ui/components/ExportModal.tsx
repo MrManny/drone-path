@@ -2,7 +2,7 @@
 
 import type { FrameRange } from 'drone-path-core/frame-range';
 import type { EncodeSettings, RenderConfig } from 'drone-path-engine/config';
-import type { UiSession } from '../../src/appsession.js';
+import type { UiSession } from '../../shared/contracts.js';
 import type { ExportAck } from '../lib/backend.js';
 import { canceledSentence } from '../lib/errortext.js';
 import type { ExportFlowDeps } from '../lib/exportflow.js';

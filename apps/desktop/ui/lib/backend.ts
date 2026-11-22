@@ -1,14 +1,14 @@
 import type {
+  ExportOutcome,
   IpcResult,
   PickRequest,
   PickResult,
   TrackSaveRequest,
   UiSession,
-} from '../../src/appsession.js';
+} from '../../shared/contracts.js';
 import type { ExportRequest, RenderConfig, SettingsPatch } from 'drone-path-engine/config';
 import { ERR_APP_BRIDGE_UNAVAILABLE } from 'drone-path-core/errors';
-import type { LanguageSettings, Locale } from '../../src/desktop-i18n/messages.js';
-import type { ExportOutcome } from '../../src/exportjob.js';
+import type { LanguageSettings, Locale } from '../../shared/desktop-i18n/loader.js';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import type { PrepareProgress } from 'drone-path-engine/pipeline';
 

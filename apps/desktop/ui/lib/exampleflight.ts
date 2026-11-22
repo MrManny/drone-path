@@ -1,6 +1,6 @@
-import { TILE_BASE } from '../../src/appurls.js';
-import { tEnglish } from '../../src/desktop-i18n/messages.js';
-import type { Translate } from '../../src/desktop-i18n/messages.js';
+import { TILE_BASE } from '../../shared/appurls.js';
+import { tEnglish } from '../../shared/desktop-i18n/loader.js';
+import type { Translate } from '../../shared/desktop-i18n/loader.js';
 import { DEFAULT_CONFIG, appearanceOf } from 'drone-path-engine/config';
 import type { Bbox } from 'drone-path-core/geo';
 import { buildSceneData, planPageOpts } from 'drone-path-engine/render-page';

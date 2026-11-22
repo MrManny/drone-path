@@ -13,7 +13,7 @@ for UI tokens and design principles.
 
 ## Desktop localization
 
-- Catalogs live in `src/desktop-i18n/catalogs/` with English in `en.json`. Call
+- Catalogs live in `shared/desktop-i18n/catalogs/` with English in `en.json`. Call
   `t('area.message')` with a literal key in React or the Electron main process.
 - Pass named values for `{placeholders}`. For plurals, use an object of
   locale-specific plural categories with a required `other` form and pass a

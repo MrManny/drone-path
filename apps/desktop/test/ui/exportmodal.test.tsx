@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { UiSession } from '../../src/appsession.js';
+import type { ExportOutcome, UiSession } from '../../shared/contracts.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { EncodeSettings, ExportRequest, RenderConfig } from 'drone-path-engine/config';
-import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import type { ExportOutputPayload } from '../../ui/lib/backend.js';
 import { initialExportState } from '../../ui/lib/exportstate.js';

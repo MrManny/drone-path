@@ -1,6 +1,6 @@
-import { tEnglish } from '../../src/desktop-i18n/messages.js';
-import type { Translate } from '../../src/desktop-i18n/messages.js';
-import type { TrackSaveRequest } from '../../src/appsession.js';
+import { tEnglish } from '../../shared/desktop-i18n/loader.js';
+import type { Translate } from '../../shared/desktop-i18n/loader.js';
+import type { TrackSaveRequest } from '../../shared/contracts.js';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import { ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 import type { ExportAck, PickOutputResult } from './backend.js';

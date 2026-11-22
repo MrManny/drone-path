@@ -8,7 +8,7 @@ dist/
 /apps/desktop/ui/next-env.d.ts
 /apps/desktop/ui/lib/buildinfo/generated/
 /apps/desktop/ui/lib/manual/generated/
-/apps/desktop/src/desktop-i18n/generated/
+/apps/desktop/shared/desktop-i18n/generated/
 /apps/desktop/ui/public/
 *.tsbuildinfo
 

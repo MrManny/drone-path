@@ -9,24 +9,24 @@ import { formatTimeReadout } from '../lib/frametime.js';
 import type { HotkeyAction } from '../lib/hotkeys.js';
 
 export interface TransportBarProps {
-  dispatch: (action: HotkeyAction) => void;
+  dispatch?: (action: HotkeyAction) => void;
   disabled?: boolean;
-  ready: boolean;
-  playing: boolean;
-  speed: 1 | 2 | 3 | 4;
-  fps: number;
-  durationSec: number;
-  timeRef: RefObject<HTMLSpanElement | null>;
+  ready?: boolean;
+  playing?: boolean;
+  speed?: 1 | 2 | 3 | 4;
+  fps?: number;
+  durationSec?: number;
+  timeRef?: RefObject<HTMLSpanElement | null>;
 }
 
 export function TransportBar({
   dispatch,
   disabled = false,
-  ready,
-  playing,
-  speed,
-  fps,
-  durationSec,
+  ready = false,
+  playing = false,
+  speed = 1,
+  fps = 0,
+  durationSec = 0,
   timeRef,
 }: TransportBarProps) {
   const t = useTranslation();
@@ -42,7 +42,7 @@ export function TransportBar({
           aria-label={t('transportBar.jumpToStart')}
           title={t('transportBar.jumpToStartHome')}
           disabled={disabled}
-          onClick={() => dispatch({ type: 'seekStart' })}
+          onClick={() => dispatch?.({ type: 'seekStart' })}
         >
           <SkipBack size={16} />
         </button>
@@ -51,7 +51,7 @@ export function TransportBar({
           className="transport-step"
           aria-label={ready && playing ? t('transportBar.pause') : t('transportBar.play')}
           title={ready && playing ? t('transportBar.pauseHint') : t('transportBar.playHint')}
-          onClick={() => dispatch({ type: 'togglePlay' })}
+          onClick={() => dispatch?.({ type: 'togglePlay' })}
           disabled={disabled || !ready}
         >
           {ready && playing ? <Pause size={16} /> : <Play size={16} />}
@@ -62,7 +62,7 @@ export function TransportBar({
           aria-label={t('transportBar.jumpToEnd')}
           title={t('transportBar.jumpToEndEnd')}
           disabled={disabled}
-          onClick={() => dispatch({ type: 'seekEnd' })}
+          onClick={() => dispatch?.({ type: 'seekEnd' })}
         >
           <SkipForward size={16} />
         </button>
@@ -78,7 +78,7 @@ export function TransportBar({
               aria-pressed={speed === rate}
               title={t('transportBar.speedHint', { rate })}
               disabled={disabled}
-              onClick={() => dispatch({ type: 'speed', rate })}
+              onClick={() => dispatch?.({ type: 'speed', rate })}
             >
               {rate}×
             </button>

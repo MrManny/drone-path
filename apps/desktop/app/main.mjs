@@ -13,9 +13,9 @@ import { app, BrowserWindow, dialog, Menu, net, protocol, session, shell } from 
 
 import { resolveAppAsset } from '../dist/appassets.js';
 import { appStateFile, uiExportRoot } from '../dist/apppaths.js';
-import { APP_ORIGIN, isAllowedAppUrl, resolveDevUrl } from '../dist/appurls.js';
+import { APP_ORIGIN, isAllowedAppUrl, resolveDevUrl } from '../dist/shared/appurls.js';
 import { createAppSession } from '../dist/appsession.js';
-import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
+import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/shared/desktop-i18n/messages.js';
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { createExportRunner } from '../dist/exportjob.js';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
@@ -47,8 +47,8 @@ export { resolveDesktopConfig };
  * @typedef {import('../dist/shellcontroller.js').NavigationWebContents} NavigationWebContents
  * @typedef {import('../dist/shellcontroller.js').ShellController} ShellController
  * @typedef {import('../dist/shellcontroller.js').ShellWindow} ShellWindow
- * @typedef {import('../dist/desktop-i18n/messages.js').Locale} Locale
- * @typedef {import('../dist/desktop-i18n/messages.js').Translate} Translate
+ * @typedef {import('../dist/shared/desktop-i18n/messages.js').Locale} Locale
+ * @typedef {import('../dist/shared/desktop-i18n/messages.js').Translate} Translate
  */
 
 const SCHEME = 'app';

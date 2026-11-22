@@ -15,8 +15,8 @@ import { applyAppState, emptyAppState, rememberOpenedFile } from './appstate.js'
 import type { AppState } from './appstate.js';
 import { createCloseGuard } from './closeguard.js';
 import type { CloseGuard } from './closeguard.js';
-import { isLocale, resolveLocale, translator } from './desktop-i18n/messages.js';
-import type { LanguageSettings, Locale, Translate } from './desktop-i18n/messages.js';
+import { isLocale, resolveLocale, translator } from '#shared/desktop-i18n/messages.js';
+import type { LanguageSettings, Locale, Translate } from '#shared/desktop-i18n/messages.js';
 import type { ExportOutcome } from './exportjob.js';
 import { createOutputGuard } from './outputguard.js';
 

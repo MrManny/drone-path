@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const desktop = join(import.meta.dirname, '..');
-const catalogDir = join(desktop, 'src', 'desktop-i18n', 'catalogs');
+const catalogDir = join(desktop, 'shared', 'desktop-i18n', 'catalogs');
 const localeFiles = readdirSync(catalogDir).filter((file) => file.endsWith('.json')).sort();
 
 function catalogFor(file: string): Record<string, unknown> {

@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { dialog, ipcMain, shell } from 'electron';
 
-import { isAllowedAppUrl } from '../dist/appurls.js';
+import { isAllowedAppUrl } from '../dist/shared/appurls.js';
 import { resolveSavePath } from '../dist/outputguard.js';
 import { errorMessage } from 'drone-path-core/errors';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
@@ -14,7 +14,7 @@ import { showDialogWithParent } from './shell.mjs';
 
 /**
  * @typedef {import('../dist/shellcontroller.js').IpcController} IpcController
- * @typedef {import('../dist/desktop-i18n/messages.js').Translate} Translate
+ * @typedef {import('../dist/shared/desktop-i18n/messages.js').Translate} Translate
  * @typedef {{ devUrl: string | null; log: (message: string) => void }} IpcHandlersOptions
  */
 

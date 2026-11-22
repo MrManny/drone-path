@@ -12,34 +12,36 @@ import type { LoopState } from '../lib/loop.js';
 import { frameAtPointer, hasLoop, resolveLoop } from '../lib/loop.js';
 import { Filmstrip } from './Filmstrip.js';
 
+const NO_LOOP: LoopState = { in: null, out: null };
+
 export interface TimelinePanelProps {
-  dispatch: (action: HotkeyAction) => void;
+  dispatch?: (action: HotkeyAction) => void;
   disabled?: boolean;
-  loop: LoopState;
-  setLoopFrame: (which: 'in' | 'out', frame: number) => void;
-  fps: number;
-  frames: number;
-  durationSec: number;
-  maxFrame: number;
-  scrubTo: (i: number) => void;
-  scrubRef: RefObject<HTMLInputElement | null>;
-  playheadRef: RefObject<HTMLDivElement | null>;
-  src: string;
+  loop?: LoopState;
+  setLoopFrame?: (which: 'in' | 'out', frame: number) => void;
+  fps?: number;
+  frames?: number;
+  durationSec?: number;
+  maxFrame?: number;
+  scrubTo?: (i: number) => void;
+  scrubRef?: RefObject<HTMLInputElement | null>;
+  playheadRef?: RefObject<HTMLDivElement | null>;
+  src?: string;
 }
 
 export function TimelinePanel({
   dispatch,
   disabled = false,
-  loop,
+  loop = NO_LOOP,
   setLoopFrame,
-  fps,
-  frames,
-  durationSec,
-  maxFrame,
+  fps = 0,
+  frames = 0,
+  durationSec = 0,
+  maxFrame = 0,
   scrubTo,
   scrubRef,
   playheadRef,
-  src,
+  src = '',
 }: TimelinePanelProps) {
   const t = useTranslation();
   const headingId = useId();
@@ -82,7 +84,7 @@ export function TimelinePanel({
     const move = (ev: PointerEvent): void => {
       const frame = frameAtPointer(ev.clientX, track.getBoundingClientRect(), maxFrameRef.current);
       // Forward the raw pointer frame so setLoopFrame clamps against live loop state.
-      setLoopFrameRef.current(which, frame);
+      setLoopFrameRef.current?.(which, frame);
     };
     const stop = (): void => {
       window.removeEventListener('pointermove', move);
@@ -115,7 +117,7 @@ export function TimelinePanel({
               aria-label={t('timelinePanel.setInPoint')}
               title={t('timelinePanel.setInPointI')}
               disabled={disabled}
-              onClick={() => dispatch({ type: 'setLoopIn' })}
+              onClick={() => dispatch?.({ type: 'setLoopIn' })}
             >
               <ArrowRightFromLine size={16} />
             </button>
@@ -125,7 +127,7 @@ export function TimelinePanel({
               aria-label={t('timelinePanel.setOutPoint')}
               title={t('timelinePanel.setOutPointO')}
               disabled={disabled}
-              onClick={() => dispatch({ type: 'setLoopOut' })}
+              onClick={() => dispatch?.({ type: 'setLoopOut' })}
             >
               <ArrowLeftFromLine size={16} />
             </button>
@@ -135,7 +137,7 @@ export function TimelinePanel({
               aria-label={t('timelinePanel.clearInAndOutPoints')}
               title={clearable ? t('timelinePanel.clearHint') : t('timelinePanel.clearUnavailable')}
               disabled={disabled || !clearable}
-              onClick={() => dispatch({ type: 'clearLoop' })}
+              onClick={() => dispatch?.({ type: 'clearLoop' })}
             >
               <X size={16} />
             </button>
@@ -201,7 +203,7 @@ export function TimelinePanel({
             const frame = Number(e.currentTarget.value);
             // Keyboard scrubbing announces the time, not the raw frame index.
             e.currentTarget.setAttribute('aria-valuetext', formatTimeReadout(frame, fps, durationSec));
-            scrubTo(frame);
+            scrubTo?.(frame);
           }}
         />
       </div>
