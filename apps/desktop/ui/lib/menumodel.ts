@@ -94,6 +94,7 @@ export function itemEnabled(id: MenuItemId, flags: MenuFlags): boolean {
       return !flags.opening;
     case 'exportVideo':
     case 'exportTelemetry':
+      return flags.hasRecording && !flags.opening;
     case 'swap':
       return flags.hasRecording;
     case 'appSettings':

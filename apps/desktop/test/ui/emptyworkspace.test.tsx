@@ -23,14 +23,8 @@ beforeEach(() => {
 
 function fakeDialogs(overrides: Partial<Dialogs> = {}): Dialogs {
   return {
+    active: 'closed',
     modalOpen: false,
-    helpOpen: false,
-    aboutOpen: false,
-    mapAppearanceOpen: false,
-    settingsOpen: false,
-    exportOpen: false,
-    trackSaveOpen: false,
-    updateOpen: false,
     dismissible: true,
     dispatchDialog: vi.fn(),
     ...overrides,
@@ -234,7 +228,7 @@ describe('EmptyWorkspace map appearance', () => {
   it('closes with Escape through the dialog state machine', () => {
     const { dialogs } = renderWorkspace(
       { kind: 'idle' },
-      fakeDialogs({ mapAppearanceOpen: true, modalOpen: true }),
+      fakeDialogs({ active: 'map-appearance', modalOpen: true }),
     );
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(dialogs.dispatchDialog).toHaveBeenCalledWith({ type: 'close' });

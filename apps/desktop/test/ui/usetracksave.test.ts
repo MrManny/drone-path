@@ -47,13 +47,11 @@ function installBridge(overrides: BridgeOverrides = {}) {
 }
 
 function mountTrackSave() {
-  const dispatchDialog = vi.fn();
-  const view = renderHook(() =>
-    useTrackSave({ range: null, scope: 'full recording (0:10)', dispatchDialog }),
-  );
+  const onOpen = vi.fn();
+  const view = renderHook(() => useTrackSave({ onOpen }));
   const save = (): void => {
     act(() => {
-      view.result.current.save();
+      view.result.current.save(null, 'full recording (0:10)');
     });
   };
   const reveal = (): void => {
@@ -61,11 +59,16 @@ function mountTrackSave() {
       view.result.current.reveal();
     });
   };
+  const reset = (): void => {
+    act(() => {
+      view.result.current.reset();
+    });
+  };
   const reachDone = async (): Promise<void> => {
     save();
     await waitFor(() => expect(view.result.current.phase).toEqual(DONE));
   };
-  return { result: view.result, dispatchDialog, save, reveal, reachDone, unmount: view.unmount };
+  return { result: view.result, onOpen, save, reveal, reset, reachDone, unmount: view.unmount };
 }
 
 describe('useTrackSave save', () => {
@@ -130,10 +133,10 @@ describe('useTrackSave save', () => {
       resolvePick({ ok: true, path: '/exports/flight.telemetry.json' });
     });
     expect(bridge.saveTrack).not.toHaveBeenCalled();
-    expect(track.dispatchDialog).not.toHaveBeenCalled();
+    expect(track.onOpen).not.toHaveBeenCalled();
   });
 
-  it('skips dispatchDialog if unmounted when the picker rejects (#313)', async () => {
+  it('skips onOpen if unmounted when the picker rejects (#313)', async () => {
     let rejectPick: (reason: Error) => void = () => {};
     installBridge({
       pickTrackOutput: () =>
@@ -148,7 +151,34 @@ describe('useTrackSave save', () => {
     await act(async () => {
       rejectPick(new Error('picker failed'));
     });
-    expect(track.dispatchDialog).not.toHaveBeenCalled();
+    expect(track.onOpen).not.toHaveBeenCalled();
+  });
+
+  it('aborts an in-flight save and unlocks on reset (#392)', async () => {
+    let resolvePick: (result: PickOutputResult) => void = () => {};
+    const bridge = installBridge({
+      pickTrackOutput: () =>
+        new Promise<PickOutputResult>((resolve) => {
+          resolvePick = resolve;
+        }),
+    });
+    const track = mountTrackSave();
+    track.save();
+    track.reset();
+
+    await act(async () => {
+      resolvePick({ ok: true, path: '/exports/flight.telemetry.json' });
+    });
+    expect(bridge.saveTrack).not.toHaveBeenCalled();
+    expect(track.onOpen).not.toHaveBeenCalled();
+    expect(track.result.current.phase).toBeNull();
+
+    track.save();
+    expect(bridge.pickTrackOutput).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      resolvePick({ ok: true, path: '/exports/flight.telemetry.json' });
+    });
+    await waitFor(() => expect(track.result.current.phase).toEqual(DONE));
   });
 });
 

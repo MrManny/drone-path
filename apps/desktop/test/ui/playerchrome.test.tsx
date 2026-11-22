@@ -7,10 +7,11 @@ import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
 import { restyleSceneData } from 'drone-path-engine/restyle';
 import type { Scene } from 'drone-path-engine/renderer/scene';
-import { MapAppearanceModal } from '../../ui/components/MapAppearanceModal.js';
+import { ModalHost } from '../../ui/components/ModalHost.js';
 import { PlayerChrome } from '../../ui/components/PlayerChrome.js';
 import type { PlayerChromeProps } from '../../ui/components/PlayerChrome.js';
-import { useDialogs } from '../../ui/hooks/useDialogs.js';
+import { useAppModals } from '../../ui/hooks/useAppModals.js';
+import type { LoopState } from '../../ui/lib/loop.js';
 import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
 import type { PickState } from '../../ui/lib/pickstate.js';
 import { restyleMeta } from '../../ui/lib/restylemeta.js';
@@ -48,6 +49,14 @@ vi.mock('../../ui/components/ExportPreview.js', async () => {
 
 const SETTINGS: RenderConfig = { ...DEFAULT_CONFIG };
 
+const NOOP_LANGUAGE = {
+  locale: 'en' as const,
+  preference: null,
+  saving: false,
+  error: false,
+  selectLanguage: () => {},
+};
+
 function Chrome({
   onHelp = () => {},
   onExit = () => {},
@@ -56,18 +65,29 @@ function Chrome({
   onHelp?: () => void;
   onExit?: () => void;
 }) {
-  const dialogs = useDialogs();
+  const [loop, setLoop] = useState<LoopState>({ in: null, out: null });
+  const modals = useAppModals();
   return (
     <>
-      <PlayerChrome {...props} onHelp={onHelp} onExit={onExit} dialogs={dialogs} />
-      {dialogs.mapAppearanceOpen ? (
-        <MapAppearanceModal
-          session={props.session}
-          config={props.settings}
-          onChange={props.onSettingsChange}
-          onClose={() => dialogs.dispatchDialog({ type: 'close' })}
-        />
-      ) : null}
+      <PlayerChrome
+        {...props}
+        onHelp={onHelp}
+        onExit={onExit}
+        dialogs={modals.dialogs}
+        loopControl={[loop, setLoop]}
+        onExportVideo={() =>
+          modals.openExport(props.settings, loop, props.session.video.frames)
+        }
+        onExportTelemetry={modals.openTrackSave}
+      />
+      <ModalHost
+        modals={modals}
+        session={props.session}
+        settings={props.settings}
+        loop={loop}
+        onSettingsChange={props.onSettingsChange}
+        language={NOOP_LANGUAGE}
+      />
     </>
   );
 }
@@ -188,14 +208,8 @@ describe('PlayerChrome workspace structure', () => {
         onHelp={() => {}}
         onExit={() => {}}
         dialogs={{
+          active: 'closed',
           modalOpen: false,
-          helpOpen: false,
-          aboutOpen: false,
-          mapAppearanceOpen: false,
-          settingsOpen: false,
-          exportOpen: false,
-          trackSaveOpen: false,
-          updateOpen: false,
           dismissible: true,
           dispatchDialog,
         }}
@@ -1145,6 +1159,12 @@ describe('PlayerChrome open notice', () => {
     openMenu('File');
     expect(
       within(menuBar()).getByRole('menuitem', { name: 'Open…' }).getAttribute('aria-disabled'),
+    ).toBe('true');
+    expect(
+      within(menuBar()).getByRole('menuitem', { name: 'Export video…' }).getAttribute('aria-disabled'),
+    ).toBe('true');
+    expect(
+      within(menuBar()).getByRole('menuitem', { name: 'Export telemetry…' }).getAttribute('aria-disabled'),
     ).toBe('true');
   });
 });

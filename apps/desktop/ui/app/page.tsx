@@ -2,58 +2,40 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
-import { translator } from '../../src/desktop-i18n/messages.js';
-import type { UiSession } from '../../src/appsession.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
-import { AboutDialog } from '../components/AboutDialog.js';
+import type { UiSession } from '../../src/appsession.js';
 import { EmptyWorkspace } from '../components/EmptyWorkspace.js';
-import { HelpOverlay } from '../components/HelpOverlay.js';
-import { MapAppearanceModal } from '../components/MapAppearanceModal.js';
+import { ModalHost } from '../components/ModalHost.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';
-import { SettingsDialog } from '../components/SettingsDialog.js';
-import { UpdatePrompt } from '../components/UpdatePrompt.js';
+import { useAppModals } from '../hooks/useAppModals.js';
 import { useLanguageSettings } from '../hooks/useLanguageSettings.js';
-import { LanguageProvider } from '../lib/i18n.js';
-import { useDialogs } from '../hooks/useDialogs.js';
-import { aboutContent } from '../lib/abouttext.js';
 import { appBridge, tryAppBridge } from '../lib/backend.js';
-import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';
-import { MANUAL } from '../lib/manual/generated/manual.js';
+import { LanguageProvider } from '../lib/i18n.js';
+import type { LoopState } from '../lib/loop.js';
 import { normalizeZoom, resetZoom } from '../lib/mapzoom.js';
 import { pickRecordingFlow } from '../lib/pickflow.js';
 import { pickReducer } from '../lib/pickstate.js';
-import { INITIAL_UPDATE, shouldPrompt, updateReducer } from '../lib/updatestate.js';
-import { ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 
 interface LoadedSession {
   id: number;
   value: UiSession;
 }
 
+const NO_LOOP: LoopState = { in: null, out: null };
+
 export default function Page() {
   const [pickState, dispatch] = useReducer(pickReducer, { kind: 'idle' });
   const [loaded, setLoaded] = useState<LoadedSession | null>(null);
   const [settings, setSettings] = useState<RenderConfig>(DEFAULT_CONFIG);
-  const dialogs = useDialogs();
+  const [loop, setLoop] = useState<LoopState>(NO_LOOP);
+  const modals = useAppModals();
   const language = useLanguageSettings();
-  const { modalOpen, helpOpen, dispatchDialog } = dialogs;
-  const [update, dispatchUpdate] = useReducer(updateReducer, INITIAL_UPDATE);
-  const { phase: updatePhase, failure: updateFailure } = update;
+  const { dialogs, openExport, openTrackSave, resetForRecording } = modals;
+  const { dispatchDialog } = dialogs;
   const nextId = useRef(0);
   const picking = useRef(false);
   const settingsVersion = useRef(0);
-  const restarting = useRef(false);
-
-  const handleRestartFailed = useCallback(
-    (message: string) => {
-      if (!restarting.current) return;
-      restarting.current = false;
-      dispatchUpdate({ type: 'restartFailed', message });
-      dispatchDialog({ type: 'runFinished' });
-    },
-    [dispatchDialog],
-  );
 
   useEffect(() => {
     const bridge = tryAppBridge();
@@ -97,29 +79,6 @@ export default function Page() {
     };
   }, []);
 
-  useEffect(() => {
-    const bridge = tryAppBridge();
-    if (!bridge) return;
-    const offReady = bridge.onUpdateReady?.(() => dispatchUpdate({ type: 'ready' }));
-    const offFailed = bridge.onUpdateRestartFailed?.(handleRestartFailed);
-    void bridge
-      .getUpdateState?.()
-      .then((state) => {
-        if (state.ready) dispatchUpdate({ type: 'ready' });
-      })
-      .catch(() => {});
-    return () => {
-      offReady?.();
-      offFailed?.();
-    };
-  }, [handleRestartFailed]);
-
-  useEffect(() => {
-    if (!shouldPrompt(updatePhase, modalOpen)) return;
-    dispatchUpdate({ type: 'prompt' });
-    dispatchDialog({ type: 'updateReady' });
-  }, [updatePhase, modalOpen, dispatchDialog]);
-
   const handlePick = useCallback(() => {
     if (picking.current) return;
     picking.current = true;
@@ -137,33 +96,17 @@ export default function Page() {
           nextId.current += 1;
           setLoaded({ id: nextId.current, value: session });
           setSettings((prev) => resetZoom(prev));
+          setLoop(NO_LOOP);
+          resetForRecording();
         },
       );
       dispatch(event);
       picking.current = false;
     })();
-  }, [settings]);
+  }, [settings, resetForRecording]);
 
   const dismissOpen = useCallback(() => dispatch({ type: 'dismiss' }), []);
-
-  const restartUpdate = useCallback(() => {
-    restarting.current = true;
-    dispatchUpdate({ type: 'restart' });
-    dispatchDialog({ type: 'runStarted' });
-    try {
-      void appBridge()
-        .restartToUpdate()
-        .then((ack) => {
-          if (!ack.ok) handleRestartFailed(ack.error ?? ERR_UNKNOWN);
-        })
-        .catch((e) => handleRestartFailed(errorMessage(e)));
-    } catch {
-      handleRestartFailed(ERR_UNKNOWN);
-    }
-  }, [dispatchDialog, handleRestartFailed]);
-
   const openHelp = useCallback(() => dispatchDialog({ type: 'openHelp' }), [dispatchDialog]);
-  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
   // Exit closes the window through the app shell's close path, so a running
   // export still gets its confirmation prompt.
@@ -187,6 +130,9 @@ export default function Page() {
           dialogs={dialogs}
           openState={pickState}
           onDismissOpenState={dismissOpen}
+          loopControl={[loop, setLoop]}
+          onExportVideo={() => openExport(settings, loop, loaded.value.video.frames)}
+          onExportTelemetry={openTrackSave}
         />
       ) : (
         <EmptyWorkspace
@@ -198,35 +144,14 @@ export default function Page() {
           dialogs={dialogs}
         />
       )}
-      {dialogs.mapAppearanceOpen ? (
-        <MapAppearanceModal
-          session={loaded?.value ?? null}
-          config={settings}
-          onChange={handleSettingsChange}
-          onClose={closeOverlay}
-        />
-      ) : null}
-      {dialogs.settingsOpen ? (
-        <SettingsDialog
-          preference={language.preference}
-          saving={language.saving}
-          error={language.error}
-          onSelect={language.selectLanguage}
-          onClose={closeOverlay}
-        />
-      ) : null}
-      {dialogs.updateOpen ? (
-        <UpdatePrompt
-          restarting={updatePhase === 'restarting'}
-          failure={updateFailure}
-          onRestart={restartUpdate}
-          onLater={closeOverlay}
-        />
-      ) : null}
-      {helpOpen ? <HelpOverlay bundle={MANUAL} onClose={closeOverlay} /> : null}
-      {dialogs.aboutOpen ? (
-        <AboutDialog content={aboutContent(BUILD_VERSION, BUILD_GIT, translator(language.locale))} onClose={closeOverlay} />
-      ) : null}
+      <ModalHost
+        modals={modals}
+        session={loaded?.value ?? null}
+        settings={settings}
+        loop={loop}
+        onSettingsChange={handleSettingsChange}
+        language={language}
+      />
     </LanguageProvider>
   );
 }

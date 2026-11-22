@@ -50,7 +50,8 @@ export function WorkspaceShell({
   children,
 }: WorkspaceShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { modalOpen, mapAppearanceOpen, dispatchDialog } = dialogs;
+  const { active, modalOpen, dispatchDialog } = dialogs;
+  const mapAppearanceOpen = active === 'map-appearance';
 
   const toggleMapAppearance = useCallback(() => {
     dispatchDialog({ type: mapAppearanceOpen ? 'close' : 'openMapAppearance' });

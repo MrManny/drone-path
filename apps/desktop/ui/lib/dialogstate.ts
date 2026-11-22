@@ -1,15 +1,12 @@
-export type DialogState =
+export type DialogId =
   | 'closed'
   | 'help'
   | 'about'
   | 'map-appearance'
   | 'settings'
-  | 'export-form'
-  | 'export-running'
+  | 'export'
   | 'track-save'
-  | 'track-saving'
-  | 'update-prompt'
-  | 'update-restarting';
+  | 'update';
 
 export type DialogEvent =
   | { type: 'openHelp' }
@@ -18,60 +15,41 @@ export type DialogEvent =
   | { type: 'openSettings' }
   | { type: 'openExport' }
   | { type: 'openTrackSave' }
-  | { type: 'runStarted' }
-  | { type: 'runFinished' }
   | { type: 'updateReady' }
-  | { type: 'close' };
+  | { type: 'close' }
+  | { type: 'resetPlayerDialogs' };
 
-function busy(state: DialogState): boolean {
-  return (
-    state === 'export-running' ||
-    state === 'track-saving' ||
-    state === 'update-restarting'
-  );
+function pinned(state: DialogId, busy: boolean): boolean {
+  return busy || state === 'update';
 }
 
-function pinned(state: DialogState): boolean {
-  return busy(state) || state === 'update-prompt';
+export function isPlayerDialog(state: DialogId): boolean {
+  return state === 'export' || state === 'track-save';
 }
 
-export function dialogReducer(state: DialogState, event: DialogEvent): DialogState {
+export function dialogReducer(
+  state: DialogId,
+  event: DialogEvent,
+  busy = false,
+): DialogId {
   switch (event.type) {
     case 'openHelp':
-      return pinned(state) ? state : 'help';
+      return pinned(state, busy) ? state : 'help';
     case 'openAbout':
-      return pinned(state) ? state : 'about';
+      return pinned(state, busy) ? state : 'about';
     case 'openSettings':
-      return pinned(state) ? state : 'settings';
+      return pinned(state, busy) ? state : 'settings';
     case 'openMapAppearance':
-      return pinned(state) ? state : 'map-appearance';
+      return pinned(state, busy) ? state : 'map-appearance';
     case 'openExport':
-      return pinned(state) ? state : 'export-form';
+      return pinned(state, busy) ? state : 'export';
     case 'openTrackSave':
-      return pinned(state) ? state : 'track-save';
-    case 'runStarted':
-      return state === 'export-form'
-        ? 'export-running'
-        : state === 'track-save'
-          ? 'track-saving'
-          : state === 'update-prompt'
-            ? 'update-restarting'
-            : state;
-    case 'runFinished':
-      return state === 'export-running'
-        ? 'export-form'
-        : state === 'track-saving'
-          ? 'track-save'
-          : state === 'update-restarting'
-            ? 'update-prompt'
-            : state;
+      return pinned(state, busy) ? state : 'track-save';
     case 'updateReady':
-      return state === 'closed' ? 'update-prompt' : state;
+      return state === 'closed' ? 'update' : state;
     case 'close':
-      return busy(state) ? state : 'closed';
+      return busy ? state : 'closed';
+    case 'resetPlayerDialogs':
+      return isPlayerDialog(state) ? 'closed' : state;
   }
-}
-
-export function canDismiss(state: DialogState): boolean {
-  return !busy(state);
 }

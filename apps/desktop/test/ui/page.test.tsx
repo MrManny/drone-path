@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type * as GeneratedCatalogs from '../../src/desktop-i18n/generated/catalogs.js';
 
 import type { PickResult } from '../../src/appsession.js';
+import type { PickOutputResult } from '../../ui/lib/backend.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
 import type { PrepareProgress } from 'drone-path-engine/pipeline';
@@ -115,6 +116,10 @@ function installBridge() {
     }),
     getUpdateState: vi.fn(async () => ({ ready: false })),
     restartToUpdate: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
+    pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: false, canceled: true })),
+    startExport: vi.fn(async () => ({ ok: true })),
+    pickTrackOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: false, canceled: true })),
+    saveTrack: vi.fn(async () => ({ ok: true })),
     closeWindow: vi.fn(async () => {}),
   };
   (window as { dronepath?: unknown }).dronepath = bridge;
@@ -811,5 +816,100 @@ describe('initial getSettings race guard (#313)', () => {
     expect(
       screen.getByRole('button', { name: 'Topographic' }).getAttribute('aria-pressed'),
     ).toBe('true');
+  });
+});
+
+describe('recording switch modal safety (#392, #393)', () => {
+  it('disables Export video and Export telemetry while another recording is preparing', async () => {
+    const harness = installBridge();
+    openWorkspace();
+    await commitLoaded(harness);
+
+    clickMenuItem('Open…');
+    harness.prepare();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    expect(menuItem('Open…').getAttribute('aria-disabled')).toBe('true');
+    expect(menuItem('Export video…').getAttribute('aria-disabled')).toBe('true');
+    expect(menuItem('Export telemetry…').getAttribute('aria-disabled')).toBe('true');
+
+    fireEvent.click(menuItem('Export video…'));
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
+    fireEvent.click(menuItem('Export telemetry…'));
+    expect(screen.queryByRole('dialog', { name: 'Export telemetry' })).toBeNull();
+    expect(harness.bridge.pickTrackOutput).not.toHaveBeenCalled();
+
+    await harness.settle({ ok: true });
+    clickMenuItem('Export video…');
+    expect(screen.getByRole('dialog', { name: 'Export video' })).toBeTruthy();
+  });
+
+  it('closes TrackSaveModal and clears modalOpen when a recording switch commits', async () => {
+    let resolveSave!: (ack: { ok: boolean }) => void;
+    const harness = installBridge();
+    harness.bridge.pickTrackOutput.mockResolvedValue({
+      ok: true,
+      canceled: false,
+      path: '/exports/flight.telemetry.json',
+    });
+    harness.bridge.saveTrack.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    openWorkspace();
+    await commitLoaded(harness);
+
+    clickMenuItem('Open…');
+    clickMenuItem('Export telemetry…');
+    await screen.findByRole('dialog', { name: 'Export telemetry' });
+
+    await harness.settle({ ok: true });
+    expect(screen.queryByRole('dialog', { name: 'Export telemetry' })).toBeNull();
+
+    // Menus and hotkeys remain responsive instead of wedged with modalOpen=true.
+    clickMenuItem('About');
+    expect(screen.getByRole('dialog', { name: 'About' })).toBeTruthy();
+
+    await act(async () => {
+      resolveSave({ ok: true });
+    });
+    expect(screen.queryByRole('dialog', { name: 'Export telemetry' })).toBeNull();
+  });
+
+  it('closes ExportModal and prevents orphaned exports when a recording switch commits', async () => {
+    let resolveExportPick!: (res: PickOutputResult) => void;
+    const harness = installBridge();
+    harness.bridge.pickExportOutput.mockImplementation(
+      () =>
+        new Promise<PickOutputResult>((resolve) => {
+          resolveExportPick = resolve;
+        }),
+    );
+
+    openWorkspace();
+    await commitLoaded(harness);
+
+    clickMenuItem('Open…');
+    clickMenuItem('Export video…');
+    const dialog = screen.getByRole('dialog', { name: 'Export video' });
+    fireEvent.change(within(dialog).getByLabelText('Width'), { target: { value: '1024' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Start export' }));
+    expect(harness.bridge.pickExportOutput).toHaveBeenCalledTimes(1);
+
+    await harness.settle({ ok: true });
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
+
+    await act(async () => {
+      resolveExportPick({ ok: true, path: '/exports/stale.mp4' });
+    });
+    expect(harness.bridge.startExport).not.toHaveBeenCalled();
+
+    // New recording gets fresh default export dimensions, not the previous recording's sizes.
+    clickMenuItem('Export video…');
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Width').value,
+    ).toBe(String(DEFAULT_CONFIG.width));
   });
 });

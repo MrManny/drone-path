@@ -26,7 +26,8 @@ type TrackSaveAction =
   | { type: 'started' }
   | { type: 'result'; event: TrackSaveEvent; scope: string }
   | { type: 'clearError' }
-  | { type: 'revealFailed'; error: string };
+  | { type: 'revealFailed'; error: string }
+  | { type: 'reset' };
 
 // The persistent phase line; the failure phase announces through its alert
 // notice, so it leaves the line empty.
@@ -59,6 +60,8 @@ export function trackSaveReducer(
         : state;
     case 'revealFailed':
       return state?.kind === 'done' ? { ...state, error: action.error } : state;
+    case 'reset':
+      return null;
   }
 }
 
