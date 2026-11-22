@@ -55,6 +55,37 @@ describe('sceneCss', () => {
     expect(selectors.length).toBeGreaterThan(5);
     for (const selector of selectors) expect(selector.startsWith('.scene-scope-1')).toBe(true);
   });
+
+  it('keeps #attr text and links >= 4.5:1 over white map tiles (#409)', () => {
+    const css = sceneCss(TILE_SOURCES.topo, themeFor('topo'), 768, 768, 1, 'scene-scope-1');
+    const attrBlock = /\.scene-scope-1 #attr \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const linkBlock = /\.scene-scope-1 #attr a \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const parseRgba = (decl: string): [number, number, number, number] => {
+      const m = /rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/.exec(decl);
+      if (!m) throw new Error(`missing rgba in ${decl}`);
+      return [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+    };
+    const over = (fg: [number, number, number, number], bg: [number, number, number]): [number, number, number] =>
+      [0, 1, 2].map((i) => fg[3] * fg[i] + (1 - fg[3]) * bg[i]) as [number, number, number];
+    const contrast = (c1: [number, number, number], c2: [number, number, number]): number => {
+      const lum = (rgb: [number, number, number]) => {
+        const [r, g, b] = rgb.map((v) => {
+          const s = v / 255;
+          return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const [l1, l2] = [lum(c1), lum(c2)];
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+
+    const bgRgba = parseRgba(/background:\s*([^;]+);/.exec(attrBlock)?.[1] ?? '');
+    const fgRgba = parseRgba(/color:\s*([^;]+);/.exec(attrBlock)?.[1] ?? '');
+    const linkRgba = parseRgba(/color:\s*([^;]+);/.exec(linkBlock)?.[1] ?? '');
+    const compositedBg = over(bgRgba, [255, 255, 255]);
+    expect(contrast(over(fgRgba, compositedBg), compositedBg)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(over(linkRgba, compositedBg), compositedBg)).toBeGreaterThanOrEqual(4.5);
+  });
 });
 
 describe('mapMarkup', () => {

@@ -112,7 +112,8 @@ select {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+a:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -557,6 +558,11 @@ button.primary {
   color: var(--text-3);
   pointer-events: none;
 }
+.busy-status span {
+  padding: 2px 8px;
+  border-radius: var(--radius-control);
+  background: var(--bar);
+}
 .map-card > .busy-status,
 .pane-video > .busy-status {
   bottom: calc(50% + 56px);
@@ -568,11 +574,6 @@ button.primary {
   top: 50%;
   transform: translateY(-50%);
   z-index: 6;
-}
-.track > .busy-status span {
-  padding: 2px 8px;
-  border-radius: var(--radius-control);
-  background: var(--bar);
 }
 /* The compact overlay card crowds its furniture: the label tucks under the
    layout tag and right of the chips, still clear of the center marker. */
@@ -902,6 +903,11 @@ button.primary {
   background: transparent;
   cursor: pointer;
 }
+/* Draw the focus ring inside the slider box so .track overflow:hidden never clips it (#395). */
+.track input[type='range']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
 .track input[type='range']::-webkit-slider-runnable-track {
   height: 100%;
   background: transparent;
@@ -1167,16 +1173,21 @@ button.primary {
 .hud-chip[aria-pressed='true']:hover:not(:disabled) {
   border-color: var(--accent);
 }
+/* Off chips use a muted opaque surface instead of button-wide opacity so
+   light map tiles cannot bleed through and off text stays >= 4.5:1 (#397). */
 .hud-chip[aria-pressed='false'] {
-  opacity: 0.55;
+  background: var(--surface-2);
+  color: var(--text-2);
 }
 /* A disabled chip dims to the disabled recipe, so "disabled" stays
-   distinguishable from the 0.55 "off" look (#285). */
+   distinguishable from the enabled "off" look (#285). */
 .hud-chip[aria-pressed='false']:disabled {
   opacity: var(--disabled-opacity);
 }
-.hud-chip[aria-pressed='false'] .label {
+.hud-chip[aria-pressed='false'] .label,
+.hud-chip[aria-pressed='false'] .unit {
   color: var(--text-3);
+  opacity: 1;
 }
 /* Map style: two thumbnail tiles, selected by an accent frame plus label. */
 .map-style-tiles {
@@ -1772,6 +1783,8 @@ input[type='radio']:disabled {
   flex-direction: column;
   gap: 8px;
   width: 200px;
+  /* Room for the shared 2px outline + 2px offset inside the overflow-y scrollport (#407). */
+  padding: 4px;
   /* Long indexes scroll inside the nav instead of being cut off. */
   max-height: calc(100vh - var(--dialog-top) - 48px);
   overflow-y: auto;

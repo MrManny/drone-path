@@ -91,7 +91,7 @@ function attrCss(at: string, scale: number): string {
   return `
   ${at} #attr {
     position: absolute; right: 0; bottom: 0; z-index: 1000; max-width: 72%;
-    background: rgba(12, 14, 22, 0.62); color: rgba(255,255,255,0.78);
+    background: rgba(12, 14, 22, 0.8); color: rgba(255,255,255,0.88);
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: ${Math.round(11 * scale)}px; line-height: 1.35;
     padding: ${Math.round(2 * scale)}px ${Math.round(8 * scale)}px;
