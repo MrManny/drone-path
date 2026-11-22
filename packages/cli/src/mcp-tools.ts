@@ -283,7 +283,8 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         recurse: args.recurse,
         prune: args.prune,
         getTools: ctx.getTools,
-        onRecord: (record) => ctx.log(`archive_scan ${record.status}: ${record.path}`),
+        onRecord: (record) =>
+          ctx.log(`archive_scan ${record.status}: ${path.basename(record.path)}`),
       });
       return { db: ctx.archiveDb, count: records.length, records };
     }),

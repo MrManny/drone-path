@@ -693,6 +693,8 @@ describe('MCP security hardening', () => {
     await h.initialize();
 
     await h.callTool('archive_scan', { dirs: [footageDir] });
+    expect(h.logs).toContain('archive_scan ok: DJI_0200.MP4');
+    expect(h.logs.some((entry) => entry.includes(footageDir))).toBe(false);
 
     const existingCsv = path.join(workspace, 'existing.csv');
     fs.writeFileSync(existingCsv, 'keep-me');
