@@ -1,5 +1,21 @@
 # drone-path
 
+## 1.1.1
+
+### Core libraries
+
+- **Fixed:** Archive HTML maps open with OpenTopoMap and let viewers switch to
+  Esri World Imagery with an ArcGIS API key or turn the basemap off.
+
+### CLI
+
+- **New:** Use `drone-path archive export-map --offline` to export tracks and camera
+  footprints without making tile requests.
+
+### Desktop
+
+- **New:** Open the official Drone Path website from Help → About.
+
 ## 1.1.0
 
 ### Core libraries

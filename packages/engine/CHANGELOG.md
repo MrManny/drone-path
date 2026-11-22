@@ -1,5 +1,7 @@
 # drone-path-engine
 
+## 1.1.1
+
 ## 1.1.0
 
 - **Fixed:** Improve map attribution contrast over light tiles.

@@ -1,5 +1,7 @@
 # drone-path-core
 
+## 1.1.1
+
 ## 1.1.0
 
 - **New:** Detect kinematic shot segments from flight telemetry and extract
