@@ -243,12 +243,16 @@ export function sanitizeMcpErrorMessage(raw: string): string {
   return raw.replace(ABSOLUTE_PATH_RX, '$1<path>');
 }
 
-function toolHandler<TArgs>(log: LogFn, handler: (args: TArgs) => Promise<unknown>) {
+function toolHandler<TArgs>(
+  log: LogFn,
+  handler: (args: TArgs) => Promise<Record<string, unknown>>,
+) {
   return async (args: TArgs) => {
     try {
       const result = await handler(args);
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+        structuredContent: result,
       };
     } catch (err) {
       const sanitized = sanitizeMcpErrorMessage(errorMessage(err));
@@ -262,7 +266,8 @@ function toolHandler<TArgs>(log: LogFn, handler: (args: TArgs) => Promise<unknow
 }
 
 export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): void {
-  const wrap = <TArgs>(handler: (args: TArgs) => Promise<unknown>) => toolHandler(ctx.log, handler);
+  const wrap = <TArgs>(handler: (args: TArgs) => Promise<Record<string, unknown>>) =>
+    toolHandler(ctx.log, handler);
   sdkServer.registerTool(
     'archive_scan',
     {

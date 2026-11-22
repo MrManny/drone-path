@@ -132,6 +132,7 @@ interface JsonRpcReply {
 
 interface ToolCallEnvelope {
   content: Array<{ type: string; text: string }>;
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
 }
 
@@ -211,9 +212,13 @@ function createHarness(options: Parameters<typeof createMcpServer>[0] = {}) {
     expect(res.error).toBeUndefined();
     const envelope = res.result as ToolCallEnvelope;
     const text = envelope.content[0]?.text ?? '';
+    const parsed = envelope.isError ? null : (JSON.parse(text) as T);
+    if (!envelope.isError) {
+      expect(envelope.structuredContent).toEqual(parsed);
+    }
     return {
       envelope,
-      parsed: envelope.isError ? null : (JSON.parse(text) as T),
+      parsed,
     };
   }
 
