@@ -1,99 +1,119 @@
 # Drone Path
 
-This handy little tool renders flight-path map videos from DJI drone
-recordings (DJI Neo 2 and similar): the actual flight path on a 2D map,
-ready to overlay over the drone recording.
+Render flight-path map videos from DJI drone recordings (DJI Neo 2 and similar):
+the actual flight path on a 2D map, ready to overlay over the drone recording.
+You can also index a local recording library, search flights by location or camera
+gaze, export combined tracks or standalone HTML maps, and expose your library to AI
+agents via an MCP server.
 
-It reads geo-coordinates from DJI's telemetry in two ways:
+Drone Path reads geo-coordinates from DJI's telemetry in two ways:
 
-- the embedded CAM meta (DVTM) stream (DJI's protobuf format) is used when
-  the recording has one,
-- otherwise an `.SRT` sidecar next to the recording is used.
+- **Embedded CAM meta (DVTM)** (DJI's protobuf stream) when the recording has one.
+- **`.SRT` sidecar** next to the recording when no CAM meta stream is present.
 
-It is a CLI tool first, so agents can drive it too — that's all cool with me.
-For us humans, there is a [desktop app](docs/user/desktop-app.md): pick a
-recording and watch its flight path on the map in sync as you play.
+It is a CLI tool first so scripts and agents can drive it, paired with a
+[desktop app](docs/user/desktop-app.md) for humans to review flights and export
+overlays on a synchronized timeline.
+
+![Desktop app: a drone recording beside the synchronized flight map](docs/images/app-main-window.jpg)
+
+*The desktop app playing a recording: the video beside the synchronized flight
+map, with the flight trail, drone position, and telemetry readout strip on one
+shared timeline.*
 
 ## Quick start
 
 ```sh
+# Render a flight-path map overlay (writes out/my-flight_map.mp4)
 npx drone-path "my-flight.mp4"
 
-# topographic map, altitude + speed HUD
+# Topographic map with altitude and speed HUD
 npx drone-path "my-flight.mp4" --style topo --hud heading,alt,speed
 
-# flight track file alongside the render (GPX, GeoJSON, KML/KMZ or the
-# telemetry JSON document, chosen by the extension; one recording per run)
+# Export a flight track alongside the render (.gpx, .geojson, .kml, .kmz, or .json)
 npx drone-path "my-flight.mp4" --track-out "my-flight.gpx"
 ```
 
-Output lands in the `out/` folder as `<basename>_map.mp4`; both the folder
-and the name are configurable. Requirements: Node.js 24 or 26 and
-ffmpeg/ffprobe — bundled with the desktop app and the npm package,
-overridable via `--ffmpeg`/`--ffprobe`, with a `PATH` fallback. All
-requirements and install options are in
-[Getting started](docs/user/getting-started.md).
+Requirements: Node.js 24 or 26 and FFmpeg/FFprobe (bundled with the desktop app
+and the npm package, overridable via `--ffmpeg`/`--ffprobe`, with a `PATH`
+fallback). See [Getting started](docs/user/getting-started.md) for all install
+options.
 
-### Scan a recording library
+### Recording library & spatial search (`archive`)
 
-Run `drone-path archive scan <folder> --recurse --json` to index MP4 recordings locally and print the inventory as newline-delimited JSON. Rescans reuse unchanged clips. See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for the record format and archive options.
+Index a local folder of MP4 recordings into a local SQLite archive to query
+flights, kinematic shot segments, and camera footprints, or export combined maps
+and tracks:
 
-Use `drone-path archive list --status offline --json` to find disconnected recordings or `drone-path archive near 46.62,14.31 --radius 250 --json` to find the closest pass in each matching clip. See the [CLI manual](docs/user/cli.md#query-the-recording-library) for filters and result formats.
+```sh
+# Index a folder recursively (rescans reuse unchanged clips)
+npx drone-path archive scan <folder> --recurse --json
 
-Use `drone-path archive list --group-by flight` to see consecutive clips and split recordings grouped into inferred flights. Add `--include-gaze` to `archive near` to also search estimated DVTM camera footprints.
+# List clips, disconnected media, or consecutive clips grouped into flights
+npx drone-path archive list --status offline --json
+npx drone-path archive list --group-by flight
 
-Use `drone-path archive export-map flights.html` for a standalone map or `drone-path archive export-tracks flights.gpx` for a combined track file. Add `--redact-launch <m>` to remove geometry around indexed launch and landing points before sharing.
+# Find each clip's closest pass (or DVTM camera gaze footprint) near a point
+npx drone-path archive near 46.62,14.31 --radius 250 --include-gaze --json
 
+# Export a standalone HTML map or combined track file, redacting launch/landing zones
+npx drone-path archive export-map flights.html --redact-launch 150
+npx drone-path archive export-tracks flights.gpx --redact-launch 150
+```
+
+See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for all filters,
+shot-segment queries, and record formats.
+
+### MCP server for AI agents (`mcp`)
+
+Expose archive search, telemetry inspection, keyframe extraction, NLE timeline
+marker export, and map video rendering over stdio JSON-RPC 2.0:
+
+```sh
+npx drone-path mcp --allow-root <dir> [--archive-db <path>]
+```
+
+`--allow-root` is required and strictly confines every file and folder tool to
+the configured directories. See [MCP server](docs/user/cli.md#mcp-server) in the
+CLI manual for the full tool catalog.
+
+## Desktop app
+
+Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux
+AppImage) from [GitHub Releases](https://github.com/MrManny/drone-path/releases),
+or run `npm run build && npm run app` from a checkout.
+
+The app shows the recording and the synchronized flight map side by side —
+togglable to a corner map overlay — on one shared timeline. The
+[Desktop app guide](docs/user/desktop-app.md) covers loading a recording,
+marking a passage, exporting video, and saving per-frame telemetry JSON.
 
 ## User manual
 
-The user manual lives in [docs/user/](docs/user/README.md); the desktop app
-ships the same pages as offline help. Highlights:
+The user manual lives in [docs/user/](docs/user/README.md) and ships inside the
+desktop app as offline help:
 
 - [Getting started](docs/user/getting-started.md) — requirements, install options, and your first render.
-- [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, exporting video, and saving telemetry JSON from the app.
+- [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, exporting video, and saving telemetry JSON.
 - [Keyboard shortcuts](docs/user/keyboard-shortcuts.md) — every shortcut of the review player at a glance.
-- [CLI usage](docs/user/cli.md) — inputs, examples, and example output.
+- [CLI usage](docs/user/cli.md) — rendering, archive indexing/search, MCP server, and track exports.
 - [CLI and config reference](docs/user/cli-reference.md) — every option and config key with its default.
 - [Config file](docs/user/config-file.md) — where `.dronepath.json` is found and how defaults apply.
 - [Tiles and attribution](docs/user/tiles-and-attribution.md) — map sources, attribution, and tile caching.
 
-## Desktop app
-
-For reviewing flights without the terminal, grab the packaged desktop app
-(Windows NSIS installer or portable exe, Linux AppImage) from
-[GitHub Releases](https://github.com/MrManny/drone-path/releases), or run
-`npm run build && npm run app` from a checkout.
-
-The app shows the recording and the synchronized flight map side by side —
-togglable to a corner map overlay — on one shared timeline;
-[the manual](docs/user/desktop-app.md) walks through loading a recording,
-reviewing a flight, marking a passage, exporting, and saving the per-frame
-telemetry JSON. The look and language settings carry over between launches.
-
-![Desktop app: a drone recording beside the synchronized flight map](docs/images/app-main-window.jpg)
-
-*The desktop app playing a recording: the recording beside the synchronized
-flight map, with the flight trail, drone position and the readout strip on one
-shared timeline.*
-
-## Feature requests
-
-If you want or need specific features, feel free to open an issue in this
-repository's issue tracker.
-
-## Repository layout
+## Development & repository layout
 
 Run `npm ci`, `npm run lint`, `npm test`, and `npm run build` from the
-repository root. The workspaces share a single lockfile.
+repository root. All workspaces share a single lockfile and version in lockstep.
 
-| Workspace | Owns |
-| --- | --- |
-| [`packages/core`](packages/core/) | Telemetry extraction, frame ranges, and tool discovery |
-| [`packages/engine`](packages/engine/) | Configuration, rendering, and map tiles |
-| [`packages/cli`](packages/cli/) | The `drone-path` command and CLI API |
-| [`packages/tooling`](packages/tooling/) | Manual, schema, build identity, and localization generators |
-| [`apps/desktop`](apps/desktop/) | Electron shell, Next.js UI, and desktop packaging |
+| Workspace | Package | Owns |
+| --- | --- | --- |
+| [`packages/core`](packages/core/) | `drone-path-core` | Telemetry extraction (DVTM & SRT), spatial/gaze math, track & NLE exports, and tool discovery |
+| [`packages/archive`](packages/archive/) | `drone-path-archive` | Recording library indexing, spatial/gaze queries, flight grouping, and archive exports |
+| [`packages/engine`](packages/engine/) | `drone-path-engine` | Option vocabulary, map tiles, headless browser rendering, and video pipeline |
+| [`packages/cli`](packages/cli/) | `drone-path` | The `drone-path` command (`render`, `archive`, `mcp`, `extract-frame`) and typed CLI API |
+| [`packages/tooling`](packages/tooling/) | `drone-path-tooling` | Manual, JSON schema, CLI reference, and build identity generators |
+| [`apps/desktop`](apps/desktop/) | `drone-path-desktop` | Electron shell, Next.js UI, localization catalogs, and desktop packaging |
 
 To run the CLI from a checkout after `npm ci`:
 
@@ -102,40 +122,8 @@ npm run build:cli
 node packages/cli/bin/drone-path.mjs "my-flight.mp4"
 ```
 
-## Releasing
-
-`npm run changeset:version` folds pending changesets and updates the lockfile.
-The four npm packages and the desktop app share one version. Update the root
-changelog in the release PR and use the matching `v<version>` GitHub release tag.
-From an installed, built checkout, preview the release without publishing with
-`node scripts/release-npm.mjs dry-run v<version>`.
-
-A published GitHub release runs the tag and quality checks, then publishes
-`drone-path-core`, `drone-path-archive`, `drone-path-engine`, and `drone-path` to
-npm in dependency order. Independent jobs attach the desktop installers, AppImage,
-and auto-update metadata to the same release. GitHub prereleases publish to npm
-under the `next` dist-tag instead of `latest`.
-
-Reserve the release's exact package versions for GitHub Actions. To publish
-the first release, set the repository's `NPM_TOKEN` secret to a granular token
-authorized to create the new public package names and publish all packages in
-the release. The workflow uses `--provenance` with the token.
-
-For a manual bootstrap, use npm credentials that can create the new names.
-Publish a distinct, earlier prerelease for each new name under a non-default
-dist-tag such as `bootstrap` (`npm publish --workspace <name> --access public --tag bootstrap`).
-npm package versions are immutable, so the workflow needs the exact release
-versions to be unused.
-
-Once each package exists, configure its
-[trusted publisher](https://docs.npmjs.com/trusted-publishers/) on npm
-with owner `MrManny`, repository `drone-path`, workflow `release.yml`, and
-permission for direct publishing. Remove `NPM_TOKEN` when all four are
-configured so subsequent releases use token-free trusted publishing.
-
-After a partial publish, check the package versions on npm and re-run failed
-jobs in GitHub Actions. Each package has its own job, so completed package jobs
-keep their successful result and dependent jobs resume in order.
+If you want or need specific features, feel free to open an issue in this
+repository's issue tracker.
 
 ## License
 

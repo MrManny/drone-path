@@ -1,27 +1,70 @@
 # CLI usage
 
-## Syntax
+Use the `drone-path` CLI to render flight-path map videos, export tracks and keyframes, index and query a local recording library, export NLE markers, or run an MCP server for AI agents.
+
+## Quickstart
+
+### Render map overlays and flight tracks
 
 ```sh
-drone-path <inputs...> [options]
-```
-
-`<inputs...>` are `.mp4` files and/or folders (folders are scanned for `*.mp4`, optionally with `--recurse`). Every recording is processed independently.
-
-## Examples
-
-```sh
-# quick conversion: one recording, all default settings
+# render one recording with default settings (writes out/flight_map.mp4)
 drone-path "flight.mp4"
 
-# full flight-path video: topographic map and the complete HUD
-# (heading arrow + altitude + speed chips)
+# topographic map with heading, altitude, and speed HUD chips
 drone-path "flight.mp4" --style topo --hud heading,alt,speed
 
-# custom trail color: RGB or RGBA hex (the # is optional), e.g. when
-# the default trail color blends into the map
+# custom trail color (RGB or RGBA hex; leading # is optional)
 drone-path "flight.mp4" --trail-color e63946
 drone-path "flight.mp4" --style topo --trail-color "#e63946cc"
+
+# export a GPX flight track alongside the rendered video
+drone-path "flight.mp4" --track-out "flight.gpx"
+```
+
+### Extract targeted keyframes
+
+```sh
+# extract JPEG keyframes at 2.5s and frame 90, scaled to max 640px wide, as JSON
+drone-path extract-frame "flight.mp4" --at 2.5,f90 --max-width 640 --json
+```
+
+### Scan and query the spatial archive
+
+```sh
+# index a folder of recordings recursively into the local archive
+drone-path archive scan /path/to/footage --recurse --json
+
+# list all indexed clips
+drone-path archive list
+
+# find smooth gliding shots ordered by smoothness score
+drone-path archive list --segment-type smooth-glide --min-smoothness 0.8 --json
+
+# group matching clips into inferred flights
+drone-path archive list --group-by flight
+
+# find clips passing within 250 m of a coordinate or seeing it in camera view
+drone-path archive near 46.62,14.31 --radius 250 --include-gaze
+```
+
+### Export NLE markers, maps, and combined tracks
+
+```sh
+# export smooth-glide shot segments as DaVinci Resolve CSV markers
+drone-path archive export-markers shots.csv --segment-type smooth-glide
+
+# export a standalone offline HTML map with camera ground footprints
+drone-path archive export-map flights.html --include-gaze
+
+# export combined GeoJSON tracks for online clips
+drone-path archive export-tracks flights.geojson --status online
+```
+
+### Start the stdio MCP server
+
+```sh
+# expose archive, telemetry, keyframe, marker, and render tools over stdio
+drone-path mcp --allow-root /path/to/footage
 ```
 
 ## Example output
@@ -34,25 +77,46 @@ All frames below are from the same recording:
 
 ![Default output: satellite map with growing trail and heading arrow](../images/example-map-satellite.jpg)
 
-*Default settings (first two commands): satellite map, growing trail and heading arrow.*
+*Default settings (`drone-path "flight.mp4"`): satellite map, growing trail, and heading arrow.*
 
 ![Topographic output with heading, altitude and speed chips](../images/example-map-topo-hud.jpg)
 
-*`--style topo --hud heading,alt,speed` (third command): topographic map with heading, altitude and speed chips.*
+*`--style topo --hud heading,alt,speed`: topographic map with heading, altitude, and speed chips.*
 
 The heading arrow shows drone yaw when the CAM meta (DVTM) stream provides it; otherwise the yaw is computed from the track.
+
+## Render flight-path videos
+
+```sh
+drone-path <inputs...> [options]
+```
+
+`<inputs...>` are `.mp4` files and/or folders (folders are scanned for `*.mp4`, optionally with `--recurse`). Every recording is processed independently. By default, output lands in `out/` as `<basename>_map.mp4`.
+
+| Common option | Purpose |
+| --- | --- |
+| `--out-dir <dir>`, `--out-suffix <suffix>` | Output folder (`out`) and filename suffix (`_map`). |
+| `--style <name>`, `--trail-color <hex>` | Map look (`satellite` or `topo`) and RGB/RGBA trail color. |
+| `--view <mode>`, `--zoom <n>`, `--zoom-out <n>` | Camera mode (`follow` or `overview`) and zoom framing. |
+| `--hud <list>` | Comma-separated HUD chips (`heading,alt,speed`) or `none`. |
+| `--codec <name>`, `--quality <level>`, `--preset <name>` | Video encoder (`h264`/`h265`), quality, and speed preset. |
+| `--track-out <file>` | Write a `.gpx`, `.geojson`, `.kml`, `.kmz`, or `.json` file beside the render. |
+| `--recurse`, `--skip-existing`, `--json`, `-q, --quiet` | Recursive input discovery, incremental skips, NDJSON summaries, quiet stderr. |
+| `--config <path>` | Load a specific `.dronepath.json` config file. |
+
+Run `npx drone-path --help` for the built-in overview. The complete table of options and config keys lives in [CLI and config reference](cli-reference.md); persistent settings and precedence are covered in [Config file](config-file.md).
 
 ## Flight track export
 
 `--track-out <file>` writes the decoded flight track alongside the render, in the format the file extension selects:
 
 | Extension | Format | Opens in |
-|---|---|---|
+| --- | --- | --- |
 | `.gpx` | GPX 1.1 track | Google Earth, QGIS, most map tools |
 | `.geojson` | GeoJSON `MultiLineString` feature | QGIS, web maps |
 | `.kml` | KML 2.2 | Google Earth |
-| `.kmz` | zipped KML (the same document inside a `doc.kml`) | Google Earth |
-| `.json` | the telemetry document (see below) | this toolchain |
+| `.kmz` | Zipped KML (the same document inside a `doc.kml`) | Google Earth |
+| `.json` | The telemetry document (see below) | This toolchain |
 
 Any other extension is an error — there is no silent fallback. The run must cover a single recording; skipped recordings (`--skip-existing`) write no file. The export always covers the whole recording: a frame range applied to the render limits only the video, never the track file. For the same recording and range the CLI and the desktop app write byte-identical files, and reruns of the same input write byte-identical files (including `.kmz`).
 
@@ -68,7 +132,7 @@ Field policy — what the track formats carry:
 `--track-out <file>.json` writes one JSON document with the raw per-frame telemetry alongside the render. The document contains:
 
 - a schema header (declared proto schema, source, heading mode, frame count, gimbal device constants);
-- exactly one record per source frame with the time, position, altitude, body and gimbal attitude, heading and camera exposure values the telemetry source decoded.
+- exactly one record per source frame with the time, position, altitude, body and gimbal attitude, heading, and camera exposure values the telemetry source decoded.
 
 Values the source does not carry are omitted from the record — absent keys, never `null` — and zero-valued attitudes the wire skipped (proto3 zero-omission) are exported as `0.0`. The one exception is `headingDeg`: it keeps the same back-filled heading the map arrow renders, and `headingSource` says whether the heading came from drone yaw or was derived from the track.
 
@@ -78,136 +142,127 @@ The document follows the checked-in `docs/telemetry-json.schema.json`; `SensorTe
 
 **`--json` is not `--track-out data.json`:** `--json` prints one NDJSON summary line per recording on stdout (for scripting), while `--track-out data.json` writes the telemetry document to a file. They are separate options and can be combined.
 
-## Options and reference
+## Extract keyframes
 
-Run `npx drone-path --help` for the built-in overview. The complete table of options and config keys lives in [CLI and config reference](cli-reference.md); persistent settings are covered in [Config file](config-file.md).
-
-## Scan a recording library
-
-Run `drone-path archive scan <dirs...>` to index recordings from one or more folders. Add
-`--recurse` to scan subfolders and `--json` to write one JSON object per
-recording to stdout in path order. Progress goes to stderr. Drone Path skips
-non-MP4 files and generated `*_map.mp4` overlays.
-
-Each record reports the canonical path, file size and modification time, video
-metadata, and a status of `ok`, `no-telemetry`, `no-gps`, or `error`. If present,
-`cameraCreationTime` contains the original, unverified camera tag. Track points
-use seconds from the start of the clip. Bounding boxes and tracks are available
-for clips with GPS fixes.
-
-The archive uses a per-user SQLite database at
-`%LOCALAPPDATA%/drone-path/archive.sqlite` on Windows,
-`~/Library/Application Support/drone-path/archive.sqlite` on macOS, and
-`$XDG_DATA_HOME/drone-path/archive.sqlite` on Linux
-(`~/.local/share/drone-path/archive.sqlite` by default). Use `--archive-db <path>`
-to choose another database. Rescans reuse records when the recording and its
-SRT sidecar are unchanged and retry clips that had a scan error.
-
-When a clip is missing from a scanned folder, its record stays in the
-database as offline. Reconnect the drive and scan the same folder to mark the
-clip online again. Add `--prune` to remove missing clips in the scanned folders
-from the database.
-
-The index stores overview tracks of up to 60 vertices, detail tracks of up to
-500, and timestamped GPS fixes at roughly one-second intervals. These tracks
-and samples summarize the source telemetry, so a lookup can miss motion
-between retained fixes.
-
-## Query the recording library
-
-Run `drone-path archive list` to list indexed recordings in path order. Combine
-any of these filters.
-
-| Option | Filter |
-| --- | --- |
-| `--in-bbox <s,w,n,e>` | The clip bounding box touches the viewport. Coordinates are inclusive. A west value greater than east crosses the antimeridian. |
-| `--after <date>` | The camera tag is at or after the bound. |
-| `--before <date>` | The camera tag is earlier than the bound. |
-| `--min-dist <m>` | The GPS track traveled at least this many meters. |
-| `--status <state>` | The clip is `online` or `offline`. |
-
-Date bounds accept `YYYY-MM-DD` at midnight UTC or an ISO timestamp with an
-explicit time zone. Date filters compare the original, unverified camera tag
-when the tag includes a time zone. File modification times and camera tags
-without a time zone do not participate in date filters.
-
-The viewport filter uses the indexed track to resolve bounding boxes for clips
-that cross the antimeridian.
-
-Add `--group-by flight` to group the matching clips in recording order. Groups
-are inferred from consecutive DJI clip numbers in the same folder, unverified
-camera tags with time zones, and nearby GPS endpoints. Missing or ambiguous
-evidence leaves clips in their own groups. A gap of more than 45 seconds
-starts a new group. A clip near the 4 GB split limit can link to its successor
-when recording time and position are closely continuous. File paths stay the
-same, and opening an existing archive computes groups from the saved index.
-
-Grouped JSON contains `{ flightId, clips }` entries. Each clip includes
-`splitFromKey`, which is the predecessor's canonical archive path key
-(lowercase on Windows) for a split continuation and `null` otherwise.
-Filters determine which clips appear, so a referenced predecessor may be
-outside the result.
-
-Run `drone-path archive near 46.62,14.31 --radius 250` to find indexed clips
-whose GPS tracks pass within 250 meters of the point. The default radius is 100
-meters. Results include offline clips and sort by closest distance. Southern
-latitudes use a minus sign, as in `drone-path archive near -33.86,151.21`.
-
-Both commands accept `--archive-db <path>` and `--json`. JSON output is a single
-array, including `[]` when nothing matches. List entries contain the [scan
-record](#scan-a-recording-library) fields plus `availability`. Each near hit
-contains `clip` (the same fields as a list entry), `tSec` (seconds from the
-start of the clip), `distanceM`, and `matchType: "track"`. The reported time
-is interpolated between sampled fixes in the same continuous GPS segment. Its
-accuracy depends on the original telemetry and the sampling interval.
-
-Add `--include-gaze` to find clips whose camera may have seen the point, even
-when the drone was outside the search radius. A matching clip can have both a
-track hit and a `matchType: "gaze"` hit. For gaze, `distanceM` is zero because
-the target is inside the footprint, and `tSec` is the original time of the
-first matching sampled frame. The index stores roughly one footprint per
-second, so brief views can be missed.
-
-Footprints use DVTM gimbal attitude and altitude above takeoff, assumed to be
-height above flat ground. The estimate uses a 75-degree horizontal and
-50-degree vertical field of view and interprets gimbal yaw as clockwise from
-north in the recorded NED convention. The compass reference and calibration
-can vary, and the estimate does not account for terrain, zoom, or lens crop.
-The scanner skips frames with missing data or rays too close to the horizon.
-SRT-only clips still return track matches. Rescan previously indexed DVTM clips
-with the original files available to add their footprints.
-
-## Export the recording library
-
-Write a standalone map or a combined track file from the local index:
-
-```bash
-drone-path archive export-map flights.html --include-gaze
-drone-path archive export-tracks flights.geojson --status online
-drone-path archive export-map share.html --redact-launch 150
+```sh
+drone-path extract-frame <video> --at <specs> [options]
 ```
 
-Open the HTML file directly in a browser to pan, zoom, and inspect clips.
-Tracks are colored by inferred flight. Add `--include-gaze` to show estimated
-camera footprints when the index has them. The map embeds Leaflet and the
-selected geometry. It uses a plain background and requires no tile server.
+Extracts targeted JPEG keyframes and nearest telemetry snapshots from a single recording without rendering a map video.
 
-For a combined track file, choose `.gpx`, `.geojson`, `.kml`, or `.kmz` in
-the output filename. The files preserve flight groups and the boundaries of
-indexed track segments. Tracks crossing the antimeridian are split at the
-meridian. The archive stores simplified tracks and clip-relative
-sample times, so exports omit absolute altitudes and UTC timestamps.
+| Option | Description |
+| --- | --- |
+| `--at <specs>` | Required comma-separated selectors: timestamps in seconds (`2.5`, `2.5s`) or 0-based frames (`f90`, `frame:90`). |
+| `--max-width <px>` | Maximum output width in pixels, preserving aspect ratio (with even JPEG height). |
+| `--out-dir <dir>` | Output directory (defaults to the source video's directory). |
+| `--ffmpeg <path>` | Path to the `ffmpeg` executable. |
+| `--ffprobe <path>` | Path to the `ffprobe` executable. |
+| `--json` | Write the extracted keyframes JSON array to stdout. |
 
-Both commands accept `--archive-db` and the same clip filters as
-[`archive list`](#query-the-recording-library): `--in-bbox`, `--after`,
-`--before`, `--min-dist`, and `--status`.
+- **Selectors & seeking:** Time selectors must fall within `[0, duration]` and frame selectors within `[0, frames - 1]`. Extraction uses fast input seeking (`-ss` before `-i`) so preceding GOPs do not need to be decoded, and writes `<stem>_f<frame>_<ms>ms.jpg` files.
+- **Output & telemetry snapshots:** Without `--json`, each extracted frame prints `<path> (frame <n>, <t>s, <w>x<h>)` on stdout and a summary count on stderr. Each JSON entry includes `path`, `tSec`, `frame`, `width`, `height`, and a `telemetry` snapshot (`lat`, `lon`, `altRelM`, `altAbsM`, `speedMps`, `headingDeg`, `gimbalPitchDeg`, `gimbalYawDeg`, `iso`, `shutterTime`, or `null` if the recording has no telemetry).
 
-Use `--redact-launch <m>` before sharing to remove track vertices and nearby
-lines around each exported flight's first and last indexed GPS fixes. The
-protected fixes come from the full flight, even when a filter excludes its
-first or last clip. A positive radius also removes camera footprints and clip
-labels from HTML. Tracks may lose extra line segments where a line passes
-near the protected area. The saved index is unchanged. If a recording starts
-after takeoff or stops before landing, the indexed endpoints can differ from
-the actual launch and landing sites. The remaining route and its surroundings
-can still reveal where you flew.
+## Spatial archive
+
+### Scan a recording library
+
+```sh
+drone-path archive scan <dirs...> [options]
+```
+
+| Option | Description |
+| --- | --- |
+| `--recurse` | Include subfolders when scanning `<dirs...>`. |
+| `--prune` | Remove missing recordings in the scanned folders from the index. |
+| `--archive-db <path>` | Override the per-user SQLite database path. |
+| `--json` | Write one JSON record per clip to stdout in path order (NDJSON). |
+
+Drone Path skips non-MP4 files and generated `*_map.mp4` overlays; progress goes to stderr.
+
+- **Database locations:** The archive uses a per-user SQLite database at `%LOCALAPPDATA%/drone-path/archive.sqlite` on Windows, `~/Library/Application Support/drone-path/archive.sqlite` on macOS, and `$XDG_DATA_HOME/drone-path/archive.sqlite` on Linux (`~/.local/share/drone-path/archive.sqlite` by default).
+- **Incremental rescans & availability:** Rescans reuse records when the recording and its `.SRT` sidecar are unchanged and retry clips that previously had a scan error. When a clip is missing from a scanned folder, its record stays in the database as `offline`; reconnecting the drive and scanning the same folder marks it `online` again, while `--prune` removes missing clips in the scanned folders.
+- **Indexed data:** Each record reports the canonical path, file size and modification time, video metadata, and a status of `ok`, `no-telemetry`, `no-gps`, or `error`. If present, `cameraCreationTime` holds the original, unverified camera tag. For clips with GPS fixes, the index stores bounding boxes, overview tracks (up to 60 vertices), detail tracks (up to 500 vertices), ~1-second GPS samples (with clip-relative `tSec`), estimated camera footprints (for DVTM clips), and kinematic shot segments.
+
+### Query the recording library
+
+```sh
+drone-path archive list [options]
+drone-path archive near <lat,lon> [options]
+```
+
+Options for `drone-path archive list`:
+
+| Option | Description |
+| --- | --- |
+| `--in-bbox <s,w,n,e>` | Filter clips whose bounding box touches the inclusive viewport (west > east crosses the antimeridian). |
+| `--after <date>` | Camera tag is at or after `<date>` (inclusive). |
+| `--before <date>` | Camera tag is earlier than `<date>` (exclusive). |
+| `--min-dist <m>` | Minimum GPS track distance in meters. |
+| `--status <state>` | Availability filter: `online` or `offline`. |
+| `--segment-type <type>` | Match kinematic shot type (`takeoff`, `landing`, `hover`, `smooth-glide`, `orbit`, `gimbal-reveal`, or `reposition`). |
+| `--min-smoothness <score>` | Match shot segments with smoothness score at or above `<score>` (`0` to `1`). |
+| `--group-by flight` | Group matching clips into inferred flights in recording order. |
+| `--archive-db <path>` | Override the per-user SQLite database path. |
+| `--json` | Write a JSON array to stdout (`[]` when nothing matches). |
+
+Options for `drone-path archive near <lat,lon>`:
+
+| Option | Description |
+| --- | --- |
+| `--radius <m>` | Search radius in meters (default: `100`). |
+| `--include-gaze` | Also match clips whose estimated camera ground footprint contains the point. |
+| `--archive-db <path>` | Override the per-user SQLite database path. |
+| `--json` | Write a JSON array to stdout (`[]` when nothing matches). |
+
+- **Date bounds:** `--after` and `--before` accept `YYYY-MM-DD` at midnight UTC or an ISO timestamp with an explicit time zone. They compare `cameraCreationTime` only when the tag includes a time zone; file modification times and untagged local camera timestamps do not participate.
+- **Flight grouping:** `--group-by flight` infers flights from consecutive DJI clip numbers in the same folder, zoned camera tags, and nearby GPS endpoints (gaps over 45 seconds start a new flight; clips near the 4 GB split limit link when time and position are continuous). Grouped JSON returns `{ flightId, clips }` entries where each clip includes `splitFromKey` (the predecessor's canonical archive path key, lowercase on Windows, or `null`).
+- **Kinematic shot segments:** Without `--group-by flight`, passing `--segment-type` or `--min-smoothness` switches `archive list` from whole clips to ranked shot segments ordered by smoothness score (`0` to `1`), reporting shot type, `startSec`–`endSec`, smoothness, and exposure stability.
+- **Spatial proximity & camera footprints:** `archive near` accepts negative coordinates such as `-33.86,151.21`, includes offline clips, and sorts hits by closest distance. Track matches report `matchType: "track"` with `tSec` interpolated within the same continuous GPS segment. With `--include-gaze`, clips whose estimated DVTM ground footprint contains the point return `matchType: "gaze"` with `distanceM: 0` and the first matching sampled frame's `tSec` (~1 footprint/second, 75° horizontal × 50° vertical FOV over flat ground using NED gimbal yaw; terrain, zoom, and lens crop are not modeled, and SRT-only clips return track matches only). Rescan previously indexed DVTM clips with source files available to populate footprints and shot segments.
+
+### Export the recording library
+
+```sh
+drone-path archive export-markers <out> [options]
+drone-path archive export-map <out.html> [options]
+drone-path archive export-tracks <out> [options]
+```
+
+| Option | Commands | Description |
+| --- | --- | --- |
+| `--in-bbox`, `--after`, `--before`, `--min-dist`, `--status`, `--segment-type`, `--min-smoothness` | All three | Same clip and shot filters as `archive list`. |
+| `--archive-db <path>` | All three | Override the per-user SQLite database path. |
+| `--redact-launch <m>` | `export-map`, `export-tracks` | Remove geometry within `<m>` meters of each exported flight's first and last indexed GPS fixes. |
+| `--include-gaze` | `export-map` | Include estimated camera ground footprints in the HTML map. |
+
+- **NLE markers (`export-markers`):** Writes DaVinci Resolve CSV (`.csv`) or Final Cut Pro XML 1.10 (`.fcpxml`) markers from matching indexed shot segments. DaVinci Resolve CSV writes SMPTE timecodes (`#,Clip Name,In,Out,Duration,Marker Color,Marker Name,Notes`) with formula-injection escaping; FCPXML 1.10 writes `<asset-clip>` entries with `<marker>` tags, asset `file://` URLs, and rational frame durations.
+- **Offline HTML maps (`export-map`):** Writes a standalone `.html` file embedding Leaflet and the selected flight geometry colored by inferred flight, with no external tile server required.
+- **Combined tracks (`export-tracks`):** Writes `.gpx`, `.geojson`, `.kml`, or `.kmz`, preserving flight groups and segment boundaries and splitting tracks at the antimeridian. Because the archive stores simplified tracks and clip-relative sample times, exported tracks omit absolute altitudes and UTC timestamps.
+- **Launch redaction (`--redact-launch <m>`):** Uses each flight's full indexed endpoints even when filters exclude its first or last clip. A positive radius also omits camera footprints and clip labels from HTML maps. The saved archive index is unchanged; if a recording started after takeoff or stopped before landing, remaining route geometry may still reveal the flight area.
+
+## MCP server
+
+```sh
+drone-path mcp --allow-root <dir...> [--archive-db <path>]
+```
+
+Starts a stdio JSON-RPC 2.0 Model Context Protocol (MCP) server over `stdin` and `stdout` (all diagnostics go to `stderr`).
+
+| Option / env var | Requirement | Description |
+| --- | --- | --- |
+| `--allow-root <dir...>` | Required | One or more existing directories restricting all file and folder tool inputs and outputs. |
+| `--archive-db <path>` | Optional | Override the default per-user archive SQLite database path. |
+| `DRONE_PATH_MCP_ALLOW_OVERWRITE` | Env var (`1` or `true`) | Allows `export_markers` and `render_map_video` to overwrite existing output files (refused by default). |
+
+- **Path boundaries & safety:** Every allowed root is resolved canonically via realpath, and every input or output path argument (including discovered clips and planned render outputs) is verified against those roots after resolving symlinks and `..` segments. Archive query tools filter results to clips inside the allowed roots, tools cannot overwrite the archive SQLite database (or its `-wal`, `-shm`, and `-journal` files), `export_markers` and `render_map_video` refuse to overwrite existing output files unless `DRONE_PATH_MCP_ALLOW_OVERWRITE=1` (or `true`), `render_map_video` caps each call to at most 10 recordings, and MCP logs redact absolute filesystem paths.
+
+| Tool | Purpose | Key arguments |
+| --- | --- | --- |
+| `archive_scan` | Index MP4 folders into the archive database | `dirs`, `recurse?`, `prune?` |
+| `archive_list_clips` | List matching indexed clips | `bbox?`, `after?`/`afterMs?`, `before?`/`beforeMs?`, `minDistanceM?`, `availability?`, `segmentType?`, `minSmoothness?` |
+| `archive_list_flights` | List matching clips grouped into inferred flights | Same filter fields as `archive_list_clips` |
+| `archive_find_at_point` | Find clips passing near or viewing a coordinate | `lat`, `lon`, `radiusM?`, `includeGaze?` |
+| `archive_list_segments` | List matching kinematic shot segments ordered by smoothness | Same filter fields as `archive_list_clips` |
+| `clip_get_telemetry` | Probe a clip and return telemetry summary, shot segments, and sampled track records | `videoPath`, `includeSamples?`, `maxSamples?` (1–2000, default 100) |
+| `clip_extract_keyframes` | Extract JPEG keyframes and telemetry snapshots | `videoPath`, `at` (string or array), `maxWidth?`, `outDir?` |
+| `export_markers` | Write DaVinci Resolve CSV or FCPXML markers from explicit ranges or archive filters | `outputPath`, `ranges?` or `filters?` |
+| `render_map_video` | Render flight-path map overlay videos (and optional track export) | `inputs`, `outDir?`, `outSuffix?`, `width?`, `height?`, `style?`, `view?`/`camera?`, `zoom?`, `zoomOut?`, `introSec?`, `outroSec?`, `trailColor?`, `hud?`, `codec?`, `quality?`, `preset?`, `trackOut?`, `skipExisting?`, `recurse?`, `frameStart?`, `frameEnd?` |

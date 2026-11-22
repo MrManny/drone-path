@@ -1,10 +1,12 @@
 import { Option } from 'commander';
 import type { Command } from 'commander';
-import { exportArchiveMap, exportArchiveTracks } from 'drone-path-archive/export';
+import { exportArchiveMap, exportArchiveMarkers, exportArchiveTracks } from 'drone-path-archive/export';
 import { archiveDbPath } from 'drone-path-archive/paths';
-import { DEFAULT_RADIUS_M, listArchive, listArchiveFlights, nearArchive, parseDateBound } from 'drone-path-archive/query';
+import { DEFAULT_RADIUS_M, listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveAvailability, ListFilters } from 'drone-path-archive/query';
 import type { Bbox, LatLon } from 'drone-path-core/geo';
+import { SHOT_TYPES } from 'drone-path-core/shot-segmentation';
+import type { ShotType } from 'drone-path-core/shot-segmentation';
 
 interface QueryOptions {
   archiveDb?: string;
@@ -18,6 +20,8 @@ interface ListOptions extends QueryOptions {
   before?: number;
   minDist?: number;
   status?: ArchiveAvailability;
+  segmentType?: ShotType;
+  minSmoothness?: number;
 }
 
 function decimal(text: string): number {
@@ -34,6 +38,14 @@ function meters(text: string): number {
 function availability(text: string): ArchiveAvailability {
   if (text !== 'online' && text !== 'offline') throw new Error('expected online or offline status');
   return text;
+}
+
+function smoothnessScore(text: string): number {
+  const value = decimal(text);
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error('expected a smoothness score between 0 and 1');
+  }
+  return value;
 }
 
 function point(text: string): LatLon {
@@ -58,11 +70,19 @@ function writeJson(value: unknown): void {
 }
 
 function listOptions(options: ListOptions): ListFilters {
-  const { inBbox, after, before, minDist, status } = options;
+  const { inBbox, after, before, minDist, status, segmentType, minSmoothness } = options;
   if (after !== undefined && before !== undefined && after > before) {
     throw new Error('expected --after at or before --before');
   }
-  return { bbox: inBbox, afterMs: after, beforeMs: before, minDistanceM: minDist, availability: status };
+  return {
+    bbox: inBbox,
+    afterMs: after,
+    beforeMs: before,
+    minDistanceM: minDist,
+    availability: status,
+    ...(segmentType !== undefined ? { segmentType } : {}),
+    ...(minSmoothness !== undefined ? { minSmoothness } : {}),
+  };
 }
 
 export function archiveCommand(command: Command): Command {
@@ -80,7 +100,9 @@ function listFilters(command: Command): Command {
     .option('--after <date>', 'earliest camera date or timestamp, inclusive', parseDateBound)
     .option('--before <date>', 'latest camera date or timestamp, exclusive', parseDateBound)
     .option('--min-dist <m>', 'minimum track distance in meters', meters)
-    .option('--status <state>', 'filter by online or offline availability', availability);
+    .option('--status <state>', 'filter by online or offline availability', availability)
+    .addOption(new Option('--segment-type <type>', 'filter by kinematic shot segment type').choices([...SHOT_TYPES]))
+    .option('--min-smoothness <score>', 'minimum segment smoothness score between 0 and 1', smoothnessScore);
 }
 
 interface ExportOptions extends ListOptions {
@@ -108,6 +130,19 @@ export function addArchiveQueries(program: Command): void {
             const continuation = clip.splitFromKey === null ? '' : ' (split continuation)';
             process.stdout.write(`  [${clip.availability}] ${clip.path}${continuation}\n`);
           }
+        }
+        return;
+      }
+      if (options.segmentType !== undefined || options.minSmoothness !== undefined) {
+        const segments = listArchiveSegments(db, filters);
+        if (options.json) writeJson(segments);
+        else for (const segment of segments) {
+          const exposure = segment.exposureStable ? 'stable' : 'exposure-shift';
+          process.stdout.write(
+            `${segment.type} ${segment.startSec.toFixed(1)}s-${segment.endSec.toFixed(1)}s ` +
+            `(smoothness ${segment.smoothness.toFixed(3)}, ${exposure}) ` +
+            `[${segment.clip.availability}] ${segment.clip.path}\n`,
+          );
         }
         return;
       }
@@ -149,6 +184,15 @@ export function addArchiveQueries(program: Command): void {
     .action((output: string, options: ExportOptions) => {
       exportArchiveTracks(archiveDbPath(options.archiveDb), output, {
         filters: listOptions(options), redactLaunchM: options.redactLaunch,
+      });
+    });
+
+  archiveCommand(listFilters(program.command('export-markers')))
+    .description('Write matching shot segments as DaVinci Resolve CSV or FCPXML markers.')
+    .argument('<out>', 'output .csv or .fcpxml file')
+    .action((output: string, options: ListOptions) => {
+      exportArchiveMarkers(archiveDbPath(options.archiveDb), output, {
+        filters: listOptions(options),
       });
     });
 }

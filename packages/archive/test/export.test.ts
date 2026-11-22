@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 
 import { cleanupTmpDirs, probeFixture, tmpDir } from '../../../test/fixtures/core.js';
-import { exportArchiveMap, exportArchiveTracks } from '../src/export.js';
+import { exportArchiveMap, exportArchiveMarkers, exportArchiveTracks } from '../src/export.js';
 import { listArchiveFlights } from '../src/query.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from '../src/store.js';
 import type { ClipUpdate } from '../src/store.js';
@@ -138,4 +138,69 @@ it('cuts dateline crossings into adjacent pieces in the exported tracks', () => 
   expect(lines()).toEqual([
     [[179.9, 0], [179.9, 0]], [[-179.9, 0], [-179.9, 0]],
   ]);
+});
+
+it('exports matching archive shot segments as DaVinci Resolve CSV and FCPXML markers', () => {
+  const dir = tmpDir();
+  const db = path.join(dir, 'archive.sqlite');
+  const store = new ArchiveStore(db);
+  try {
+    store.commit(0, [
+      {
+        ...clip('/survey/DJI_0001.MP4', '2025-01-01T00:00:00Z', [0, 0.004], 'online'),
+        segments: [
+          {
+            type: 'smooth-glide',
+            startSec: 1.5,
+            endSec: 20.0002,
+            durationSec: 18.5,
+            smoothness: 0.912,
+            exposureStable: true,
+            meanSpeedMps: 4.5,
+            meanYawRateDegPerSec: 0.25,
+          },
+        ],
+      },
+      {
+        ...clip('/survey/DJI_0002.MP4', '2025-01-01T00:01:00Z', [0.004, 0.008], 'offline'),
+        segments: [
+          {
+            type: 'orbit',
+            startSec: 2,
+            endSec: 8,
+            durationSec: 6,
+            smoothness: 0.5,
+            exposureStable: true,
+            meanSpeedMps: 3.1,
+            meanYawRateDegPerSec: 12.4,
+          },
+        ],
+      },
+    ], [], [], []);
+  } finally {
+    store.close();
+  }
+
+  const csvOut = path.join(dir, 'markers.csv');
+  exportArchiveMarkers(db, csvOut, {
+    filters: { availability: 'online', segmentType: 'smooth-glide', minSmoothness: 0.8 },
+  });
+  const csv = fs.readFileSync(csvOut, 'utf8');
+  expect(csv).toContain('DJI_0001.MP4,00:00:01:15,00:00:20:00,00:00:18:15,Blue,smooth-glide');
+  expect(csv).toContain('smoothness 0.912, speed 4.50 m/s, yawRate 0.25 deg/s');
+  expect(csv).not.toContain('DJI_0002.MP4');
+
+  const fcpxmlOut = path.join(dir, 'markers.fcpxml');
+  exportArchiveMarkers(db, fcpxmlOut);
+  const fcpxml = fs.readFileSync(fcpxmlOut, 'utf8');
+  expect(fcpxml).toContain('<fcpxml version="1.10">');
+  expect(fcpxml).toContain('value="smooth-glide"');
+  expect(fcpxml).toContain('value="orbit"');
+
+  expect(() => exportArchiveMarkers(db, path.join(dir, 'bad.txt'))).toThrow(
+    'expected a .csv or .fcpxml output file',
+  );
+  expect(() => exportArchiveMarkers(path.join(dir, 'db.csv'), path.join(dir, 'db.csv'))).toThrow(
+    'cannot overwrite the archive database',
+  );
 });

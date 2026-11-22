@@ -17,12 +17,16 @@ Add a `<issue-number>-<slug>.md` file:
 Describe the change as a user would notice it in one or two sentences.
 ```
 
-List the affected workspaces. Use `drone-path-core` for telemetry extraction,
-`drone-path-engine` for the render engine, `drone-path` for the CLI, and
-`drone-path-desktop` for the desktop app. A single fragment can name several
-workspaces with their own bump levels.
+List the affected release workspaces:
 
-These four workspaces version in lockstep at the highest requested bump.
+- `drone-path-core` — telemetry extraction, spatial math, track and NLE exports
+- `drone-path-archive` — recording library indexing, queries, and archive exports
+- `drone-path-engine` — configuration, map tiles, and the render pipeline
+- `drone-path` — the CLI (`render`, `archive`, `mcp`, `extract-frame`)
+- `drone-path-desktop` — the Electron desktop app
+
+A single fragment can name several workspaces with their own bump levels.
+These five workspaces version in lockstep at the highest requested bump.
 Changesets updates internal npm dependency ranges, and the release procedure
 syncs the root lockfile. The desktop app stays private and ships through
 GitHub Releases.
@@ -31,12 +35,8 @@ The bump level in the front matter (`major`, `minor`, `patch`) says how the
 change affects the version:
 
 - `major` — breaking changes
-- `minor` — new features and other behavior changes
-- `patch` — fixes
-
-While the major version is `0`, breaking changes are authored as `minor`
-(semver treats `0.x` minors as possibly breaking). The release process asks
-before turning a `major` fragment into a `1.0.0` release.
+- `minor` — new features and other backward-compatible behavior changes
+- `patch` — bug fixes
 
 Pull requests titled `feat:`/`fix:` must add a fragment, and pull requests
 titled `release:` must change `CHANGELOG.md`; CI enforces both. Pull requests

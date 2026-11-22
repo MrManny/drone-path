@@ -7,6 +7,8 @@ import { probeVideo } from 'drone-path-core/ffmpeg';
 import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { Bbox } from 'drone-path-core/geo';
+import { segmentFlightShots } from 'drone-path-core/shot-segmentation';
+import type { KinematicShot } from 'drone-path-core/shot-segmentation';
 import { loadTelemetrySamples } from 'drone-path-core/telemetry';
 import type { SourceSamples } from 'drone-path-core/telemetry';
 
@@ -48,6 +50,7 @@ export interface ScanOptions {
   onRecord?: (record: ScanRecord) => void;
   onTrack?: (file: string, segments: ScanPoint[][]) => void;
   onGaze?: (file: string, samples: GazeSample[]) => void;
+  onSegments?: (file: string, segments: KinematicShot[]) => void;
 }
 
 function isRecording(name: string): boolean {
@@ -79,8 +82,8 @@ export async function discoverRecordings(
 }
 
 export async function scanRecording(
-  file: string, { tools, signal, sidecarFor, onTrack, onGaze }:
-    Pick<ScanOptions, 'tools' | 'signal' | 'sidecarFor' | 'onTrack' | 'onGaze'>,
+  file: string, { tools, signal, sidecarFor, onTrack, onGaze, onSegments }:
+    Pick<ScanOptions, 'tools' | 'signal' | 'sidecarFor' | 'onTrack' | 'onGaze' | 'onSegments'>,
 ): Promise<ScanRecord> {
   signal?.throwIfAborted();
   const record: ScanRecord = {
@@ -115,6 +118,7 @@ export async function scanRecording(
     record.track = track;
     record.telemetry = { source: loaded.source, method: loaded.method, fixCount, noLock: loaded.noLock, trackDistanceM };
     if (onGaze && loaded.method === 'dvtm-packets') onGaze(file, sampleGaze(loaded.trackValues));
+    if (onSegments && fixCount > 0) onSegments(file, segmentFlightShots(loaded.trackValues));
     record.status = fixCount > 0 ? 'ok' : 'no-gps';
   } catch (error) {
     signal?.throwIfAborted();
