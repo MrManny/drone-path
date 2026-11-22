@@ -31,7 +31,7 @@ export function OpenNotice({ state, onDismiss }: OpenNoticeProps) {
     case 'error':
       return (
         <ErrorNotice
-          message={state.message}
+          error={state.error}
           lead={t('openNotice.couldNotOpenTheRecording')}
           onDismiss={onDismiss}
         />

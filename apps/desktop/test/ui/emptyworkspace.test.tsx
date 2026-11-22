@@ -209,7 +209,7 @@ describe('EmptyWorkspace open states', () => {
   });
 
   it('shows the stage notice for a failed open', () => {
-    renderWorkspace({ kind: 'error', message: 'boom' });
+    renderWorkspace({ kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } });
     expect(screen.getByRole('alert').textContent).toContain(
       'Could not open the recording: Something went wrong. Try again.',
     );

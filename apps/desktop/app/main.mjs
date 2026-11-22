@@ -36,6 +36,7 @@ import {
   resolveDesktopConfig,
 } from '../dist/shellio.js';
 import { createTileTraffic } from 'drone-path-engine/tiles';
+import { IPC_EVENT_CHANNELS } from '../dist/shared/ipc.js';
 import { registerIpcHandlers } from './ipc.mjs';
 import { showDialogWithParent } from './shell.mjs';
 import { initUpdates } from './update.mjs';
@@ -238,9 +239,9 @@ async function initServices(controller) {
       pickFile: () => pickRecording(controller),
       io: nodeSessionIo,
       log,
-      onPreparing: () => controller.sendToWindow('dronepath:preparing'),
+      onPreparing: () => controller.sendToWindow(IPC_EVENT_CHANNELS.onPreparing),
       onPrepareProgress: (progress) =>
-        controller.sendToWindow('dronepath:preparing:progress', progress),
+        controller.sendToWindow(IPC_EVENT_CHANNELS.onPrepareProgress, progress),
     }),
   );
   controller.attachExportRunner(
@@ -248,13 +249,14 @@ async function initServices(controller) {
       io: nodeExportIo,
       log,
       onCapture: (progress) =>
-        controller.sendToWindow('dronepath:export:capture', progress),
+        controller.sendToWindow(IPC_EVENT_CHANNELS.onExportCapture, progress),
       onDone: (outcome) => controller.handleExportDone(outcome),
       // An export warms tiles next to the live app: same queue, same budget.
       deps: { prefetchTiles: tilePrefetch },
     }),
   );
   return tileTraffic;
+
 }
 
 /**
@@ -403,7 +405,7 @@ async function startup() {
           // Buffered: the cache fast path can announce before the renderer
           // subscribes, and the state handler replays it on mount.
           controller?.markUpdateReady();
-          controller?.sendToWindow('dronepath:update:ready');
+          controller?.sendToWindow(IPC_EVENT_CHANNELS.onUpdateReady);
         },
       }),
     );

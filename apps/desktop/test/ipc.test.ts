@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { registerIpcHandlers } from '../app/ipc.mjs';
 import { appStateFile } from '../src/apppaths.js';
@@ -9,6 +9,16 @@ import type { AppSession } from '../src/appsession.js';
 import type { AppState } from '../src/appstate.js';
 import { emptyAppState } from '../src/appstate.js';
 import { APP_ORIGIN } from '../shared/appurls.js';
+import type { Locale } from '../shared/desktop-i18n/loader.js';
+import type {
+  AppBridge,
+  IpcEventChannel,
+  IpcEventSender,
+  IpcHandlerMap,
+  IpcInvokeChannel,
+  PickResult,
+} from '../shared/ipc.js';
+import { IPC_EVENT_CHANNELS, IPC_INVOKE_CHANNELS } from '../shared/ipc.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import { createShellController } from '../src/shellcontroller.js';
@@ -68,7 +78,7 @@ function makeController(options: {
     log,
   });
   const session: AppSession = {
-    pick: vi.fn(async () => ({ ok: true })),
+    pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
     getSession: vi.fn(() => null),
     videoPath: () => video,
     saveTrack: vi.fn(() => {}),
@@ -183,20 +193,34 @@ describe('desktop language settings', () => {
   it('rejects unsupported values before changing the preference', async () => {
     const { controller } = makeController();
     setup(controller);
-    expect(await invoke('dronepath:language:save', 'und')).toEqual({
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveLanguage, 'und')).toEqual({
       ok: false,
-      error: 'invalid app language',
+      code: 'INVALID_LANGUAGE',
+      detail: 'invalid app language',
     });
-    expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
+    expect(await invoke(IPC_INVOKE_CHANNELS.getLanguage)).toEqual({
+      preference: null,
+      locale: 'en',
+    });
   });
 
-  it('keeps the previous preference when the settings file cannot be saved', async () => {
+  it('keeps the previous preference and preserves filesystem error codes when the settings file cannot be saved', async () => {
     const blocker = writeFile(path.join(tmpDir(), 'unwritable'));
     vi.stubEnv('LOCALAPPDATA', blocker);
     const { controller } = makeController();
     setup(controller);
-    expect(await invoke('dronepath:language:save', 'en')).toMatchObject({ ok: false });
-    expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
+    const result = (await invoke(IPC_INVOKE_CHANNELS.saveLanguage, 'en')) as {
+      ok: boolean;
+      code?: string;
+      detail?: string;
+    };
+    expect(result.ok).toBe(false);
+    expect(['ENOTDIR', 'FS_EXISTS']).toContain(result.code);
+    expect(result.detail).toContain('cannot write app state');
+    expect(await invoke(IPC_INVOKE_CHANNELS.getLanguage)).toEqual({
+      preference: null,
+      locale: 'en',
+    });
   });
 });
 
@@ -379,12 +403,16 @@ describe.for([
     expect(result).toEqual({ ok: false, canceled: true });
   });
 
-  it('reports no recording loaded when nothing is open', async () => {
+  it('reports NO_RECORDING when nothing is open', async () => {
     setup(makeController({ video: null }).controller);
 
     const result = await invoke(channel);
 
-    expect(result).toEqual({ ok: false, error: 'no recording loaded' });
+    expect(result).toEqual({
+      ok: false,
+      code: 'NO_RECORDING',
+      detail: 'no recording loaded',
+    });
   });
 });
 
@@ -396,20 +424,32 @@ describe('main-held dialog selection guards (#390)', () => {
     const other = path.join(tmpDir(), 'exports', 'other.mp4');
 
     expect(
-      await invoke('dronepath:export:start', { outPath: other, config: {} }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: other, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
     expect(exportRunner.start).not.toHaveBeenCalled();
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-    expect(await invoke('dronepath:export:pick-output')).toEqual({ ok: true, path: chosen });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickExportOutput)).toEqual({ ok: true, path: chosen });
 
     expect(
-      await invoke('dronepath:export:start', { outPath: other, config: {} }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: other, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
     expect(exportRunner.start).not.toHaveBeenCalled();
     expect(
-      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: chosen, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
   });
 
   it('consumes the approved export path once and clears it on canceled re-pick', async () => {
@@ -418,23 +458,31 @@ describe('main-held dialog selection guards (#390)', () => {
     const chosen = path.join(tmpDir(), 'exports', 'approved.mp4');
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-    await invoke('dronepath:export:pick-output');
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
-    expect(await invoke('dronepath:export:pick-output')).toEqual({ ok: false, canceled: true });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickExportOutput)).toEqual({ ok: false, canceled: true });
     expect(
-      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: chosen, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-    await invoke('dronepath:export:pick-output');
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
     expect(
-      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: chosen, config: {} }),
     ).toEqual({ ok: true });
     expect(exportRunner.start).toHaveBeenCalledTimes(1);
     expect(
-      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: chosen, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
   });
 
   it('rejects track:save without an approved dialog path, on mismatch, or on replay', async () => {
@@ -443,34 +491,40 @@ describe('main-held dialog selection guards (#390)', () => {
     const chosen = path.join(tmpDir(), 'exports', 'approved.json');
     const other = path.join(tmpDir(), 'exports', 'other.json');
 
-    expect(await invoke('dronepath:track:save', { outPath: other })).toEqual({
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: other })).toEqual({
       ok: false,
-      error: 'output path was not approved by save dialog',
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
     });
     expect(session.saveTrack).not.toHaveBeenCalled();
-    expect(await invoke('dronepath:export:reveal', { out: other })).toEqual({
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, { out: other })).toEqual({
       ok: false,
-      error: 'unknown output',
+      code: 'UNKNOWN_OUTPUT',
+      detail: 'unknown output',
     });
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-    expect(await invoke('dronepath:track:pick-output')).toEqual({ ok: true, path: chosen });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput)).toEqual({ ok: true, path: chosen });
 
-    expect(await invoke('dronepath:track:save', { outPath: other })).toEqual({
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: other })).toEqual({
       ok: false,
-      error: 'output path was not approved by save dialog',
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
     });
     expect(session.saveTrack).not.toHaveBeenCalled();
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
-    await invoke('dronepath:track:pick-output');
-    expect(await invoke('dronepath:track:save', { outPath: chosen })).toEqual({ ok: true });
+    await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput);
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: chosen })).toEqual({ ok: true });
     expect(session.saveTrack).toHaveBeenCalledWith(chosen, null);
-    expect(await invoke('dronepath:export:reveal', { out: chosen })).toEqual({ ok: true });
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, { out: chosen })).toEqual({
+      ok: true,
+    });
 
-    expect(await invoke('dronepath:track:save', { outPath: chosen })).toEqual({
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: chosen })).toEqual({
       ok: false,
-      error: 'output path was not approved by save dialog',
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
     });
     expect(session.saveTrack).toHaveBeenCalledTimes(1);
   });
@@ -482,17 +536,116 @@ describe('main-held dialog selection guards (#390)', () => {
     const chosenTrack = path.join(tmpDir(), 'exports', 'a.json');
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosenExport });
-    await invoke('dronepath:export:pick-output');
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosenTrack });
-    await invoke('dronepath:track:pick-output');
+    await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput);
 
-    await invoke('dronepath:pick', { settings: DEFAULT_CONFIG });
+    await invoke(IPC_INVOKE_CHANNELS.pickRecording, { settings: DEFAULT_CONFIG });
 
     expect(
-      await invoke('dronepath:export:start', { outPath: chosenExport, config: {} }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: chosenExport, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
     expect(
-      await invoke('dronepath:track:save', { outPath: chosenTrack }),
-    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+      await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: chosenTrack }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
+  });
+});
+
+describe('structured IPC error codes and contract parity (#394, #413)', () => {
+  it('returns UNKNOWN_OUTPUT for unapproved reveal/open paths and OPEN_FAILED when shell.openPath fails', async () => {
+    const { controller } = makeController();
+    setup(controller);
+    const known = path.join(tmpDir(), 'exports', 'known.json');
+    const other = path.join(tmpDir(), 'exports', 'other.json');
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: known });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput)).toEqual({ ok: true, path: known });
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: known })).toEqual({ ok: true });
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, { out: other })).toEqual({
+      ok: false,
+      code: 'UNKNOWN_OUTPUT',
+      detail: 'unknown output',
+    });
+
+    harness.shell.openPath.mockResolvedValueOnce('No application is associated with the specified file');
+    expect(await invoke(IPC_INVOKE_CHANNELS.openExportOutput, { out: known })).toEqual({
+      ok: false,
+      code: 'OPEN_FAILED',
+      detail: 'No application is associated with the specified file',
+    });
+  });
+
+  it('returns UPDATES_UNAVAILABLE when updates controller is null and preserves uncataloged backend error codes', async () => {
+    const { controller, session } = makeController();
+    controller.attachSession({
+      ...session,
+      saveTrack: () => {
+        throw Object.assign(new Error('EIO: disk controller reset'), { code: 'EIO' });
+      },
+    });
+    setup(controller);
+    const trackOut = path.join(tmpDir(), 'exports', 'track.json');
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: trackOut });
+    await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.restartToUpdate)).toEqual({
+      ok: false,
+      code: 'UPDATES_UNAVAILABLE',
+      detail: 'this build does not self-update',
+    });
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: trackOut })).toEqual({
+      ok: false,
+      code: 'EIO',
+      detail: 'EIO: disk controller reset',
+    });
+  });
+
+  it('maps uncataloged plain throws on invoke handlers to BACKEND_ERROR rather than UNKNOWN', async () => {
+    const { controller, session } = makeController();
+    controller.attachSession({
+      ...session,
+      saveTrack: () => {
+        throw new Error('serializer panicked');
+      },
+    });
+    setup(controller);
+    const trackOut = path.join(tmpDir(), 'exports', 'track.json');
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: trackOut });
+    await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: trackOut })).toEqual({
+      ok: false,
+      code: 'BACKEND_ERROR',
+      detail: 'serializer panicked',
+    });
+  });
+
+  it('enforces compile-time type parity between AppBridge and main IPC handlers', () => {
+    expectTypeOf<keyof AppBridge<Locale>>().toEqualTypeOf<
+      keyof typeof IPC_INVOKE_CHANNELS | keyof typeof IPC_EVENT_CHANNELS
+    >();
+    expectTypeOf<keyof IpcHandlerMap<Locale>>().toEqualTypeOf<IpcInvokeChannel>();
+    expectTypeOf<AppBridge<Locale>['saveLanguage']>().parameters.toEqualTypeOf<
+      Parameters<IpcHandlerMap<Locale>[typeof IPC_INVOKE_CHANNELS.saveLanguage]>
+    >();
+    expectTypeOf<ReturnType<AppBridge<Locale>['saveLanguage']>>().toEqualTypeOf<
+      Promise<Awaited<ReturnType<IpcHandlerMap<Locale>[typeof IPC_INVOKE_CHANNELS.saveLanguage]>>>
+    >();
+    expectTypeOf<Parameters<Parameters<AppBridge<Locale>['onUpdateRestartFailed']>[0]>[0]>().toEqualTypeOf<
+      Parameters<IpcEventSender>[1] extends infer _ ? Parameters<Parameters<AppBridge<Locale>['onUpdateRestartFailed']>[0]>[0] : never
+    >();
+    const allChannels = [...Object.values(IPC_INVOKE_CHANNELS), ...Object.values(IPC_EVENT_CHANNELS)];
+    expect(new Set(allChannels).size).toBe(22);
+    expectTypeOf<IpcEventChannel>().toEqualTypeOf<
+      (typeof IPC_EVENT_CHANNELS)[keyof typeof IPC_EVENT_CHANNELS]
+    >();
   });
 });

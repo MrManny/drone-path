@@ -137,7 +137,11 @@ describe('export runner: failures never destroy the destination', () => {
     });
     runner.start(SOURCE, requestFor(out));
     const outcome = await settled();
-    expect(outcome).toEqual({ status: 'error', error: 'ffmpeg exited with code 1' });
+    expect(outcome).toEqual({
+      status: 'error',
+      code: 'BACKEND_ERROR',
+      detail: 'ffmpeg exited with code 1',
+    });
     expect(fs.readFileSync(out, 'utf8')).toBe('precious original');
   });
 
@@ -436,7 +440,11 @@ describe('export runner: the default run honors injected deps', () => {
       });
     });
 
-    expect(outcome).toEqual({ status: 'error', error: 'cache unwritable' });
+    expect(outcome).toEqual({
+      status: 'error',
+      code: 'BACKEND_ERROR',
+      detail: 'cache unwritable',
+    });
     expect(fs.existsSync(out)).toBe(false);
     expect(fs.readdirSync(dir).filter((name) => name.includes('.partial'))).toEqual([]);
   });

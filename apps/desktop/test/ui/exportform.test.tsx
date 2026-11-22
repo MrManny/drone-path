@@ -122,8 +122,8 @@ describe('ExportForm encoding', () => {
 
 describe('ExportForm notices', () => {
   it('shows a failure message', () => {
-    renderForm({ error: 'the app backend went away' });
-    expect(screen.getByText('the app backend went away')).toBeTruthy();
+    renderForm({ error: { code: 'BACKEND_ERROR', detail: 'the app backend went away' } });
+    expect(screen.getByText('BACKEND_ERROR: the app backend went away')).toBeTruthy();
   });
 
   it('shows the outcome notice as a status message', () => {

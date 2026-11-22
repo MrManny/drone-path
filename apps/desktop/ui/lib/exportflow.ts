@@ -1,12 +1,8 @@
 import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import {
-  ERR_EXPORT_COULD_NOT_BE_CANCELED,
-  ERR_EXPORT_COULD_NOT_START,
-  errorMessage,
-} from 'drone-path-core/errors';
+import { classifyError, fromIpcFailure } from '../../shared/errors.js';
+import type { AppErrorCode, StructuredError } from '../../shared/errors.js';
 import type { ExportAck, ExportOutputPayload, PickOutputResult } from './backend.js';
-import { UI_ERR_ACTION_FAILED } from './errortext.js';
 import type { ExportEvent, ExportForm } from './exportstate.js';
 
 export interface ExportFlowDeps {
@@ -34,21 +30,20 @@ function buildRequest(input: ExportFlowInput, outPath: string): ExportRequest {
   };
 }
 
-async function runBridgeAction<T extends ExportAck>(
+async function runBridgeAction<T extends ExportAck | PickOutputResult>(
   call: () => Promise<T>,
-  onFailure: (error: string) => ExportEvent,
+  onFailure: (error: StructuredError) => ExportEvent,
   emit: EmitExportEvent,
-  fallback?: string,
+  fallbackCode?: AppErrorCode,
 ): Promise<T | null> {
   try {
     const ack = await call();
-    if (!ack.ok) {
-      const refused = ack.error ?? fallback;
-      if (refused) emit(onFailure(refused));
+    if (!ack.ok && !ack.canceled) {
+      emit(onFailure(fromIpcFailure(ack, fallbackCode ?? 'UNKNOWN')));
     }
     return ack;
   } catch (e) {
-    emit(onFailure(errorMessage(e)));
+    emit(onFailure(classifyError(e, 'BACKEND_ERROR')));
     return null;
   }
 }
@@ -75,7 +70,7 @@ async function startJob(
     () => deps.startExport(request),
     (error) => ({ type: 'startFailed', error }),
     emit,
-    ERR_EXPORT_COULD_NOT_START,
+    'EXPORT_COULD_NOT_START',
   );
 }
 
@@ -99,7 +94,7 @@ export function cancelExport(deps: ExportFlowDeps, emit: EmitExportEvent): void 
     () => deps.cancelExport(),
     (error) => ({ type: 'cancelFailed', error }),
     emit,
-    ERR_EXPORT_COULD_NOT_BE_CANCELED,
+    'EXPORT_COULD_NOT_BE_CANCELED',
   );
 }
 
@@ -113,6 +108,6 @@ export function runDoneAction(
     () => call(deps),
     (error) => ({ type: 'failed', error }),
     emit,
-    UI_ERR_ACTION_FAILED,
+    'ACTION_FAILED',
   );
 }

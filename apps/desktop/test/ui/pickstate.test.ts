@@ -37,17 +37,18 @@ describe('pickReducer', () => {
     expect(pickReducer({ kind: 'picking' }, { type: 'canceled' })).toEqual({ kind: 'canceled' });
   });
 
-  it('carries the failure message', () => {
-    const next = pickReducer(PREPARING, { type: 'failed', message: 'boom' });
-    expect(next).toEqual({ kind: 'error', message: 'boom' });
-    expect((next as Extract<PickState, { kind: 'error' }>).message).toBe('boom');
+  it('carries the failure error', () => {
+    const error = { code: 'UNKNOWN', detail: 'boom' } as const;
+    const next = pickReducer(PREPARING, { type: 'failed', error });
+    expect(next).toEqual({ kind: 'error', error });
+    expect((next as Extract<PickState, { kind: 'error' }>).error).toEqual(error);
   });
 
   it('starts a new pick after a failure', () => {
-    expect(pickReducer({ kind: 'error', message: 'boom' }, { type: 'pick' })).toEqual({ kind: 'picking' });
+    expect(pickReducer({ kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } }, { type: 'pick' })).toEqual({ kind: 'picking' });
   });
 
-  it.for<PickState>([{ kind: 'error', message: 'boom' }, { kind: 'canceled' }])(
+  it.for<PickState>([{ kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } }, { kind: 'canceled' }])(
     'dismisses the $kind notice back to idle',
     (state) => {
       expect(pickReducer(state, { type: 'dismiss' })).toEqual({ kind: 'idle' });
@@ -64,7 +65,7 @@ describe.each<PickState>([
   { kind: 'idle' },
   { kind: 'ready' },
   { kind: 'canceled' },
-  { kind: 'error', message: 'boom' },
+  { kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } },
 ])('a preparing signal from $kind', (state) => {
   it('does not start preparing without an open pick, so no busy status appears early', () => {
     expect(pickReducer(state, { type: 'preparing' })).toBe(state);
@@ -76,7 +77,7 @@ describe.each<PickState>([
   { kind: 'picking' },
   { kind: 'ready' },
   { kind: 'canceled' },
-  { kind: 'error', message: 'boom' },
+  { kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } },
 ])('a progress report from $kind', (state) => {
   it('is ignored: only an open preparation tracks progress', () => {
     expect(pickReducer(state, { type: 'progress', progress: PLANNING })).toBe(state);

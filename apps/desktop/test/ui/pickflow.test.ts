@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { PickResult, UiSession } from '../../shared/contracts.js';
+import type { StructuredError } from '../../shared/errors.js';
+import type { PickResult, UiSession } from '../../shared/ipc.js';
 import { pickRecordingFlow } from '../../ui/lib/pickflow.js';
 
 const SESSION = {
@@ -39,25 +40,34 @@ describe.each<{
   what: string;
   pickRecording: () => Promise<PickResult>;
   getSession: () => Promise<UiSession | null>;
-  message: string;
+  error: StructuredError;
 }>([
   {
     what: 'the picker reports an error',
-    pickRecording: async () => ({ ok: false, error: 'not a readable .mp4 file: /media/bad.mp4' }),
+    pickRecording: async () => ({
+      ok: false,
+      code: 'NOT_READABLE_MP4',
+      params: { name: 'bad.mp4' },
+      detail: 'not a readable .mp4 file: /media/bad.mp4',
+    }),
     getSession: async () => SESSION,
-    message: 'not a readable .mp4 file: /media/bad.mp4',
+    error: {
+      code: 'NOT_READABLE_MP4',
+      params: { name: 'bad.mp4' },
+      detail: 'not a readable .mp4 file: /media/bad.mp4',
+    },
   },
   {
-    what: 'the picker fails without a message',
-    pickRecording: async () => ({ ok: false }),
+    what: 'the picker fails without a code',
+    pickRecording: async () => ({ ok: false } as PickResult),
     getSession: async () => SESSION,
-    message: 'unknown error',
+    error: { code: 'UNKNOWN' },
   },
   {
     what: 'no recording was loaded',
     pickRecording: async () => ({ ok: true }),
     getSession: async () => null,
-    message: 'no recording loaded',
+    error: { code: 'NO_RECORDING' },
   },
   {
     what: 'the picker throws',
@@ -65,7 +75,7 @@ describe.each<{
       throw new Error('the picker went away');
     },
     getSession: async () => SESSION,
-    message: 'the picker went away',
+    error: { code: 'BACKEND_ERROR', detail: 'the picker went away' },
   },
   {
     what: 'loading the session throws',
@@ -73,13 +83,13 @@ describe.each<{
     getSession: async () => {
       throw new Error('the session loader went away');
     },
-    message: 'the session loader went away',
+    error: { code: 'BACKEND_ERROR', detail: 'the session loader went away' },
   },
-])('when $what', ({ pickRecording, getSession, message }) => {
+])('when $what', ({ pickRecording, getSession, error }) => {
   it('returns the failure and commits nothing', async () => {
     const commit = vi.fn();
     const event = await pickRecordingFlow({ pickRecording, getSession }, commit);
-    expect(event).toEqual({ type: 'failed', message });
+    expect(event).toEqual({ type: 'failed', error });
     expect(commit).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { StructuredError } from '../../shared/errors.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';
 import { useAppModals } from '../../ui/hooks/useAppModals.js';
@@ -15,7 +16,7 @@ afterEach(() => {
 function installBridge() {
   const listeners: {
     updateReady?: () => void;
-    restartFailed?: (message: string) => void;
+    restartFailed?: (failure: StructuredError) => void;
   } = {};
   const bridge = {
     pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: true, path: '/exports/a.mp4' })),
@@ -29,7 +30,7 @@ function installBridge() {
         listeners.updateReady = undefined;
       };
     }),
-    onUpdateRestartFailed: vi.fn((cb: (message: string) => void) => {
+    onUpdateRestartFailed: vi.fn((cb: (failure: StructuredError) => void) => {
       listeners.restartFailed = cb;
       return () => {
         listeners.restartFailed = undefined;
@@ -46,9 +47,9 @@ function installBridge() {
         listeners.updateReady?.();
       });
     },
-    emitRestartFailed: (message: string) => {
+    emitRestartFailed: (failure: StructuredError) => {
       act(() => {
-        listeners.restartFailed?.(message);
+        listeners.restartFailed?.(failure);
       });
     },
   };
@@ -99,9 +100,12 @@ describe('useAppModals', () => {
     });
     expect(result.current.dialogs.active).toBe('update');
 
-    emitRestartFailed('restart boom');
+    emitRestartFailed({ code: 'UPDATE_RESTART_FAILED', detail: 'restart boom' });
     expect(result.current.update.phase).toBe('prompted');
-    expect(result.current.update.failure).toBe('restart boom');
+    expect(result.current.update.failure).toEqual({
+      code: 'UPDATE_RESTART_FAILED',
+      detail: 'restart boom',
+    });
     expect(result.current.dialogs.dismissible).toBe(true);
   });
 

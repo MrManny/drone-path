@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PickResult } from '../../shared/contracts.js';
-import type { PickOutputResult } from '../../ui/lib/backend.js';
+import type { StructuredError } from '../../shared/errors.js';
+import type { IpcAck, PickOutputResult, PickResult } from '../../shared/ipc.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
 import type { PrepareProgress } from 'drone-path-engine/pipeline';
@@ -68,7 +68,7 @@ function installBridge() {
     preparing?: () => void;
     progress?: (progress: PrepareProgress) => void;
     updateReady?: () => void;
-    restartFailed?: (message: string) => void;
+    restartFailed?: (failure: StructuredError) => void;
   } = {};
   const bridge = {
     getLanguage: vi.fn(async () => ({ preference: null as string | null, locale: 'en' })),
@@ -104,14 +104,14 @@ function installBridge() {
         listeners.updateReady = undefined;
       };
     }),
-    onUpdateRestartFailed: vi.fn((cb: (message: string) => void) => {
+    onUpdateRestartFailed: vi.fn((cb: (failure: StructuredError) => void) => {
       listeners.restartFailed = cb;
       return () => {
         listeners.restartFailed = undefined;
       };
     }),
     getUpdateState: vi.fn(async () => ({ ready: false })),
-    restartToUpdate: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
+    restartToUpdate: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
     pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: false, canceled: true })),
     startExport: vi.fn(async () => ({ ok: true })),
     pickTrackOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: false, canceled: true })),
@@ -138,7 +138,7 @@ function installBridge() {
     },
     restartFailed: () => {
       act(() => {
-        listeners.restartFailed?.('restart failed');
+        listeners.restartFailed?.({ code: 'UPDATE_RESTART_FAILED', detail: 'restart failed' });
       });
     },
     settle: async (result: PickResult) => {
@@ -459,7 +459,12 @@ describe('menu bar commands', () => {
   });
 });
 
-describe.each([
+describe.each<{
+  outcome: string;
+  result: PickResult;
+  text: string;
+  role: 'status' | 'alert';
+}>([
   {
     outcome: 'the picker is canceled',
     result: { ok: false, canceled: true },
@@ -468,13 +473,18 @@ describe.each([
   },
   {
     outcome: 'the file is not a readable .mp4',
-    result: { ok: false, error: 'not a readable .mp4 file: C:\\Windows\\win.ini' },
+    result: {
+      ok: false,
+      code: 'NOT_READABLE_MP4',
+      params: { name: 'win.ini' },
+      detail: 'not a readable .mp4 file: C:\\Windows\\win.ini',
+    },
     text: 'Could not open the recording: "win.ini" is not a readable .mp4 recording. Choose a different .mp4 file.',
     role: 'alert',
   },
   {
     outcome: 'the backend reports an unknown failure',
-    result: { ok: false, error: 'disk on fire' },
+    result: { ok: false, code: 'UNKNOWN', detail: 'disk on fire' },
     text: 'Could not open the recording: Something went wrong. Try again.',
     role: 'alert',
   },
@@ -504,7 +514,12 @@ describe('Open flow over the player', () => {
     await commitLoaded(harness);
 
     clickMenuItem('Open…');
-    await harness.settle({ ok: false, error: 'not a readable .mp4 file: C:\\Windows\\win.ini' });
+    await harness.settle({
+      ok: false,
+      code: 'NOT_READABLE_MP4',
+      params: { name: 'win.ini' },
+      detail: 'not a readable .mp4 file: C:\\Windows\\win.ini',
+    });
     expect(screen.getByRole('alert').textContent).toContain(
       '"win.ini" is not a readable .mp4 recording.',
     );
@@ -653,7 +668,7 @@ describe('update prompt', () => {
     expect(screen.getByRole('alert').textContent).toContain(
       'The restart failed. Try again, or install the update when you quit.',
     );
-    expect(screen.getByText('shell gone')).toBeTruthy();
+    expect(screen.getByText('BACKEND_ERROR: shell gone')).toBeTruthy();
   });
 
   it('dismisses the prompt with Escape', async () => {
@@ -667,7 +682,7 @@ describe('update prompt', () => {
 
   it('locks even Escape while the restart runs', async () => {
     const harness = installBridge();
-    harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
+    harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<IpcAck>(() => {}));
     openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
@@ -679,7 +694,11 @@ describe('update prompt', () => {
 
   it('unlocks the prompt and reports the failure when the shell refuses to restart', async () => {
     const harness = installBridge();
-    harness.bridge.restartToUpdate.mockResolvedValueOnce({ ok: false, error: 'no update' });
+    harness.bridge.restartToUpdate.mockResolvedValueOnce({
+      ok: false,
+      code: 'UPDATE_RESTART_FAILED',
+      detail: 'no update',
+    });
     openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
@@ -692,7 +711,7 @@ describe('update prompt', () => {
 
   it('unlocks the prompt and reports the failure when the restart fails after the ack', async () => {
     const harness = installBridge();
-    harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<{ ok: boolean }>(() => {}));
+    harness.bridge.restartToUpdate.mockReturnValueOnce(new Promise<IpcAck>(() => {}));
     openWorkspace();
     harness.updateReady();
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
@@ -706,10 +725,10 @@ describe('update prompt', () => {
 
   it('ignores a duplicate restart failure for the same attempt and allows retrying', async () => {
     const harness = installBridge();
-    let resolveRestart!: (ack: { ok: boolean; error?: string }) => void;
+    let resolveRestart!: (ack: IpcAck) => void;
     harness.bridge.restartToUpdate.mockImplementationOnce(
       () =>
-        new Promise<{ ok: boolean; error?: string }>((resolve) => {
+        new Promise<IpcAck>((resolve) => {
           resolveRestart = resolve;
         }),
     );
@@ -718,14 +737,18 @@ describe('update prompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     harness.restartFailed();
     await act(async () => {
-      resolveRestart({ ok: false, error: 'duplicate error' });
+      resolveRestart({ ok: false, code: 'UPDATE_RESTART_FAILED', detail: 'duplicate error' });
     });
 
     expect(screen.getByText('restart failed')).toBeTruthy();
     expect(screen.queryByText('duplicate error')).toBeNull();
 
     // A subsequent retry can report its own failure cleanly.
-    harness.bridge.restartToUpdate.mockResolvedValueOnce({ ok: false, error: 'retry failed' });
+    harness.bridge.restartToUpdate.mockResolvedValueOnce({
+      ok: false,
+      code: 'UPDATE_RESTART_FAILED',
+      detail: 'retry failed',
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Restart now' }));
     await waitFor(() => expect(screen.getByText('retry failed')).toBeTruthy());
   });
@@ -844,7 +867,6 @@ describe('recording switch modal safety (#392, #393)', () => {
     const harness = installBridge();
     harness.bridge.pickTrackOutput.mockResolvedValue({
       ok: true,
-      canceled: false,
       path: '/exports/flight.telemetry.json',
     });
     harness.bridge.saveTrack.mockImplementation(

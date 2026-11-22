@@ -155,8 +155,12 @@ describe('createAppSession', () => {
     const prepare = vi.fn();
     const session = makeSession({ config: CONFIG, pickFile: async () => file, prepare });
     const result = await session.pick(REQUEST);
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain('not a readable .mp4 file');
+    expect(result).toEqual({
+      ok: false,
+      code: 'NOT_READABLE_MP4',
+      detail: `not a readable .mp4 file: ${file}`,
+      params: { name: 'clip.mov' },
+    });
     expect(prepare).not.toHaveBeenCalled();
   });
 
@@ -167,7 +171,12 @@ describe('createAppSession', () => {
       pickFile: async () => missing,
       prepare: vi.fn(),
     });
-    expect((await session.pick(REQUEST)).error).toContain('not a readable .mp4 file');
+    expect(await session.pick(REQUEST)).toEqual({
+      ok: false,
+      code: 'NOT_READABLE_MP4',
+      detail: `not a readable .mp4 file: ${missing}`,
+      params: { name: 'gone.mp4' },
+    });
   });
 
   it('surfaces preparation failures and keeps no session', async () => {
@@ -180,7 +189,7 @@ describe('createAppSession', () => {
       }),
     });
     const result = await session.pick(REQUEST);
-    expect(result).toEqual({ ok: false, error: 'probe failed' });
+    expect(result).toEqual({ ok: false, code: 'BACKEND_ERROR', detail: 'probe failed' });
     expect(session.getSession()).toBeNull();
     expect(session.videoPath()).toBeNull();
   });
@@ -210,7 +219,11 @@ describe('createAppSession', () => {
 
     const first = session.pick(REQUEST);
     const second = await session.pick(REQUEST);
-    expect(second).toEqual({ ok: false, error: 'a pick is already in progress' });
+    expect(second).toEqual({
+      ok: false,
+      code: 'PICK_IN_PROGRESS',
+      detail: 'a pick is already in progress',
+    });
     if (release) release(PREPARED);
     expect(await first).toEqual({ ok: true });
   });
@@ -256,7 +269,11 @@ describe('createAppSession onPreparing hook', () => {
       prepare: vi.fn(),
       onPreparing,
     });
-    expect(await session.pick(REQUEST)).toEqual({ ok: false, error: 'dialog unavailable' });
+    expect(await session.pick(REQUEST)).toEqual({
+      ok: false,
+      code: 'BACKEND_ERROR',
+      detail: 'dialog unavailable',
+    });
     expect(onPreparing).not.toHaveBeenCalled();
   });
 

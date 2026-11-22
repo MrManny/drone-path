@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 
 import type { RenderConfig } from 'drone-path-engine/config';
-import type { UiSession } from '../../shared/contracts.js';
+import type { UiSession } from '../../shared/ipc.js';
 import type { Locale } from '../../shared/desktop-i18n/loader.js';
 import type { AppModals } from '../hooks/useAppModals.js';
 import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';

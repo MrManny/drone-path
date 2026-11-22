@@ -4,6 +4,7 @@
     "rootDir": ".",
     "outDir": "../dist/shared",
     "declaration": true,
+    "declarationMap": false,
     "sourceMap": false,
     "types": []
   },

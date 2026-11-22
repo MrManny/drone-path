@@ -1,10 +1,10 @@
 import { tEnglish } from '../../shared/desktop-i18n/loader.js';
 import type { Translate } from '../../shared/desktop-i18n/loader.js';
-import type { TrackSaveRequest } from '../../shared/contracts.js';
+import { classifyError, fromIpcFailure, structuredError } from '../../shared/errors.js';
+import type { StructuredError } from '../../shared/errors.js';
+import type { TrackSaveRequest } from '../../shared/ipc.js';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 import type { ExportAck, PickOutputResult } from './backend.js';
-import { UI_ERR_TRACK_SAVE } from './errortext.js';
 import { formatFrameRange, formatTime } from './frametime.js';
 
 interface TrackSaveDeps {
@@ -15,18 +15,18 @@ interface TrackSaveDeps {
 type TrackSaveEvent =
   | { type: 'canceled' }
   | { type: 'saved'; path: string }
-  | { type: 'failed'; message: string };
+  | { type: 'failed'; error: StructuredError };
 
 export type TrackSavePhase =
   | { kind: 'saving' }
-  | { kind: 'done'; path: string; scope: string; error?: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'done'; path: string; scope: string; error?: StructuredError }
+  | { kind: 'error'; error: StructuredError };
 
 type TrackSaveAction =
   | { type: 'started' }
   | { type: 'result'; event: TrackSaveEvent; scope: string }
   | { type: 'clearError' }
-  | { type: 'revealFailed'; error: string }
+  | { type: 'revealFailed'; error: StructuredError }
   | { type: 'reset' };
 
 // The persistent phase line; the failure phase announces through its alert
@@ -53,7 +53,7 @@ export function trackSaveReducer(
       if (action.event.type === 'canceled') return state;
       return action.event.type === 'saved'
         ? { kind: 'done', path: action.event.path, scope: action.scope }
-        : { kind: 'error', message: action.event.message };
+        : { kind: 'error', error: action.event.error };
     case 'clearError':
       return state?.kind === 'done' && state.error !== undefined
         ? { kind: 'done', path: state.path, scope: state.scope }
@@ -84,17 +84,22 @@ export async function trackSaveFlow(
 ): Promise<TrackSaveEvent> {
   try {
     const picked = await deps.pickTrackOutput();
-    if (!isMounted() || picked.canceled) return { type: 'canceled' };
-    if (!picked.ok || picked.path === undefined) {
-      return { type: 'failed', message: picked.error ?? ERR_UNKNOWN };
+    if (!isMounted()) return { type: 'canceled' };
+    if (!picked.ok) {
+      return picked.canceled
+        ? { type: 'canceled' }
+        : { type: 'failed', error: fromIpcFailure(picked, 'UNKNOWN') };
+    }
+    if (picked.path === undefined) {
+      return { type: 'failed', error: structuredError('UNKNOWN') };
     }
     onSaving();
     const ack = await deps.saveTrack({ outPath: picked.path, range });
     if (!ack.ok) {
-      return { type: 'failed', message: ack.error ?? UI_ERR_TRACK_SAVE };
+      return { type: 'failed', error: fromIpcFailure(ack, 'TRACK_SAVE_FAILED') };
     }
     return { type: 'saved', path: picked.path };
   } catch (e) {
-    return { type: 'failed', message: errorMessage(e) };
+    return { type: 'failed', error: classifyError(e, 'BACKEND_ERROR') };
   }
 }

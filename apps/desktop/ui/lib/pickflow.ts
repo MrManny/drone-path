@@ -1,5 +1,5 @@
-import type { PickResult, UiSession } from '../../shared/contracts.js';
-import { ERR_NO_RECORDING, ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
+import { classifyError, fromIpcFailure, structuredError } from '../../shared/errors.js';
+import type { PickResult, UiSession } from '../../shared/ipc.js';
 import type { PickEvent } from './pickstate.js';
 
 interface PickFlowDeps {
@@ -9,14 +9,17 @@ interface PickFlowDeps {
 
 async function pick(deps: PickFlowDeps): Promise<PickEvent | null> {
   const result = await deps.pickRecording();
-  if (result.canceled) return { type: 'canceled' };
-  if (!result.ok) return { type: 'failed', message: result.error ?? ERR_UNKNOWN };
+  if (!result.ok) {
+    return result.canceled
+      ? { type: 'canceled' }
+      : { type: 'failed', error: fromIpcFailure(result, 'UNKNOWN') };
+  }
   return null;
 }
 
 async function loadSession(deps: PickFlowDeps): Promise<UiSession | PickEvent> {
   const session = await deps.getSession();
-  return session ?? { type: 'failed', message: ERR_NO_RECORDING };
+  return session ?? { type: 'failed', error: structuredError('NO_RECORDING') };
 }
 
 export async function pickRecordingFlow(
@@ -31,6 +34,6 @@ export async function pickRecordingFlow(
     commit(loaded);
     return { type: 'picked' };
   } catch (e) {
-    return { type: 'failed', message: errorMessage(e) };
+    return { type: 'failed', error: classifyError(e, 'BACKEND_ERROR') };
   }
 }

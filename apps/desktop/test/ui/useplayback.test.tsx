@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PageVideo } from '../../shared/contracts.js';
+import type { PageVideo } from '../../shared/ipc.js';
 import type { Playback } from '../../ui/hooks/usePlayback.js';
 import { usePlayback } from '../../ui/hooks/usePlayback.js';
 import { createFakeScene, flushRaf, installRafStub } from './harness.js';

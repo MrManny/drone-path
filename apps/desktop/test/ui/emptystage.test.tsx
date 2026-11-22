@@ -127,7 +127,7 @@ describe('EmptyStage', () => {
   });
 
   it('reports failures as a sentence with a next step and keeps the raw message as details', () => {
-    renderStage({ kind: 'error', message: 'boom' });
+    renderStage({ kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } });
     expect(
       screen.getByText('Could not open the recording: Something went wrong. Try again.'),
     ).toBeTruthy();
@@ -135,7 +135,14 @@ describe('EmptyStage', () => {
   });
 
   it('turns a known failure into a sentence and keeps the original as details', () => {
-    renderStage({ kind: 'error', message: 'not a readable .mp4 file: C:\\Windows\\win.ini' });
+    renderStage({
+      kind: 'error',
+      error: {
+        code: 'NOT_READABLE_MP4',
+        params: { name: 'win.ini' },
+        detail: 'not a readable .mp4 file: C:\\Windows\\win.ini',
+      },
+    });
     expect(
       screen.getByText(
         'Could not open the recording: "win.ini" is not a readable .mp4 recording. Choose a different .mp4 file.',
@@ -146,7 +153,7 @@ describe('EmptyStage', () => {
   });
 
   it('dismisses a failure through its notice', async () => {
-    const { onDismiss } = renderStage({ kind: 'error', message: 'boom' });
+    const { onDismiss } = renderStage({ kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } });
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
@@ -168,7 +175,7 @@ describe.for<PickState>([
   { kind: 'picking' },
   { kind: 'preparing', progress: INITIAL_PREPARE_PROGRESS },
   { kind: 'canceled' },
-  { kind: 'error', message: 'boom' },
+  { kind: 'error', error: { code: 'UNKNOWN', detail: 'boom' } },
 ])('an empty stage in the $kind state', (state) => {
   it('carries no tooling hint (#234)', () => {
     renderStage(state);

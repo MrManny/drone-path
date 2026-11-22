@@ -3,7 +3,7 @@
 import { useTranslation } from '../lib/i18n.js';
 import { useMemo, useState } from 'react';
 
-import type { UiSession } from '../../shared/contracts.js';
+import type { UiSession } from '../../shared/ipc.js';
 import { appearanceOf, hasAltitude } from 'drone-path-engine/config';
 import type { ConfigOverrides, RenderConfig } from 'drone-path-engine/config';
 import { planIntroOutroFrames } from 'drone-path-engine/plan';

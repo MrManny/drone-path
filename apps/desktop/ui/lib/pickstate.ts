@@ -1,5 +1,6 @@
 import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
 import type { PrepareProgress } from 'drone-path-engine/plan';
+import type { StructuredError } from '../../shared/errors.js';
 
 export type PickState =
   | { kind: 'idle' }
@@ -7,7 +8,7 @@ export type PickState =
   | { kind: 'preparing'; progress: PrepareProgress }
   | { kind: 'ready' }
   | { kind: 'canceled' }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; error: StructuredError };
 
 export type PickEvent =
   | { type: 'pick' }
@@ -15,7 +16,7 @@ export type PickEvent =
   | { type: 'progress'; progress: PrepareProgress }
   | { type: 'picked' }
   | { type: 'canceled' }
-  | { type: 'failed'; message: string }
+  | { type: 'failed'; error: StructuredError }
   | { type: 'dismiss' };
 
 export function pickReducer(state: PickState, event: PickEvent): PickState {
@@ -33,7 +34,7 @@ export function pickReducer(state: PickState, event: PickEvent): PickState {
     case 'canceled':
       return { kind: 'canceled' };
     case 'failed':
-      return { kind: 'error', message: event.message };
+      return { kind: 'error', error: event.error };
     case 'dismiss':
       return state.kind === 'error' || state.kind === 'canceled' ? { kind: 'idle' } : state;
   }

@@ -1,4 +1,4 @@
-import { ERR_NO_FRAME_RATE } from './errors.js';
+import { ERR_NO_FRAME_RATE, codedError } from './errors.js';
 import { runTool } from './exec-tool.js';
 import { framesForSeconds, parseFpsRate } from './frametime.js';
 import type { Fps } from './frametime.js';
@@ -112,7 +112,7 @@ export async function probeVideo(
   const fps =
     parseFpsRate(stream.r_frame_rate) ??
     parseFpsRate(stream.avg_frame_rate);
-  if (!fps) throw new Error(ERR_NO_FRAME_RATE);
+  if (!fps) throw codedError(ERR_NO_FRAME_RATE, { code: 'NO_FRAME_RATE' });
 
   const durationSec = Number.parseFloat(format.duration ?? '');
   let frames = Number.parseInt(stream.nb_frames ?? '', 10);

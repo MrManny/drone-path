@@ -94,9 +94,9 @@ describe('TrackSaveModal done phase', () => {
 
   it('surfaces a reveal failure above the done content', () => {
     renderModal({
-      phase: { ...DONE, error: 'the app backend went away' },
+      phase: { ...DONE, error: { code: 'BACKEND_ERROR', detail: 'the app backend went away' } },
     });
-    expect(screen.getByText('the app backend went away')).toBeTruthy();
+    expect(screen.getByText('BACKEND_ERROR: the app backend went away')).toBeTruthy();
     expect(screen.getByText('Telemetry exported.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Reveal in folder' })).toBeTruthy();
   });
@@ -113,14 +113,14 @@ describe('TrackSaveModal done phase', () => {
 
 describe('TrackSaveModal error phase', () => {
   it('reports the failure and offers no footer', () => {
-    renderModal({ phase: { kind: 'error', message: 'disk full' } });
+    renderModal({ phase: { kind: 'error', error: { code: 'FS_DISK_FULL', detail: 'disk full' } } });
     expect(screen.getByText('disk full')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Reveal in folder' })).toBeNull();
     expect(actions()).toBeNull();
   });
 
   it('keeps exactly one dismissal control, the header ✕', () => {
-    renderModal({ phase: { kind: 'error', message: 'disk full' } });
+    renderModal({ phase: { kind: 'error', error: { code: 'FS_DISK_FULL', detail: 'disk full' } } });
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
   });
 
@@ -130,7 +130,7 @@ describe('TrackSaveModal error phase', () => {
     );
     rerender(
       <TrackSaveModal
-        phase={{ kind: 'error', message: 'disk full' }}
+        phase={{ kind: 'error', error: { code: 'FS_DISK_FULL', detail: 'disk full' } }}
         dismissible
         onReveal={vi.fn()}
         onClose={vi.fn()}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ExportRequest } from 'drone-path-engine/config';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
-import type { ExportOutcome } from '../../shared/contracts.js';
+import type { ExportOutcome } from '../../shared/ipc.js';
 import {
   captureFraction,
   captureQuartile,
@@ -119,13 +119,13 @@ describe('export lifecycle', () => {
     expect(state.result).toEqual(OK_SUMMARY);
   });
 
-  it('returns to the form with the failure message when the run fails (#282)', () => {
+  it('returns to the form with the failure error when the run fails (#282)', () => {
     const state = exportReducer(running(), {
       type: 'finish',
-      outcome: { status: 'error', error: 'verification failed' },
+      outcome: { status: 'error', code: 'OUTPUT_VERIFICATION', detail: 'verification failed' },
     });
     expect(state.phase).toBe('form');
-    expect(state.error).toBe('verification failed');
+    expect(state.error).toEqual({ code: 'OUTPUT_VERIFICATION', detail: 'verification failed' });
     expect(state.notice).toBeNull();
     expect(state.request).toBeNull();
     expect(state.canceling).toBe(false);
@@ -143,10 +143,13 @@ describe('export lifecycle', () => {
   });
 
   it('returns to the form when the start is rejected', () => {
-    const state = exportReducer(running(), { type: 'startFailed', error: 'already running' });
+    const state = exportReducer(running(), {
+      type: 'startFailed',
+      error: { code: 'EXPORT_ALREADY_RUNNING', detail: 'already running' },
+    });
     expect(state.phase).toBe('form');
     expect(state.request).toBeNull();
-    expect(state.error).toBe('already running');
+    expect(state.error).toEqual({ code: 'EXPORT_ALREADY_RUNNING', detail: 'already running' });
   });
 });
 
@@ -156,7 +159,10 @@ describe('stale events', () => {
       type: 'finish',
       outcome: { status: 'ok', summary: OK_SUMMARY },
     });
-    const late = exportReducer(done, { type: 'finish', outcome: { status: 'error', error: 'late' } });
+    const late = exportReducer(done, {
+      type: 'finish',
+      outcome: { status: 'error', code: 'BACKEND_ERROR', detail: 'late' },
+    });
     expect(late.phase).toBe('done');
     expect(late.result).toEqual(OK_SUMMARY);
   });
@@ -169,17 +175,18 @@ describe('stale events', () => {
 
 describe('cancel failures', () => {
   it('reverts the canceling state and keeps the reason', () => {
+    const err = { code: 'EXPORT_COULD_NOT_BE_CANCELED', detail: 'export could not be canceled' } as const;
     let state = exportReducer(running(), { type: 'cancelRequested' });
-    state = exportReducer(state, { type: 'cancelFailed', error: 'export could not be canceled' });
+    state = exportReducer(state, { type: 'cancelFailed', error: err });
     expect(state.phase).toBe('running');
     expect(state.canceling).toBe(false);
-    expect(state.error).toBe('export could not be canceled');
+    expect(state.error).toEqual(err);
   });
 
   it('ignores a cancel failure outside a running job', () => {
     const state = exportReducer(initialExportState(768, 768), {
       type: 'cancelFailed',
-      error: 'export could not be canceled',
+      error: { code: 'EXPORT_COULD_NOT_BE_CANCELED', detail: 'export could not be canceled' },
     });
     expect(state.error).toBeNull();
   });
@@ -187,7 +194,10 @@ describe('cancel failures', () => {
   it('drops the stale reason once the job settles', () => {
     const failed = exportReducer(
       exportReducer(running(), { type: 'cancelRequested' }),
-      { type: 'cancelFailed', error: 'export could not be canceled' },
+      {
+        type: 'cancelFailed',
+        error: { code: 'EXPORT_COULD_NOT_BE_CANCELED', detail: 'export could not be canceled' },
+      },
     );
     const done = exportReducer(failed, {
       type: 'finish',
@@ -202,7 +212,7 @@ describe('cancel failures', () => {
   it('clears a stale error when the next action starts', () => {
     const failed = exportReducer(running(), {
       type: 'cancelFailed',
-      error: 'export could not be canceled',
+      error: { code: 'EXPORT_COULD_NOT_BE_CANCELED', detail: 'export could not be canceled' },
     });
     expect(exportReducer(failed, { type: 'clearError' }).error).toBeNull();
   });
@@ -222,7 +232,10 @@ describe('capture progress', () => {
       type: 'capture',
       progress: { done: 150, total: 200 },
     });
-    const form = exportReducer(withCapture, { type: 'startFailed', error: 'already running' });
+    const form = exportReducer(withCapture, {
+      type: 'startFailed',
+      error: { code: 'EXPORT_ALREADY_RUNNING', detail: 'already running' },
+    });
     const restarted = exportReducer(form, { type: 'start', request: REQUEST });
     expect(restarted.capture).toBeNull();
   });
@@ -326,7 +339,7 @@ describe('exportPhaseText', () => {
   });
 
   it.for<{ name: string; outcome: ExportOutcome }>([
-    { name: 'a failed run', outcome: { status: 'error', error: 'boom' } },
+    { name: 'a failed run', outcome: { status: 'error', code: 'BACKEND_ERROR', detail: 'boom' } },
     { name: 'a canceled run', outcome: { status: 'canceled' } },
   ])(
     'stays empty after $name returns to the form, which announces through its notices',
@@ -372,14 +385,17 @@ describe('outcome notices', () => {
     { name: 'a height edit', event: { type: 'setHeight', height: 576 } },
     { name: 'a range edit', event: { type: 'setRange', range: { start: 3, end: 9 } } },
     { name: 'a dismissed message', event: { type: 'clearError' } },
-    { name: 'a new failure', event: { type: 'failed', error: 'boom' } },
+    { name: 'a new failure', event: { type: 'failed', error: { code: 'UNKNOWN', detail: 'boom' } } },
   ])('clears the notice on $name', ({ event }) => {
     expect(exportReducer(canceledForm(), event).notice).toBeNull();
   });
 
   it('never carries an error and a notice at once', () => {
-    const failed = exportReducer(canceledForm(), { type: 'failed', error: 'boom' });
-    expect(failed.error).toBe('boom');
+    const failed = exportReducer(canceledForm(), {
+      type: 'failed',
+      error: { code: 'UNKNOWN', detail: 'boom' },
+    });
+    expect(failed.error).toEqual({ code: 'UNKNOWN', detail: 'boom' });
     expect(failed.notice).toBeNull();
   });
 });

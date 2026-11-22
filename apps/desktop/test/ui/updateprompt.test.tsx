@@ -83,7 +83,7 @@ describe('UpdatePrompt', () => {
   });
 
   it('reports a failed restart with what happened and what to do', () => {
-    renderPrompt({ failure: 'spawn failed' });
+    renderPrompt({ failure: { code: 'UPDATE_RESTART_FAILED', detail: 'spawn failed' } });
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain(
       'The restart failed. Try again, or install the update when you quit.',
@@ -93,7 +93,7 @@ describe('UpdatePrompt', () => {
   });
 
   it('keeps the backend message under Technical details, never as the message', () => {
-    renderPrompt({ failure: 'spawn failed' });
+    renderPrompt({ failure: { code: 'UPDATE_RESTART_FAILED', detail: 'spawn failed' } });
     expect(screen.getByText('Technical details')).toBeTruthy();
     expect(screen.getByText('spawn failed')).toBeTruthy();
     expect(

@@ -41,7 +41,7 @@ export function TrackSaveModal({
 
         {phase.kind === 'done' ? (
           <>
-            {phase.error ? <ErrorNotice message={phase.error} /> : null}
+            {phase.error ? <ErrorNotice error={phase.error} /> : null}
             <p className="export-path" title={phase.path}>
               {phase.path}
             </p>
@@ -49,7 +49,7 @@ export function TrackSaveModal({
           </>
         ) : null}
 
-        {phase.kind === 'error' ? <ErrorNotice message={phase.message} /> : null}
+        {phase.kind === 'error' ? <ErrorNotice error={phase.error} /> : null}
         {phase.kind === 'saving' || phase.kind === 'done' ? (
           <div className="dialog-actions">
             <button

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
-import type { AppSession } from '../src/appsession.js';
+import type { AppSession, PickResult } from '../src/appsession.js';
 import { emptyAppState } from '../src/appstate.js';
 import type { AppState } from '../src/appstate.js';
 import { createShellController } from '../src/shellcontroller.js';
@@ -125,7 +125,7 @@ describe('createShellController IPC coordination and update state', () => {
     const video = path.resolve('clips', 'flight.mp4');
     const out = path.resolve('clips', 'out', 'flight_map.mp4');
     const session: AppSession = {
-      pick: vi.fn(async () => ({ ok: true })),
+      pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
       getSession: () => null,
       videoPath: () => video,
       saveTrack: vi.fn(),
@@ -152,7 +152,8 @@ describe('createShellController IPC coordination and update state', () => {
     expect(controller.ipc.getUpdateState()).toEqual({ ready: false });
     expect(controller.ipc.restartUpdate()).toEqual({
       ok: false,
-      error: 'this build does not self-update',
+      code: 'UPDATES_UNAVAILABLE',
+      detail: 'this build does not self-update',
     });
 
     const sent: Array<{ channel: string; payload: unknown }> = [];
@@ -170,11 +171,16 @@ describe('createShellController IPC coordination and update state', () => {
 
     controller.attachUpdates({
       restart: ({ onError }) => {
-        onError('installer failed');
+        onError({ code: 'UPDATE_RESTART_FAILED', detail: 'installer failed' });
         return { ok: true };
       },
     });
     expect(controller.ipc.restartUpdate()).toEqual({ ok: true });
-    expect(sent).toEqual([{ channel: 'dronepath:update:restart-failed', payload: 'installer failed' }]);
+    expect(sent).toEqual([
+      {
+        channel: 'dronepath:update:restart-failed',
+        payload: { code: 'UPDATE_RESTART_FAILED', detail: 'installer failed' },
+      },
+    ]);
   });
 });

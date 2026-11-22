@@ -43,8 +43,8 @@ describe('ExportDone outcome', () => {
   });
 
   it('surfaces a reveal or open failure above the summary', () => {
-    renderDone({ error: 'the app backend went away' });
-    expect(screen.getByText('the app backend went away')).toBeTruthy();
+    renderDone({ error: { code: 'BACKEND_ERROR', detail: 'the app backend went away' } });
+    expect(screen.getByText('BACKEND_ERROR: the app backend went away')).toBeTruthy();
     expect(screen.getByText('120 frames @ 29.97 fps · 4 s · 1280×720')).toBeTruthy();
   });
 });

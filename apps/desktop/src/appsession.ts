@@ -3,25 +3,21 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { TILE_BASE, mediaUrlFor } from '#shared/appurls.js';
-import type {
-  IpcResult,
-  PageVideo,
-  PickRequest,
-  PickResult,
-  TrackSaveRequest,
-  UiSession,
-} from '#shared/contracts.js';
 import type { RenderConfig } from 'drone-path-engine/config';
 import { parseAppearanceSettings } from 'drone-path-engine/config';
 import { parseFrameRange } from 'drone-path-core/frame-range';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import { asRecord, parseValue, strictShape } from 'drone-path-core/validation';
-import {
-  ERR_NO_RECORDING,
-  ERR_NOT_READABLE_MP4,
-  ERR_OUTPUT_PATH_ABSOLUTE,
-  errorMessage,
-} from 'drone-path-core/errors';
+import { classifyError, codedDesktopError } from 'drone-path-desktop/shared/errors';
+import type {
+  PageVideo,
+  PickRequest,
+  PickResult,
+  TrackSaveRequest,
+  UiSession,
+} from 'drone-path-desktop/shared/ipc';
+
+export type { PageVideo, PickRequest, PickResult, TrackSaveRequest, UiSession };
 import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import { timeAt } from 'drone-path-core/frametime';
 import { isRecordingName } from 'drone-path-engine/recordings';
@@ -38,15 +34,6 @@ import type { TelemetryDocumentInput } from 'drone-path-core/telemetry-json';
 import { trackFormatOf } from 'drone-path-core/track-format';
 import type { TrackExportInput } from 'drone-path-core/track-write';
 import type { TrackStream } from 'drone-path-core/track';
-
-export type {
-  IpcResult,
-  PageVideo,
-  PickRequest,
-  PickResult,
-  TrackSaveRequest,
-  UiSession,
-};
 
 export function frameExactDuration(probe: VideoProbe): number {
   return timeAt(probe.frames, probe.fps.value);
@@ -77,14 +64,16 @@ export function parseTrackSaveRequest(raw: unknown): TrackSaveRequest {
     request.outPath,
   );
   if (!path.isAbsolute(outPath)) {
-    throw new Error(`${ERR_OUTPUT_PATH_ABSOLUTE}${outPath}`);
+    throw codedDesktopError('OUTPUT_PATH_ABSOLUTE', `output path must be absolute: ${outPath}`);
   }
   try {
     trackFormatOf(outPath);
   } catch (e) {
-    throw new Error(
+    throw codedDesktopError(
+      'INVALID_REQUEST',
       `invalid track save request: outPath must be a .gpx, .geojson, .kml, .kmz or .json file: ${outPath}`,
-      { cause: e },
+      undefined,
+      e,
     );
   }
   const range =
@@ -178,7 +167,9 @@ export function createAppSession(options: AppSessionOptions): AppSession {
 
   return {
     async pick(request: PickRequest): Promise<PickResult> {
-      if (picking) return { ok: false, error: 'a pick is already in progress' };
+      if (picking) {
+        return { ok: false, code: 'PICK_IN_PROGRESS', detail: 'a pick is already in progress' };
+      }
       picking = true;
       try {
         const picked = await pickFile();
@@ -186,7 +177,12 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         const resolved = path.resolve(picked);
         if (!isReadableVideo(resolved, io.isFile)) {
           log(`rejected: ${resolved}`);
-          return { ok: false, error: `${ERR_NOT_READABLE_MP4}${resolved}` };
+          return {
+            ok: false,
+            code: 'NOT_READABLE_MP4',
+            detail: `not a readable .mp4 file: ${resolved}`,
+            params: { name: path.basename(resolved) },
+          };
         }
         onPreparing(resolved);
         prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
@@ -194,8 +190,9 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         log(`loaded: ${resolved}`);
         return { ok: true };
       } catch (e) {
-        log(`error: ${errorMessage(e)}`);
-        return { ok: false, error: errorMessage(e) };
+        const failure = classifyError(e);
+        log(`error: ${failure.detail ?? failure.code}`);
+        return { ok: false, ...failure };
       } finally {
         picking = false;
       }
@@ -203,7 +200,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     getSession: () => prepared?.session ?? null,
     videoPath: () => videoPath,
     saveTrack(file: string, range: FrameRange | null): void {
-      if (!prepared) throw new Error(ERR_NO_RECORDING);
+      if (!prepared) throw codedDesktopError('NO_RECORDING', 'no recording loaded');
       io.writeTrack(file, { document: prepared.telemetry, track: prepared.track }, range);
     },
   };
