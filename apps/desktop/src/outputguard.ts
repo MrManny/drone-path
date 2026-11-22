@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { codedDesktopError } from 'drone-path-desktop/shared/errors';
+
 import { isRecord } from 'drone-path-core/validation';
 
 // Pure name rule for save dialogs: the typed name stands as typed when it
@@ -33,7 +35,7 @@ export interface OutputGuard {
 
 function assertApproved(expected: string | null, outPath: string): string {
   if (typeof expected !== 'string' || !path.isAbsolute(expected) || outPath !== expected) {
-    throw new Error('output path was not approved by save dialog');
+    throw codedDesktopError('OUTPUT_NOT_APPROVED', 'output path was not approved by save dialog');
   }
   return expected;
 }
@@ -81,7 +83,7 @@ export function createOutputGuard(): OutputGuard {
     knownOutputOf(payload: unknown): string {
       const out = isRecord(payload) ? payload.out : null;
       if (typeof out !== 'string' || (!exportSlot.matches(out) && !trackSlot.matches(out))) {
-        throw new Error('unknown output');
+        throw codedDesktopError('UNKNOWN_OUTPUT', 'unknown output');
       }
       return out;
     },

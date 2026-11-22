@@ -11,6 +11,7 @@ import { app } from 'electron';
 import electronUpdater from 'electron-updater';
 
 import { errorMessage } from 'drone-path-core/errors';
+import { classifyError } from '../dist/shared/errors.js';
 
 const { autoUpdater } = electronUpdater;
 
@@ -42,16 +43,17 @@ export function initUpdates({ log, onReady }) {
     // keeps running: both the thrown and the emitted failure must surface or
     // the restart prompt would wait forever.
     restart({ onError }) {
-      /** @type {'pending' | { ok: false, error: string } | null} */
+      /** @type {'pending' | import('../dist/shared/ipc.js').IpcFailure | null} */
       let syncResult = null;
       /** @param {unknown} e */
       const fail = (e) => {
         autoUpdater.removeListener('error', fail);
+        const failure = classifyError(e, 'UPDATE_RESTART_FAILED');
         if (syncResult === 'pending') {
-          syncResult = { ok: false, error: errorMessage(e) };
+          syncResult = { ok: false, ...failure };
           return;
         }
-        onError(errorMessage(e));
+        onError(failure);
       };
       syncResult = 'pending';
       autoUpdater.once('error', fail);
@@ -60,7 +62,7 @@ export function initUpdates({ log, onReady }) {
       } catch (e) {
         syncResult = null;
         autoUpdater.removeListener('error', fail);
-        return { ok: false, error: errorMessage(e) };
+        return { ok: false, ...classifyError(e, 'UPDATE_RESTART_FAILED') };
       }
       if (syncResult !== 'pending') {
         return syncResult;

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import type { StructuredError } from '../../shared/errors.js';
 import { shouldPrompt, updateReducer } from '../../ui/lib/updatestate.js';
 import type { UpdateEvent, UpdatePhase, UpdateState } from '../../ui/lib/updatestate.js';
 
-const at = (phase: UpdatePhase, failure: string | null = null): UpdateState => ({ phase, failure });
+const ERR: StructuredError = { code: 'UPDATE_RESTART_FAILED', detail: 'spawn failed' };
+const at = (phase: UpdatePhase, failure: StructuredError | null = null): UpdateState => ({
+  phase,
+  failure,
+});
 
 const TABLE: Array<{ when: string; from: UpdateState; event: UpdateEvent; to: UpdateState }> = [
   { when: 'ready', from: at('idle'), event: { type: 'ready' }, to: at('ready') },
@@ -22,7 +27,7 @@ const TABLE: Array<{ when: string; from: UpdateState; event: UpdateEvent; to: Up
   },
   {
     when: 'restart clears a stale failure',
-    from: at('prompted', 'spawn failed'),
+    from: at('prompted', ERR),
     event: { type: 'restart' },
     to: at('restarting'),
   },
@@ -30,13 +35,13 @@ const TABLE: Array<{ when: string; from: UpdateState; event: UpdateEvent; to: Up
   {
     when: 'restartFailed',
     from: at('restarting'),
-    event: { type: 'restartFailed', message: 'spawn failed' },
-    to: at('prompted', 'spawn failed'),
+    event: { type: 'restartFailed', failure: ERR },
+    to: at('prompted', ERR),
   },
   {
     when: 'restartFailed',
     from: at('idle'),
-    event: { type: 'restartFailed', message: 'spawn failed' },
+    event: { type: 'restartFailed', failure: ERR },
     to: at('idle'),
   },
 ];
@@ -47,14 +52,14 @@ describe.each(TABLE)('updateReducer: $when', ({ from, event, to }) => {
   });
 });
 
-// The failed restart reverts to the prompt WITH the backend message, so the
+// The failed restart reverts to the prompt WITH the backend failure, so the
 // dialog reports what happened instead of silently reverting.
-it('carries the failure message back to the prompt', () => {
+it('carries the failure back to the prompt', () => {
   const failed = updateReducer(at('restarting'), {
     type: 'restartFailed',
-    message: 'spawn failed',
+    failure: ERR,
   });
-  expect(failed).toEqual(at('prompted', 'spawn failed'));
+  expect(failed).toEqual(at('prompted', ERR));
   expect(updateReducer(failed, { type: 'restart' })).toEqual(at('restarting'));
 });
 

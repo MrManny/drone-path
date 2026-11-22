@@ -4,7 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
-import type { UiSession } from '../../shared/contracts.js';
+import type { UiSession } from '../../shared/ipc.js';
 import { EmptyWorkspace } from '../components/EmptyWorkspace.js';
 import { ModalHost } from '../components/ModalHost.js';
 import { PlayerChrome } from '../components/PlayerChrome.js';

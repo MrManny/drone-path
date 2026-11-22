@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { FrameRange } from 'drone-path-core/frame-range';
 import type { RenderConfig } from 'drone-path-engine/config';
-import type { UiSession } from '../../shared/contracts.js';
+import type { UiSession } from '../../shared/ipc.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayback } from '../hooks/usePlayback.js';
 import { useTranslation } from '../lib/i18n.js';

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExportOutcome, UiSession } from '../../shared/contracts.js';
+import type { ExportOutcome, UiSession } from '../../shared/ipc.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { EncodeSettings, ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import type { CaptureProgress } from 'drone-path-engine/render';
@@ -187,7 +187,12 @@ async function reachPhase(phase: Scenario, emitDone: (outcome: ExportOutcome) =>
   if (phase === 'running') return;
   if (phase === 'done') emitDone({ status: 'ok', summary: SUMMARY });
   if (phase === 'error') {
-    emitDone({ status: 'error', error: "EEXIST: file already exists, mkdir '/exports/blocked-folder'" });
+    emitDone({
+      status: 'error',
+      code: 'FS_EXISTS',
+      params: { name: 'blocked-folder' },
+      detail: "EEXIST: file already exists, mkdir '/exports/blocked-folder'",
+    });
   }
   if (phase === 'canceled') emitDone({ status: 'canceled' });
 }
@@ -270,7 +275,11 @@ describe('ExportModal encoder choices', () => {
 
   it('clears a form error on an encoder edit', async () => {
     installBridge({
-      startExport: vi.fn(async () => ({ ok: false, error: 'an export is already running' })),
+      startExport: vi.fn(async () => ({
+        ok: false,
+        code: 'EXPORT_ALREADY_RUNNING',
+        detail: 'an export is already running',
+      })),
     });
     renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
@@ -529,7 +538,9 @@ describe('ExportModal done action payloads', () => {
     const { bridge, emitDone } = installBridge({
       revealExportOutput: vi.fn(async () => ({
         ok: false,
-        error: "EACCES: permission denied, open '/exports/a.mp4'",
+        code: 'FS_ACCESS_DENIED',
+        params: { name: 'a.mp4' },
+        detail: "EACCES: permission denied, open '/exports/a.mp4'",
       })),
     });
     await reachPhase('done', emitDone);
@@ -602,7 +613,11 @@ describe('ExportModal dimension fields commit the effective size (#94)', () => {
 describe('ExportModal rainy paths', () => {
   it('shows a start failure in the form and keeps the form usable', async () => {
     installBridge({
-      startExport: vi.fn(async () => ({ ok: false, error: 'an export is already running' })),
+      startExport: vi.fn(async () => ({
+        ok: false,
+        code: 'EXPORT_ALREADY_RUNNING',
+        detail: 'an export is already running',
+      })),
     });
     renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
@@ -625,7 +640,9 @@ describe('ExportModal rainy paths', () => {
     const { emitDone } = installBridge({
       revealExportOutput: vi.fn(async () => ({
         ok: false,
-        error: "EACCES: permission denied, open '/exports/a.mp4'",
+        code: 'FS_ACCESS_DENIED',
+        params: { name: 'a.mp4' },
+        detail: "EACCES: permission denied, open '/exports/a.mp4'",
       })),
     });
     await reachPhase('done', emitDone);
@@ -637,7 +654,11 @@ describe('ExportModal rainy paths', () => {
 
   it('re-enables Cancel export and says why when the cancel is refused', async () => {
     const { emitDone } = installBridge({
-      cancelExport: vi.fn(async () => ({ ok: false, error: 'export could not be canceled' })),
+      cancelExport: vi.fn(async () => ({
+        ok: false,
+        code: 'EXPORT_COULD_NOT_BE_CANCELED',
+        detail: 'export could not be canceled',
+      })),
     });
     await reachPhase('running', emitDone);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
@@ -653,7 +674,7 @@ describe('ExportModal rainy paths', () => {
     });
     await reachPhase('running', emitDone);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel export' }));
-    expect(await screen.findByText('the app backend went away')).toBeTruthy();
+    expect(await screen.findByText('BACKEND_ERROR: the app backend went away')).toBeTruthy();
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Cancel export' }).disabled).toBe(false);
   });
 });
@@ -817,7 +838,11 @@ describe('ExportModal focus on phase changes', () => {
       // before the failure returns the form.
       startExport: vi.fn(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
-        return { ok: false, error: 'an export is already running' };
+        return {
+          ok: false,
+          code: 'EXPORT_ALREADY_RUNNING',
+          detail: 'an export is already running',
+        };
       }),
     });
     renderModal({ in: null, out: null });

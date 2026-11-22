@@ -129,7 +129,11 @@ describe('initUpdates with update metadata', () => {
       throw new Error('spawn failed');
     });
     const onError = vi.fn();
-    expect(controller.restart({ onError })).toEqual({ ok: false, error: 'spawn failed' });
+    expect(controller.restart({ onError })).toEqual({
+      ok: false,
+      code: 'UPDATE_RESTART_FAILED',
+      detail: 'spawn failed',
+    });
     expect(onError).not.toHaveBeenCalled();
 
     // The once('error') listener was cleaned up so later feed errors do not fire onError.
@@ -143,7 +147,11 @@ describe('initUpdates with update metadata', () => {
       harness.emit('error', new Error('sync emit failed'));
     });
     const onError = vi.fn();
-    expect(controller.restart({ onError })).toEqual({ ok: false, error: 'sync emit failed' });
+    expect(controller.restart({ onError })).toEqual({
+      ok: false,
+      code: 'UPDATE_RESTART_FAILED',
+      detail: 'sync emit failed',
+    });
     expect(onError).not.toHaveBeenCalled();
   });
 
@@ -152,6 +160,9 @@ describe('initUpdates with update metadata', () => {
     const onError = vi.fn();
     expect(controller.restart({ onError })).toEqual({ ok: true });
     harness.emit('error', new Error('spawn failed'));
-    expect(onError).toHaveBeenCalledWith('spawn failed');
+    expect(onError).toHaveBeenCalledWith({
+      code: 'UPDATE_RESTART_FAILED',
+      detail: 'spawn failed',
+    });
   });
 });

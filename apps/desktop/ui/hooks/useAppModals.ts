@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from 'react';
 
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
+import { classifyError, fromIpcFailure } from '../../shared/errors.js';
+import type { StructuredError } from '../../shared/errors.js';
 import type { RenderConfig } from 'drone-path-engine/config';
 import { appBridge, tryAppBridge } from '../lib/backend.js';
 import type { DialogEvent, DialogId } from '../lib/dialogstate.js';
@@ -85,10 +86,10 @@ export function useAppModals(): AppModals {
     }
   }, [rawDispatchDialog]);
 
-  const handleRestartFailed = useCallback((message: string): void => {
+  const handleRestartFailed = useCallback((failure: StructuredError): void => {
     if (!restartingRef.current) return;
     restartingRef.current = false;
-    dispatchUpdate({ type: 'restartFailed', message });
+    dispatchUpdate({ type: 'restartFailed', failure });
   }, []);
 
   useEffect(() => {
@@ -161,11 +162,11 @@ export function useAppModals(): AppModals {
       void appBridge()
         .restartToUpdate()
         .then((ack) => {
-          if (!ack.ok) handleRestartFailed(ack.error ?? ERR_UNKNOWN);
+          if (!ack.ok) handleRestartFailed(fromIpcFailure(ack, 'UPDATE_RESTART_FAILED'));
         })
-        .catch((e) => handleRestartFailed(errorMessage(e)));
-    } catch {
-      handleRestartFailed(ERR_UNKNOWN);
+        .catch((e) => handleRestartFailed(classifyError(e, 'BACKEND_ERROR')));
+    } catch (e) {
+      handleRestartFailed(classifyError(e, 'UNKNOWN'));
     }
   }, [handleRestartFailed]);
 

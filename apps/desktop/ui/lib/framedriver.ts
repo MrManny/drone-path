@@ -1,4 +1,4 @@
-import type { PageVideo } from '../../shared/contracts.js';
+import type { PageVideo } from '../../shared/ipc.js';
 import { clampFrame, frameFromMediaTime, frameMidTime } from './frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
 import { resolveLoop } from './loop.js';

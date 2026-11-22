@@ -27,7 +27,7 @@ describe('ExportRunning progress bar', () => {
   });
 
   it('shows why a cancel failed', () => {
-    renderRunning({ error: 'the app backend went away' });
-    expect(screen.getByText('the app backend went away')).toBeTruthy();
+    renderRunning({ error: { code: 'BACKEND_ERROR', detail: 'the app backend went away' } });
+    expect(screen.getByText('BACKEND_ERROR: the app backend went away')).toBeTruthy();
   });
 });

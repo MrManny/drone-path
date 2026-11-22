@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, errorMessage } from 'drone-path-core/errors';
+import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, codedError, errorMessage } from 'drone-path-core/errors';
 import type { Bbox } from 'drone-path-core/geo';
 import { probeVideo } from 'drone-path-core/ffmpeg';
 import { outputMatchesSource, verifyOutput } from './ffmpeg-output.js';
@@ -349,6 +349,10 @@ async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Over
   return overview;
 }
 
+function canceledError(cause?: unknown): Error {
+  return codedError(ERR_RENDER_CANCELED, { code: 'RENDER_CANCELED', cause });
+}
+
 async function tileWarmStage(
   deps: PipelineDeps,
   config: RenderConfig,
@@ -356,7 +360,7 @@ async function tileWarmStage(
   log: LogFn,
   signal?: AbortSignal,
 ): Promise<PrefetchStats> {
-  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+  if (signal?.aborted) throw canceledError();
   let tileStats: PrefetchStats;
   try {
     tileStats = await deps.prefetchTiles({
@@ -366,10 +370,10 @@ async function tileWarmStage(
       signal,
     });
   } catch (err) {
-    if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED, { cause: err });
+    if (signal?.aborted) throw canceledError(err);
     throw err;
   }
-  if (signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+  if (signal?.aborted) throw canceledError();
   if (tileStats.downloaded) {
     log(`tiles: ${tileStats.downloaded} downloaded, ${tileStats.failed} placeholders`);
   }
@@ -493,9 +497,18 @@ async function verifyRenderedOutput(env: RunStageEnv): Promise<void> {
   const { ctx, deps, tools } = env;
   const verify = await deps.verifyOutput(tools, ctx.outPath, ctx.outFrames, ctx.probe.fps.value);
   if (!verify.ok) {
-    throw new Error(
+    throw codedError(
       `${ERR_OUTPUT_VERIFICATION}got ${verify.frames} frames @ ${verify.fps ?? 'unknown'}, ` +
         `expected ${ctx.outFrames} @ ${ctx.probe.fps.str}`,
+      {
+        code: 'OUTPUT_VERIFICATION',
+        params: {
+          frames: verify.frames,
+          fps: verify.fps ?? 'unknown',
+          expectedFrames: ctx.outFrames,
+          expectedFps: ctx.probe.fps.str,
+        },
+      },
     );
   }
   ctx.log(
@@ -583,7 +596,7 @@ export async function processRecording(
   const t0 = Date.now();
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfmpegTools(config);
-  if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+  if (options.signal?.aborted) throw canceledError();
 
   const prep = await prepareWithEnv({
     videoPath,
@@ -594,7 +607,7 @@ export async function processRecording(
     report: createPrepareReporter(options.onProgress),
   });
 
-  if (options.signal?.aborted) throw new Error(ERR_RENDER_CANCELED);
+  if (options.signal?.aborted) throw canceledError();
 
   if (config.trackOut) {
     writeTrackExport(config.trackOut, prep, log);

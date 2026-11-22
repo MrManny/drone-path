@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ERROR_PREFIX, errorMessage, runToolMain } from '../src/errors.js';
+import { ERROR_PREFIX, codedError, errorMessage, runToolMain } from '../src/errors.js';
 
 it.for([
   { name: 'Error', value: new Error('boom'), want: 'boom' },
@@ -55,5 +55,31 @@ describe('runToolMain', () => {
       finished = true;
     });
     expect(finished).toBe(true);
+  });
+});
+
+describe('codedError', () => {
+  it('attaches structured code, optional params, and cause onto an Error', () => {
+    const cause = new Error('inner');
+    const err = codedError('outer failure', {
+      code: 'OUTPUT_VERIFICATION',
+      params: { frames: 10, expectedFrames: 12 },
+      cause,
+    }) as Error & { code?: string; params?: Record<string, string | number> };
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toBe('outer failure');
+    expect(err.code).toBe('OUTPUT_VERIFICATION');
+    expect(err.params).toEqual({ frames: 10, expectedFrames: 12 });
+    expect(err.cause).toBe(cause);
+  });
+
+  it('leaves params and cause undefined when omitted', () => {
+    const err = codedError('missing fps', { code: 'NO_FRAME_RATE' }) as Error & {
+      code?: string;
+      params?: Record<string, string | number>;
+    };
+    expect(err.code).toBe('NO_FRAME_RATE');
+    expect('params' in err).toBe(false);
+    expect('cause' in err).toBe(false);
   });
 });

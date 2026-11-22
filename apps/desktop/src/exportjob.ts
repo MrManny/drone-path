@@ -1,15 +1,9 @@
 import path from 'node:path';
 
-import type { ExportOutcome } from '#shared/contracts.js';
 import type { ExportRequest } from 'drone-path-engine/config';
-import {
-  ERR_COULD_NOT_REPLACE,
-  ERR_EXPORT_ALREADY_RUNNING,
-  ERR_OUTPUT_OVERWRITES_SOURCE,
-  ERR_OUTPUT_PATH_ABSOLUTE,
-  ERR_RENDER_KEPT_AT,
-  errorMessage,
-} from 'drone-path-core/errors';
+import { errorMessage } from 'drone-path-core/errors';
+import { classifyError, codedDesktopError } from 'drone-path-desktop/shared/errors';
+import type { ExportOutcome } from 'drone-path-desktop/shared/ipc';
 import { samePath, uniquePath } from 'drone-path-engine/paths';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import { processRecording } from 'drone-path-engine/pipeline';
@@ -77,10 +71,11 @@ function swapIntoPlace(working: string, outPath: string, rename: ExportIo['renam
   try {
     rename(working, outPath);
   } catch (e) {
-    throw new Error(
-      `${ERR_COULD_NOT_REPLACE}${outPath}: ${errorMessage(e)} ` +
-        `(${ERR_RENDER_KEPT_AT}${working})`,
-      { cause: e },
+    throw codedDesktopError(
+      'COULD_NOT_REPLACE_OUTPUT',
+      `could not replace ${outPath}: ${errorMessage(e)} (the finished render is at ${working})`,
+      { path: working },
+      e,
     );
   }
 }
@@ -104,7 +99,7 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
       removeQuietly(working, io.remove);
       return controller.signal.aborted
         ? { status: 'canceled' }
-        : { status: 'error', error: errorMessage(e) };
+        : { status: 'error', ...classifyError(e) };
     }
     if (controller.signal.aborted) {
       removeQuietly(working, io.remove);
@@ -113,7 +108,7 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
     try {
       swapIntoPlace(working, request.outPath, io.rename);
     } catch (e) {
-      return { status: 'error', error: errorMessage(e) };
+      return { status: 'error', ...classifyError(e) };
     }
     log(`exported: ${request.outPath}`);
     return { status: 'ok', summary: { ...summary, out: request.outPath } };
@@ -121,12 +116,17 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
 
   return {
     start(videoPath: string, request: ExportRequest): void {
-      if (job) throw new Error(ERR_EXPORT_ALREADY_RUNNING);
+      if (job) {
+        throw codedDesktopError('EXPORT_ALREADY_RUNNING', 'an export is already running');
+      }
       if (!path.isAbsolute(request.outPath)) {
-        throw new Error(`${ERR_OUTPUT_PATH_ABSOLUTE}${request.outPath}`);
+        throw codedDesktopError('OUTPUT_PATH_ABSOLUTE', `output path must be absolute: ${request.outPath}`);
       }
       if (samePath(request.outPath, videoPath)) {
-        throw new Error(ERR_OUTPUT_OVERWRITES_SOURCE);
+        throw codedDesktopError(
+          'OUTPUT_OVERWRITES_SOURCE',
+          'the output must not overwrite the source recording',
+        );
       }
       const controller = new AbortController();
       job = { abort: () => controller.abort() };

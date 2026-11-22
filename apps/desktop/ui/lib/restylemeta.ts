@@ -1,4 +1,4 @@
-import type { UiSession } from '../../shared/contracts.js';
+import type { UiSession } from '../../shared/ipc.js';
 import { appearanceOf } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
 import { restyleSceneData } from 'drone-path-engine/restyle';

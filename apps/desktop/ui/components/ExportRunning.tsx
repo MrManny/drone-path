@@ -1,12 +1,13 @@
 'use client';
 
+import type { StructuredError } from '../../shared/errors.js';
 import { useTranslation } from '../lib/i18n.js';
 import { ErrorNotice } from './ErrorNotice.js';
 import { ProgressBar } from './ProgressBar.js';
 
 export interface ExportRunningProps {
   fraction: number | null;
-  error: string | null;
+  error: StructuredError | null;
 }
 
 export function ExportRunning({ fraction, error }: ExportRunningProps) {
@@ -17,7 +18,7 @@ export function ExportRunning({ fraction, error }: ExportRunningProps) {
       <div className="export-progress">
         <ProgressBar label={t('exportRunning.exportProgress')} percent={percent} />
       </div>
-      {error ? <ErrorNotice message={error} /> : null}
+      {error ? <ErrorNotice error={error} /> : null}
     </>
   );
 }

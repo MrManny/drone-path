@@ -1,5 +1,5 @@
-// IPC for the app window: handlers throw plain Errors and the handle()
-// envelope answers the renderer with { ok: false, error }.
+// IPC for the app window: handlers throw plain Errors (coded where known) and
+// the handle() envelope answers the renderer with { ok: false, code, detail?, params? }.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,8 @@ import { dialog, ipcMain, shell } from 'electron';
 
 import { isAllowedAppUrl } from '../dist/shared/appurls.js';
 import { resolveSavePath } from '../dist/outputguard.js';
-import { errorMessage } from 'drone-path-core/errors';
+import { classifyError } from '../dist/shared/errors.js';
+import { IPC_INVOKE_CHANNELS } from '../dist/shared/ipc.js';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
 import { showDialogWithParent } from './shell.mjs';
 
@@ -43,7 +44,7 @@ function handle(devUrl, channel, fn) {
     try {
       return await fn(...args);
     } catch (e) {
-      return { ok: false, error: errorMessage(e) };
+      return { ok: false, ...classifyError(e) };
     }
   });
 }
@@ -121,8 +122,8 @@ async function pickSavePath(controller, { title, defaultPath, filters, extension
  * @param {string | null} devUrl
  */
 function registerSessionHandlers(controller, devUrl) {
-  handle(devUrl, 'dronepath:pick', (raw) => controller.pickRecording(raw));
-  handleQuery(devUrl, 'dronepath:session', () => controller.getSession());
+  handle(devUrl, IPC_INVOKE_CHANNELS.pickRecording, (raw) => controller.pickRecording(raw));
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.getSession, () => controller.getSession());
 }
 
 /**
@@ -130,8 +131,8 @@ function registerSessionHandlers(controller, devUrl) {
  * @param {string | null} devUrl
  */
 function registerSettingsHandlers(controller, devUrl) {
-  handleQuery(devUrl, 'dronepath:settings', () => controller.getSettings());
-  handle(devUrl, 'dronepath:settings:save', (raw) => {
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.getSettings, () => controller.getSettings());
+  handle(devUrl, IPC_INVOKE_CHANNELS.saveSettings, (raw) => {
     controller.saveSettings(raw);
     return { ok: true };
   });
@@ -142,8 +143,8 @@ function registerSettingsHandlers(controller, devUrl) {
  * @param {string | null} devUrl
  */
 function registerLanguageHandlers(controller, devUrl) {
-  handleQuery(devUrl, 'dronepath:language', () => controller.getLanguage());
-  handle(devUrl, 'dronepath:language:save', (preference) => ({
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.getLanguage, () => controller.getLanguage());
+  handle(devUrl, IPC_INVOKE_CHANNELS.saveLanguage, (preference) => ({
     ok: true,
     ...controller.saveLanguage(preference),
   }));
@@ -154,7 +155,7 @@ function registerLanguageHandlers(controller, devUrl) {
  * @param {string | null} devUrl
  */
 function registerExportHandlers(controller, devUrl) {
-  handle(devUrl, 'dronepath:export:pick-output', async () => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.pickExportOutput, async () => {
     const { defaultPath, t } = controller.beginExportPick();
     const result = await pickSavePath(controller, {
       title: t('native.exportVideo'),
@@ -167,21 +168,21 @@ function registerExportHandlers(controller, devUrl) {
     if (result.ok) controller.approveExportOut(result.path);
     return result;
   });
-  handle(devUrl, 'dronepath:export:start', (raw) => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.startExport, (raw) => {
     controller.startExport(raw);
     return { ok: true };
   });
-  handle(devUrl, 'dronepath:export:cancel', () => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.cancelExport, () => {
     controller.cancelExport();
     return { ok: true };
   });
-  handle(devUrl, 'dronepath:export:reveal', (payload) => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.revealExportOutput, (payload) => {
     shell.showItemInFolder(controller.resolveKnownOutput(payload));
     return { ok: true };
   });
-  handle(devUrl, 'dronepath:export:open', async (payload) => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.openExportOutput, async (payload) => {
     const error = await shell.openPath(controller.resolveKnownOutput(payload));
-    return error ? { ok: false, error } : { ok: true };
+    return error ? { ok: false, code: 'OPEN_FAILED', detail: error } : { ok: true };
   });
 }
 
@@ -191,7 +192,7 @@ function registerExportHandlers(controller, devUrl) {
  * @param {(message: string) => void} log
  */
 function registerTrackHandlers(controller, devUrl, log) {
-  handle(devUrl, 'dronepath:track:pick-output', async () => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.pickTrackOutput, async () => {
     const { defaultPath, t } = controller.beginTrackPick();
     const result = await pickSavePath(controller, {
       title: t('native.exportTelemetry'),
@@ -210,7 +211,7 @@ function registerTrackHandlers(controller, devUrl, log) {
     if (result.ok) controller.approveTrackOut(result.path);
     return result;
   });
-  handle(devUrl, 'dronepath:track:save', (raw) => {
+  handle(devUrl, IPC_INVOKE_CHANNELS.saveTrack, (raw) => {
     const approved = controller.saveTrack(raw);
     log(`track: wrote ${approved}`);
     return { ok: true };
@@ -222,8 +223,8 @@ function registerTrackHandlers(controller, devUrl, log) {
  * @param {string | null} devUrl
  */
 function registerUpdateHandlers(controller, devUrl) {
-  handle(devUrl, 'dronepath:update:restart', () => controller.restartUpdate());
-  handleQuery(devUrl, 'dronepath:update:state', () => controller.getUpdateState());
+  handle(devUrl, IPC_INVOKE_CHANNELS.restartToUpdate, () => controller.restartUpdate());
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.getUpdateState, () => controller.getUpdateState());
 }
 
 /**
@@ -231,7 +232,7 @@ function registerUpdateHandlers(controller, devUrl) {
  * @param {string | null} devUrl
  */
 function registerWindowHandlers(controller, devUrl) {
-  handleQuery(devUrl, 'dronepath:window:close', () => {
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.closeWindow, () => {
     // The window's close handler runs the running-export guard.
     controller.closeWindow();
   });

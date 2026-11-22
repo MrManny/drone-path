@@ -3,7 +3,9 @@ import type { Translate } from '../../shared/desktop-i18n/loader.js';
 import type { ExportRequest } from 'drone-path-engine/config';
 import { normalizeDimensions } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import type { ExportOutcome } from '../../shared/contracts.js';
+import type { StructuredError } from '../../shared/errors.js';
+import { structuredError } from '../../shared/errors.js';
+import type { ExportOutcome } from '../../shared/ipc.js';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import type { RecordingSummary } from 'drone-path-engine/pipeline';
 
@@ -71,7 +73,7 @@ export interface ExportState {
   request: ExportRequest | null;
   capture: CaptureProgress | null;
   result: RecordingSummary | null;
-  error: string | null;
+  error: StructuredError | null;
   // The outcome sentence of a canceled run, shown by the form as an info
   // notice; a failure's sentence travels in `error` instead (#282).
   notice: 'canceled' | null;
@@ -82,12 +84,12 @@ export type ExportEvent =
   | { type: 'setWidth'; width: number }
   | { type: 'setHeight'; height: number }
   | { type: 'setRange'; range: FrameRange | null }
-  | { type: 'failed'; error: string }
+  | { type: 'failed'; error: StructuredError }
   | { type: 'start'; request: ExportRequest }
-  | { type: 'startFailed'; error: string }
+  | { type: 'startFailed'; error: StructuredError }
   | { type: 'capture'; progress: CaptureProgress }
   | { type: 'cancelRequested' }
-  | { type: 'cancelFailed'; error: string }
+  | { type: 'cancelFailed'; error: StructuredError }
   | { type: 'clearError' }
   | { type: 'finish'; outcome: ExportOutcome };
 
@@ -194,7 +196,7 @@ export function exportReducer(state: ExportState, event: ExportEvent): ExportSta
         ...state,
         phase: 'form',
         request: null,
-        error: outcome.error,
+        error: structuredError(outcome.code, outcome.detail, outcome.params),
         notice: null,
         canceling: false,
       };

@@ -1,4 +1,4 @@
-import { ERR_NO_TELEMETRY } from './errors.js';
+import { ERR_NO_TELEMETRY, codedError } from './errors.js';
 import { parseSrt } from './srt.js';
 import type { SrtCue } from './srt.js';
 import { findSrtSidecar } from './srt-sidecar.js';
@@ -134,11 +134,16 @@ export async function loadTelemetry(
   },
 ): Promise<RecordingTelemetry> {
   const loaded = await loadTelemetrySamples(tools, videoPath, durationSec, camMeta);
-  if (!loaded) throw new Error(`${ERR_NO_TELEMETRY}no CAM meta (DVTM) stream and no .SRT sidecar`);
+  if (!loaded) {
+    throw codedError(`${ERR_NO_TELEMETRY}no CAM meta (DVTM) stream and no .SRT sidecar`, {
+      code: 'NO_TELEMETRY',
+    });
+  }
   if (loaded.source === 'cammeta' && loaded.samples.length === 0) {
-    throw new Error(
+    throw codedError(
       `${ERR_NO_TELEMETRY}the CAM meta (DVTM) stream has no GPS fix pairs; ` +
         'the .SRT sidecar is only consulted when no CAM meta stream is present',
+      { code: 'NO_TELEMETRY' },
     );
   }
   const { frameValues, trackValues, protoFile, gimbalDevice, ...samples } = loaded;

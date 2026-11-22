@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { TrackSaveRequest } from '../../shared/contracts.js';
+import type { StructuredError } from '../../shared/errors.js';
+import type { TrackSaveRequest } from '../../shared/ipc.js';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';
 import {
   trackPhaseText,
@@ -81,31 +82,31 @@ describe('trackSaveFlow', () => {
 describe.each<{
   what: string;
   pickTrackOutput: () => Promise<PickOutputResult>;
-  message: string;
+  error: StructuredError;
 }>([
   {
     what: 'the picker reports an error',
-    pickTrackOutput: async () => ({ ok: false, error: 'no recording loaded' }),
-    message: 'no recording loaded',
+    pickTrackOutput: async () => ({ ok: false, code: 'NO_RECORDING', detail: 'no recording loaded' }),
+    error: { code: 'NO_RECORDING', detail: 'no recording loaded' },
   },
   {
-    what: 'the picker fails without a message',
-    pickTrackOutput: async () => ({ ok: false }),
-    message: 'unknown error',
+    what: 'the picker fails without a code',
+    pickTrackOutput: async () => ({ ok: false } as PickOutputResult),
+    error: { code: 'UNKNOWN' },
   },
   {
     what: 'the picker confirms without a path',
-    pickTrackOutput: async () => ({ ok: true }),
-    message: 'unknown error',
+    pickTrackOutput: async () => ({ ok: true } as PickOutputResult),
+    error: { code: 'UNKNOWN' },
   },
   {
     what: 'the picker throws',
     pickTrackOutput: async () => {
       throw new Error('the dialog went away');
     },
-    message: 'the dialog went away',
+    error: { code: 'BACKEND_ERROR', detail: 'the dialog went away' },
   },
-])('when $what', ({ pickTrackOutput, message }) => {
+])('when $what', ({ pickTrackOutput, error }) => {
   it('returns the failure and never reaches the save', async () => {
     const saveTrack = vi.fn(async (): Promise<ExportAck> => ({ ok: true }));
     const onSaving = vi.fn();
@@ -114,7 +115,7 @@ describe.each<{
       null,
       onSaving,
     );
-    expect(event).toEqual({ type: 'failed', message });
+    expect(event).toEqual({ type: 'failed', error });
     expect(saveTrack).not.toHaveBeenCalled();
     expect(onSaving).not.toHaveBeenCalled();
   });
@@ -123,26 +124,26 @@ describe.each<{
 describe.each<{
   what: string;
   saveTrack: (request: TrackSaveRequest) => Promise<ExportAck>;
-  message: string;
+  error: StructuredError;
 }>([
   {
     what: 'the save is refused',
-    saveTrack: async () => ({ ok: false, error: 'disk full' }),
-    message: 'disk full',
+    saveTrack: async () => ({ ok: false, code: 'FS_DISK_FULL', detail: 'disk full' }),
+    error: { code: 'FS_DISK_FULL', detail: 'disk full' },
   },
   {
-    what: 'the save is refused without a message',
-    saveTrack: async () => ({ ok: false }),
-    message: 'track file could not be saved',
+    what: 'the save is refused without a code',
+    saveTrack: async () => ({ ok: false } as ExportAck),
+    error: { code: 'TRACK_SAVE_FAILED' },
   },
   {
     what: 'the save throws',
     saveTrack: async () => {
       throw new Error('the write went away');
     },
-    message: 'the write went away',
+    error: { code: 'BACKEND_ERROR', detail: 'the write went away' },
   },
-])('when $what', ({ saveTrack, message }) => {
+])('when $what', ({ saveTrack, error }) => {
   it('opens the dialog on the pick confirm and reports the failure', async () => {
     const onSaving = vi.fn();
     const event = await trackSaveFlow(
@@ -150,7 +151,7 @@ describe.each<{
       null,
       onSaving,
     );
-    expect(event).toEqual({ type: 'failed', message });
+    expect(event).toEqual({ type: 'failed', error });
     expect(onSaving).toHaveBeenCalledTimes(1);
   });
 });
@@ -158,6 +159,10 @@ describe.each<{
 describe('trackSaveReducer', () => {
   const SAVING = { kind: 'saving' } as const;
   const DONE = { kind: 'done', path: '/exports/a.json', scope: 'full recording (0:10)' } as const;
+  const DISK_FULL: StructuredError = { code: 'FS_DISK_FULL', detail: 'disk full' };
+  const REVEAL_ERR: StructuredError = { code: 'REVEAL_FAILED', detail: 'the file could not be revealed' };
+  const MISSING_DIR: StructuredError = { code: 'FS_NOT_FOUND', detail: 'the folder is missing' };
+  const GONE_DIR: StructuredError = { code: 'FS_NOT_FOUND', detail: 'the folder went away' };
 
   it('enters the saving phase when the write starts', () => {
     expect(trackSaveReducer(null, { type: 'started' })).toEqual(SAVING);
@@ -172,13 +177,13 @@ describe('trackSaveReducer', () => {
     expect(state).toEqual(DONE);
   });
 
-  it('lands on error with the message when the save fails', () => {
+  it('lands on error with the structured error when the save fails', () => {
     const state = trackSaveReducer(SAVING, {
       type: 'result',
-      event: { type: 'failed', message: 'disk full' },
+      event: { type: 'failed', error: DISK_FULL },
       scope: 'full recording (0:10)',
     });
-    expect(state).toEqual({ kind: 'error', message: 'disk full' });
+    expect(state).toEqual({ kind: 'error', error: DISK_FULL });
   });
 
   it('keeps the phase when the pick was canceled', () => {
@@ -193,42 +198,42 @@ describe('trackSaveReducer', () => {
   it('adds the reveal failure to a done phase', () => {
     const state = trackSaveReducer(DONE, {
       type: 'revealFailed',
-      error: 'the file could not be revealed',
+      error: REVEAL_ERR,
     });
-    expect(state).toEqual({ ...DONE, error: 'the file could not be revealed' });
+    expect(state).toEqual({ ...DONE, error: REVEAL_ERR });
   });
 
   it.each([
     ['no phase', null],
     ['the saving phase', SAVING],
-    ['the error phase', { kind: 'error', message: 'disk full' } as const],
+    ['the error phase', { kind: 'error', error: DISK_FULL } as const],
   ] as const)('ignores a reveal failure in %s', (_what, state) => {
-    expect(trackSaveReducer(state, { type: 'revealFailed', error: 'nope' })).toBe(state);
+    expect(trackSaveReducer(state, { type: 'revealFailed', error: { code: 'BACKEND_ERROR', detail: 'nope' } })).toBe(state);
   });
 
   it('drops a stale reveal failure when the retry clears it (#286)', () => {
     const failed = trackSaveReducer(DONE, {
       type: 'revealFailed',
-      error: 'the folder is missing',
+      error: MISSING_DIR,
     });
     expect(trackSaveReducer(failed, { type: 'clearError' })).toStrictEqual(DONE);
   });
 
   it('shows only the new failure when a cleared retry fails again', () => {
     const cleared = trackSaveReducer(
-      trackSaveReducer(DONE, { type: 'revealFailed', error: 'the folder is missing' }),
+      trackSaveReducer(DONE, { type: 'revealFailed', error: MISSING_DIR }),
       { type: 'clearError' },
     );
-    expect(trackSaveReducer(cleared, { type: 'revealFailed', error: 'the folder went away' })).toEqual({
+    expect(trackSaveReducer(cleared, { type: 'revealFailed', error: GONE_DIR })).toEqual({
       ...DONE,
-      error: 'the folder went away',
+      error: GONE_DIR,
     });
   });
 
   it.each([
     ['no phase', null],
     ['the saving phase', SAVING],
-    ['the error phase', { kind: 'error', message: 'disk full' } as const],
+    ['the error phase', { kind: 'error', error: DISK_FULL } as const],
     ['a clean done phase', DONE],
   ] as const)('ignores a clear in %s, which carries no reveal error to drop', (_what, state) => {
     expect(trackSaveReducer(state, { type: 'clearError' })).toBe(state);
@@ -257,6 +262,6 @@ describe('trackPhaseText', () => {
   });
 
   it('stays empty in the error phase, which announces through its alert', () => {
-    expect(trackPhaseText({ kind: 'error', message: 'disk full' })).toBe('');
+    expect(trackPhaseText({ kind: 'error', error: { code: 'FS_DISK_FULL', detail: 'disk full' } })).toBe('');
   });
 });

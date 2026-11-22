@@ -1,5 +1,6 @@
 'use client';
 
+import type { StructuredError } from '../../shared/errors.js';
 import { useTranslation } from '../lib/i18n.js';
 import { DialogShell } from './DialogShell.js';
 import { Notice } from './Notice.js';
@@ -7,10 +8,18 @@ import { ProgressBar } from './ProgressBar.js';
 
 interface UpdatePromptProps {
   restarting: boolean;
-  /** Backend message of a failed restart; null while none failed. */
-  failure: string | null;
+  /** Structured backend failure of a failed restart; null while none failed. */
+  failure: StructuredError | null;
   onRestart: () => void;
   onLater: () => void;
+}
+
+function formatFailureDetails(failure: StructuredError): string {
+  if (!failure.detail) return failure.code;
+  if (failure.code === 'UPDATE_RESTART_FAILED' || failure.detail.startsWith(`${failure.code}:`)) {
+    return failure.detail;
+  }
+  return `${failure.code}: ${failure.detail}`;
 }
 
 export function UpdatePrompt({ restarting, failure, onRestart, onLater }: UpdatePromptProps) {
@@ -23,7 +32,7 @@ export function UpdatePrompt({ restarting, failure, onRestart, onLater }: Update
       closeOnBackdrop={!restarting}
     >
       {failure ? (
-        <Notice tone="danger" details={failure}>
+        <Notice tone="danger" details={formatFailureDetails(failure)}>
           {t('updatePrompt.restartFailure')}
         </Notice>
       ) : (

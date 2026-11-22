@@ -3,9 +3,8 @@
 import { useCallback, useReducer, useRef } from 'react';
 
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { errorMessage } from 'drone-path-core/errors';
+import { classifyError, fromIpcFailure } from '../../shared/errors.js';
 import { appBridge } from '../lib/backend.js';
-import { UI_ERR_REVEAL } from '../lib/errortext.js';
 import type { TrackSavePhase } from '../lib/tracksave.js';
 import { trackSaveFlow, trackSaveReducer } from '../lib/tracksave.js';
 import { useMountedRef } from './useMountedRef.js';
@@ -78,11 +77,11 @@ export function useTrackSave(options: { onOpen: () => void }): TrackSaveControll
         const ack = await appBridge().revealExportOutput({ out: done.path });
         if (!mountedRef.current || sessionRef.current !== session) return;
         if (!ack.ok) {
-          dispatch({ type: 'revealFailed', error: ack.error ?? UI_ERR_REVEAL });
+          dispatch({ type: 'revealFailed', error: fromIpcFailure(ack, 'REVEAL_FAILED') });
         }
       } catch (e) {
         if (!mountedRef.current || sessionRef.current !== session) return;
-        dispatch({ type: 'revealFailed', error: errorMessage(e) });
+        dispatch({ type: 'revealFailed', error: classifyError(e, 'BACKEND_ERROR') });
       } finally {
         if (sessionRef.current === session) revealingRef.current = false;
       }

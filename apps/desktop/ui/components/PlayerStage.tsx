@@ -4,7 +4,7 @@ import { useTranslation } from '../lib/i18n.js';
 import { useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 
-import type { PageVideo } from '../../shared/contracts.js';
+import type { PageVideo } from '../../shared/ipc.js';
 import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';
 import type { StageLayout } from '../lib/layout.js';
 import type { ZoomControls } from '../lib/mapzoom.js';

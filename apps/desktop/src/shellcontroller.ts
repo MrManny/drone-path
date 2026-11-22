@@ -1,6 +1,5 @@
 import path from 'node:path';
 
-import { ERR_NO_RECORDING } from 'drone-path-core/errors';
 import {
   parseExportRequest,
   parseSettingsPatch,
@@ -9,6 +8,10 @@ import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import { outputPathFor } from 'drone-path-engine/pipeline';
 import { videoBaseName } from 'drone-path-engine/recordings';
 
+import { codedDesktopError } from 'drone-path-desktop/shared/errors';
+import type { StructuredError } from 'drone-path-desktop/shared/errors';
+import { IPC_EVENT_CHANNELS } from 'drone-path-desktop/shared/ipc';
+import type { IpcAck } from 'drone-path-desktop/shared/ipc';
 import type { AppSession, PickResult, UiSession } from './appsession.js';
 import { parsePickRequest, parseTrackSaveRequest } from './appsession.js';
 import { applyAppState, emptyAppState, rememberOpenedFile } from './appstate.js';
@@ -54,7 +57,7 @@ export interface ExportRunnerPort {
 }
 
 export interface UpdateController {
-  restart(deps: { onError: (message: string) => void }): { ok: true } | { ok: false; error: string };
+  restart(deps: { onError: (failure: StructuredError) => void }): IpcAck;
 }
 
 export interface InitUpdatesOptions {
@@ -95,7 +98,7 @@ export interface IpcController {
   saveTrack(raw: unknown): string;
   resolveKnownOutput(payload: unknown): string;
   getUpdateState(): { ready: boolean };
-  restartUpdate(): { ok: true } | { ok: false; error: string };
+  restartUpdate(): IpcAck;
   closeWindow(): void;
   liveWindow(): ShellWindow | null;
   translator(): Translate;
@@ -149,7 +152,7 @@ export function createShellController(options: ShellControllerOptions): ShellCon
 
   function requireVideo(): string {
     const video = session ? session.videoPath() : null;
-    if (!video) throw new Error(ERR_NO_RECORDING);
+    if (!video) throw codedDesktopError('NO_RECORDING', 'no recording loaded');
     return video;
   }
 
@@ -181,7 +184,9 @@ export function createShellController(options: ShellControllerOptions): ShellCon
 
   function handleExportDone(outcome: ExportOutcome): void {
     if (outcome.status === 'ok') outputs.recordExportOut(outcome.summary.out);
-    closeGuard.onExportSettled(outcome, (result) => sendToWindow('dronepath:export:done', result));
+    closeGuard.onExportSettled(outcome, (result) =>
+      sendToWindow(IPC_EVENT_CHANNELS.onExportDone, result),
+    );
   }
 
   const ipc: IpcController = {
@@ -202,7 +207,9 @@ export function createShellController(options: ShellControllerOptions): ShellCon
     },
     getLanguage: () => languageSettings(),
     saveLanguage(preference: unknown): LanguageSettings {
-      if (preference !== null && !isLocale(preference)) throw new Error('invalid app language');
+      if (preference !== null && !isLocale(preference)) {
+        throw codedDesktopError('INVALID_LANGUAGE', 'invalid app language');
+      }
       const nextState: AppState = { ...appState, language: preference };
       // Language save writes strictly first so a write failure keeps the previous preference.
       options.stateStore.write(nextState);
@@ -254,12 +261,18 @@ export function createShellController(options: ShellControllerOptions): ShellCon
     },
     resolveKnownOutput: (payload: unknown): string => outputs.knownOutputOf(payload),
     getUpdateState: () => ({ ready: updateReady }),
-    restartUpdate(): { ok: true } | { ok: false; error: string } {
-      if (!updates) return { ok: false, error: 'this build does not self-update' };
+    restartUpdate(): IpcAck {
+      if (!updates) {
+        return {
+          ok: false,
+          code: 'UPDATES_UNAVAILABLE',
+          detail: 'this build does not self-update',
+        };
+      }
       // No pendingClose here: the prompt never opens over a running export, and
       // a failed restart must not poison the export close guard.
       return updates.restart({
-        onError: (message) => sendToWindow('dronepath:update:restart-failed', message),
+        onError: (failure) => sendToWindow(IPC_EVENT_CHANNELS.onUpdateRestartFailed, failure),
       });
     },
     closeWindow(): void {

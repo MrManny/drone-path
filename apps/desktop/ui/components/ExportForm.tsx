@@ -10,6 +10,7 @@ import {
   QUALITY_VALUES,
   isValidDimensions,
 } from 'drone-path-engine/config';
+import type { StructuredError } from '../../shared/errors.js';
 import type { ExportEvent, ExportForm as ExportFormState } from '../lib/exportstate.js';
 import { ErrorNotice } from './ErrorNotice.js';
 import { Notice } from './Notice.js';
@@ -21,7 +22,7 @@ export interface ExportFormProps {
   segment: { range: FrameRange; label: string } | null;
   totalText: string;
   encode: EncodeSettings;
-  error: string | null;
+  error: StructuredError | null;
   notice: string | null;
   dispatch: (event: ExportEvent) => void;
   onEncoderChange: (patch: Partial<EncodeSettings>) => void;
@@ -131,7 +132,7 @@ export function ExportForm({
         </div>
       </fieldset>
 
-      {error ? <ErrorNotice message={error} /> : null}
+      {error ? <ErrorNotice error={error} /> : null}
       {notice ? <Notice tone="info">{notice}</Notice> : null}
     </>
   );

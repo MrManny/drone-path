@@ -122,34 +122,41 @@ describe('chooseAndExport event ordering', () => {
     const run = flowRun({
       startExport: vi.fn(async (): Promise<ExportAck> => ({
         ok: false,
-        error: 'an export is already running',
+        code: 'EXPORT_ALREADY_RUNNING',
+        detail: 'an export is already running',
       })),
     });
     await chooseAndExport(run.deps, INPUT, run.emit);
     expect(run.events.map((event) => event.type)).toEqual(['start', 'startFailed']);
     expect(run.events[1]).toEqual({
       type: 'startFailed',
-      error: 'an export is already running',
+      error: { code: 'EXPORT_ALREADY_RUNNING', detail: 'an export is already running' },
     });
   });
 
-  it('falls back to the start vocabulary when the refusal names no error', async () => {
+  it('falls back to the start vocabulary when the refusal names no code', async () => {
     const run = flowRun({
-      startExport: vi.fn(async (): Promise<ExportAck> => ({ ok: false })),
+      startExport: vi.fn(async (): Promise<ExportAck> => ({ ok: false } as ExportAck)),
     });
     await chooseAndExport(run.deps, INPUT, run.emit);
-    expect(run.events[1]).toEqual({ type: 'startFailed', error: 'export could not start' });
+    expect(run.events[1]).toEqual({
+      type: 'startFailed',
+      error: { code: 'EXPORT_COULD_NOT_START' },
+    });
   });
 
   it('reports a failed pick without starting anything', async () => {
     const run = flowRun({
       pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => ({
         ok: false,
-        error: 'no recording loaded',
+        code: 'NO_RECORDING',
+        detail: 'no recording loaded',
       })),
     });
     await chooseAndExport(run.deps, INPUT, run.emit);
-    expect(run.events).toEqual([{ type: 'failed', error: 'no recording loaded' }]);
+    expect(run.events).toEqual([
+      { type: 'failed', error: { code: 'NO_RECORDING', detail: 'no recording loaded' } },
+    ]);
     expect(run.deps.startExport).not.toHaveBeenCalled();
   });
 
@@ -160,7 +167,9 @@ describe('chooseAndExport event ordering', () => {
       }),
     });
     await chooseAndExport(run.deps, INPUT, run.emit);
-    expect(run.events).toEqual([{ type: 'failed', error: 'the app backend went away' }]);
+    expect(run.events).toEqual([
+      { type: 'failed', error: { code: 'BACKEND_ERROR', detail: 'the app backend went away' } },
+    ]);
   });
 
   it('aborts without starting or emitting when unmounted before the picker resolves', async () => {
@@ -195,27 +204,31 @@ describe('cancelExport event ordering', () => {
     const run = flowRun({
       cancelExport: vi.fn(async (): Promise<ExportAck> => ({
         ok: false,
-        error: 'export could not be canceled',
+        code: 'EXPORT_COULD_NOT_BE_CANCELED',
+        detail: 'export could not be canceled',
       })),
     });
     cancelExport(run.deps, run.emit);
     await vi.waitFor(() =>
       expect(run.events).toEqual([
         { type: 'cancelRequested' },
-        { type: 'cancelFailed', error: 'export could not be canceled' },
+        {
+          type: 'cancelFailed',
+          error: { code: 'EXPORT_COULD_NOT_BE_CANCELED', detail: 'export could not be canceled' },
+        },
       ]),
     );
   });
 
-  it('falls back to the cancel vocabulary when the refusal names no error', async () => {
+  it('falls back to the cancel vocabulary when the refusal names no code', async () => {
     const run = flowRun({
-      cancelExport: vi.fn(async (): Promise<ExportAck> => ({ ok: false })),
+      cancelExport: vi.fn(async (): Promise<ExportAck> => ({ ok: false } as ExportAck)),
     });
     cancelExport(run.deps, run.emit);
     await vi.waitFor(() =>
       expect(run.events).toEqual([
         { type: 'cancelRequested' },
-        { type: 'cancelFailed', error: 'export could not be canceled' },
+        { type: 'cancelFailed', error: { code: 'EXPORT_COULD_NOT_BE_CANCELED' } },
       ]),
     );
   });
@@ -230,7 +243,10 @@ describe('cancelExport event ordering', () => {
     await vi.waitFor(() =>
       expect(run.events).toEqual([
         { type: 'cancelRequested' },
-        { type: 'cancelFailed', error: 'the app backend went away' },
+        {
+          type: 'cancelFailed',
+          error: { code: 'BACKEND_ERROR', detail: 'the app backend went away' },
+        },
       ]),
     );
   });
@@ -241,7 +257,9 @@ describe('runDoneAction event ordering', () => {
     const run = flowRun({
       revealExportOutput: vi.fn(async (): Promise<ExportAck> => ({
         ok: false,
-        error: "EACCES: permission denied, open '/exports/a.mp4'",
+        code: 'FS_ACCESS_DENIED',
+        params: { name: 'a.mp4' },
+        detail: "EACCES: permission denied, open '/exports/a.mp4'",
       })),
     });
     runDoneAction(run.deps, (deps) => deps.revealExportOutput({ out: '/exports/a.mp4' }), run.emit);
@@ -250,7 +268,11 @@ describe('runDoneAction event ordering', () => {
         { type: 'clearError' },
         {
           type: 'failed',
-          error: "EACCES: permission denied, open '/exports/a.mp4'",
+          error: {
+            code: 'FS_ACCESS_DENIED',
+            params: { name: 'a.mp4' },
+            detail: "EACCES: permission denied, open '/exports/a.mp4'",
+          },
         },
       ]),
     );
@@ -263,13 +285,16 @@ describe('runDoneAction event ordering', () => {
     expect(run.deps.revealExportOutput.mock.calls[0][0]).toEqual({ out: '/exports/a.mp4' });
   });
 
-  it('falls back to the done-action vocabulary when the refusal names no error', async () => {
+  it('falls back to the done-action vocabulary when the refusal names no code', async () => {
     const run = flowRun({
-      openExportOutput: vi.fn(async (): Promise<ExportAck> => ({ ok: false })),
+      openExportOutput: vi.fn(async (): Promise<ExportAck> => ({ ok: false } as ExportAck)),
     });
     runDoneAction(run.deps, (deps) => deps.openExportOutput({ out: '/exports/a.mp4' }), run.emit);
     await vi.waitFor(() =>
-      expect(run.events).toEqual([{ type: 'clearError' }, { type: 'failed', error: 'action failed' }]),
+      expect(run.events).toEqual([
+        { type: 'clearError' },
+        { type: 'failed', error: { code: 'ACTION_FAILED' } },
+      ]),
     );
   });
 });

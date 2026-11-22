@@ -1135,7 +1135,14 @@ describe('PlayerChrome open notice', () => {
         settings={SETTINGS}
         onSettingsChange={() => {}}
         onOpen={() => {}}
-        openState={{ kind: 'error', message: 'not a readable .mp4 file: C:\\Windows\\win.ini' }}
+        openState={{
+          kind: 'error',
+          error: {
+            code: 'NOT_READABLE_MP4',
+            params: { name: 'win.ini' },
+            detail: 'not a readable .mp4 file: C:\\Windows\\win.ini',
+          },
+        }}
         onDismissOpenState={onDismiss}
       />,
     );
@@ -1230,7 +1237,11 @@ describe('PlayerChrome export telemetry', () => {
 
   it('opens the error dialog when the pick fails, so the failure is never silent', async () => {
     const bridge = installTelemetryBridge({
-      pickTrackOutput: vi.fn(async () => ({ ok: false, error: 'the dialog went away' })),
+      pickTrackOutput: vi.fn(async () => ({
+        ok: false,
+        code: 'BACKEND_ERROR',
+        detail: 'the dialog went away',
+      })),
     });
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     clickMenuItem('Export telemetry…');
@@ -1238,15 +1249,15 @@ describe('PlayerChrome export telemetry', () => {
 
     expect(bridge.saveTrack).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
-    expect(screen.getByText('the dialog went away')).toBeTruthy();
+    expect(screen.getByText('BACKEND_ERROR: the dialog went away')).toBeTruthy();
   });
 
   it('keeps the dialog up during the write and surfaces a late failure', async () => {
-    let finish = null as ((ack: { ok: boolean; error?: string }) => void) | null;
+    let finish = null as ((ack: { ok: boolean; code?: string; detail?: string }) => void) | null;
     installTelemetryBridge({
       saveTrack: vi.fn(
         () =>
-          new Promise<{ ok: boolean; error?: string }>((resolve) => {
+          new Promise<{ ok: boolean; code?: string; detail?: string }>((resolve) => {
             finish = resolve;
           }),
       ),
@@ -1260,7 +1271,7 @@ describe('PlayerChrome export telemetry', () => {
     await settle();
     expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
 
-    if (finish) finish({ ok: false, error: 'disk full' });
+    if (finish) finish({ ok: false, code: 'FS_DISK_FULL', detail: 'disk full' });
     await settle();
     expect(screen.getByText('disk full')).toBeTruthy();
     expect(screen.getByRole('dialog', { name: 'Export telemetry' })).toBeTruthy();
