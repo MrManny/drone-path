@@ -153,4 +153,80 @@ describe('useAppModals', () => {
     expect(result.current.dialogs.active).toBe('closed');
     expect(result.current.exportFlow.state).toBeNull();
   });
+
+  it('promotes a queued update prompt on resetForRecording while preserving non-player dialogs', () => {
+    const { emitUpdateReady } = installBridge();
+    const { result } = renderHook(() => useAppModals());
+
+    act(() => {
+      result.current.openExport(DEFAULT_CONFIG, { in: null, out: null }, 90);
+    });
+    emitUpdateReady();
+    expect(result.current.dialogs.active).toBe('export');
+    expect(result.current.update.phase).toBe('ready');
+
+    act(() => {
+      result.current.resetForRecording();
+    });
+    expect(result.current.dialogs.active).toBe('update');
+    expect(result.current.update.phase).toBe('prompted');
+    expect(result.current.exportFlow.state).toBeNull();
+
+    // Opening player modals is blocked while the update prompt is active.
+    act(() => {
+      result.current.openExport(DEFAULT_CONFIG, { in: null, out: null }, 90);
+      result.current.openTrackSave(null, 'full recording (0:03)');
+    });
+    expect(result.current.dialogs.active).toBe('update');
+
+    act(() => {
+      result.current.dialogs.dispatchDialog({ type: 'close' });
+    });
+    act(() => {
+      result.current.dialogs.dispatchDialog({ type: 'openMapAppearance' });
+    });
+    act(() => {
+      result.current.resetForRecording();
+    });
+    expect(result.current.dialogs.active).toBe('map-appearance');
+  });
+
+  it('closes an idle export dialog when track-save opens and blocks switches while track-save is busy', async () => {
+    let resolveSave: (ack: ExportAck) => void = () => {};
+    const { bridge } = installBridge();
+    bridge.saveTrack.mockImplementationOnce(
+      () =>
+        new Promise<ExportAck>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useAppModals());
+
+    act(() => {
+      result.current.openExport(DEFAULT_CONFIG, { in: null, out: null }, 90);
+    });
+    expect(result.current.dialogs.active).toBe('export');
+
+    act(() => {
+      result.current.openTrackSave(null, 'full recording (0:03)');
+    });
+    await waitFor(() => expect(result.current.dialogs.active).toBe('track-save'));
+    expect(result.current.exportFlow.state).toBeNull();
+
+    // Cannot switch to export while track-save is still saving.
+    act(() => {
+      result.current.openExport(DEFAULT_CONFIG, { in: null, out: null }, 90);
+    });
+    expect(result.current.dialogs.active).toBe('track-save');
+
+    await act(async () => {
+      resolveSave({ ok: true });
+    });
+    expect(result.current.dialogs.dismissible).toBe(true);
+    act(() => {
+      result.current.openExport(DEFAULT_CONFIG, { in: null, out: null }, 90);
+    });
+    expect(result.current.dialogs.active).toBe('export');
+    expect(result.current.trackSave.phase).toBeNull();
+  });
 });

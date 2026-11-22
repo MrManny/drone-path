@@ -73,7 +73,7 @@ const exportRoot = uiExportRoot(import.meta.dirname);
  * @param {ShellController} controller
  * @returns {Promise<string | null>}
  */
-async function pickRecording(controller) {
+export async function pickRecording(controller) {
   const t = controller.translator();
   /** @type {Electron.OpenDialogOptions} */
   const options = {
@@ -167,10 +167,11 @@ async function fileResponse(filePath, mime, status = 200, csp = '') {
 
 /**
  * @param {string} csp
+ * @param {string} [root]
  * @returns {Promise<Response> | Response}
  */
-function notFound(csp) {
-  const fallback = path.join(exportRoot, '404.html');
+function notFound(csp, root = exportRoot) {
+  const fallback = path.join(root, '404.html');
   return fs.existsSync(fallback)
     ? fileResponse(fallback, 'text/html; charset=utf-8', 404, csp)
     : new Response('not found', {
@@ -181,12 +182,13 @@ function notFound(csp) {
 
 /**
  * @param {ShellController} controller
- * @param {ReturnType<typeof createTileTraffic>} tileTraffic
+ * @param {Pick<ReturnType<typeof createTileTraffic>, 'ensure'>} tileTraffic
  * @param {Request} request
  * @param {string} csp
+ * @param {string} [root]
  * @returns {Promise<Response>}
  */
-async function handleRequest(controller, tileTraffic, request, csp) {
+export async function handleRequest(controller, tileTraffic, request, csp, root = exportRoot) {
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname);
@@ -197,7 +199,7 @@ async function handleRequest(controller, tileTraffic, request, csp) {
     });
   }
   const plan = resolveAppAsset(pathname, {
-    exportRoot,
+    exportRoot: root,
     videoPath: controller.videoPath(),
   });
   switch (plan.kind) {
@@ -212,9 +214,9 @@ async function handleRequest(controller, tileTraffic, request, csp) {
     }
     case 'export':
       if (fs.existsSync(plan.filePath)) return fileResponse(plan.filePath, plan.mime, 200, csp);
-      return notFound(csp);
+      return notFound(csp, root);
     case 'not-found':
-      return notFound(csp);
+      return notFound(csp, root);
   }
 }
 

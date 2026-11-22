@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,6 +18,9 @@ const harness = vi.hoisted(() => ({
     showMessageBox: vi.fn(),
     showOpenDialog: vi.fn(),
     showErrorBox: vi.fn(),
+  },
+  net: {
+    fetch: vi.fn(),
   },
   protocol: {
     registerSchemesAsPrivileged: vi.fn(),
@@ -36,7 +40,7 @@ vi.mock('electron', () => ({
   BrowserWindow: vi.fn(),
   dialog: harness.dialog,
   Menu: { setApplicationMenu: vi.fn() },
-  net: { fetch: vi.fn() },
+  net: harness.net,
   protocol: harness.protocol,
   session: harness.session,
   shell: { openExternal: vi.fn() },
@@ -45,17 +49,20 @@ vi.mock('electron', () => ({
 vi.mock('electron-updater', () => ({ default: { autoUpdater: {} } }));
 
 import {
+  handleRequest,
   installCloseGuard,
   installNavigationGuards,
   installSecurityHeaders,
+  pickRecording,
   resolveDesktopConfig,
 } from '../app/main.mjs';
 import { showDialogWithParent } from '../app/shell.mjs';
 import { APP_ORIGIN } from '../shared/appurls.js';
+import { emptyAppState } from '../src/appstate.js';
 import { buildRendererCsp } from '../src/securityheaders.js';
 import { createShellController } from '../src/shellcontroller.js';
 import type { HeaderSession, NavigationWebContents, ShellWindow } from '../src/shellcontroller.js';
-import { createAppStateStore } from '../src/shellio.js';
+import { createAppStateStore, readAppState } from '../src/shellio.js';
 
 function makeWindow() {
   let closeHandler: ((e: { preventDefault(): void }) => void) | null = null;
@@ -422,5 +429,277 @@ describe('resolveDesktopConfig (#401)', () => {
 
     fs.writeFileSync(userConfig, JSON.stringify({ outDir: null }));
     expect(resolveDesktopConfig(userDir).config.outDir).toBeNull();
+  });
+});
+
+describe('handleRequest (#405)', () => {
+  const csp = buildRendererCsp();
+
+  function makeRequestController(videoPath: string | null = null) {
+    const stateFile = path.join(tmpDir(), 'state.json');
+    const controller = createShellController({
+      config: DEFAULT_CONFIG,
+      stateStore: createAppStateStore(stateFile, vi.fn()),
+      systemLanguages: ['en-US'],
+      dirExists: (dirPath) => fs.existsSync(dirPath),
+      confirmStopExport: async () => false,
+      quitApp: vi.fn(),
+      log: vi.fn(),
+    });
+    if (videoPath !== null) {
+      controller.attachSession({
+        pick: vi.fn(),
+        getSession: () => null,
+        videoPath: () => videoPath,
+        saveTrack: vi.fn(),
+      });
+    }
+    return controller;
+  }
+
+  function mockFileFetch(): void {
+    harness.net.fetch.mockImplementation(async (url: string) => {
+      const data = fs.readFileSync(fileURLToPath(url));
+      return new Response(data);
+    });
+  }
+
+  it('streams full, ranged, and 416 video responses with security headers', async () => {
+    const root = tmpDir();
+    const videoFile = path.join(tmpDir(), 'flight.mp4');
+    fs.writeFileSync(videoFile, '0123456789abcdef');
+    const controller = makeRequestController(videoFile);
+    const tileTraffic = { ensure: vi.fn() };
+
+    const full = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/media/video`),
+      csp,
+      root,
+    );
+    expect(full.status).toBe(200);
+    expect(full.headers.get('content-type')).toBe('video/mp4');
+    expect(full.headers.get('accept-ranges')).toBe('bytes');
+    expect(full.headers.get('content-length')).toBe('16');
+    expect(full.headers.get('content-security-policy')).toBe(csp);
+    expect(full.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await full.text()).toBe('0123456789abcdef');
+
+    const partial = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/media/video`, { headers: { range: 'bytes=2-5' } }),
+      csp,
+      root,
+    );
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get('content-range')).toBe('bytes 2-5/16');
+    expect(partial.headers.get('content-length')).toBe('4');
+    expect(partial.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await partial.text()).toBe('2345');
+
+    const unsatisfiable = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/media/video`, { headers: { range: 'bytes=100-200' } }),
+      csp,
+      root,
+    );
+    expect(unsatisfiable.status).toBe(416);
+    expect(unsatisfiable.headers.get('content-range')).toBe('bytes */16');
+    expect(unsatisfiable.headers.get('content-security-policy')).toBe(csp);
+    expect(await unsatisfiable.text()).toBe('range not satisfiable');
+  });
+
+  it('returns 404 when no video is loaded and rejects when the loaded file is missing on disk', async () => {
+    const root = tmpDir();
+    const tileTraffic = { ensure: vi.fn() };
+
+    const noVideoRes = await handleRequest(
+      makeRequestController(null),
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/media/video`),
+      csp,
+      root,
+    );
+    expect(noVideoRes.status).toBe(404);
+    expect(await noVideoRes.text()).toBe('not found');
+
+    const missingFile = path.join(tmpDir(), 'deleted.mp4');
+    await expect(
+      handleRequest(
+        makeRequestController(missingFile),
+        tileTraffic,
+        new Request(`${APP_ORIGIN}/media/video`),
+        csp,
+        root,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('serves cached or fetched map tiles via tileTraffic.ensure with image/png mime', async () => {
+    const root = tmpDir();
+    const tileFile = path.join(tmpDir(), 'tile.png');
+    fs.writeFileSync(tileFile, 'png-bytes');
+    mockFileFetch();
+    const tileTraffic = { ensure: vi.fn(async () => tileFile) };
+
+    const res = await handleRequest(
+      makeRequestController(),
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/tiles/satellite/12/34/56.png`),
+      csp,
+      root,
+    );
+    expect(tileTraffic.ensure).toHaveBeenCalledWith('satellite', { z: 12, x: 34, y: 56 });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    expect(res.headers.get('content-security-policy')).toBe(csp);
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await res.text()).toBe('png-bytes');
+  });
+
+  it('serves static export files and falls back to 404.html or plain 404 and 400 bad request', async () => {
+    const root = tmpDir();
+    fs.mkdirSync(path.join(root, '_next', 'static'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'index.html'), '<html>ok</html>');
+    fs.writeFileSync(path.join(root, '_next', 'static', 'app.js'), 'console.log(1);');
+    mockFileFetch();
+    const controller = makeRequestController();
+    const tileTraffic = { ensure: vi.fn() };
+
+    const indexRes = await handleRequest(controller, tileTraffic, new Request(`${APP_ORIGIN}/`), csp, root);
+    expect(indexRes.status).toBe(200);
+    expect(indexRes.headers.get('content-type')).toContain('text/html');
+    expect(indexRes.headers.get('content-security-policy')).toBe(csp);
+    expect(await indexRes.text()).toBe('<html>ok</html>');
+
+    const jsRes = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/_next/static/app.js`),
+      csp,
+      root,
+    );
+    expect(jsRes.status).toBe(200);
+    expect(jsRes.headers.get('content-type')).toContain('text/javascript');
+    expect(await jsRes.text()).toBe('console.log(1);');
+
+    // Missing export and traversal requests fall back to plain 404 when 404.html does not exist.
+    const missingRes = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/missing.html`),
+      csp,
+      root,
+    );
+    expect(missingRes.status).toBe(404);
+    expect(missingRes.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(await missingRes.text()).toBe('not found');
+
+    const traversalRes = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/..%2Fsecret.txt`),
+      csp,
+      root,
+    );
+    expect(traversalRes.status).toBe(404);
+
+    // When 404.html exists, notFound serves it with status 404 and HTML content type.
+    fs.writeFileSync(path.join(root, '404.html'), '<h1>missing</h1>');
+    const htmlNotFound = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/missing.html`),
+      csp,
+      root,
+    );
+    expect(htmlNotFound.status).toBe(404);
+    expect(htmlNotFound.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(htmlNotFound.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await htmlNotFound.text()).toBe('<h1>missing</h1>');
+
+    const badUrl = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/%E0%A4%A`),
+      csp,
+      root,
+    );
+    expect(badUrl.status).toBe(400);
+    expect(badUrl.headers.get('content-security-policy')).toBe(csp);
+    expect(await badUrl.text()).toBe('bad request');
+  });
+});
+
+describe('pickRecording (#405)', () => {
+  it('uses the live window, remembered folder, and localized labels and persists the picked directory', async () => {
+    const existingDir = tmpDir();
+    const stateFile = path.join(tmpDir(), 'state.json');
+    const controller = createShellController({
+      config: DEFAULT_CONFIG,
+      appState: { ...emptyAppState(), lastOpenDir: existingDir, language: 'de' },
+      stateStore: createAppStateStore(stateFile, vi.fn()),
+      systemLanguages: ['en-US'],
+      dirExists: (dirPath) => fs.existsSync(dirPath),
+      confirmStopExport: async () => false,
+      quitApp: vi.fn(),
+      log: vi.fn(),
+    });
+    const { win } = makeWindow();
+    controller.setWindow(win);
+
+    const nextDir = tmpDir();
+    const pickedFile = path.join(nextDir, 'DJI_0001.MP4');
+    harness.dialog.showOpenDialog.mockResolvedValueOnce({
+      canceled: false,
+      filePaths: [pickedFile],
+    });
+
+    await expect(pickRecording(controller)).resolves.toBe(pickedFile);
+    expect(harness.dialog.showOpenDialog).toHaveBeenCalledWith(win, {
+      title: 'Drohnenaufnahme auswählen',
+      filters: [{ name: 'DJI-Aufnahmen', extensions: ['mp4'] }],
+      properties: ['openFile'],
+      defaultPath: existingDir,
+    });
+    expect(readAppState(stateFile).lastOpenDir).toBe(nextDir);
+  });
+
+  it('omits missing parent/defaultPath and leaves lastOpenDir unchanged on cancel or empty selection', async () => {
+    const missingDir = path.join(tmpDir(), 'gone');
+    const stateFile = path.join(tmpDir(), 'state.json');
+    const controller = createShellController({
+      config: DEFAULT_CONFIG,
+      appState: { ...emptyAppState(), lastOpenDir: missingDir },
+      stateStore: createAppStateStore(stateFile, vi.fn()),
+      systemLanguages: ['en-US'],
+      dirExists: (dirPath) => fs.existsSync(dirPath),
+      confirmStopExport: async () => false,
+      quitApp: vi.fn(),
+      log: vi.fn(),
+    });
+    const { win, markDestroyed } = makeWindow();
+    controller.setWindow(win);
+    markDestroyed();
+
+    harness.dialog.showOpenDialog.mockResolvedValueOnce({
+      canceled: true,
+      filePaths: [path.join(tmpDir(), 'ignored.mp4')],
+    });
+    await expect(pickRecording(controller)).resolves.toBeNull();
+    expect(harness.dialog.showOpenDialog).toHaveBeenCalledWith({
+      title: 'Choose a drone recording',
+      filters: [{ name: 'DJI recordings', extensions: ['mp4'] }],
+      properties: ['openFile'],
+      defaultPath: undefined,
+    });
+    expect(readAppState(stateFile).lastOpenDir).toBeNull();
+
+    harness.dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [] });
+    await expect(pickRecording(controller)).resolves.toBeNull();
+    expect(readAppState(stateFile).lastOpenDir).toBeNull();
   });
 });

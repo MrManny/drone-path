@@ -19,7 +19,7 @@ import type {
   PickResult,
 } from '../shared/ipc.js';
 import { IPC_EVENT_CHANNELS, IPC_INVOKE_CHANNELS } from '../shared/ipc.js';
-import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
 import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import { createShellController } from '../src/shellcontroller.js';
 import type { ExportRunnerPort, ShellController, ShellWindow } from '../src/shellcontroller.js';
@@ -94,8 +94,8 @@ function makeController(options: {
   return { controller, session, exportRunner };
 }
 
-function setup(controller: ShellController): void {
-  registerIpcHandlers(controller.ipc, { devUrl: null, log: vi.fn() });
+function setup(controller: ShellController, log = vi.fn()): void {
+  registerIpcHandlers(controller.ipc, { devUrl: null, log });
 }
 
 function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
@@ -647,5 +647,284 @@ describe('structured IPC error codes and contract parity (#394, #413)', () => {
     expectTypeOf<IpcEventChannel>().toEqualTypeOf<
       (typeof IPC_EVENT_CHANNELS)[keyof typeof IPC_EVENT_CHANNELS]
     >();
+  });
+});
+
+describe('pick, settings, export, track, update, and window IPC handlers (#405)', () => {
+  it('forwards parsed appearance settings on pick and preserves pending outputs on cancel', async () => {
+    const { controller, session, exportRunner } = makeController();
+    setup(controller);
+    const chosen = path.join(tmpDir(), 'exports', 'approved.mp4');
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
+
+    vi.mocked(session.pick).mockResolvedValueOnce({ ok: false, canceled: true });
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.pickRecording, { settings: settingsPatchOf(DEFAULT_CONFIG) }),
+    ).toEqual({ ok: false, canceled: true });
+    expect(session.pick).toHaveBeenCalledWith({
+      settings: {
+        style: DEFAULT_CONFIG.style,
+        view: DEFAULT_CONFIG.view,
+        zoom: DEFAULT_CONFIG.zoom,
+        zoomOut: DEFAULT_CONFIG.zoomOut,
+        hud: DEFAULT_CONFIG.hud,
+        introSec: DEFAULT_CONFIG.introSec,
+        outroSec: DEFAULT_CONFIG.outroSec,
+        trailColor: DEFAULT_CONFIG.trailColor,
+      },
+    });
+
+    // A canceled pick must not clear the still-pending approved export path.
+    expect(await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath: chosen, config: {} })).toEqual({
+      ok: true,
+    });
+    expect(exportRunner.start).toHaveBeenCalledTimes(1);
+
+    const invalid = (await invoke(IPC_INVOKE_CHANNELS.pickRecording, {
+      settings: { style: 'bogus' },
+    })) as { ok: boolean; code?: string };
+    expect(invalid.ok).toBe(false);
+    expect(invalid.code).toBe('INVALID_REQUEST');
+    expect(session.pick).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads, persists, and validates desktop settings patches', async () => {
+    const local = tmpDir();
+    vi.stubEnv('LOCALAPPDATA', local);
+    const { controller } = makeController();
+    setup(controller);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.getSettings)).toEqual(DEFAULT_CONFIG);
+
+    const nextPatch = { ...settingsPatchOf(DEFAULT_CONFIG), style: 'topo' as const, zoom: 15 };
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveSettings, nextPatch)).toEqual({ ok: true });
+    expect(await invoke(IPC_INVOKE_CHANNELS.getSettings)).toMatchObject({ style: 'topo', zoom: 15 });
+    const file = path.join(local, 'drone-path', 'state.json');
+    expect(readAppState(file).settings).toEqual(nextPatch);
+
+    // Invalid patch returns a structured failure without mutating settings.
+    const invalid = (await invoke(IPC_INVOKE_CHANNELS.saveSettings, {
+      ...nextPatch,
+      unknownKey: true,
+    })) as {
+      ok: boolean;
+      code?: string;
+    };
+    expect(invalid.ok).toBe(false);
+    expect(invalid.code).toBe('INVALID_REQUEST');
+    expect(await invoke(IPC_INVOKE_CHANNELS.getSettings)).toMatchObject({ style: 'topo', zoom: 15 });
+
+    // Missing required patch keys also fail cleanly without mutating settings.
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveSettings, { style: 'satellite' })).toMatchObject({
+      ok: false,
+      code: 'BACKEND_ERROR',
+    });
+    expect(await invoke(IPC_INVOKE_CHANNELS.getSettings)).toMatchObject({ style: 'topo', zoom: 15 });
+
+    // Best-effort persistence still applies settings in memory if the state file cannot be written.
+    const blocker = writeFile(path.join(tmpDir(), 'unwritable'));
+    vi.stubEnv('LOCALAPPDATA', blocker);
+    const zoomedOutPatch = { ...nextPatch, zoom: 11 };
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveSettings, zoomedOutPatch)).toEqual({ ok: true });
+    expect(await invoke(IPC_INVOKE_CHANNELS.getSettings)).toMatchObject({ zoom: 11 });
+  });
+
+  it('starts and cancels exports and validates export preconditions', async () => {
+    const video = path.join(tmpDir(), 'flight.mp4');
+    const { controller, exportRunner } = makeController({ video });
+    setup(controller);
+    const outPath = path.join(tmpDir(), 'exports', 'flight_map.mp4');
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: outPath });
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.startExport, {
+        outPath,
+        config: { width: 1280, height: 720 },
+        range: { start: 10, end: 50 },
+      }),
+    ).toEqual({ ok: true });
+    expect(exportRunner.start).toHaveBeenCalledWith(video, {
+      outPath,
+      config: expect.objectContaining({ width: 1280, height: 720 }),
+      range: { start: 10, end: 50 },
+    });
+
+    // Invalid request leaves pending approval unconsumed and does not start export.
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: outPath });
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
+    const badStart = (await invoke(IPC_INVOKE_CHANNELS.startExport, null)) as {
+      ok: boolean;
+      code?: string;
+    };
+    expect(badStart.ok).toBe(false);
+    expect(badStart.code).toBe('INVALID_REQUEST');
+    expect(exportRunner.start).toHaveBeenCalledTimes(1);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.cancelExport)).toEqual({ ok: true });
+    expect(exportRunner.cancel).toHaveBeenCalledTimes(1);
+
+    // Without a loaded recording or attached runner, handlers return structured errors.
+    const noVideo = makeController({ video: null });
+    noVideo.controller.attachExportRunner(null);
+    setup(noVideo.controller);
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'BACKEND_ERROR',
+      detail: 'export runner not initialized',
+    });
+    expect(await invoke(IPC_INVOKE_CHANNELS.cancelExport)).toEqual({
+      ok: false,
+      code: 'BACKEND_ERROR',
+      detail: 'export runner not initialized',
+    });
+    noVideo.controller.attachExportRunner(noVideo.exportRunner);
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.startExport, { outPath, config: {} }),
+    ).toEqual({
+      ok: false,
+      code: 'NO_RECORDING',
+      detail: 'no recording loaded',
+    });
+  });
+
+  it('rejects unrecorded or malformed knownOutputOf payloads and opens/reveals recorded outputs', async () => {
+    const { controller } = makeController();
+    setup(controller);
+    const exportOut = path.join(tmpDir(), 'exports', 'flight_map.mp4');
+    const failedOut = path.join(tmpDir(), 'exports', 'failed.mp4');
+
+    // Pending-only approval is not revealable until saved/completed.
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: exportOut });
+    await invoke(IPC_INVOKE_CHANNELS.pickExportOutput);
+    for (const payload of [null, {}, { out: 123 }, { out: exportOut }, { out: failedOut }]) {
+      expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, payload)).toEqual({
+        ok: false,
+        code: 'UNKNOWN_OUTPUT',
+        detail: 'unknown output',
+      });
+      expect(await invoke(IPC_INVOKE_CHANNELS.openExportOutput, payload)).toEqual({
+        ok: false,
+        code: 'UNKNOWN_OUTPUT',
+        detail: 'unknown output',
+      });
+    }
+
+    // Failed or canceled exports must not register outputs in the allowlist.
+    controller.handleExportDone({
+      status: 'error',
+      code: 'BACKEND_ERROR',
+      detail: 'ffmpeg failed',
+    });
+    controller.handleExportDone({ status: 'canceled' });
+    expect(await invoke(IPC_INVOKE_CHANNELS.openExportOutput, { out: exportOut })).toEqual({
+      ok: false,
+      code: 'UNKNOWN_OUTPUT',
+      detail: 'unknown output',
+    });
+
+    // Completed export registers its output for both reveal and open.
+    controller.handleExportDone({
+      status: 'ok',
+      summary: { video: 'a.mp4', out: exportOut, status: 'ok', elapsedSec: 1, frames: 30, fps: '30' },
+    });
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, { out: exportOut })).toEqual({
+      ok: true,
+    });
+    expect(harness.shell.showItemInFolder).toHaveBeenCalledWith(exportOut);
+
+    harness.shell.openPath.mockResolvedValueOnce('');
+    expect(await invoke(IPC_INVOKE_CHANNELS.openExportOutput, { out: exportOut })).toEqual({
+      ok: true,
+    });
+    expect(harness.shell.openPath).toHaveBeenCalledWith(exportOut);
+  });
+
+  it('saves track ranges with logging and rejects invalid track requests', async () => {
+    const log = vi.fn();
+    const { controller, session } = makeController();
+    setup(controller, log);
+    const chosen = path.join(tmpDir(), 'exports', 'clip.gpx');
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    await invoke(IPC_INVOKE_CHANNELS.pickTrackOutput);
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: chosen, range: { start: 5, end: 25 } }),
+    ).toEqual({ ok: true });
+    expect(session.saveTrack).toHaveBeenCalledWith(chosen, { start: 5, end: 25 });
+    expect(log).toHaveBeenCalledWith(`track: wrote ${chosen}`);
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, { out: chosen })).toEqual({
+      ok: true,
+    });
+    expect(harness.shell.showItemInFolder).toHaveBeenCalledWith(chosen);
+
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: 'relative/track.gpx' }),
+    ).toMatchObject({ ok: false, code: 'OUTPUT_PATH_ABSOLUTE' });
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.saveTrack, {
+        outPath: path.join(tmpDir(), 'exports', 'track.txt'),
+      }),
+    ).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: chosen, range: { start: 10, end: 5 } }),
+    ).toMatchObject({ ok: false, code: 'BACKEND_ERROR' });
+
+    const noVideo = makeController({ video: null });
+    setup(noVideo.controller);
+    expect(await invoke(IPC_INVOKE_CHANNELS.saveTrack, { outPath: chosen })).toEqual({
+      ok: false,
+      code: 'NO_RECORDING',
+      detail: 'no recording loaded',
+    });
+  });
+
+  it('reports update readiness and delegates update:restart and window:close', async () => {
+    const sent: Array<{ channel: string; payload: unknown }> = [];
+    let destroyed = false;
+    const win: ShellWindow = {
+      on: vi.fn(),
+      isDestroyed: () => destroyed,
+      close: vi.fn(() => {
+        destroyed = true;
+      }),
+      webContents: {
+        send: (channel, payload) => sent.push({ channel, payload }),
+      },
+    };
+    const { controller } = makeController({ win });
+    controller.markUpdateReady();
+    controller.attachUpdates({
+      restart: ({ onError }) => {
+        onError({ code: 'UPDATE_RESTART_FAILED', detail: 'installer busy' });
+        return { ok: true };
+      },
+    });
+    setup(controller);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.getUpdateState)).toEqual({ ready: true });
+    expect(await invoke(IPC_INVOKE_CHANNELS.restartToUpdate)).toEqual({ ok: true });
+    expect(sent).toEqual([
+      {
+        channel: IPC_EVENT_CHANNELS.onUpdateRestartFailed,
+        payload: { code: 'UPDATE_RESTART_FAILED', detail: 'installer busy' },
+      },
+    ]);
+
+    await expect(invoke(IPC_INVOKE_CHANNELS.closeWindow)).resolves.toBeUndefined();
+    expect(win.close).toHaveBeenCalledTimes(1);
+
+    // Calling close again after the window is destroyed is a safe no-op.
+    await expect(invoke(IPC_INVOKE_CHANNELS.closeWindow)).resolves.toBeUndefined();
+    expect(win.close).toHaveBeenCalledTimes(1);
+
+    // Query channels also reject untrusted senders.
+    const closeHandler = harness.handlers.get(IPC_INVOKE_CHANNELS.closeWindow)!;
+    await expect(
+      closeHandler({ senderFrame: { url: 'https://attacker.example/' } }),
+    ).rejects.toThrow('untrusted ipc sender');
   });
 });
