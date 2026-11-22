@@ -32,10 +32,15 @@ export function useFilmstrip({
   const hostRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef<FilmstripCache | null>(null);
   const [cells, setCells] = useState<readonly number[]>([]);
-  const [batch, setBatch] = useState<{ src: string; thumbs: ReadonlyMap<number, string> }>({
-    src,
-    thumbs: new Map(),
-  });
+  const source = useMemo(
+    () => ({ src, fps, sampler, createSampler }),
+    [src, fps, sampler, createSampler],
+  );
+  const [batch, setBatch] = useState<{
+    cache: FilmstripCache | null;
+    source: typeof source | null;
+    thumbs: ReadonlyMap<number, string>;
+  }>(EMPTY_BATCH);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -52,8 +57,9 @@ export function useFilmstrip({
   }, [frames]);
 
   useEffect(() => {
-    const owned = sampler === undefined;
-    const used = sampler ?? (createSampler ?? createThumbSampler)(src, fps);
+    const owned = source.sampler === undefined;
+    const used =
+      source.sampler ?? (source.createSampler ?? createThumbSampler)(source.src, source.fps);
     const cache = new FilmstripCache({
       grab: (frame) => used.grab(frame),
       release: (url) => URL.revokeObjectURL(url),
@@ -63,31 +69,36 @@ export function useFilmstrip({
       cacheRef.current = null;
       cache.dispose();
       if (owned) used.dispose();
+      setBatch((prev) => (prev.cache === cache ? EMPTY_BATCH : prev));
     };
-  }, [src, fps, sampler, createSampler]);
+  }, [source]);
 
-  const request = useMemo(
-    () => ({ cells, src, fps, sampler, createSampler }),
-    [cells, src, fps, sampler, createSampler],
-  );
+  const request = useMemo(() => ({ cells, source }), [cells, source]);
   const [settled, setSettled] = useState<typeof request | null>(null);
 
   useEffect(() => {
-    cacheRef.current?.load(
+    const cache = cacheRef.current;
+    if (!cache) return;
+    cache.load(
       request.cells,
       (frame, url) => {
         setBatch((prev) => {
-          const next = new Map(prev.src === request.src ? prev.thumbs : []);
+          const next = new Map(prev.cache === cache ? prev.thumbs : []);
           next.set(frame, url);
-          return { src: request.src, thumbs: next };
+          return { cache, source: request.source, thumbs: next };
         });
       },
       () => setSettled(request),
     );
   }, [request]);
 
-  const thumbs = batch.src === src ? batch.thumbs : EMPTY_THUMBS;
+  const thumbs = batch.source === source ? batch.thumbs : EMPTY_THUMBS;
   return { hostRef, cells, thumbs, busy: cells.length > 0 && request !== settled };
 }
 
 const EMPTY_THUMBS: ReadonlyMap<number, string> = new Map();
+const EMPTY_BATCH = {
+  cache: null,
+  source: null,
+  thumbs: EMPTY_THUMBS,
+} as const;

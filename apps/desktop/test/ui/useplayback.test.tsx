@@ -243,6 +243,13 @@ describe('usePlayback', () => {
   it('resumes an ended loop at the loop start, not the file start', async () => {
     render(<Harness />);
     const media = stubPlayback();
+    let timeAtPlay = -1;
+    media.play.mockImplementation(() => {
+      timeAtPlay = media.state.currentTime;
+      media.state.paused = false;
+      media.state.ended = false;
+      return Promise.resolve();
+    });
     api.handleScene(fakeScene);
     await waitFor(() => expect(api.ready).toBe(true));
     scrubAndMark(30, 'in');
@@ -252,14 +259,21 @@ describe('usePlayback', () => {
     act(() => {
       api.togglePlay();
     });
-    act(() => flushRaf());
     expect(media.play).toHaveBeenCalledTimes(1);
+    expect(timeAtPlay).toBeCloseTo(30.5 / 30);
     expect(media.state.currentTime).toBeCloseTo(30.5 / 30);
   });
 
   it('resumes an ended lone in point at that point, not the file start', async () => {
     render(<Harness />);
     const media = stubPlayback();
+    let timeAtPlay = -1;
+    media.play.mockImplementation(() => {
+      timeAtPlay = media.state.currentTime;
+      media.state.paused = false;
+      media.state.ended = false;
+      return Promise.resolve();
+    });
     api.handleScene(fakeScene);
     await waitFor(() => expect(api.ready).toBe(true));
     scrubAndMark(30, 'in');
@@ -268,8 +282,8 @@ describe('usePlayback', () => {
     act(() => {
       api.togglePlay();
     });
-    act(() => flushRaf());
     expect(media.play).toHaveBeenCalledTimes(1);
+    expect(timeAtPlay).toBeCloseTo(30.5 / 30);
     expect(media.state.currentTime).toBeCloseTo(30.5 / 30);
   });
 

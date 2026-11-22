@@ -1,5 +1,5 @@
 import type { PageVideo } from '../../src/appsession.js';
-import { clampFrame, frameFromMediaTime } from './frametime.js';
+import { clampFrame, frameFromMediaTime, frameMidTime } from './frametime.js';
 import type { LoopPoints, LoopState } from './loop.js';
 import { resolveLoop } from './loop.js';
 
@@ -24,6 +24,7 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
   let pendingScrub: number | null = null;
   let loop: LoopState | null = null;
   let running = false;
+  let wasPlaying = false;
   let rafId = 0;
   let presentedId = 0;
 
@@ -35,13 +36,13 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
   }
 
   function activeLoop(): LoopPoints | null {
-    return loop === null ? null : resolveLoop(loop, frames - 1);
+    if (loop === null) return null;
+    const resolved = resolveLoop(loop, frames - 1);
+    return resolved !== null && resolved.in < resolved.out ? resolved : null;
   }
 
-  // Explicit seeks land half a frame into frame i's span: an exact i / fps can
-  // fall under frame i's PTS and settle the previous frame (#92).
   function seekToFrame(i: number): void {
-    video.currentTime = (i + 0.5) / fps;
+    video.currentTime = frameMidTime(i, fps);
   }
 
   function wrapTo(active: LoopPoints): void {
@@ -62,6 +63,7 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
   // would make the map lead the footage by half a frame.
   function onPresentedFrame(_now: number, meta_: { mediaTime: number }): void {
     if (!running) return;
+    if (!video.paused && !video.ended) wasPlaying = true;
     commitPlayed(frameFromMediaTime(meta_.mediaTime, fps, frames));
     presentedId = video.requestVideoFrameCallback(onPresentedFrame);
   }
@@ -76,11 +78,20 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
       pendingScrub = null;
       seekToFrame(seekTo);
       commit(seekTo);
-    } else if (active !== null && video.ended) {
-      wrapTo(active);
-      video.play().catch(() => {});
-    } else if (!usePresented && !video.paused && !video.ended) {
-      commitPlayed(frameFromMediaTime(video.currentTime, fps, frames));
+      wasPlaying = !video.paused && !video.ended;
+    } else if (video.ended) {
+      if (wasPlaying && active !== null) {
+        wrapTo(active);
+        video.play().catch(() => {});
+      }
+      wasPlaying = false;
+    } else if (!video.paused) {
+      wasPlaying = true;
+      if (!usePresented) {
+        commitPlayed(frameFromMediaTime(video.currentTime, fps, frames));
+      }
+    } else {
+      wasPlaying = false;
     }
   }
 
@@ -94,6 +105,7 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
     start(): void {
       if (running) return;
       running = true;
+      wasPlaying = !video.paused && !video.ended;
       if (usePresented && presentedId === 0) {
         presentedId = video.requestVideoFrameCallback(onPresentedFrame);
       }
@@ -101,6 +113,7 @@ export function createFrameDriver(opts: FrameDriverOpts): FrameDriver {
     },
     stop(): void {
       running = false;
+      wasPlaying = false;
       cancelAnimationFrame(rafId);
       if (usePresented && presentedId !== 0) {
         video.cancelVideoFrameCallback(presentedId);

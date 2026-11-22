@@ -19,6 +19,12 @@ export function clampFrame(i: number, frames: number): number {
   return Math.max(0, Math.min(frames - 1, i));
 }
 
+// Explicit seeks land half a frame into frame i's span: an exact i / fps can
+// fall under frame i's PTS and settle the previous frame (#92).
+export function frameMidTime(frame: number, fps: number): number {
+  return (frame + 0.5) / fps;
+}
+
 export function formatTime(sec: number): string {
   const total = Math.max(0, Math.round(sec));
   return Math.floor(total / 60) + ':' + ('0' + (total % 60)).slice(-2);

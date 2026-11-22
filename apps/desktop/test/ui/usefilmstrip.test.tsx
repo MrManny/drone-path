@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -35,16 +36,18 @@ function fakeSampler(): ThumbSampler & { grabbed: number[]; disposed: boolean } 
 }
 
 function Harness({
+  fps = 30,
   sampler,
   createSampler,
 }: {
+  fps?: number;
   sampler?: ThumbSampler;
   createSampler?: (src: string, fps: number) => ThumbSampler;
 }) {
   const { hostRef, cells, thumbs } = useFilmstrip({
     src: '/video',
     frames: 90,
-    fps: 30,
+    fps,
     sampler,
     createSampler,
   });
@@ -52,6 +55,7 @@ function Harness({
     <div ref={hostRef} data-testid="host">
       <span data-testid="cells">{cells.join(',')}</span>
       <span data-testid="thumbs">{[...thumbs.keys()].join(',')}</span>
+      <span data-testid="urls">{[...thumbs.values()].join(',')}</span>
     </div>
   );
 }
@@ -161,5 +165,63 @@ describe('useFilmstrip', () => {
     await waitFor(() => expect(first.grabbed).toHaveLength(10));
     rerender(<Harness createSampler={() => second} />);
     await waitFor(() => expect(second.grabbed).toHaveLength(10));
+  });
+
+  it('clears revoked thumbnails immediately when fps changes while src stays the same', async () => {
+    const revoked: string[] = [];
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => {
+      revoked.push(url);
+    });
+    try {
+      const first = fakeSampler();
+      const pendingResolvers: Array<(url: string | null) => void> = [];
+      const second: ThumbSampler = {
+        grab: () => new Promise<string | null>((resolve) => pendingResolvers.push(resolve)),
+        dispose: () => {},
+      };
+      const { rerender } = render(<Harness fps={30} sampler={first} />);
+      await waitFor(() => expect(screen.getByTestId('thumbs').textContent).not.toBe(''));
+      expect(revoked).toHaveLength(0);
+
+      rerender(<Harness fps={60} sampler={second} />);
+      await waitFor(() => expect(revoked).toHaveLength(10));
+      expect(screen.getByTestId('thumbs').textContent).toBe('');
+      expect(screen.getByTestId('urls').textContent).toBe('');
+
+      for (const resolve of pendingResolvers) resolve('blob:fresh');
+      await waitFor(() => expect(screen.getByTestId('thumbs').textContent).not.toBe(''));
+      const activeUrls = screen.getByTestId('urls').textContent?.split(',') ?? [];
+      expect(activeUrls.every((url) => !revoked.includes(url))).toBe(true);
+    } finally {
+      revokeSpy.mockRestore();
+    }
+  });
+
+  it('never returns revoked URLs across StrictMode double-mount', async () => {
+    const revoked = new Set<string>();
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation((url) => {
+      revoked.add(url);
+    });
+    try {
+      let mountIndex = 0;
+      const createSampler = (): ThumbSampler => {
+        const tag = ++mountIndex;
+        return {
+          grab: async (frame: number) => `blob:${tag}:${frame}`,
+          dispose: () => {},
+        };
+      };
+      render(
+        <StrictMode>
+          <Harness createSampler={createSampler} />
+        </StrictMode>,
+      );
+      await waitFor(() => expect(screen.getByTestId('thumbs').textContent).not.toBe(''));
+      const activeUrls = screen.getByTestId('urls').textContent?.split(',') ?? [];
+      expect(activeUrls).toHaveLength(10);
+      expect(activeUrls.every((url) => !revoked.has(url))).toBe(true);
+    } finally {
+      revokeSpy.mockRestore();
+    }
   });
 });

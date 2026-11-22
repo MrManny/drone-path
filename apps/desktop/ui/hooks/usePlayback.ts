@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageVideo } from '../../src/appsession.js';
 import type { Scene } from 'drone-path-engine/renderer/scene';
 import { createFrameDriver } from '../lib/framedriver.js';
-import { clampFrame, formatTimeReadout } from '../lib/frametime.js';
+import { clampFrame, formatTimeReadout, frameMidTime } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { clampHandleFrame, markLoopPoint, resolveLoop } from '../lib/loop.js';
 
@@ -111,12 +111,15 @@ export function usePlayback(
     if (!videoEl || !ready) return;
     if (videoEl.paused) {
       const active = resolveLoop(loop, video.frames - 1);
-      if (videoEl.ended && active) scrubTo(active.in);
+      if (videoEl.ended && active && active.in < active.out) {
+        videoEl.currentTime = frameMidTime(active.in, video.fps);
+        latestIndexRef.current = active.in;
+      }
       videoEl.play().catch(() => {});
     } else {
       videoEl.pause();
     }
-  }, [ready, loop, scrubTo, video.frames]);
+  }, [ready, loop, video.fps, video.frames]);
 
   const stepBy = useCallback(
     (deltaFrames: number) => {
