@@ -1,5 +1,18 @@
 # drone-path-desktop
 
+## 1.1.0
+
+- **Fixed:** Improve keyboard navigation, modal focus, timeline focus
+  indicators, status announcements, contrast, and layout at high zoom.
+- **Fixed:** Keep menus and exports responsive when switching recordings.
+  Correct playback when resuming from the end, handle single-frame loops,
+  and keep filmstrip thumbnails in sync with the recording.
+- **Fixed:** Restrict export and track saves to locations approved through
+  the native dialogs. Restrict development URLs to loopback, block
+  untrusted navigation, and use application settings for desktop exports.
+- **Internal:** Harden Electron packaging and renderer security, and expand
+  tests for the desktop shell and IPC.
+
 ## 1.0.0
 
 - **Fixed:** Desktop modal dialogs keep `Tab` focus trapped reliably, timeline

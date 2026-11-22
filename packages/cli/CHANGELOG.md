@@ -1,5 +1,15 @@
 # drone-path
 
+## 1.1.0
+
+- **New:** Run `drone-path mcp` over stdio to scan and query recordings, read
+  telemetry, extract keyframes, export markers, and render map overlays. Set
+  `--allow-root` to choose which folders the server can access. MCP exports
+  protect existing files by default.
+- **New:** Use `drone-path extract-frame` to save JPEGs with telemetry
+  snapshots and `drone-path archive export-markers` to export shot markers.
+  Filter `archive list` with `--segment-type` or `--min-smoothness`.
+
 ## 1.0.0
 
 - **New:** Scan folders into a local SQLite archive index with
