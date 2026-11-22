@@ -5,8 +5,15 @@ on:
     branches: [main]
   pull_request:
 
-# Lint and test gate the workflow: build verification and the desktop
-# packaging smoke only run when the quality gate is green.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Lint and test gate the workflow: build verification, dry-run packs, and the
+# desktop packaging smoke only run when the quality gate is green.
 
 jobs:
   check:
@@ -23,29 +30,14 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - run: npm run lint
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - if: matrix.node-version == 24
+        run: npm run lint
       - run: npm test
 
-  build:
-    name: Build and pack
-    needs: check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm pack --dry-run --workspace drone-path-core
-      - run: npm pack --dry-run --workspace drone-path-archive
-      - run: npm pack --dry-run --workspace drone-path-engine
-      - run: npm pack --dry-run --workspace drone-path
-
-  desktop-smoke:
-    name: Desktop app packaging smoke
+  package-smoke:
+    name: Build, pack, and desktop packaging smoke
     needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -57,6 +49,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm pack --dry-run --ignore-scripts --workspace drone-path-core
+      - run: npm pack --dry-run --ignore-scripts --workspace drone-path-archive
+      - run: npm pack --dry-run --ignore-scripts --workspace drone-path-engine
+      - run: npm pack --dry-run --ignore-scripts --workspace drone-path
       - run: npm run app:pack -- --dir
       - name: Verify production dependencies in the desktop ASAR
         env:
