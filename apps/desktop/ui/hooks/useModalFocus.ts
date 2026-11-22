@@ -4,9 +4,9 @@ import { useEffect } from 'react';
 import type { RefObject } from 'react';
 
 // Everything a keyboard user can reach inside the panel; surfaces that manage
-// their own roving focus (like menu rows) opt out with tabindex="-1".
+// their own roving focus (like menu rows) or inert credits opt out with tabindex="-1".
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+  'a[href]:not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), summary:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * Modal focus for dialogs and overlays: focus moves in on open, returns to the

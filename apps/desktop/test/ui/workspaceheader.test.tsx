@@ -7,10 +7,10 @@ import { WorkspaceHeader } from '../../ui/components/WorkspaceHeader.js';
 afterEach(cleanup);
 
 describe('WorkspaceHeader', () => {
-  it('shows the wordmark and the project identity', () => {
+  it('shows the wordmark and the project identity as an h1 (#411)', () => {
     render(<WorkspaceHeader durationSec={3} />);
     expect(document.querySelector('.brand')?.textContent).toBe('drone / path');
-    expect(screen.getByText('Flight workspace')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Flight workspace' })).toBeTruthy();
     expect(screen.getByText('Recording · 0:03')).toBeTruthy();
   });
 

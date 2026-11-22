@@ -175,10 +175,11 @@ describe('PlayerChrome workspace structure', () => {
     expect(document.querySelectorAll('.workspace-header button')).toHaveLength(0);
   });
 
-  it('keeps the transport row after the stage row, so it can mirror the stage layout', () => {
+  it('keeps the transport row after the stage row inside main, so it can mirror the stage layout', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     const stage = document.querySelector('.stage') as HTMLElement;
-    expect(stage.parentElement?.className).toBe('workspace');
+    expect(stage.parentElement?.className).toBe('workspace-main');
+    expect(stage.parentElement?.parentElement?.className).toBe('workspace');
     expect(stage.nextElementSibling).toBe(document.querySelector('.transport'));
   });
 

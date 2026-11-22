@@ -129,4 +129,58 @@ describe('useModalFocus', () => {
     expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false);
     expect(document.activeElement).toBe(summary);
   });
+
+  it('includes regular links while excluding tabindex="-1" attribution links and controls (#396)', () => {
+    function MapModalPanel() {
+      const panelRef = useRef<HTMLDivElement | null>(null);
+      useModalFocus(panelRef);
+      return (
+        <div ref={panelRef} tabIndex={-1} data-testid="panel">
+          <div id="attr">
+            <a href="https://example.com" tabIndex={-1}>
+              Map credit
+            </a>
+          </div>
+          <a href="https://example.com/docs">Docs</a>
+          <button tabIndex={-1}>Hidden focus</button>
+          <button>Done</button>
+        </div>
+      );
+    }
+
+    render(<MapModalPanel />);
+    const docs = screen.getByRole('link', { name: 'Docs' });
+    const done = screen.getByRole('button', { name: 'Done' });
+    done.focus();
+    expect(fireEvent.keyDown(done, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(docs);
+    expect(fireEvent.keyDown(docs, { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(done);
+  });
+
+  it('falls back to the panel when only disabled controls and tabindex="-1" links exist (#396)', () => {
+    function CancelingExportPanel() {
+      const panelRef = useRef<HTMLDivElement | null>(null);
+      useModalFocus(panelRef);
+      return (
+        <div ref={panelRef} tabIndex={-1} data-testid="panel">
+          <div id="attr">
+            <a href="https://example.com" tabIndex={-1}>
+              Map credit
+            </a>
+          </div>
+          <button disabled>Close</button>
+          <button disabled>Cancel export</button>
+        </div>
+      );
+    }
+
+    render(<CancelingExportPanel />);
+    document.body.focus();
+    expect(fireEvent.keyDown(document.body, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(panel());
+    document.body.focus();
+    expect(fireEvent.keyDown(document.body, { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(panel());
+  });
 });

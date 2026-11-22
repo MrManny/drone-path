@@ -81,16 +81,24 @@ function renderPreview(over: Partial<{ isExample: boolean; onToggleChip: (c: 'he
 }
 
 describe('MapAppearancePreview', () => {
-  it('names the example flight state so it cannot pass for user data', () => {
+  it('names the example flight state as an h3 so it cannot pass for user data (#411)', () => {
     renderPreview({ isExample: true });
     expect(
-      screen.getByText('Example flight — open a recording to preview yours'),
+      screen.getByRole('heading', {
+        level: 3,
+        name: 'Example flight — open a recording to preview yours',
+      }),
     ).toBeTruthy();
   });
 
-  it('names the recording state instead', () => {
+  it('names the recording state as an h3 instead (#411)', () => {
     renderPreview({ isExample: false });
-    expect(screen.getByText('Recording — the preview shows your flight')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', {
+        level: 3,
+        name: 'Recording — the preview shows your flight',
+      }),
+    ).toBeTruthy();
     expect(screen.queryByText(/Example flight/)).toBeNull();
   });
 

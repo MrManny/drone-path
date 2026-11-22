@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from '../lib/i18n.js';
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { ArrowLeftFromLine, ArrowRightFromLine, X } from 'lucide-react';
@@ -42,6 +42,7 @@ export function TimelinePanel({
   src,
 }: TimelinePanelProps) {
   const t = useTranslation();
+  const headingId = useId();
   const trackRef = useRef<HTMLDivElement>(null);
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const setLoopFrameRef = useRef(setLoopFrame);
@@ -96,10 +97,12 @@ export function TimelinePanel({
   };
 
   return (
-    <section className="timeline">
+    <section className="timeline" aria-labelledby={headingId}>
       <div className="timeline-header">
         <div className="timeline-heading">
-          <span className="preview-title">{t('timelinePanel.timeline')}</span>
+          <h2 id={headingId} className="preview-title">
+            {t('timelinePanel.timeline')}
+          </h2>
         </div>
         <div className="timeline-actions">
           <span className="readout loop-readout" aria-live="polite" aria-atomic="true">

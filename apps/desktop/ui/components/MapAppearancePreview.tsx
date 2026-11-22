@@ -36,9 +36,9 @@ export function MapAppearancePreview({
   return (
     <div>
       <div className="map-appearance-head">
-        <span className="preview-title">
+        <h3 className="preview-title">
           {isExample ? exampleStateLabel(t) : t('mapAppearancePreview.recording')}
-        </span>
+        </h3>
         <span className="readout">{t('mapAppearancePreview.exportFrame')}</span>
       </div>
       <div

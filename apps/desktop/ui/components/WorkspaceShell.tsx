@@ -94,9 +94,11 @@ export function WorkspaceShell({
         onMenuOpenChange={setMenuOpen}
       />
       <WorkspaceHeader durationSec={durationSec} />
-      {stage}
-      <TransportBar dispatch={dispatch} {...transport} />
-      <TimelinePanel dispatch={dispatch} {...timeline} />
+      <main className="workspace-main">
+        {stage}
+        <TransportBar dispatch={dispatch} {...transport} />
+        <TimelinePanel dispatch={dispatch} {...timeline} />
+      </main>
       {children}
     </div>
   );

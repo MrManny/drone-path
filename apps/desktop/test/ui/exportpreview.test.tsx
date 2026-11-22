@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { UiSession } from '../../src/appsession.js';
@@ -159,9 +159,9 @@ describe('ExportPreview scene', () => {
 });
 
 describe('ExportPreview output framing', () => {
-  it('shows the caption and the committed size', () => {
+  it('shows the caption as an h3 and the committed size (#411)', () => {
     const { getByText } = renderPreview();
-    expect(getByText('Output preview')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: 'Output preview' })).toBeTruthy();
     expect(getByText('1280×720')).toBeTruthy();
   });
 

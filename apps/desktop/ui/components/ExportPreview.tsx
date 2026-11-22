@@ -31,7 +31,7 @@ export function ExportPreview({ session, config, size, frame, note = false }: Ex
   return (
     <div className="export-preview">
       <div className="export-preview-head">
-        <span className="preview-title">{t('exportPreview.outputPreview')}</span>
+        <h3 className="preview-title">{t('exportPreview.outputPreview')}</h3>
         <span className="readout">{`${width}×${height}`}</span>
       </div>
       <div

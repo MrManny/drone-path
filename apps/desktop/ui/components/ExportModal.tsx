@@ -7,7 +7,12 @@ import type { ExportAck } from '../lib/backend.js';
 import { canceledSentence } from '../lib/errortext.js';
 import type { ExportFlowDeps } from '../lib/exportflow.js';
 import type { ExportEvent, ExportState } from '../lib/exportstate.js';
-import { captureFraction, exportPhaseText, previewFrame } from '../lib/exportstate.js';
+import {
+  captureFraction,
+  exportPhaseText,
+  exportStatusText,
+  previewFrame,
+} from '../lib/exportstate.js';
 import { formatFrameRange, formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 import type { LoopState } from '../lib/loop.js';
@@ -83,9 +88,12 @@ export function ExportModal({
           note={phase === 'form'}
         />
         <div className="export-phase">
-          <p className="phase-status" role="status">
+          <p className="phase-status" aria-hidden="true">
             {exportPhaseText(state, t)}
           </p>
+          <span className="sr-only" role="status">
+            {exportStatusText(state, t)}
+          </span>
           {phase === 'form' ? (
             <ExportForm
               form={form}

@@ -80,9 +80,10 @@ function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): 
 }
 
 describe('TimelinePanel header', () => {
-  it('titles the panel without a loop-points note', () => {
+  it('titles the panel as an h2 and labels the timeline region (#411)', () => {
     renderPanel();
-    expect(screen.getByText('Timeline')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Timeline' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Timeline' })).toBeTruthy();
     expect(screen.queryByText('Playback & loop points')).toBeNull();
   });
 

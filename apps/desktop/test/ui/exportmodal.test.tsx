@@ -414,7 +414,8 @@ describe('ExportModal while an export runs', () => {
 
     expect(bridge.cancelExport).toHaveBeenCalledTimes(1);
     expect(cancel.disabled).toBe(true);
-    expect(screen.getByText('Canceling…')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Canceling…');
+    expect(document.querySelector('.phase-status')?.textContent).toBe('Canceling…');
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('50');
   });
 
@@ -712,33 +713,77 @@ describe('ExportModal output preview content', () => {
 });
 
 describe('ExportModal phase lead', () => {
+  const liveStatus = (): HTMLElement =>
+    document.querySelector('.export-phase > [role="status"]') as HTMLElement;
+
   it('leads the done dialog with the success sentence before the stats', async () => {
     const { emitDone } = installBridge();
     await reachPhase('done', emitDone);
     const column = document.querySelector('.export-phase') as HTMLElement;
-    expect(screen.getByText('Export finished.')).toBeTruthy();
+    expect(liveStatus().textContent).toBe('Export finished.');
     expect(column.firstElementChild?.textContent).toBe('Export finished.');
   });
 
   it('announces the phase text in one persistent status region', async () => {
     const { emitDone } = installBridge();
     renderModal({ in: null, out: null });
-    const status = document.querySelector('.phase-status') as HTMLElement;
-    expect(status.getAttribute('role')).toBe('status');
+    const status = liveStatus();
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     await screen.findByRole('button', { name: 'Cancel export' });
     expect(status.textContent).toBe('Preparing…');
     emitDone({ status: 'ok', summary: SUMMARY });
-    await screen.findByText('Export finished.');
-    expect(status.textContent).toBe('Export finished.');
-    expect(document.querySelector('.phase-status')).toBe(status);
+    await waitFor(() => expect(status.textContent).toBe('Export finished.'));
+    expect(liveStatus()).toBe(status);
   });
 
   it('leaves the status line empty when the form carries the outcome notice', async () => {
     const { emitDone } = installBridge();
     await reachPhase('canceled', emitDone);
-    const status = document.querySelector('.phase-status') as HTMLElement;
-    expect(status.textContent).toBe('');
+    const visible = document.querySelector('.phase-status') as HTMLElement;
+    expect(visible.textContent).toBe('');
+    expect(liveStatus().textContent).toBe('');
+  });
+
+  it('keeps visible percent continuous while throttling role="status" announcements to 25% quartiles (#408)', async () => {
+    const { emitCapture, emitDone } = installBridge();
+    renderModal({ in: null, out: null });
+    const visible = document.querySelector('.phase-status') as HTMLElement;
+    const status = liveStatus();
+    expect(visible.getAttribute('aria-hidden')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    expect(status.textContent).toBe('Preparing…');
+
+    const observed: string[] = [];
+    const observer = new MutationObserver(() => {
+      observed.push(status.textContent ?? '');
+    });
+    observer.observe(status, { childList: true, characterData: true, subtree: true });
+
+    emitCapture({ done: 12, total: 100 });
+    await Promise.resolve();
+    expect(visible.textContent).toBe('Exporting 12%');
+    expect(status.textContent).toBe('Exporting 0%');
+
+    for (const done of [0, 1, 10, 24]) {
+      emitCapture({ done, total: 100 });
+      await Promise.resolve();
+      expect(visible.textContent).toBe(`Exporting ${done}%`);
+      expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(String(done));
+    }
+    expect(status.textContent).toBe('Exporting 0%');
+
+    for (const done of [25, 49, 50, 83]) {
+      emitCapture({ done, total: 100 });
+      await Promise.resolve();
+      expect(visible.textContent).toBe(`Exporting ${done}%`);
+    }
+
+    observer.disconnect();
+    expect(observed).toEqual(['Exporting 0%', 'Exporting 25%', 'Exporting 50%', 'Exporting 75%']);
+    emitDone({ status: 'ok', summary: SUMMARY });
+    await waitFor(() => expect(status.textContent).toBe('Export finished.'));
+    expect(visible.textContent).toBe('Export finished.');
   });
 });
 
