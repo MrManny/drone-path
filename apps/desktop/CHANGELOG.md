@@ -1,5 +1,9 @@
 # drone-path-desktop
 
+## 1.1.1
+
+- **New:** Open the official Drone Path website from Help → About.
+
 ## 1.1.0
 
 - **Fixed:** Improve keyboard navigation, modal focus, timeline focus

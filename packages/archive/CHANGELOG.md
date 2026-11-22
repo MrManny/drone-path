@@ -1,5 +1,10 @@
 # drone-path-archive
 
+## 1.1.1
+
+- **Fixed:** Archive HTML maps open with OpenTopoMap and let viewers switch to
+  Esri World Imagery with an ArcGIS API key or turn the basemap off.
+
 ## 1.1.0
 
 - **New:** Index shot segments and filter recordings by segment type or
