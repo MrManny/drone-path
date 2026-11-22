@@ -257,6 +257,12 @@ button.primary {
   flex-direction: column;
   height: 100vh;
 }
+.workspace-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 /* Header bar: brand and project identity. */
 .workspace-header {
@@ -298,6 +304,7 @@ button.primary {
 
 /* Workspace, timeline, and preview headings share the surface title tier. */
 .preview-title {
+  margin: 0;
   font-size: var(--type-title);
   font-weight: 600;
   color: var(--text);
@@ -1317,8 +1324,8 @@ button.primary {
   transform: translateX(16px);
 }
 .settings-row input[type='range'] {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 80px;
+  min-width: 80px;
   height: 20px;
   margin: 0;
   appearance: none;
@@ -1394,18 +1401,22 @@ button.primary {
 }
 .opening-ending-steppers {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
 }
 .opening-ending-steppers .settings-row {
   flex: none;
+  max-width: 100%;
   min-height: 0;
 }
 .opening-ending-steppers .settings-label {
   width: auto;
 }
 .opening-ending-steppers .hint {
-  flex: 1;
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 @media (max-width: 1100px) {
@@ -1453,6 +1464,7 @@ button.primary {
 }
 .settings-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-height: 40px;
@@ -1520,7 +1532,8 @@ button.primary {
 }
 .field-message {
   font-size: var(--type-hint);
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--danger-text);
 }
 .map-zoom-message {
@@ -1542,7 +1555,8 @@ button.primary {
   color: var(--text-2);
 }
 .settings-row .hint {
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Checkboxes and radios take the accent; the native glyph is replaced, the
@@ -1895,5 +1909,22 @@ input[type='radio']:disabled {
 @media (max-height: 720px) {
   :root {
     --timeline-h: 140px;
+  }
+}
+
+/* Stack multi-column dialogs under narrow viewports or 200% zoom. */
+@media (max-width: 680px) {
+  .export-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .help-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .help-nav {
+    position: static;
+    width: auto;
+    box-sizing: border-box;
+    max-height: none;
   }
 }

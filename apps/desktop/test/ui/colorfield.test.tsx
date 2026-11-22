@@ -60,11 +60,17 @@ describe.each([
 ])('a rejected value: $description', ({ value }) => {
   it('names the rule, marks the field invalid and commits nothing', () => {
     const { input, onValue } = renderColor();
+    const live = document.querySelector('[aria-live="polite"]') as HTMLElement;
+    expect(live).toBeTruthy();
+    expect(live.textContent).toBe('');
+    expect(getComputedStyle(live).display).not.toBe('none');
     fireEvent.change(input, { target: { value } });
     const message = screen.getByText('Must be hex like #e63946.');
+    expect(message).toBe(live);
     expect(onValue).not.toHaveBeenCalled();
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toBe(message.id);
+    expect(message.getAttribute('aria-live')).toBe('polite');
     expect(input.value).toBe(value);
     expect(screen.queryByText("empty = map style's color")).toBeNull();
   });

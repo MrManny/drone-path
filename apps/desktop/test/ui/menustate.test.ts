@@ -145,6 +145,18 @@ describe('reduceMenu keyboard navigation', () => {
     expect(state).toEqual(opened);
     expect(commands).toEqual([]);
   });
+
+  it('jumps to the first and last enabled items on Home and End (#406)', () => {
+    expect(run([{ type: 'keyDown', key: 'Home' }], LOADED, { ...opened, active: 2 }).state.active).toBe(0);
+    expect(run([{ type: 'keyDown', key: 'End' }], LOADED, { ...opened, active: 0 }).state.active).toBe(3);
+
+    const openingFlags: MenuFlags = { hasRecording: true, opening: true };
+    expect(run([{ type: 'keyDown', key: 'Home' }], openingFlags, { ...opened, active: 1 }).state.active).toBe(3);
+
+    const emptyOpeningFlags: MenuFlags = { hasRecording: false, opening: true };
+    expect(run([{ type: 'keyDown', key: 'Home' }], emptyOpeningFlags, { ...opened, active: 1 }).state.active).toBe(3);
+    expect(run([{ type: 'keyDown', key: 'End' }], emptyOpeningFlags, { ...opened, active: 0 }).state.active).toBe(3);
+  });
 });
 
 describe('reduceMenu activation rules', () => {
@@ -270,5 +282,45 @@ describe('reduceMenu label navigation (single Tab stop)', () => {
   it('treats an idempotent close as no transition at all', () => {
     const result = reduceMenu(INITIAL_MENU_STATE, { type: 'close' }, LOADED);
     expect(result.state).toBe(INITIAL_MENU_STATE);
+  });
+
+  it('moves to first and last labels on Home and End when closed (#406)', () => {
+    const atHelp: MenuState = { ...INITIAL_MENU_STATE, label: 2 };
+    expect(run([{ type: 'keyDown', key: 'Home' }], LOADED, atHelp).state).toMatchObject({
+      open: null,
+      label: 0,
+    });
+    expect(run([{ type: 'keyDown', key: 'End' }], LOADED, INITIAL_MENU_STATE).state).toMatchObject({
+      open: null,
+      label: 2,
+    });
+  });
+
+  it.for(['ArrowDown', 'Enter', ' ', 'Spacebar'])(
+    'opens the focused label menu on %s with item 0 active (#406)',
+    (key) => {
+      const atView: MenuState = { ...INITIAL_MENU_STATE, label: 1 };
+      const { state, commands } = run([{ type: 'keyDown', key }], LOADED, atView);
+      expect(state).toMatchObject({ open: 'view', active: 0, label: 1 });
+      expect(commands).toEqual([]);
+    },
+  );
+
+  it('opens the focused label menu on ArrowUp with the last item active (#406)', () => {
+    const atView: MenuState = { ...INITIAL_MENU_STATE, label: 1 };
+    const { state, commands } = run([{ type: 'keyDown', key: 'ArrowUp' }], LOADED, atView);
+    expect(state).toMatchObject({ open: 'view', active: 2, label: 1 });
+    expect(commands).toEqual([]);
+  });
+
+  it('ignores auto-repeated Enter/Space on the closed bar (#406)', () => {
+    const { state } = run([{ type: 'keyDown', key: 'Enter', repeat: true }], LOADED, INITIAL_MENU_STATE);
+    expect(state).toEqual(INITIAL_MENU_STATE);
+  });
+
+  it('syncs the roving label stop on focusLabel only while closed (#406)', () => {
+    expect(run([{ type: 'focusLabel', menu: 'view' }]).state).toMatchObject({ open: null, label: 1 });
+    const opened: MenuState = { open: 'file', active: 0, altPending: false, label: 0 };
+    expect(run([{ type: 'focusLabel', menu: 'view' }], LOADED, opened).state).toEqual(opened);
   });
 });

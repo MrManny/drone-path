@@ -14,12 +14,18 @@ export function captureFraction(capture: CaptureProgress | null): number | null 
   return capture.total > 0 ? Math.min(1, capture.done / capture.total) : null;
 }
 
+export function captureQuartile(fraction: number | null): number | null {
+  if (fraction === null) return null;
+  const percent = Math.round(fraction * 100);
+  return (Math.floor(percent / 25) * 25) / 100;
+}
+
 export function runningPhaseText(fraction: number | null, canceling: boolean, t: Translate = tEnglish): string {
   if (canceling) return t('exportstate.canceling');
   return fraction === null ? t('exportstate.preparing') : t('exportstate.exporting', { percent: Math.round(fraction * 100) });
 }
 
-// The persistent phase line carries the running progress and the success
+// The visible phase line carries continuous running progress and the success
 // sentence; the form and its outcome notices announce themselves, so the
 // form leaves it empty.
 export function exportPhaseText(state: ExportState, t: Translate = tEnglish): string {
@@ -28,6 +34,20 @@ export function exportPhaseText(state: ExportState, t: Translate = tEnglish): st
       return '';
     case 'running':
       return runningPhaseText(captureFraction(state.capture), state.canceling, t);
+    case 'done':
+      return t('exportstate.finished');
+  }
+}
+
+// The persistent role="status" line throttles running capture progress to
+// 25% quartiles so screen readers are not flooded on every 1% tick while
+// ProgressBar already exposes continuous progress.
+export function exportStatusText(state: ExportState, t: Translate = tEnglish): string {
+  switch (state.phase) {
+    case 'form':
+      return '';
+    case 'running':
+      return runningPhaseText(captureQuartile(captureFraction(state.capture)), state.canceling, t);
     case 'done':
       return t('exportstate.finished');
   }

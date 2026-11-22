@@ -174,4 +174,46 @@ describe('useMenuKeys closed-bar label arrows (#238)', () => {
     expect(result.current.state.label).toBe(0);
     teardown();
   });
+
+  it.for(['ArrowDown', 'Enter', ' ', 'Spacebar'])(
+    'claims %s inside the closed bar and opens item 0 (#406)',
+    (pressed) => {
+      const { bar, teardown, result } = barSetup();
+      const event = key('keydown', { key: pressed }, bar);
+      expect(event.defaultPrevented).toBe(true);
+      expect(result.current.state).toMatchObject({ open: 'file', active: 0 });
+      if (pressed === ' ' || pressed === 'Spacebar') {
+        const up = key('keyup', { key: pressed }, bar);
+        expect(up.defaultPrevented).toBe(true);
+      }
+      teardown();
+    },
+  );
+
+  it('claims ArrowUp inside the closed bar and opens the last item (#406)', () => {
+    const { bar, teardown, result } = barSetup();
+    const event = key('keydown', { key: 'ArrowUp' }, bar);
+    expect(event.defaultPrevented).toBe(true);
+    expect(result.current.state).toMatchObject({ open: 'file', active: 3 });
+    teardown();
+  });
+
+  it('claims Home and End inside the closed bar and while open (#406)', () => {
+    const { bar, teardown, result } = barSetup();
+    const endClosed = key('keydown', { key: 'End' }, bar);
+    expect(endClosed.defaultPrevented).toBe(true);
+    expect(result.current.state).toMatchObject({ open: null, label: 2 });
+    const homeClosed = key('keydown', { key: 'Home' }, bar);
+    expect(homeClosed.defaultPrevented).toBe(true);
+    expect(result.current.state).toMatchObject({ open: null, label: 0 });
+
+    key('keydown', { key: 'ArrowDown' }, bar);
+    const endOpen = key('keydown', { key: 'End' }, bar);
+    expect(endOpen.defaultPrevented).toBe(true);
+    expect(result.current.state).toMatchObject({ open: 'file', active: 3 });
+    const homeOpen = key('keydown', { key: 'Home' }, bar);
+    expect(homeOpen.defaultPrevented).toBe(true);
+    expect(result.current.state).toMatchObject({ open: 'file', active: 0 });
+    teardown();
+  });
 });

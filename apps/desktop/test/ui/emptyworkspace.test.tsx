@@ -57,18 +57,23 @@ function menu(): HTMLElement {
 }
 
 describe('EmptyWorkspace skeleton', () => {
-  it('keeps the five workspace rows in the player order and geometry', () => {
+  it('keeps the five workspace rows in the player order and geometry with a main landmark (#411)', () => {
     renderWorkspace();
-    const rows = [...(document.querySelector('.workspace') as HTMLElement).children].map(
+    const chrome = [...(document.querySelector('.workspace') as HTMLElement).children].map(
       (row) => row.className,
     );
-    expect(rows).toEqual([
-      'menu-bar',
-      'workspace-header',
+    expect(chrome).toEqual(['menu-bar', 'workspace-header', 'workspace-main']);
+    const main = screen.getByRole('main');
+    expect(main.className).toBe('workspace-main');
+    expect([...main.children].map((row) => row.className)).toEqual([
       'stage stage-split',
       'transport',
       'timeline',
     ]);
+    expect(screen.getByRole('banner')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Flight workspace' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'Timeline' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Timeline' })).toBeTruthy();
     expect(document.querySelector('.status-bar')).toBeNull();
   });
 

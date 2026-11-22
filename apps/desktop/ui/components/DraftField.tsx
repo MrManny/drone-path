@@ -62,11 +62,15 @@ export function DraftField<T>({
         }}
       />
       {suffix}
-      {invalid ? (
-        <span className="field-message" id={messageId}>
-          {t('field.mustBe', { rule })}
-        </span>
-      ) : hint ? (
+      <span
+        className={invalid ? 'field-message' : 'sr-only'}
+        id={messageId}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {invalid ? t('field.mustBe', { rule }) : ''}
+      </span>
+      {!invalid && hint ? (
         <span className="hint" id={hintId}>
           {hint}
         </span>

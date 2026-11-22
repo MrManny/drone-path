@@ -40,11 +40,17 @@ describe.each([
 ])('a rejected value for $description', ({ value }) => {
   it('names the rule, marks the field invalid and commits nothing', () => {
     const { input, onValue } = renderZoom();
+    const live = document.querySelector('[aria-live="polite"]') as HTMLElement;
+    expect(live).toBeTruthy();
+    expect(live.textContent).toBe('');
+    expect(getComputedStyle(live).display).not.toBe('none');
     fireEvent.change(input, { target: { value } });
     const message = screen.getByText('Must be at least 0.');
+    expect(message).toBe(live);
     expect(onValue).not.toHaveBeenCalled();
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toBe(message.id);
+    expect(message.getAttribute('aria-live')).toBe('polite');
     expect(input.value).toBe(value);
     expect(screen.queryByText('0 = auto-fit')).toBeNull();
   });

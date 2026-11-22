@@ -139,4 +139,32 @@ describe('selection-state style contract (#285)', () => {
       );
     },
   );
+
+  it('wraps form rows and allows messages and hints to wrap under zoom (#410)', () => {
+    expect(cssText).toMatch(rulePattern('.settings-row', 'flex-wrap: wrap'));
+    expect(cssText).toMatch(rulePattern('.opening-ending-steppers', 'flex-wrap: wrap'));
+    expect(cssText).toMatch(rulePattern('.field-message', 'overflow-wrap: anywhere'));
+    expect(cssText).not.toMatch(rulePattern('.field-message', 'white-space: nowrap'));
+    expect(cssText).toMatch(rulePattern('.settings-row .hint', 'overflow-wrap: anywhere'));
+    expect(cssText).not.toMatch(rulePattern('.settings-row .hint', 'white-space: nowrap'));
+  });
+
+  it('stacks Export and Help dialog columns on narrow viewports (#410)', () => {
+    const mediaBlock = /@media \(max-width: 680px\) \{([\s\S]*?)\n\}/.exec(cssText)?.[1] ?? '';
+    expect(mediaBlock).toContain('.export-body');
+    expect(mediaBlock).toContain('grid-template-columns: minmax(0, 1fr)');
+    expect(mediaBlock).toContain('.help-body');
+    expect(mediaBlock).toContain('flex-direction: column');
+    expect(mediaBlock).toContain('.help-nav');
+    expect(mediaBlock).toContain('position: static');
+    expect(mediaBlock).toContain('width: auto');
+    expect(mediaBlock).toContain('box-sizing: border-box');
+    expect(mediaBlock).not.toContain('width: 100%');
+  });
+
+  it('resets heading margins on .preview-title and flexes .workspace-main (#411)', () => {
+    expect(cssText).toMatch(rulePattern('.preview-title', 'margin: 0'));
+    expect(cssText).toMatch(rulePattern('.workspace-main', 'flex: 1 1 auto'));
+    expect(cssText).toMatch(rulePattern('.workspace-main', 'display: flex'));
+  });
 });

@@ -5,8 +5,10 @@ import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { ExportOutcome } from '../../src/exportjob.js';
 import {
   captureFraction,
+  captureQuartile,
   exportPhaseText,
   exportReducer,
+  exportStatusText,
   initialExportState,
   previewFrame,
   runningPhaseText,
@@ -285,12 +287,29 @@ describe('runningPhaseText', () => {
   });
 });
 
+describe('captureQuartile', () => {
+  it.for([
+    { fraction: null, want: null },
+    { fraction: 0, want: 0 },
+    { fraction: 0.24, want: 0 },
+    { fraction: 0.25, want: 0.25 },
+    { fraction: 0.49, want: 0.25 },
+    { fraction: 0.5, want: 0.5 },
+    { fraction: 0.74, want: 0.5 },
+    { fraction: 0.75, want: 0.75 },
+    { fraction: 0.99, want: 0.75 },
+    { fraction: 1, want: 1 },
+  ])('buckets $fraction to $want', ({ fraction, want }) => {
+    expect(captureQuartile(fraction)).toBe(want);
+  });
+});
+
 describe('exportPhaseText', () => {
   it('is empty in the form phase', () => {
     expect(exportPhaseText(initialExportState(768, 768))).toBe('');
   });
 
-  it('reports the running phase from the capture fraction', () => {
+  it('reports continuous running progress for the visible phase line', () => {
     expect(exportPhaseText(running())).toBe('Preparing…');
     expect(exportPhaseText({ ...running(), capture: { done: 83, total: 100 } })).toBe('Exporting 83%');
     expect(
@@ -316,6 +335,24 @@ describe('exportPhaseText', () => {
       expect(exportPhaseText(settled)).toBe('');
     },
   );
+});
+
+describe('exportStatusText', () => {
+  it('throttles running capture announcements to 25% quartiles (#408)', () => {
+    expect(exportStatusText(initialExportState(768, 768))).toBe('');
+    expect(exportStatusText(running())).toBe('Preparing…');
+    expect(exportStatusText({ ...running(), capture: { done: 12, total: 100 } })).toBe('Exporting 0%');
+    expect(exportStatusText({ ...running(), capture: { done: 25, total: 100 } })).toBe('Exporting 25%');
+    expect(exportStatusText({ ...running(), capture: { done: 83, total: 100 } })).toBe('Exporting 75%');
+    expect(
+      exportStatusText({ ...running(), capture: { done: 83, total: 100 }, canceling: true }),
+    ).toBe('Canceling…');
+    const done = exportReducer(running(), {
+      type: 'finish',
+      outcome: { status: 'ok', summary: OK_SUMMARY },
+    });
+    expect(exportStatusText(done)).toBe('Export finished.');
+  });
 });
 
 describe('outcome notices', () => {

@@ -25,6 +25,7 @@ interface MenuKeyEvent {
 
 export type MenuEvent =
   | { type: 'toggle'; menu: MenuId }
+  | { type: 'focusLabel'; menu: MenuId }
   | { type: 'hoverMenu'; menu: MenuId }
   | { type: 'hoverRow'; index: number }
   | { type: 'activateRow'; index: number }
@@ -61,6 +62,18 @@ function moved(state: MenuState, active: number): MenuResult {
   return { state: { ...state, active }, command: null };
 }
 
+function firstEnabledIndex(menu: MenuDef, flags: MenuFlags): number {
+  const index = menu.items.findIndex((item) => itemEnabled(item.id, flags));
+  return index === -1 ? 0 : index;
+}
+
+function lastEnabledIndex(menu: MenuDef, flags: MenuFlags): number {
+  for (let i = menu.items.length - 1; i >= 0; i -= 1) {
+    if (itemEnabled(menu.items[i].id, flags)) return i;
+  }
+  return Math.max(0, menu.items.length - 1);
+}
+
 export function reduceMenu(
   state: MenuState,
   event: MenuEvent,
@@ -73,6 +86,13 @@ export function reduceMenu(
       return state.open === event.menu
         ? closed(state)
         : openMenu(event.menu, null, defs);
+    case 'focusLabel': {
+      if (state.open !== null) return { state, command: null };
+      const label = indexOfMenu(event.menu, defs);
+      return label === state.label
+        ? { state, command: null }
+        : { state: { ...state, label }, command: null };
+    }
     case 'hoverMenu':
       if (state.open === null || state.open === event.menu) {
         // Pointer movement cancels a pending Alt toggle and nothing else.
@@ -117,10 +137,30 @@ function keyDown(
     state = { ...state, altPending: false };
   }
   if (state.open === null) {
-    // Closed bar: Left/Right walk the top-level labels (single Tab stop).
+    // Closed bar: Left/Right/Home/End walk top-level labels; Down/Up/Enter/Space open the focused menu.
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       const delta = event.key === 'ArrowLeft' ? -1 : 1;
       return { state: { ...state, label: (state.label + delta + defs.length) % defs.length }, command: null };
+    }
+    if (event.key === 'Home') {
+      return state.label === 0 ? { state, command: null } : { state: { ...state, label: 0 }, command: null };
+    }
+    if (event.key === 'End') {
+      const lastLabel = defs.length - 1;
+      return state.label === lastLabel
+        ? { state, command: null }
+        : { state: { ...state, label: lastLabel }, command: null };
+    }
+    const focused = defs[state.label] ?? defs[0];
+    if (event.key === 'ArrowDown') {
+      return openMenu(focused.id, 0, defs);
+    }
+    if (event.key === 'ArrowUp') {
+      return openMenu(focused.id, Math.max(0, focused.items.length - 1), defs);
+    }
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      if (event.repeat === true) return { state, command: null };
+      return openMenu(focused.id, 0, defs);
     }
     return { state, command: null };
   }
@@ -134,6 +174,10 @@ function keyDown(
       return moved(state, state.active === null ? 0 : (state.active + 1) % menu.items.length);
     case 'ArrowUp':
       return moved(state, state.active === null ? last : (state.active - 1 + menu.items.length) % menu.items.length);
+    case 'Home':
+      return moved(state, firstEnabledIndex(menu, flags));
+    case 'End':
+      return moved(state, lastEnabledIndex(menu, flags));
     case 'ArrowLeft':
       return openMenu(stepMenu(state.open, defs, -1), 0, defs);
     case 'ArrowRight':

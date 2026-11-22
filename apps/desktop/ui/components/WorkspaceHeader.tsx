@@ -18,7 +18,7 @@ export function WorkspaceHeader({ durationSec }: WorkspaceHeaderProps) {
       </div>
       <div className="header-divider" />
       <div className="header-project">
-        <strong className="preview-title">{t('workspaceHeader.flightWorkspace')}</strong>
+        <h1 className="preview-title">{t('workspaceHeader.flightWorkspace')}</h1>
         {durationSec === null ? null : <small>{t('workspaceHeader.recordingDuration', { duration: formatTime(durationSec) })}</small>}
       </div>
     </header>

@@ -306,4 +306,56 @@ describe('MenuBar APG keyboard model (#238)', () => {
     expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
     outside.remove();
   });
+
+  it.for(['ArrowDown', 'Enter', ' '])(
+    'opens the focused menubar button on %s and focuses item 0 (#406)',
+    (pressed) => {
+      renderBar();
+      const [, view] = labels();
+      fireEvent.focus(view);
+      fireEvent.keyDown(view, { key: pressed });
+      const rows = within(screen.getByRole('menu', { name: 'View' })).getAllByRole('menuitem');
+      expect(document.activeElement).toBe(rows[0]);
+    },
+  );
+
+  it('opens the focused menubar button on ArrowUp and focuses the last item (#406)', () => {
+    renderBar();
+    const [file] = labels();
+    file.focus();
+    fireEvent.keyDown(file, { key: 'ArrowUp' });
+    const rows = fileRows();
+    expect(document.activeElement).toBe(rows[rows.length - 1]);
+  });
+
+  it('moves the closed menubar focus to first/last label on Home and End (#406)', () => {
+    renderBar();
+    const [file, , help] = labels();
+    file.focus();
+    fireEvent.keyDown(file, { key: 'End' });
+    expect(document.activeElement).toBe(help);
+    expect(labels().map((label) => label.tabIndex)).toEqual([-1, -1, 0]);
+    fireEvent.keyDown(help, { key: 'Home' });
+    expect(document.activeElement).toBe(file);
+    expect(labels().map((label) => label.tabIndex)).toEqual([0, -1, -1]);
+  });
+
+  it('jumps to the first and last enabled item on Home and End inside an open menu (#406)', () => {
+    renderBar({ hasRecording: true, opening: false });
+    pressKey({ key: 'f', altKey: true });
+    const rows = fileRows();
+    pressKey({ key: 'End' });
+    expect(document.activeElement).toBe(rows[3]);
+    pressKey({ key: 'Home' });
+    expect(document.activeElement).toBe(rows[0]);
+  });
+
+  it('skips disabled leading rows on Home when opening a recording (#406)', () => {
+    renderBar({ hasRecording: true, opening: true });
+    pressKey({ key: 'f', altKey: true });
+    const rows = fileRows();
+    expect(rows[0].getAttribute('aria-disabled')).toBe('true');
+    pressKey({ key: 'Home' });
+    expect(document.activeElement).toBe(rows[3]);
+  });
 });

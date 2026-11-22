@@ -124,6 +124,7 @@ export function MenuBar({
               aria-haspopup="menu"
               aria-expanded={open}
               tabIndex={index === state.label ? 0 : -1}
+              onFocus={() => dispatch({ type: 'focusLabel', menu: menu.id })}
               onClick={() => dispatch({ type: 'toggle', menu: menu.id })}
               onMouseEnter={() => dispatch({ type: 'hoverMenu', menu: menu.id })}
             >
