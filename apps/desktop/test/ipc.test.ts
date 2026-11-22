@@ -8,7 +8,7 @@ import { appStateFile } from '../src/apppaths.js';
 import type { AppSession } from '../src/appsession.js';
 import type { AppState } from '../src/appstate.js';
 import { emptyAppState } from '../src/appstate.js';
-import { APP_ORIGIN } from '../src/appurls.js';
+import { APP_ORIGIN } from '../shared/appurls.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import { createShellController } from '../src/shellcontroller.js';

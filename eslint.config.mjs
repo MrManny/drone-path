@@ -47,7 +47,7 @@ export default tseslint.config(
       'apps/desktop/ui/next-env.d.ts',
       'apps/desktop/ui/lib/buildinfo/generated/',
       'apps/desktop/ui/lib/manual/generated/',
-      'apps/desktop/src/desktop-i18n/generated/',
+      'apps/desktop/shared/desktop-i18n/generated/',
       'apps/desktop/ui/public/',
       // Agent helper scripts are not linted on purpose (accepted risk).
       'scripts/start-work.mjs',

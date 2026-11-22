@@ -4,7 +4,7 @@ import { useTranslation } from '../lib/i18n.js';
 import type { CSSProperties } from 'react';
 import { useMemo } from 'react';
 
-import type { UiSession } from '../../src/appsession.js';
+import type { UiSession } from '../../shared/contracts.js';
 import type { RenderConfig } from 'drone-path-engine/config';
 import { useSceneIsland } from '../hooks/useSceneIsland.js';
 import { restyleSession } from '../lib/restylemeta.js';

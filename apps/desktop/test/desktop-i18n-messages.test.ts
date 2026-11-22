@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { languageName, resolveLocale, translator } from '../src/desktop-i18n/messages.js';
+import { languageName, resolveLocale, translator } from '../shared/desktop-i18n/messages.js';
 
-import type * as GeneratedCatalogs from '../src/desktop-i18n/generated/catalogs.js';
+import type * as GeneratedCatalogs from '../shared/desktop-i18n/generated/catalogs.js';
 
-vi.mock('../src/desktop-i18n/generated/catalogs.js', async (importOriginal) => {
+vi.mock('../shared/desktop-i18n/generated/catalogs.js', async (importOriginal) => {
   const { catalogs } = await importOriginal<typeof GeneratedCatalogs>();
   return {
     catalogs: {

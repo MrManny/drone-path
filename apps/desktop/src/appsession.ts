@@ -2,9 +2,17 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
-import { TILE_BASE, mediaUrlFor } from './appurls.js';
+import { TILE_BASE, mediaUrlFor } from '#shared/appurls.js';
+import type {
+  IpcResult,
+  PageVideo,
+  PickRequest,
+  PickResult,
+  TrackSaveRequest,
+  UiSession,
+} from '#shared/contracts.js';
+import type { RenderConfig } from 'drone-path-engine/config';
 import { parseAppearanceSettings } from 'drone-path-engine/config';
-import type { AppearanceSettings, RenderConfig } from 'drone-path-engine/config';
 import { parseFrameRange } from 'drone-path-core/frame-range';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import { asRecord, parseValue, strictShape } from 'drone-path-core/validation';
@@ -16,10 +24,8 @@ import {
 } from 'drone-path-core/errors';
 import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import { timeAt } from 'drone-path-core/frametime';
-import type { Bbox } from 'drone-path-core/geo';
 import { isRecordingName } from 'drone-path-engine/recordings';
 import { buildSceneData } from 'drone-path-engine/render-page';
-import type { SceneData } from 'drone-path-engine/renderer/scene';
 import {
   prepareSession,
   recordingPageOpts,
@@ -33,46 +39,22 @@ import { trackFormatOf } from 'drone-path-core/track-format';
 import type { TrackExportInput } from 'drone-path-core/track-write';
 import type { TrackStream } from 'drone-path-core/track';
 
-export interface PageVideo {
-  src: string;
-  fps: number;
-  frames: number;
-  width: number;
-  height: number;
-}
+export type {
+  IpcResult,
+  PageVideo,
+  PickRequest,
+  PickResult,
+  TrackSaveRequest,
+  UiSession,
+};
 
 export function frameExactDuration(probe: VideoProbe): number {
   return timeAt(probe.frames, probe.fps.value);
 }
 
-export interface UiSession {
-  scene: SceneData;
-  video: PageVideo;
-  tileBase: string;
-  bbox: Bbox;
-  durationSec: number;
-}
-
-export interface IpcResult {
-  ok: boolean;
-  canceled?: boolean;
-  error?: string;
-}
-
-export type PickResult = IpcResult;
-
-export interface PickRequest {
-  settings: AppearanceSettings;
-}
-
 export function parsePickRequest(raw: unknown): PickRequest {
   const input = asRecord(raw);
   return { settings: parseAppearanceSettings(input.settings) };
-}
-
-export interface TrackSaveRequest {
-  outPath: string;
-  range: FrameRange | null;
 }
 
 const TRACK_SAVE_SHAPE = {

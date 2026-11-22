@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { ExportRequest } from 'drone-path-engine/config';
-import type { ExportOutcome } from '../../src/exportjob.js';
+import type { ExportOutcome } from '../../shared/contracts.js';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import { useExport } from '../../ui/hooks/useExport.js';
 import type { ExportAck, PickOutputResult } from '../../ui/lib/backend.js';

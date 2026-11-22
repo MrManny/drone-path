@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { UiSession } from '../../src/appsession.js';
+import type { UiSession } from '../../shared/contracts.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { RenderConfig } from 'drone-path-engine/config';
 import type { Scene, SceneData } from 'drone-path-engine/renderer/scene';

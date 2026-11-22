@@ -1,4 +1,4 @@
-import type { Translate } from '../../src/desktop-i18n/messages.js';
+import type { Translate } from '../../shared/desktop-i18n/loader.js';
 import { DEFAULT_CONFIG, appearanceOf, isValidRenderConfig, normalizeDimensions } from 'drone-path-engine/config';
 import type {
   AppearanceSettings,

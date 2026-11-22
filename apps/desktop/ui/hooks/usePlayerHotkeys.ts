@@ -6,7 +6,12 @@ import { framesForSeconds } from '../lib/frametime.js';
 import type { HotkeyAction, HotkeySession } from '../lib/hotkeys.js';
 import { INITIAL_SESSION, mapKey } from '../lib/hotkeys.js';
 
-export interface PlayerActionHandlers {
+export interface ShellActionHandlers {
+  openRecording: () => void;
+  closeOverlay: () => void;
+}
+
+export interface PlaybackActionHandlers {
   togglePlay: () => void;
   setSpeed: (rate: 1 | 2 | 3 | 4) => void;
   stepBy: (deltaFrames: number) => void;
@@ -14,53 +19,56 @@ export interface PlayerActionHandlers {
   setLoopPoint: (which: 'in' | 'out') => void;
   clearLoop: () => void;
   swap: () => void;
-  openRecording: () => void;
-  closeOverlay: () => void;
   zoomStep: (delta: 1 | -1) => void;
 }
+
+export type PlayerActionHandlers = ShellActionHandlers & PlaybackActionHandlers;
+export type HotkeyHandlers = ShellActionHandlers & Partial<PlaybackActionHandlers>;
 
 interface PlayerActionContext {
   modalOpen: boolean;
   menuOpen: boolean;
-  fps: number;
-  frames: number;
+  fps?: number;
+  frames?: number;
 }
 
 export function usePlayerHotkeys(
-  handlers: PlayerActionHandlers,
+  handlers: HotkeyHandlers,
   ctx: PlayerActionContext,
 ): (action: HotkeyAction) => void {
+  const fps = ctx.fps ?? 0;
+  const frames = ctx.frames ?? 0;
   const dispatch = (action: HotkeyAction): void => {
     switch (action.type) {
       case 'togglePlay':
-        handlers.togglePlay();
+        handlers.togglePlay?.();
         return;
       case 'speed':
-        handlers.setSpeed(action.rate);
+        handlers.setSpeed?.(action.rate);
         return;
       case 'step':
-        handlers.stepBy(action.frames);
+        handlers.stepBy?.(action.frames);
         return;
       case 'jump':
-        handlers.stepBy(framesForSeconds(ctx.fps, action.seconds));
+        handlers.stepBy?.(framesForSeconds(fps, action.seconds));
         return;
       case 'seekStart':
-        handlers.scrubTo(0);
+        handlers.scrubTo?.(0);
         return;
       case 'seekEnd':
-        handlers.scrubTo(ctx.frames - 1);
+        handlers.scrubTo?.(frames - 1);
         return;
       case 'setLoopIn':
-        handlers.setLoopPoint('in');
+        handlers.setLoopPoint?.('in');
         return;
       case 'setLoopOut':
-        handlers.setLoopPoint('out');
+        handlers.setLoopPoint?.('out');
         return;
       case 'clearLoop':
-        handlers.clearLoop();
+        handlers.clearLoop?.();
         return;
       case 'swapView':
-        handlers.swap();
+        handlers.swap?.();
         return;
       case 'openRecording':
         handlers.openRecording();
@@ -69,7 +77,7 @@ export function usePlayerHotkeys(
         handlers.closeOverlay();
         return;
       case 'zoomStep':
-        handlers.zoomStep(action.delta);
+        handlers.zoomStep?.(action.delta);
         return;
     }
   };

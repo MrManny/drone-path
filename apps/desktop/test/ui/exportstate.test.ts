@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ExportRequest } from 'drone-path-engine/config';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
-import type { ExportOutcome } from '../../src/exportjob.js';
+import type { ExportOutcome } from '../../shared/contracts.js';
 import {
   captureFraction,
   captureQuartile,

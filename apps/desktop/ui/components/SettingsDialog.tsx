@@ -1,7 +1,7 @@
 'use client';
 
-import { isLocale, languageName, locales } from '../../src/desktop-i18n/messages.js';
-import type { Locale } from '../../src/desktop-i18n/messages.js';
+import { isLocale, languageName, locales } from '../../shared/desktop-i18n/loader.js';
+import type { Locale } from '../../shared/desktop-i18n/loader.js';
 import { useTranslation } from '../lib/i18n.js';
 import { DialogShell } from './DialogShell.js';
 import { Notice } from './Notice.js';

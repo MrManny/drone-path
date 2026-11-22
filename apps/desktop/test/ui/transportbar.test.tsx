@@ -273,4 +273,11 @@ describe('TransportBar disabled mode', () => {
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Play' });
     expect(button.disabled).toBe(true);
   });
+
+  it('defaults player props when rendered with disabled alone', () => {
+    render(<TransportBar disabled />);
+    expect(document.querySelector('.transport-time')?.textContent).toBe('--');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Play' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: '1×' }).getAttribute('aria-pressed')).toBe('true');
+  });
 });

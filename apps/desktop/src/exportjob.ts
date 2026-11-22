@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import type { ExportOutcome } from '#shared/contracts.js';
 import type { ExportRequest } from 'drone-path-engine/config';
 import {
   ERR_COULD_NOT_REPLACE,
@@ -15,10 +16,7 @@ import { processRecording } from 'drone-path-engine/pipeline';
 import type { LogFn } from 'drone-path-engine/logging';
 import type { PipelineDeps, RecordingSummary } from 'drone-path-engine/pipeline';
 
-export type ExportOutcome =
-  | { status: 'ok'; summary: RecordingSummary }
-  | { status: 'error'; error: string }
-  | { status: 'canceled' };
+export type { ExportOutcome };
 
 export type RunExportJobFn = (
   videoPath: string,

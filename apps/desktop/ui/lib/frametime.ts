@@ -1,5 +1,5 @@
-import { tEnglish } from '../../src/desktop-i18n/messages.js';
-import type { Translate } from '../../src/desktop-i18n/messages.js';
+import { tEnglish } from '../../shared/desktop-i18n/loader.js';
+import type { Translate } from '../../shared/desktop-i18n/loader.js';
 import { timeAt } from 'drone-path-core/frametime';
 import type { LoopPoints, LoopState } from './loop.js';
 import { hasLoop } from './loop.js';

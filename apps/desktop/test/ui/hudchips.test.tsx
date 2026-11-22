@@ -2,33 +2,37 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type * as GeneratedCatalogs from '../../src/desktop-i18n/generated/catalogs.js';
-import { resolveLocale } from '../../src/desktop-i18n/messages.js';
+import { englishCatalog } from '../../shared/desktop-i18n/generated/en.js';
+import { resolveLocale } from '../../shared/desktop-i18n/loader.js';
 import { hudMarkup } from 'drone-path-engine/renderer/dom';
 import { LanguageProvider } from '../../ui/lib/i18n.js';
 import { HudChips } from '../../ui/components/HudChips.js';
 import type { ChipReadouts } from '../../ui/lib/chipreadouts.js';
 
-vi.mock('../../src/desktop-i18n/generated/catalogs.js', async (importOriginal) => {
-  const { catalogs } = await importOriginal<typeof GeneratedCatalogs>();
-  const prefixed = Object.fromEntries(Object.entries(catalogs.en).map(([key, value]) => [
+vi.mock('../../shared/desktop-i18n/generated/loaders.js', async () => {
+  const { englishCatalog: en } = await import('../../shared/desktop-i18n/generated/en.js');
+  const prefixed = Object.fromEntries(Object.entries(en).map(([key, value]) => [
     key, typeof value === 'string' ? `翻訳 ${value}` : value,
   ]));
   return {
-    catalogs: {
-      en: catalogs.en,
-      ja: {
-        ...prefixed,
-        'chipreadouts.heading': '方位',
-        'chipreadouts.altitude': '高度',
-        'chipreadouts.speed': '速度',
-        'chipreadouts.headingValue': '{name}、{value}°',
-        'chipreadouts.altitudeValue': '{name}、{value} m',
-        'chipreadouts.speedValue': '{name}、{value} m/s',
-      },
+    localeLoaders: {
+      ja: async () => ({
+        catalog: {
+          ...prefixed,
+          'chipreadouts.heading': '方位',
+          'chipreadouts.altitude': '高度',
+          'chipreadouts.speed': '速度',
+          'chipreadouts.headingValue': '{name}、{value}°',
+          'chipreadouts.altitudeValue': '{name}、{value} m',
+          'chipreadouts.speedValue': '{name}、{value} m/s',
+        },
+      }),
     },
   };
 });
+
+// Keep reference to ensure englishCatalog stays typed in test scope.
+void englishCatalog;
 
 const READOUTS: ChipReadouts = { headingDeg: 90, alt: 11.4, speed: 2.56 };
 
@@ -75,7 +79,7 @@ describe('HudChips', () => {
     expect(chip?.getAttribute('aria-label')).toBe(name);
   });
 
-  it('mirrors the rendered HUD in the export preview and translates the desktop labels', () => {
+  it('mirrors the rendered HUD in the export preview and translates the desktop labels', async () => {
     const hud = { heading: true, alt: true, speed: true };
     const rendered = document.createElement('div');
     rendered.innerHTML = hudMarkup(hud);
@@ -89,10 +93,10 @@ describe('HudChips', () => {
     );
     const labels = () => [...container.querySelectorAll('.label')].map((node) => node.textContent);
 
-    expect(labels()).toEqual(exportLabels);
     for (const name of ['方位、90°', '高度、11 m', '速度、2.6 m/s']) {
-      expect(screen.getByRole('button', { name })).toBeTruthy();
+      expect(await screen.findByRole('button', { name })).toBeTruthy();
     }
+    expect(labels()).toEqual(exportLabels);
 
     rerender(
       <LanguageProvider locale={locale}>

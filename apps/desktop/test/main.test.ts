@@ -51,7 +51,7 @@ import {
   resolveDesktopConfig,
 } from '../app/main.mjs';
 import { showDialogWithParent } from '../app/shell.mjs';
-import { APP_ORIGIN } from '../src/appurls.js';
+import { APP_ORIGIN } from '../shared/appurls.js';
 import { buildRendererCsp } from '../src/securityheaders.js';
 import { createShellController } from '../src/shellcontroller.js';
 import type { HeaderSession, NavigationWebContents, ShellWindow } from '../src/shellcontroller.js';

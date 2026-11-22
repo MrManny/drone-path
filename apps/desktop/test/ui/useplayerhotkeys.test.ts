@@ -221,4 +221,24 @@ describe('usePlayerHotkeys key subscription', () => {
     expect(second.togglePlay).toHaveBeenCalledTimes(1);
     expect(first.togglePlay).not.toHaveBeenCalled();
   });
+
+  it('keeps shell shortcuts live and playback shortcuts silent when playback handlers are omitted', () => {
+    const openRecording = vi.fn();
+    const closeOverlay = vi.fn();
+    renderHook(() =>
+      usePlayerHotkeys(
+        { openRecording, closeOverlay },
+        { modalOpen: false, menuOpen: false },
+      ),
+    );
+    pressKey({ key: ' ' });
+    pressKey({ key: 'ArrowRight', shiftKey: true });
+    pressKey({ key: 'End' });
+    pressKey({ key: 'Escape' });
+    expect(openRecording).not.toHaveBeenCalled();
+    expect(closeOverlay).not.toHaveBeenCalled();
+
+    pressKey({ key: 'o', ctrlKey: true });
+    expect(openRecording).toHaveBeenCalledTimes(1);
+  });
 });

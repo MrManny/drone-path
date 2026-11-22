@@ -24,11 +24,11 @@ interface WorkspaceShellProps {
   onExit: () => void;
   itemTitles?: Partial<Record<MenuItemId, string>>;
   extraActions?: Partial<Record<MenuItemId, () => void>>;
-  hotkeyHandlers: Omit<PlayerActionHandlers, 'openRecording' | 'closeOverlay'>;
-  hotkeyTiming: { fps: number; frames: number };
+  hotkeyHandlers?: Omit<PlayerActionHandlers, 'openRecording' | 'closeOverlay'>;
+  hotkeyTiming?: { fps: number; frames: number };
   stage: ReactNode;
-  transport: Omit<TransportBarProps, 'dispatch'>;
-  timeline: Omit<TimelinePanelProps, 'dispatch'>;
+  transport?: Omit<TransportBarProps, 'dispatch'>;
+  timeline?: Omit<TimelinePanelProps, 'dispatch'>;
   children?: ReactNode;
 }
 
@@ -68,8 +68,8 @@ export function WorkspaceShell({
     {
       modalOpen,
       menuOpen,
-      fps: hotkeyTiming.fps,
-      frames: hotkeyTiming.frames,
+      fps: hotkeyTiming?.fps,
+      frames: hotkeyTiming?.frames,
     },
   );
 
@@ -96,8 +96,8 @@ export function WorkspaceShell({
       <WorkspaceHeader durationSec={durationSec} />
       <main className="workspace-main">
         {stage}
-        <TransportBar dispatch={dispatch} {...transport} />
-        <TimelinePanel dispatch={dispatch} {...timeline} />
+        {transport ? <TransportBar dispatch={dispatch} {...transport} /> : <TransportBar disabled />}
+        {timeline ? <TimelinePanel dispatch={dispatch} {...timeline} /> : <TimelinePanel disabled />}
       </main>
       {children}
     </div>

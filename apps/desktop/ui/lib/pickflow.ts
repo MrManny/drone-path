@@ -1,4 +1,4 @@
-import type { PickResult, UiSession } from '../../src/appsession.js';
+import type { PickResult, UiSession } from '../../shared/contracts.js';
 import { ERR_NO_RECORDING, ERR_UNKNOWN, errorMessage } from 'drone-path-core/errors';
 import type { PickEvent } from './pickstate.js';
 

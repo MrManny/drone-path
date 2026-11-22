@@ -454,4 +454,15 @@ describe('TimelinePanel disabled mode', () => {
     expect(document.querySelector('.loop-band')).toBeNull();
     expect(document.querySelectorAll('.loop-handle')).toHaveLength(0);
   });
+
+  it('defaults player props when rendered with disabled alone', () => {
+    render(<TimelinePanel disabled />);
+    expect(screen.queryByTestId('filmstrip')).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>('slider', { name: 'Playback position' }).disabled,
+    ).toBe(true);
+    for (const name of ['Set in point', 'Set out point', 'Clear in and out points']) {
+      expect(screen.getByRole<HTMLButtonElement>('button', { name }).disabled).toBe(true);
+    }
+  });
 });

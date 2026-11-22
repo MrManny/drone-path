@@ -3,11 +3,9 @@
 import { useCallback } from 'react';
 
 import type { RenderConfig } from 'drone-path-engine/config';
-import type { UiSession } from '../../src/appsession.js';
-import type { Locale } from '../../src/desktop-i18n/messages.js';
-import { translator } from '../../src/desktop-i18n/messages.js';
+import type { UiSession } from '../../shared/contracts.js';
+import type { Locale } from '../../shared/desktop-i18n/loader.js';
 import type { AppModals } from '../hooks/useAppModals.js';
-import { aboutContent } from '../lib/abouttext.js';
 import { BUILD_GIT, BUILD_VERSION } from '../lib/buildinfo/generated/buildinfo.js';
 import type { LoopState } from '../lib/loop.js';
 import { MANUAL } from '../lib/manual/generated/manual.js';
@@ -80,12 +78,7 @@ export function ModalHost({
     case 'help':
       return <HelpOverlay bundle={MANUAL} onClose={closeOverlay} />;
     case 'about':
-      return (
-        <AboutDialog
-          content={aboutContent(BUILD_VERSION, BUILD_GIT, translator(language.locale))}
-          onClose={closeOverlay}
-        />
-      );
+      return <AboutDialog version={BUILD_VERSION} git={BUILD_GIT} onClose={closeOverlay} />;
     case 'export':
       return session && exportFlow.state ? (
         <ExportModal
