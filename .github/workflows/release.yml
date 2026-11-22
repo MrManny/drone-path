@@ -165,6 +165,12 @@ jobs:
         run: npm run build
 
       - name: Build desktop app
+        env:
+          # Windows Authenticode signing: set WIN_CSC_LINK (base64 PFX) and
+          # WIN_CSC_KEY_PASSWORD in repository secrets so NSIS, portable, and
+          # auto-update artifacts are signed and electron-updater verifies them.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: npm run app:pack -- ${{ matrix.target }}
 
       - name: Attach artifact to the release

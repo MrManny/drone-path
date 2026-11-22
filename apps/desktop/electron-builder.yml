@@ -36,6 +36,12 @@ afterPack: build/after-pack.cjs
 # time along with the release's own GPL license text.
 win:
   icon: build/icon.ico
+  # Enforce Authenticode verification for auto-updates and SHA-256 digests when
+  # WIN_CSC_LINK / CSC_LINK is supplied in CI.
+  verifyUpdateCodeSignature: true
+  signtoolOptions:
+    signingHashAlgorithms:
+      - sha256
   extraResources:
     - from: ../../node_modules/ffmpeg-ffprobe-static/ffmpeg.exe
       to: ff/ffmpeg.exe

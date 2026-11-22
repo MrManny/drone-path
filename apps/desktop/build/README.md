@@ -59,14 +59,20 @@ PNG metadata.
 ## Packaging checks
 
 The `afterPack` hook requires the FFmpeg and FFprobe executables and the
-platform's FFmpeg license under `resources/ff/`. The CI packaging smoke also
-checks that the ASAR contains the installed desktop production dependencies
-and that each packaged module resolves the version it uses in the workspace.
-The FFmpeg download package stays outside that graph because the app uses the
-executables bundled in `resources/ff/`.
+platform's FFmpeg license under `resources/ff/`, then flips Electron security
+fuses (`EnableEmbeddedAsarIntegrityValidation`, `OnlyLoadAppFromAsar`, and
+disables `RunAsNode`, `EnableNodeOptionsEnvironmentVariable`, and
+`EnableNodeCliInspectArguments`) on the packaged executable before code signing.
+The CI packaging smoke also checks that the ASAR contains the installed desktop
+production dependencies, that each packaged module resolves the version it uses
+in the workspace, and that the packaged binary carries those fuses
+(`node apps/desktop/build/verify-fuses.cjs <binary>`). The FFmpeg download
+package stays outside that graph because the app uses the executables bundled
+in `resources/ff/`.
 
-To inspect an unpacked Linux build from the repository root, run the checker
-with Electron's ASAR-aware Node mode.
+To inspect an unpacked Linux build from the repository root, run the ASAR
+checker with the workspace's unpackaged Electron binary (`RunAsNode` stays
+disabled on the packaged executable itself).
 
 ```sh
 ELECTRON_RUN_AS_NODE=1 npm exec --workspace drone-path-desktop -- \
@@ -75,3 +81,14 @@ ELECTRON_RUN_AS_NODE=1 npm exec --workspace drone-path-desktop -- \
 
 For Windows, set `ELECTRON_RUN_AS_NODE=1` in the shell and replace
 `linux-unpacked` with `win-unpacked`.
+
+## Windows code signing
+
+Release builds in `.github/workflows/release.yml` pass `WIN_CSC_LINK` (a
+base64-encoded Authenticode `.pfx` certificate) and `WIN_CSC_KEY_PASSWORD`
+from repository secrets to `electron-builder`. When either `WIN_CSC_LINK` or
+`CSC_LINK` is set, `build/electron-config.cjs` enables `win.forceCodeSigning`
+and `electron-builder.yml` uses SHA-256 Authenticode digests and
+`verifyUpdateCodeSignature: true` so `electron-updater` verifies downloaded
+updates against the signing publisher. Local and unsigned CI smoke builds leave
+both variables unset and skip signing.

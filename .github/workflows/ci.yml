@@ -58,3 +58,5 @@ jobs:
         env:
           ELECTRON_RUN_AS_NODE: '1'
         run: npm exec --workspace drone-path-desktop -- electron build/verify-asar.cjs dist-electron/linux-unpacked/resources/app.asar
+      - name: Verify Electron security fuses on the packaged binary
+        run: node apps/desktop/build/verify-fuses.cjs apps/desktop/dist-electron/linux-unpacked/drone-path
