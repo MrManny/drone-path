@@ -100,6 +100,23 @@ describe('HelpOverlay', () => {
     expect(web.hasAttribute('data-manual-slug')).toBe(false);
   });
 
+  it('prevents in-window navigation for unknown non-_blank links', () => {
+    const withUnknown: ManualBundle = {
+      nav: [{ slug: 'index', label: 'User manual' }],
+      pages: {
+        index: {
+          slug: 'index',
+          title: 'User manual',
+          headings: [{ id: 'user-manual', text: 'User manual', level: 1 }],
+          html: '<h1 id="user-manual">User manual</h1><p><a href="unknown.md">unknown</a></p>',
+        },
+      },
+    };
+    render(<HelpOverlay bundle={withUnknown} onClose={vi.fn()} />);
+    const unknown = screen.getByRole('link', { name: 'unknown' });
+    expect(fireEvent.click(unknown)).toBe(false);
+  });
+
   it('closes through the header close', async () => {
     const onClose = renderHelp();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));

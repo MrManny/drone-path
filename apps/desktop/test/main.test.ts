@@ -1,4 +1,10 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
 const harness = vi.hoisted(() => ({
   app: {
@@ -43,9 +49,11 @@ import {
   handleExportDone,
   handleWindowAllClosed,
   installCloseGuard,
+  installNavigationGuards,
   installSecurityHeaders,
+  resolveDesktopConfig,
 } from '../app/main.mjs';
-import type { HeaderSession, MainWindow, ShellState } from '../app/main.mjs';
+import type { HeaderSession, MainWindow, NavigationWebContents, ShellState } from '../app/main.mjs';
 import { APP_ORIGIN } from '../src/apppaths.js';
 import { buildRendererCsp } from '../src/securityheaders.js';
 
@@ -97,6 +105,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  cleanupTmpDirs();
 });
 
 describe('window close guard and export completion', () => {
@@ -291,5 +300,102 @@ describe('renderer security headers', () => {
     expect(externalReply).toHaveBeenCalledWith({
       responseHeaders: { Server: ['other'] },
     });
+  });
+});
+
+describe('installNavigationGuards (#398)', () => {
+  function makeNavHarness(devUrl: string | null) {
+    const listeners = new Map<'will-navigate' | 'will-redirect', (event: { preventDefault(): void }, url: string) => void>();
+    const webContents: NavigationWebContents = {
+      on: (event, listener) => {
+        listeners.set(event, listener);
+      },
+    };
+    installNavigationGuards(webContents, devUrl);
+    return (eventName: 'will-navigate' | 'will-redirect', url: string) => {
+      const listener = listeners.get(eventName);
+      if (!listener) throw new Error(`missing listener for ${eventName}`);
+      const event = { preventDefault: vi.fn() };
+      listener(event, url);
+      return event.preventDefault.mock.calls.length > 0;
+    };
+  }
+
+  it.for(['will-navigate', 'will-redirect'] as const)(
+    'allows APP_ORIGIN and blocks external or file targets on %s in production mode',
+    (eventName) => {
+      const blocked = makeNavHarness(null);
+      expect(blocked(eventName, 'app://bundle/')).toBe(false);
+      expect(blocked(eventName, 'app://bundle/index.html')).toBe(false);
+      expect(blocked(eventName, 'file:///C:/evil.html')).toBe(true);
+      expect(blocked(eventName, 'https://attacker.example/')).toBe(true);
+      expect(blocked(eventName, 'http://localhost:3210/')).toBe(true);
+      expect(blocked(eventName, 'app://bundle.evil/')).toBe(true);
+      expect(blocked(eventName, 'data:text/html,evil')).toBe(true);
+    },
+  );
+
+  it.for(['will-navigate', 'will-redirect'] as const)(
+    'allows the loopback devUrl origin in dev mode and blocks other targets on %s',
+    (eventName) => {
+      const blocked = makeNavHarness('http://localhost:3210');
+      expect(blocked(eventName, 'http://localhost:3210/')).toBe(false);
+      expect(blocked(eventName, 'http://localhost:3210/editor')).toBe(false);
+      expect(blocked(eventName, 'app://bundle/')).toBe(false);
+      expect(blocked(eventName, 'http://localhost:9999/')).toBe(true);
+      expect(blocked(eventName, 'http://localhost:3210.evil/')).toBe(true);
+      expect(blocked(eventName, 'file:///C:/evil.html')).toBe(true);
+    },
+  );
+});
+
+describe('resolveDesktopConfig (#401)', () => {
+  it('ignores .dronepath.json in process.cwd() and its ancestor directories', () => {
+    const cwdRoot = tmpDir();
+    const nestedCwd = path.join(cwdRoot, 'Downloads');
+    fs.mkdirSync(nestedCwd, { recursive: true });
+    fs.writeFileSync(
+      path.join(cwdRoot, '.dronepath.json'),
+      JSON.stringify({ ffmpeg: '/evil/parent-ffmpeg', browser: '/evil/parent-browser' }),
+    );
+    fs.writeFileSync(
+      path.join(nestedCwd, '.dronepath.json'),
+      JSON.stringify({ ffmpeg: '/evil/cwd-ffmpeg', ffprobe: '/evil/cwd-ffprobe' }),
+    );
+    vi.spyOn(process, 'cwd').mockReturnValue(nestedCwd);
+
+    const userRoot = tmpDir();
+    const userDir = path.join(userRoot, 'drone-path');
+    fs.mkdirSync(userDir, { recursive: true });
+    // Even an ancestor of userDir must not be discovered.
+    fs.writeFileSync(
+      path.join(userRoot, '.dronepath.json'),
+      JSON.stringify({ ffmpeg: '/evil/user-parent-ffmpeg' }),
+    );
+
+    const resolved = resolveDesktopConfig(userDir);
+    expect(resolved.configPath).toBeNull();
+    expect(resolved.config.ffmpeg).toBeNull();
+    expect(resolved.config.ffprobe).toBeNull();
+    expect(resolved.config.browser).toBeNull();
+    expect(resolved.config.outDir).toBe(DEFAULT_CONFIG.outDir);
+  });
+
+  it('loads .dronepath.json only when placed directly inside userDataDir and keeps relative outDir', () => {
+    const userDir = tmpDir();
+    const userConfig = path.join(userDir, '.dronepath.json');
+    fs.writeFileSync(userConfig, JSON.stringify({ style: 'topo', workers: 2 }));
+
+    const omittedOutDir = resolveDesktopConfig(userDir);
+    expect(omittedOutDir.configPath).toBe(userConfig);
+    expect(omittedOutDir.config.style).toBe('topo');
+    expect(omittedOutDir.config.workers).toBe(2);
+    expect(omittedOutDir.config.outDir).toBe(DEFAULT_CONFIG.outDir);
+
+    fs.writeFileSync(userConfig, JSON.stringify({ outDir: 'renders' }));
+    expect(resolveDesktopConfig(userDir).config.outDir).toBe('renders');
+
+    fs.writeFileSync(userConfig, JSON.stringify({ outDir: null }));
+    expect(resolveDesktopConfig(userDir).config.outDir).toBeNull();
   });
 });

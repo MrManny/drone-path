@@ -67,6 +67,8 @@ function fakeState(options: {
     updateReady: false,
     lastExportOut: null,
     lastTrackOut: null,
+    pendingExportOut: null,
+    pendingTrackOut: null,
   };
 }
 
@@ -109,6 +111,18 @@ describe('IPC sender trust and query channels', () => {
     ).resolves.toEqual({ ready: false });
     await expect(
       handler({ senderFrame: { url: 'http://localhost:3210.evil.test/' } }),
+    ).rejects.toThrow('untrusted ipc sender');
+  });
+
+  it('rejects non-loopback devUrl origins even when sender matches', async () => {
+    registerIpcHandlers(fakeState(), {
+      devUrl: 'https://attacker.example',
+      log: vi.fn(),
+      sendToWindow: vi.fn(),
+    });
+    const handler = harness.handlers.get('dronepath:update:state')!;
+    await expect(
+      handler({ senderFrame: { url: 'https://attacker.example/' } }),
     ).rejects.toThrow('untrusted ipc sender');
   });
 
@@ -375,5 +389,107 @@ describe('resolveSavePath', () => {
     { typed: 'notes.csv', extensions: TRACK, defaultExtension: 'json', want: 'notes.csv.json' },
   ])('resolves $typed to $want', ({ typed, extensions, defaultExtension, want }) => {
     expect(resolveSavePath(typed, extensions, defaultExtension)).toBe(want);
+  });
+});
+
+describe('main-held dialog selection guards (#390)', () => {
+  it('rejects export:start without an approved dialog path or with a mismatched path', async () => {
+    const state = fakeState();
+    setup(state);
+    const chosen = path.join(tmpDir(), 'exports', 'approved.mp4');
+    const other = path.join(tmpDir(), 'exports', 'other.mp4');
+
+    expect(
+      await invoke('dronepath:export:start', { outPath: other, config: {} }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+    expect(state.exportRunner.start).not.toHaveBeenCalled();
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    expect(await invoke('dronepath:export:pick-output')).toEqual({ ok: true, path: chosen });
+    expect(state.pendingExportOut).toBe(chosen);
+
+    expect(
+      await invoke('dronepath:export:start', { outPath: other, config: {} }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+    expect(state.exportRunner.start).not.toHaveBeenCalled();
+    expect(state.pendingExportOut).toBeNull();
+  });
+
+  it('consumes the approved export path once and clears it on canceled re-pick', async () => {
+    const state = fakeState();
+    setup(state);
+    const chosen = path.join(tmpDir(), 'exports', 'approved.mp4');
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    await invoke('dronepath:export:pick-output');
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
+    expect(await invoke('dronepath:export:pick-output')).toEqual({ ok: false, canceled: true });
+    expect(
+      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    await invoke('dronepath:export:pick-output');
+    expect(
+      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
+    ).toEqual({ ok: true });
+    expect(state.exportRunner.start).toHaveBeenCalledTimes(1);
+    expect(
+      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+  });
+
+  it('rejects track:save without an approved dialog path, on mismatch, or on replay', async () => {
+    const state = fakeState();
+    setup(state);
+    const chosen = path.join(tmpDir(), 'exports', 'approved.json');
+    const other = path.join(tmpDir(), 'exports', 'other.json');
+
+    expect(await invoke('dronepath:track:save', { outPath: other })).toEqual({
+      ok: false,
+      error: 'output path was not approved by save dialog',
+    });
+    expect(state.session!.saveTrack).not.toHaveBeenCalled();
+    expect(state.lastTrackOut).toBeNull();
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    expect(await invoke('dronepath:track:pick-output')).toEqual({ ok: true, path: chosen });
+
+    expect(await invoke('dronepath:track:save', { outPath: other })).toEqual({
+      ok: false,
+      error: 'output path was not approved by save dialog',
+    });
+    expect(state.session!.saveTrack).not.toHaveBeenCalled();
+    expect(state.lastTrackOut).toBeNull();
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
+    await invoke('dronepath:track:pick-output');
+    expect(await invoke('dronepath:track:save', { outPath: chosen })).toEqual({ ok: true });
+    expect(state.session!.saveTrack).toHaveBeenCalledWith(chosen, null);
+    expect(state.lastTrackOut).toBe(chosen);
+
+    expect(await invoke('dronepath:track:save', { outPath: chosen })).toEqual({
+      ok: false,
+      error: 'output path was not approved by save dialog',
+    });
+    expect(state.session!.saveTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears pending output selections when a new recording is picked', async () => {
+    const state = fakeState();
+    setup(state);
+    const chosenExport = path.join(tmpDir(), 'exports', 'a.mp4');
+    const chosenTrack = path.join(tmpDir(), 'exports', 'a.json');
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosenExport });
+    await invoke('dronepath:export:pick-output');
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosenTrack });
+    await invoke('dronepath:track:pick-output');
+
+    await invoke('dronepath:pick', { settings: DEFAULT_CONFIG });
+
+    expect(state.pendingExportOut).toBeNull();
+    expect(state.pendingTrackOut).toBeNull();
   });
 });

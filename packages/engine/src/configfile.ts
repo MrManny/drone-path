@@ -83,11 +83,19 @@ function mergeConfigLayers(
   };
 }
 
-function resolveConfigPaths(config: RenderConfig, cwd: string): RenderConfig {
+function resolveConfigPaths(
+  config: RenderConfig,
+  cwd: string,
+  resolveOutDir = true,
+): RenderConfig {
   return {
     ...config,
     tileCache: path.resolve(cwd, config.tileCache || defaultTileCache()),
-    outDir: config.outDir ? path.resolve(cwd, config.outDir) : null,
+    outDir: config.outDir
+      ? resolveOutDir
+        ? path.resolve(cwd, config.outDir)
+        : config.outDir
+      : null,
   };
 }
 
@@ -95,14 +103,19 @@ export function resolveConfig(opts: {
   cli?: ConfigOverrides;
   configPath?: string | null;
   cwd?: string;
+  discover?: boolean;
+  resolveOutDir?: boolean;
   onDeprecated?: (message: string) => void;
   cliTrackOutSpelling?: TrackOutSpelling | null;
 }): ResolvedConfig {
   const cwd = opts.cwd ?? process.cwd();
+  const discover = opts.discover ?? true;
   const configPath =
     opts.configPath !== undefined && opts.configPath !== null
       ? path.resolve(cwd, opts.configPath)
-      : discoverConfigFile(cwd);
+      : discover
+        ? discoverConfigFile(cwd)
+        : null;
   const fileLayer: ConfigFileLayer = configPath
     ? loadConfigFile(configPath, opts.onDeprecated)
     : { overrides: {}, trackOutSpelling: null };
@@ -116,5 +129,8 @@ export function resolveConfig(opts: {
 
   const normalized = finalizeRenderConfig(merged);
 
-  return { config: resolveConfigPaths(normalized, cwd), configPath };
+  return {
+    config: resolveConfigPaths(normalized, cwd, opts.resolveOutDir ?? true),
+    configPath,
+  };
 }

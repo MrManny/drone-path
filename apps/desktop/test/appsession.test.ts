@@ -473,12 +473,18 @@ describe('parseTrackSaveRequest', () => {
     ).toEqual(expected);
   });
 
-  it('rejects junk payloads, unknown keys and empty paths', () => {
+  it('rejects junk payloads, unknown keys and empty or relative paths', () => {
     expect(() => parseTrackSaveRequest(null)).toThrow('invalid track save request');
     expect(() => parseTrackSaveRequest([])).toThrow('invalid track save request');
     expect(() => parseTrackSaveRequest({})).toThrow('outPath');
     expect(() => parseTrackSaveRequest({ outPath: '' })).toThrow('outPath');
     expect(() => parseTrackSaveRequest({ outPath: 7 })).toThrow('outPath');
+    expect(() => parseTrackSaveRequest({ outPath: 'flight.json' })).toThrow(
+      'output path must be absolute',
+    );
+    expect(() => parseTrackSaveRequest({ outPath: '../escape.json' })).toThrow(
+      'output path must be absolute',
+    );
     expect(() =>
       parseTrackSaveRequest({ outPath: '/a.json', surprise: 1 }),
     ).toThrow('unknown track save request key surprise');

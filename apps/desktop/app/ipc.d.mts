@@ -22,6 +22,8 @@ export interface IpcState {
   updateReady: boolean;
   lastExportOut: string | null;
   lastTrackOut: string | null;
+  pendingExportOut: string | null;
+  pendingTrackOut: string | null;
 }
 
 export interface IpcHandlersOptions {

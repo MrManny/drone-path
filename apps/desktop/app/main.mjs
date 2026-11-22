@@ -12,7 +12,13 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, dialog, Menu, net, protocol, session, shell } from 'electron';
 
 import { resolveAppAsset } from '../dist/appassets.js';
-import { APP_ORIGIN, appStateFile, uiExportRoot } from '../dist/apppaths.js';
+import {
+  APP_ORIGIN,
+  appStateFile,
+  isAllowedAppUrl,
+  resolveDevUrl,
+  uiExportRoot,
+} from '../dist/apppaths.js';
 import {
   applyAppState,
   emptyAppState,
@@ -21,7 +27,9 @@ import {
   saveAppStateSafely,
 } from '../dist/appstate.js';
 import { createAppSession } from '../dist/appsession.js';
+import { CONFIG_FILE_NAME } from 'drone-path-engine/config';
 import { resolveConfig } from 'drone-path-engine/configfile';
+import { userDataDir } from 'drone-path-engine/paths';
 import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { createExportRunner } from '../dist/exportjob.js';
@@ -41,11 +49,6 @@ import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
 import { initUpdates } from './update.mjs';
 
 const SCHEME = 'app';
-// --dev-url points the window at `next dev` (hot reload) instead of the
-// built export; kept an argv flag so no cross-platform env helper is needed.
-const devUrlIndex = process.argv.indexOf('--dev-url');
-const DEV_URL = devUrlIndex >= 0 ? process.argv[devUrlIndex + 1] : null;
-const DEV_MODE = DEV_URL !== null;
 const log = (msg) => process.stderr.write(`[drone-path] ${msg}\n`);
 
 // Must run before app ready so the scheme gets standard/secure semantics.
@@ -85,6 +88,9 @@ export function createShellState() {
     // save: the only paths the renderer may reveal or open.
     lastExportOut: null,
     lastTrackOut: null,
+    // The destinations most recently approved by native save dialogs.
+    pendingExportOut: null,
+    pendingTrackOut: null,
     closePromptOpen: false,
     pendingClose: false,
   };
@@ -207,11 +213,26 @@ async function handleRequest(state, request, csp) {
   }
 }
 
+// Desktop never walks process.cwd() upward for .dronepath.json; only a
+// config file placed inside the controlled userDataDir() is consulted, and
+// relative outDir values stay relative so exportDefaultFor() anchors them at
+// the recording folder.
+export function resolveDesktopConfig(userDir = userDataDir()) {
+  const candidate = path.join(userDir, CONFIG_FILE_NAME);
+  const configPath = fs.existsSync(candidate) ? candidate : null;
+  return resolveConfig({
+    cwd: userDir,
+    configPath,
+    discover: false,
+    resolveOutDir: false,
+  });
+}
+
 // The backing services behind the window: tool check, config, tile cache and
 // the recording session.
 async function initServices(state) {
   state.appState = readAppState(appStateFile());
-  const resolved = resolveConfig({});
+  const resolved = resolveDesktopConfig();
   state.config = applyAppState(resolved.config, state.appState);
   await requireFfmpegTools(resolveFfmpegTools(state.config));
   // One polite tile queue for the whole app: on-demand tiles and the export
@@ -262,13 +283,21 @@ function installProtocolHandler(state, csp) {
   );
 }
 
-function ensureUiExport() {
-  if (!DEV_MODE && !fs.existsSync(path.join(exportRoot, 'index.html'))) {
+function ensureUiExport(devUrl) {
+  if (devUrl === null && !fs.existsSync(path.join(exportRoot, 'index.html'))) {
     throw new Error('ui export missing; run "npm run build" first');
   }
 }
 
-function createWindow(state) {
+export function installNavigationGuards(webContents, devUrl) {
+  const guard = (event, url) => {
+    if (!isAllowedAppUrl(url, devUrl)) event.preventDefault();
+  };
+  webContents.on('will-navigate', guard);
+  webContents.on('will-redirect', guard);
+}
+
+function createWindow(state, devUrl) {
   // The in-app menu bar owns all workspace commands; a native Alt/F10 menu
   // would compete with it, so none is installed (Windows and Linux).
   Menu.setApplicationMenu(null);
@@ -306,6 +335,7 @@ function createWindow(state) {
     if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
+  installNavigationGuards(state.win.webContents, devUrl);
 }
 
 // Closing the window must not silently kill a running export and strand
@@ -355,8 +385,8 @@ export function installCloseGuard(state) {
   });
 }
 
-async function loadUi(state) {
-  await state.win.loadURL(DEV_MODE ? DEV_URL : `${APP_ORIGIN}/`);
+async function loadUi(state, devUrl) {
+  await state.win.loadURL(devUrl ?? `${APP_ORIGIN}/`);
 }
 
 // The window is the app: closing it quits. A still-running export delays the
@@ -374,6 +404,7 @@ async function startup() {
   const state = createShellState();
   app.on('window-all-closed', () => handleWindowAllClosed(state));
   try {
+    const devUrl = resolveDevUrl(process.argv, app.isPackaged);
     await initServices(state);
     initExportRunner(state);
     state.updates = initUpdates({
@@ -385,17 +416,17 @@ async function startup() {
         sendToWindow(state, 'dronepath:update:ready');
       },
     });
-    registerIpcHandlers(state, { devUrl: DEV_URL, log, sendToWindow });
-    ensureUiExport();
+    registerIpcHandlers(state, { devUrl, log, sendToWindow });
+    ensureUiExport(devUrl);
     const csp = buildRendererCsp({
-      devUrl: DEV_URL,
-      scriptHashes: DEV_MODE ? [] : collectExportScriptHashes(exportRoot),
+      devUrl,
+      scriptHashes: devUrl !== null ? [] : collectExportScriptHashes(exportRoot),
     });
-    installSecurityHeaders(session.defaultSession, csp, DEV_URL);
+    installSecurityHeaders(session.defaultSession, csp, devUrl);
     installProtocolHandler(state, csp);
-    createWindow(state);
+    createWindow(state, devUrl);
     installCloseGuard(state);
-    await loadUi(state);
+    await loadUi(state, devUrl);
   } catch (e) {
     fail(state, e);
   }
