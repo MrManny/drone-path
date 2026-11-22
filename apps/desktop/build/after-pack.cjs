@@ -1,12 +1,11 @@
-// electron-builder afterPack hook: fail the build loudly when the embedded
-// ffmpeg/ffprobe executables or their license text never made it into
-// resources/ff/. electron-builder silently skips missing extraResources
-// sources, so without this guard a dropped optional dependency (or a failed
-// ffmpeg-ffprobe-static install download) packages green with empty tooling.
+// electron-builder afterPack hook: fail the build loudly when embedded tooling
+// is missing, and flip Electron security fuses before Windows/macOS code signing.
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { FuseV1Options, FuseVersion, flipFuses } = require('@electron/fuses');
 
 function isFile(file) {
   try {
@@ -32,10 +31,50 @@ function assertFfResources(resourcesDir, platform) {
   }
 }
 
+function electronBinaryPath(appOutDir, packager, platform) {
+  switch (platform) {
+    case 'win32':
+      return path.join(appOutDir, `${packager.appInfo.productFilename}.exe`);
+    case 'linux':
+      return path.join(appOutDir, packager.executableName);
+    case 'darwin':
+    case 'mas':
+      return path.join(appOutDir, `${packager.appInfo.productFilename}.app`);
+    default:
+      throw new Error(`unsupported electron platform for fuses: ${platform}`);
+  }
+}
+
+function securityFuseConfig(platform) {
+  return {
+    version: FuseVersion.V1,
+    resetAdHocDarwinSignature: platform === 'darwin' || platform === 'mas',
+    [FuseV1Options.RunAsNode]: false,
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+    [FuseV1Options.EnableNodeCliInspectArguments]: false,
+    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+    [FuseV1Options.OnlyLoadAppFromAsar]: true,
+  };
+}
+
+async function applyElectronFuses(context) {
+  const binary = electronBinaryPath(
+    context.appOutDir,
+    context.packager,
+    context.electronPlatformName,
+  );
+  await flipFuses(binary, securityFuseConfig(context.electronPlatformName));
+  return binary;
+}
+
 module.exports = async function afterPack(context) {
   assertFfResources(
     context.packager.getResourcesDir(context.appOutDir),
     context.electronPlatformName,
   );
+  await applyElectronFuses(context);
 };
 module.exports.assertFfResources = assertFfResources;
+module.exports.applyElectronFuses = applyElectronFuses;
+module.exports.electronBinaryPath = electronBinaryPath;
+module.exports.securityFuseConfig = securityFuseConfig;

@@ -16,6 +16,13 @@ const harness = vi.hoisted(() => ({
     registerSchemesAsPrivileged: vi.fn(),
     handle: vi.fn(),
   },
+  session: {
+    defaultSession: {
+      webRequest: {
+        onHeadersReceived: vi.fn(),
+      },
+    },
+  },
 }));
 
 vi.mock('electron', () => ({
@@ -25,6 +32,7 @@ vi.mock('electron', () => ({
   Menu: { setApplicationMenu: vi.fn() },
   net: { fetch: vi.fn() },
   protocol: harness.protocol,
+  session: harness.session,
   shell: { openExternal: vi.fn() },
 }));
 
@@ -35,8 +43,11 @@ import {
   handleExportDone,
   handleWindowAllClosed,
   installCloseGuard,
+  installSecurityHeaders,
 } from '../app/main.mjs';
-import type { MainWindow, ShellState } from '../app/main.mjs';
+import type { HeaderSession, MainWindow, ShellState } from '../app/main.mjs';
+import { APP_ORIGIN } from '../src/apppaths.js';
+import { buildRendererCsp } from '../src/securityheaders.js';
 
 function makeWindow() {
   let closeHandler: ((e: { preventDefault(): void }) => void) | null = null;
@@ -239,5 +250,46 @@ describe('window close guard and export completion', () => {
     handleExportDone(state, { status: 'canceled' });
     expect(state.pendingClose).toBe(false);
     expect(harness.app.quit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('renderer security headers', () => {
+  it('enforces CSP and X-Content-Type-Options on app:// and devUrl responses only', () => {
+    let listener: Parameters<HeaderSession['webRequest']['onHeadersReceived']>[0] | null = null;
+    const targetSession: HeaderSession = {
+      webRequest: {
+        onHeadersReceived: (fn) => {
+          listener = fn;
+        },
+      },
+    };
+    const csp = buildRendererCsp();
+    installSecurityHeaders(targetSession, csp, 'http://localhost:3210');
+    expect(listener).not.toBeNull();
+
+    const appReply = vi.fn();
+    listener!({ url: `${APP_ORIGIN}/index.html`, responseHeaders: { 'Content-Type': ['text/html'] } }, appReply);
+    expect(appReply).toHaveBeenCalledWith({
+      responseHeaders: {
+        'Content-Type': ['text/html'],
+        'Content-Security-Policy': [csp],
+        'X-Content-Type-Options': ['nosniff'],
+      },
+    });
+
+    const devReply = vi.fn();
+    listener!({ url: 'http://localhost:3210/', responseHeaders: {} }, devReply);
+    expect(devReply).toHaveBeenCalledWith({
+      responseHeaders: {
+        'Content-Security-Policy': [csp],
+        'X-Content-Type-Options': ['nosniff'],
+      },
+    });
+
+    const externalReply = vi.fn();
+    listener!({ url: 'https://example.com/', responseHeaders: { Server: ['other'] } }, externalReply);
+    expect(externalReply).toHaveBeenCalledWith({
+      responseHeaders: { Server: ['other'] },
+    });
   });
 });

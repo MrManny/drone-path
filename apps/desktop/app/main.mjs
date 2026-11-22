@@ -9,7 +9,7 @@ import process from 'node:process';
 import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 
-import { app, BrowserWindow, dialog, Menu, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, net, protocol, session, shell } from 'electron';
 
 import { resolveAppAsset } from '../dist/appassets.js';
 import { APP_ORIGIN, appStateFile, uiExportRoot } from '../dist/apppaths.js';
@@ -28,6 +28,13 @@ import { createExportRunner } from '../dist/exportjob.js';
 import { requireFfmpegTools } from 'drone-path-core/ffmpeg';
 import { resolveFfmpegTools } from 'drone-path-core/ffmpeg-tools';
 import { planByteRange } from 'drone-path-engine/range';
+import {
+  applySecurityHeaders,
+  buildRendererCsp,
+  collectExportScriptHashes,
+  shouldApplySecurityHeaders,
+  withResponseSecurityHeaders,
+} from '../dist/securityheaders.js';
 import { createTileTraffic } from 'drone-path-engine/tiles';
 import { registerIpcHandlers } from './ipc.mjs';
 import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
@@ -134,39 +141,49 @@ export function handleExportDone(state, outcome) {
   }
 }
 
-function videoResponse(request, filePath) {
+function videoResponse(request, filePath, csp) {
   const size = fs.statSync(filePath).size;
   const plan = planByteRange(request.headers.get('range') ?? undefined, size, 'video/mp4');
+  const headers = withResponseSecurityHeaders(plan.headers, csp);
   if (plan.status === 416) {
-    return new Response(plan.body, { status: 416, headers: plan.headers });
+    return new Response(plan.body, { status: 416, headers });
   }
   const stream =
     plan.status === 206
       ? fs.createReadStream(filePath, { start: plan.span.start, end: plan.span.end })
       : fs.createReadStream(filePath);
-  return new Response(Readable.toWeb(stream), { status: plan.status, headers: plan.headers });
+  return new Response(Readable.toWeb(stream), { status: plan.status, headers });
 }
 
 // net.fetch only sets request headers; wrapping the body gives the client
 // the intended MIME and status.
-async function fileResponse(filePath, mime, status = 200) {
+async function fileResponse(filePath, mime, status = 200, csp = '') {
   const fetched = await net.fetch(pathToFileURL(filePath).toString());
-  return new Response(fetched.body, { status, headers: { 'Content-Type': mime } });
+  const headers = csp
+    ? withResponseSecurityHeaders({ 'Content-Type': mime }, csp)
+    : { 'Content-Type': mime };
+  return new Response(fetched.body, { status, headers });
 }
 
-function notFound() {
+function notFound(csp) {
   const fallback = path.join(exportRoot, '404.html');
   return fs.existsSync(fallback)
-    ? fileResponse(fallback, 'text/html; charset=utf-8', 404)
-    : new Response('not found', { status: 404 });
+    ? fileResponse(fallback, 'text/html; charset=utf-8', 404, csp)
+    : new Response('not found', {
+        status: 404,
+        headers: withResponseSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }, csp),
+      });
 }
 
-async function handleRequest(state, request) {
+async function handleRequest(state, request, csp) {
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname);
   } catch {
-    return new Response('bad request', { status: 400 });
+    return new Response('bad request', {
+      status: 400,
+      headers: withResponseSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }, csp),
+    });
   }
   const plan = resolveAppAsset(pathname, {
     exportRoot,
@@ -174,19 +191,19 @@ async function handleRequest(state, request) {
   });
   switch (plan.kind) {
     case 'video':
-      return videoResponse(request, plan.filePath);
+      return videoResponse(request, plan.filePath, csp);
     case 'tile': {
       // Always through the tile traffic: it serves cached tiles immediately,
       // retries tiles whose earlier download failed (so they recover once
       // connectivity returns) and falls back to the placeholder.
       const file = await state.tileTraffic.ensure(plan.style, plan.tile);
-      return fileResponse(file, 'image/png');
+      return fileResponse(file, 'image/png', 200, csp);
     }
     case 'export':
-      if (fs.existsSync(plan.filePath)) return fileResponse(plan.filePath, plan.mime);
-      return notFound();
+      if (fs.existsSync(plan.filePath)) return fileResponse(plan.filePath, plan.mime, 200, csp);
+      return notFound(csp);
     case 'not-found':
-      return notFound();
+      return notFound(csp);
   }
 }
 
@@ -223,11 +240,24 @@ function initExportRunner(state) {
   });
 }
 
-function installProtocolHandler(state) {
+export function installSecurityHeaders(targetSession, csp, devUrl = null) {
+  targetSession.webRequest.onHeadersReceived((details, callback) => {
+    if (!shouldApplySecurityHeaders(details.url, devUrl)) {
+      callback({ responseHeaders: details.responseHeaders });
+      return;
+    }
+    callback({ responseHeaders: applySecurityHeaders(details.responseHeaders ?? {}, csp) });
+  });
+}
+
+function installProtocolHandler(state, csp) {
   protocol.handle(SCHEME, (request) =>
-    handleRequest(state, request).catch((e) => {
+    handleRequest(state, request, csp).catch((e) => {
       log(`scheme error: ${errorMessage(e)}`);
-      return new Response('internal error', { status: 500 });
+      return new Response('internal error', {
+        status: 500,
+        headers: withResponseSecurityHeaders({ 'Content-Type': 'text/plain; charset=utf-8' }, csp),
+      });
     }),
   );
 }
@@ -356,8 +386,13 @@ async function startup() {
       },
     });
     registerIpcHandlers(state, { devUrl: DEV_URL, log, sendToWindow });
-    installProtocolHandler(state);
     ensureUiExport();
+    const csp = buildRendererCsp({
+      devUrl: DEV_URL,
+      scriptHashes: DEV_MODE ? [] : collectExportScriptHashes(exportRoot),
+    });
+    installSecurityHeaders(session.defaultSession, csp, DEV_URL);
+    installProtocolHandler(state, csp);
     createWindow(state);
     installCloseGuard(state);
     await loadUi(state);

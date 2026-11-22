@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
@@ -18,7 +18,10 @@ const engine = JSON.parse(fs.readFileSync(path.join(root, '..', '..', 'packages'
 };
 const builderConfig = fs.readFileSync(path.join(root, 'electron-builder.yml'), 'utf8');
 
-afterEach(cleanupTmpDirs);
+afterEach(() => {
+  vi.unstubAllEnvs();
+  cleanupTmpDirs();
+});
 
 function sourceFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -138,5 +141,112 @@ describe('the afterPack guard', () => {
     expect(() => guard.assertFfResources(resourcesWith([]), 'linux')).toThrow(
       /missing embedded tooling.*ffmpeg-ffprobe-static/,
     );
+  });
+});
+
+describe('Electron security fuses and Windows signing configuration', () => {
+  const req = createRequire(import.meta.url);
+  const afterPack = req(path.join(root, 'build', 'after-pack.cjs')) as ((
+    context: {
+      appOutDir: string;
+      electronPlatformName: string;
+      packager: {
+        getResourcesDir: (appOutDir: string) => string;
+        appInfo: { productFilename: string };
+        executableName: string;
+      };
+    },
+  ) => Promise<void>) & {
+    electronBinaryPath: (
+      appOutDir: string,
+      packager: { appInfo: { productFilename: string }; executableName: string },
+      platform: string,
+    ) => string;
+  };
+  const { verifyElectronFuses } = req(path.join(root, 'build', 'verify-fuses.cjs')) as {
+    verifyElectronFuses: (binaryPath: string) => Promise<string[]>;
+  };
+  const { SENTINEL, FuseState } = req('@electron/fuses/dist/constants.js') as {
+    SENTINEL: string;
+    FuseState: { DISABLE: number; ENABLE: number };
+  };
+
+  function writeSyntheticElectronBinary(filePath: string): void {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    // Default Electron v1 fuse wire: 8 fuses starting enabled/disabled opposite to hardened state.
+    const wire = Buffer.from([
+      1, 8,
+      FuseState.ENABLE,  // RunAsNode
+      FuseState.DISABLE, // EnableCookieEncryption
+      FuseState.ENABLE,  // EnableNodeOptionsEnvironmentVariable
+      FuseState.ENABLE,  // EnableNodeCliInspectArguments
+      FuseState.DISABLE, // EnableEmbeddedAsarIntegrityValidation
+      FuseState.DISABLE, // OnlyLoadAppFromAsar
+      FuseState.DISABLE, // LoadBrowserProcessSpecificV8Snapshot
+      FuseState.ENABLE,  // GrantFileProtocolExtraPrivileges
+    ]);
+    fs.writeFileSync(filePath, Buffer.concat([Buffer.from('stub-'), Buffer.from(SENTINEL), wire]));
+  }
+
+  it('pins @electron/fuses as a patch-level devDependency', () => {
+    expect(pkg.devDependencies['@electron/fuses']).toMatch(/^~\d+\.\d+\.\d+$/);
+  });
+
+  it('configures SHA-256 Authenticode verification in electron-builder.yml', () => {
+    expect(builderConfig).toContain('verifyUpdateCodeSignature: true');
+    expect(builderConfig).toContain('signingHashAlgorithms:');
+    expect(builderConfig).toContain('- sha256');
+  });
+
+  it('enables forceCodeSigning only when WIN_CSC_LINK or CSC_LINK is set', () => {
+    const configPath = path.join(root, 'build', 'electron-config.cjs');
+    const loadConfig = () => {
+      delete req.cache[req.resolve(configPath)];
+      return req(configPath) as { win: { forceCodeSigning: boolean } };
+    };
+
+    vi.stubEnv('WIN_CSC_LINK', '');
+    vi.stubEnv('CSC_LINK', '');
+    expect(loadConfig().win.forceCodeSigning).toBe(false);
+
+    vi.stubEnv('WIN_CSC_LINK', 'base64-pfx');
+    expect(loadConfig().win.forceCodeSigning).toBe(true);
+
+    vi.stubEnv('WIN_CSC_LINK', '');
+    vi.stubEnv('CSC_LINK', 'base64-pfx');
+    expect(loadConfig().win.forceCodeSigning).toBe(true);
+  });
+
+  it.each([
+    ['win32', 'Drone Path.exe'],
+    ['linux', 'drone-path'],
+  ] as const)('flips and verifies security fuses in %s packaged binary via afterPack', async (platform, binName) => {
+    const appOutDir = path.join(tmpDir(), `${platform}-unpacked`);
+    const resourcesDir = path.join(appOutDir, 'resources');
+    const ffDir = path.join(resourcesDir, 'ff');
+    fs.mkdirSync(ffDir, { recursive: true });
+    const exe = (name: string) => (platform === 'win32' ? `${name}.exe` : name);
+    for (const file of [exe('ffmpeg'), exe('ffprobe'), `${exe('ffmpeg')}.LICENSE`]) {
+      fs.writeFileSync(path.join(ffDir, file), 'x');
+    }
+
+    const packager = {
+      getResourcesDir: () => resourcesDir,
+      appInfo: { productFilename: 'Drone Path' },
+      executableName: 'drone-path',
+    };
+    const binaryPath = afterPack.electronBinaryPath(appOutDir, packager, platform);
+    expect(binaryPath).toBe(path.join(appOutDir, binName));
+    writeSyntheticElectronBinary(binaryPath);
+
+    await expect(verifyElectronFuses(binaryPath)).rejects.toThrow(/mismatch/);
+    await afterPack({ appOutDir, electronPlatformName: platform, packager });
+    await expect(verifyElectronFuses(binaryPath)).resolves.toEqual([
+      'RunAsNode',
+      'EnableNodeOptionsEnvironmentVariable',
+      'EnableNodeCliInspectArguments',
+      'EnableEmbeddedAsarIntegrityValidation',
+      'OnlyLoadAppFromAsar',
+    ]);
   });
 });
