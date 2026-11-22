@@ -53,7 +53,7 @@ drone-path archive near 46.62,14.31 --radius 250 --include-gaze
 # export smooth-glide shot segments as DaVinci Resolve CSV markers
 drone-path archive export-markers shots.csv --segment-type smooth-glide
 
-# export a standalone offline HTML map with camera ground footprints
+# export a standalone HTML map with camera ground footprints
 drone-path archive export-map flights.html --include-gaze
 
 # export combined GeoJSON tracks for online clips
@@ -235,7 +235,7 @@ drone-path archive export-tracks <out> [options]
 | `--include-gaze` | `export-map` | Include estimated camera ground footprints in the HTML map. |
 
 - **NLE markers (`export-markers`):** Writes DaVinci Resolve CSV (`.csv`) or Final Cut Pro XML 1.10 (`.fcpxml`) markers from matching indexed shot segments. DaVinci Resolve CSV writes SMPTE timecodes (`#,Clip Name,In,Out,Duration,Marker Color,Marker Name,Notes`) with formula-injection escaping; FCPXML 1.10 writes `<asset-clip>` entries with `<marker>` tags, asset `file://` URLs, and rational frame durations.
-- **Offline HTML maps (`export-map`):** Writes a standalone `.html` file embedding Leaflet and the selected flight geometry colored by inferred flight, with no external tile server required.
+- **HTML maps (`export-map`):** Writes a standalone `.html` file with the selected geometry colored by inferred flight. The map opens with Esri imagery. Use the layer picker to switch to OpenTopoMap or select **No basemap**. The browser requests tiles from the selected provider when viewing the map. Tracks and any exported camera footprints remain visible offline.
 - **Combined tracks (`export-tracks`):** Writes `.gpx`, `.geojson`, `.kml`, or `.kmz`, preserving flight groups and segment boundaries and splitting tracks at the antimeridian. Because the archive stores simplified tracks and clip-relative sample times, exported tracks omit absolute altitudes and UTC timestamps.
 - **Launch redaction (`--redact-launch <m>`):** Uses each flight's full indexed endpoints even when filters exclude its first or last clip. A positive radius also omits camera footprints and clip labels from HTML maps. The saved archive index is unchanged; if a recording started after takeoff or stopped before landing, remaining route geometry may still reveal the flight area.
 
