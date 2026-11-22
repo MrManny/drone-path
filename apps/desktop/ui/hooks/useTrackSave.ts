@@ -57,7 +57,7 @@ export function useTrackSave(options: {
         savingRef.current = false;
       }
     })();
-  }, [range, scope, dispatchDialog]);
+  }, [range, scope, dispatchDialog, mountedRef]);
 
   const reveal = useCallback((): void => {
     if (phase?.kind !== 'done' || revealingRef.current) return;
@@ -80,7 +80,7 @@ export function useTrackSave(options: {
         revealingRef.current = false;
       }
     })();
-  }, [phase]);
+  }, [phase, mountedRef]);
 
   return { phase, save, reveal };
 }
