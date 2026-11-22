@@ -1,5 +1,10 @@
 # drone-path-archive
 
+## 1.1.0
+
+- **New:** Index shot segments and filter recordings by segment type or
+  smoothness. Export shot markers as DaVinci Resolve CSV or FCPXML.
+
 ## 1.0.0
 
 - **New:** Scan folders into a local SQLite archive index, skipping unchanged

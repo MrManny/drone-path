@@ -1,5 +1,10 @@
 # drone-path-core
 
+## 1.1.0
+
+- **New:** Detect kinematic shot segments from flight telemetry and extract
+  JPEG keyframes with telemetry snapshots at specific times or frame numbers.
+
 ## 1.0.0
 
 - **New:** Support archive filtering, nearest-track and camera-footprint

@@ -1,5 +1,38 @@
 # drone-path
 
+## 1.1.0
+
+### Core libraries
+
+- **New:** Detect kinematic shot segments from flight telemetry and extract
+  JPEG keyframes with telemetry snapshots at specific times or frame numbers.
+- **New:** Index shot segments and filter recordings by segment type or
+  smoothness. Export shot markers as DaVinci Resolve CSV or FCPXML.
+- **Fixed:** Improve map attribution contrast over light tiles.
+
+### CLI
+
+- **New:** Run `drone-path mcp` over stdio to scan and query recordings, read
+  telemetry, extract keyframes, export markers, and render map overlays. Set
+  `--allow-root` to choose which folders the server can access. MCP exports
+  protect existing files by default.
+- **New:** Use `drone-path extract-frame` to save JPEGs with telemetry
+  snapshots and `drone-path archive export-markers` to export shot markers.
+  Filter `archive list` with `--segment-type` or `--min-smoothness`.
+
+### Desktop
+
+- **Fixed:** Improve keyboard navigation, modal focus, timeline focus
+  indicators, status announcements, contrast, and layout at high zoom.
+- **Fixed:** Keep menus and exports responsive when switching recordings.
+  Correct playback when resuming from the end, handle single-frame loops,
+  and keep filmstrip thumbnails in sync with the recording.
+- **Fixed:** Restrict export and track saves to locations approved through
+  the native dialogs. Restrict development URLs to loopback, block
+  untrusted navigation, and use application settings for desktop exports.
+- **Internal:** Harden Electron packaging and renderer security, and expand
+  tests for the desktop shell and IPC.
+
 ## 1.0.0
 
 - **New:** Scan folders into a local SQLite archive index with

@@ -1,5 +1,9 @@
 # drone-path-engine
 
+## 1.1.0
+
+- **Fixed:** Improve map attribution contrast over light tiles.
+
 ## 1.0.0
 
 - **New:** Faster DJI CAM meta telemetry extraction by reusing recording probes
