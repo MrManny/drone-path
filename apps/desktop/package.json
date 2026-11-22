@@ -33,7 +33,7 @@
     "@types/react": "~19.3.0",
     "@types/react-dom": "~19.3.0",
     "concurrently": "~10.0.7",
-    "drone-path-tooling": "~1.0.0-rc1",
+    "drone-path-tooling": "*",
     "electron": "~45.3.4",
     "electron-builder": "~26.18.0",
     "jsdom": "~31.0.1",
