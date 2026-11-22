@@ -151,4 +151,26 @@ describe('preload bridge runtime contracts', () => {
       Object.values(IPC_INVOKE_CHANNELS).sort(),
     );
   });
+
+  it('removes only the unsubscribed handler reference when multiple listeners share a channel', () => {
+    const { api, on, removeListener, emit } = loadPreloadInSandbox();
+    const first = vi.fn();
+    const second = vi.fn();
+    const offFirst = api.onExportCapture(first) as () => void;
+    const offSecond = api.onExportCapture(second) as () => void;
+
+    const registeredFirst = on.mock.calls[0][1];
+    const registeredSecond = on.mock.calls[1][1];
+    offFirst();
+
+    expect(removeListener).toHaveBeenCalledTimes(1);
+    expect(removeListener).toHaveBeenCalledWith(IPC_EVENT_CHANNELS.onExportCapture, registeredFirst);
+
+    emit(IPC_EVENT_CHANNELS.onExportCapture, { phase: 'capture', frame: 1, total: 10 });
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith({ phase: 'capture', frame: 1, total: 10 });
+
+    offSecond();
+    expect(removeListener).toHaveBeenCalledWith(IPC_EVENT_CHANNELS.onExportCapture, registeredSecond);
+  });
 });

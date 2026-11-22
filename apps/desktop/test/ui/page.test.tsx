@@ -930,4 +930,35 @@ describe('recording switch modal safety (#392, #393)', () => {
       screen.getByLabelText<HTMLInputElement>('Width').value,
     ).toBe(String(DEFAULT_CONFIG.width));
   });
+
+  it('promotes a queued update prompt when a recording switch closes ExportModal', async () => {
+    const harness = installBridge();
+    openWorkspace();
+    await commitLoaded(harness);
+
+    clickMenuItem('Open…');
+    clickMenuItem('Export video…');
+    expect(screen.getByRole('dialog', { name: 'Export video' })).toBeTruthy();
+
+    harness.updateReady();
+    expect(screen.queryByRole('dialog', { name: 'Update' })).toBeNull();
+
+    await harness.settle({ ok: true });
+    expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Update' })).toBeTruthy();
+  });
+
+  it('keeps Map appearance open when a recording switch commits', async () => {
+    const harness = installBridge();
+    openWorkspace();
+    await commitLoaded(harness);
+
+    clickMenuItem('Open…');
+    clickMenuItem('Map appearance…');
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+
+    await harness.settle({ ok: true });
+    expect(screen.getByRole('dialog', { name: 'Map appearance' })).toBeTruthy();
+    expect(screen.getByText('Recording — the preview shows your flight')).toBeTruthy();
+  });
 });

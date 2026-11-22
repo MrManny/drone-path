@@ -276,6 +276,50 @@ describe('createThumbSampler', () => {
     expect(media.ctx.drawImage).not.toHaveBeenCalled();
   });
 
+  it('settles queued pre-loadeddata grabs to null on dispose even if loadeddata fires later', async () => {
+    const media = fakeMedia();
+    const sampler = createThumbSampler('/video', 30, media.doc);
+    const first = sampler.grab(0);
+    const second = sampler.grab(1);
+    sampler.dispose();
+    media.video.readyState = 2;
+    media.video.emit('loadeddata');
+    await expect(Promise.all([first, second])).resolves.toEqual([null, null]);
+    expect(media.video.src).toBe('');
+    expect(media.ctx.drawImage).not.toHaveBeenCalled();
+  });
+
+  it('returns null without creating an object URL when disposed during async toBlob', async () => {
+    const media = fakeMedia();
+    media.video.readyState = 2;
+    let finishBlob!: (b: unknown) => void;
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => media.ctx,
+      toBlob: (cb: (b: unknown) => void): void => {
+        finishBlob = cb;
+      },
+    };
+    const doc = {
+      createElement: (tag: string): unknown => (tag === 'video' ? media.video : canvas),
+    } as unknown as Document;
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:thumb');
+
+    const sampler = createThumbSampler('/video', 30, doc);
+    const pending = sampler.grab(0);
+    await settle();
+    media.video.completeSeek();
+    await settle();
+    expect(media.ctx.drawImage).toHaveBeenCalledTimes(1);
+
+    sampler.dispose();
+    finishBlob({ size: 1 });
+    await expect(pending).resolves.toBeNull();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    createObjectURL.mockRestore();
+  });
+
   it.for<{
     name: string;
     videoWidth: number;
