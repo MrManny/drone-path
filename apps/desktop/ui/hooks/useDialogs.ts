@@ -1,35 +1,32 @@
 'use client';
 
-import { useReducer } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
-import type { DialogEvent } from '../lib/dialogstate.js';
-import { canDismiss, dialogReducer } from '../lib/dialogstate.js';
+import type { DialogEvent, DialogId } from '../lib/dialogstate.js';
+import { dialogReducer } from '../lib/dialogstate.js';
 
 export interface Dialogs {
+  active: DialogId;
   modalOpen: boolean;
-  helpOpen: boolean;
-  aboutOpen: boolean;
-  mapAppearanceOpen: boolean;
-  settingsOpen: boolean;
-  exportOpen: boolean;
-  trackSaveOpen: boolean;
-  updateOpen: boolean;
   dismissible: boolean;
   dispatchDialog: (event: DialogEvent) => void;
 }
 
-export function useDialogs(): Dialogs {
-  const [dialog, dispatchDialog] = useReducer(dialogReducer, 'closed');
+export function useDialogs(isBusy: (active: DialogId) => boolean = () => false): Dialogs {
+  const [active, setActive] = useState<DialogId>('closed');
+  const isBusyRef = useRef(isBusy);
+  useLayoutEffect(() => {
+    isBusyRef.current = isBusy;
+  });
+
+  const dispatchDialog = useCallback((event: DialogEvent) => {
+    setActive((prev) => dialogReducer(prev, event, isBusyRef.current(prev)));
+  }, []);
+
   return {
-    modalOpen: dialog !== 'closed',
-    helpOpen: dialog === 'help',
-    aboutOpen: dialog === 'about',
-    mapAppearanceOpen: dialog === 'map-appearance',
-    settingsOpen: dialog === 'settings',
-    exportOpen: dialog === 'export-form' || dialog === 'export-running',
-    trackSaveOpen: dialog === 'track-save' || dialog === 'track-saving',
-    updateOpen: dialog === 'update-prompt' || dialog === 'update-restarting',
-    dismissible: canDismiss(dialog),
+    active,
+    modalOpen: active !== 'closed',
+    dismissible: !isBusy(active),
     dispatchDialog,
   };
 }

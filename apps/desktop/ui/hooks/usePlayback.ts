@@ -1,6 +1,6 @@
 'use client';
 
-import type { RefObject } from 'react';
+import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PageVideo } from '../../src/appsession.js';
@@ -32,7 +32,11 @@ export interface Playback {
   playheadRef: RefObject<HTMLDivElement | null>;
 }
 
-export function usePlayback(video: PageVideo, durationSec: number): Playback {
+export function usePlayback(
+  video: PageVideo,
+  durationSec: number,
+  loopControl?: [LoopState, Dispatch<SetStateAction<LoopState>>],
+): Playback {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
@@ -43,7 +47,8 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2 | 3 | 4>(1);
-  const [loop, setLoop] = useState<LoopState>(NO_LOOP);
+  const [internalLoop, setInternalLoop] = useState<LoopState>(NO_LOOP);
+  const [loop, setLoop] = loopControl ?? [internalLoop, setInternalLoop];
 
   const handleScene = useCallback((scene: Scene) => {
     sceneRef.current = scene;
@@ -124,7 +129,7 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
 
   const setLoopPoint = useCallback((which: 'in' | 'out') => {
     setLoop((prev) => markLoopPoint(prev, which, latestIndexRef.current));
-  }, []);
+  }, [setLoop]);
 
   const setLoopFrame = useCallback(
     (which: 'in' | 'out', frame: number) => {
@@ -136,10 +141,10 @@ export function usePlayback(video: PageVideo, durationSec: number): Playback {
         return { ...prev, [which]: clampHandleFrame(which, frame, prev, video.frames - 1) };
       });
     },
-    [video.frames],
+    [video.frames, setLoop],
   );
 
-  const clearLoop = useCallback(() => setLoop(NO_LOOP), []);
+  const clearLoop = useCallback(() => setLoop(NO_LOOP), [setLoop]);
 
   return {
     ready,

@@ -70,14 +70,20 @@ describe('itemEnabled', () => {
         want: false,
       }),
     ),
-    ...(['exportVideo', 'exportTelemetry', 'swap'] as const).map(
+    ...(['exportVideo', 'exportTelemetry'] as const).map(
       (id): FlagCase => ({
-        name: `${id} stays live while a recording is opening`,
+        name: `${id} disables while a recording is preparing`,
         id,
         flags: { hasRecording: true, opening: true },
-        want: true,
+        want: false,
       }),
     ),
+    {
+      name: 'swap stays live while a recording is opening',
+      id: 'swap',
+      flags: { hasRecording: true, opening: true },
+      want: true,
+    },
     {
       name: 'Map appearance is live with no recording (#236)',
       id: 'settings',

@@ -1,23 +1,23 @@
 'use client';
 
-import { useTranslation } from '../lib/i18n.js';
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import type { UiSession } from '../../src/appsession.js';
+import type { FrameRange } from 'drone-path-core/frame-range';
 import type { RenderConfig } from 'drone-path-engine/config';
-import { restyleSession } from '../lib/restylemeta.js';
+import type { UiSession } from '../../src/appsession.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import { usePlayback } from '../hooks/usePlayback.js';
-import { useTrackSave } from '../hooks/useTrackSave.js';
+import { useTranslation } from '../lib/i18n.js';
 import type { StageLayout } from '../lib/layout.js';
+import type { LoopState } from '../lib/loop.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import { stepPinnedZoom } from '../lib/mapzoom.js';
 import type { PickState } from '../lib/pickstate.js';
+import { restyleSession } from '../lib/restylemeta.js';
 import { trackScope } from '../lib/tracksave.js';
-import { ExportModal } from './ExportModal.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
-import { TrackSaveModal } from './TrackSaveModal.js';
 import { WorkspaceShell } from './WorkspaceShell.js';
 
 export interface PlayerChromeProps {
@@ -30,6 +30,9 @@ export interface PlayerChromeProps {
   dialogs: Dialogs;
   openState?: PickState;
   onDismissOpenState?: () => void;
+  loopControl?: [LoopState, Dispatch<SetStateAction<LoopState>>];
+  onExportVideo?: () => void;
+  onExportTelemetry?: (range: FrameRange | null, scope: string) => void;
 }
 
 const IDLE_OPEN: PickState = { kind: 'idle' };
@@ -44,6 +47,9 @@ export function PlayerChrome({
   dialogs,
   openState = IDLE_OPEN,
   onDismissOpenState,
+  loopControl,
+  onExportVideo,
+  onExportTelemetry,
 }: PlayerChromeProps) {
   const t = useTranslation();
   const { video, durationSec } = session;
@@ -65,12 +71,10 @@ export function PlayerChrome({
     scrubRef,
     timeRef,
     playheadRef,
-  } = usePlayback(video, durationSec);
-  const { exportOpen, trackSaveOpen, dismissible, dispatchDialog } = dialogs;
+  } = usePlayback(video, durationSec, loopControl);
+  const { dispatchDialog } = dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
-  const [exportSizes, setExportSizes] = useState<{ width: number; height: number } | null>(null);
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
-  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
 
   const { style, zoom } = settings;
   const sceneData = useMemo(() => restyleSession(session, settings), [session, settings]);
@@ -112,11 +116,6 @@ export function PlayerChrome({
   const loopPoints = resolveLoop(loop, maxFrame);
   const trackRange = loopPoints ? frameRangeOf(loopPoints) : null;
   const scope = trackScope(trackRange, video.fps, durationSec, t);
-  const {
-    phase: trackSave,
-    save: saveTrack,
-    reveal: revealTrack,
-  } = useTrackSave({ range: trackRange, scope, dispatchDialog });
 
   return (
     <WorkspaceShell
@@ -129,8 +128,8 @@ export function PlayerChrome({
       onExit={onExit}
       itemTitles={{ exportTelemetry: t('playerChrome.telemetryScope', { scope }) }}
       extraActions={{
-        exportVideo: () => dispatchDialog({ type: 'openExport' }),
-        exportTelemetry: saveTrack,
+        exportVideo: onExportVideo ?? (() => dispatchDialog({ type: 'openExport' })),
+        exportTelemetry: () => onExportTelemetry?.(trackRange, scope),
         swap,
       }}
       hotkeyHandlers={{
@@ -169,28 +168,6 @@ export function PlayerChrome({
         playheadRef,
         src: video.src,
       }}
-    >
-      {exportOpen ? (
-        <ExportModal
-          session={session}
-          settings={settings}
-          loop={loop}
-          onClose={closeOverlay}
-          dismissible={dismissible}
-          dispatchDialog={dispatchDialog}
-          onEncoderChange={(encode) => onSettingsChange({ ...settings, ...encode })}
-          initialSizes={exportSizes}
-          onSizesChange={setExportSizes}
-        />
-      ) : null}
-      {trackSaveOpen && trackSave ? (
-        <TrackSaveModal
-          phase={trackSave}
-          dismissible={dismissible}
-          onReveal={revealTrack}
-          onClose={closeOverlay}
-        />
-      ) : null}
-    </WorkspaceShell>
+    />
   );
 }

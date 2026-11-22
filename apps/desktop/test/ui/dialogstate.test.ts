@@ -1,20 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
-import type { DialogEvent, DialogState } from '../../ui/lib/dialogstate.js';
+import { dialogReducer, isPlayerDialog } from '../../ui/lib/dialogstate.js';
+import type { DialogEvent, DialogId } from '../../ui/lib/dialogstate.js';
 
-const STATES: DialogState[] = [
+const STATES: DialogId[] = [
   'closed',
   'help',
   'about',
   'map-appearance',
   'settings',
-  'export-form',
-  'export-running',
+  'export',
   'track-save',
-  'track-saving',
-  'update-prompt',
-  'update-restarting',
+  'update',
 ];
 
 const EVENTS: DialogEvent[] = [
@@ -24,157 +21,92 @@ const EVENTS: DialogEvent[] = [
   { type: 'openSettings' },
   { type: 'openExport' },
   { type: 'openTrackSave' },
-  { type: 'runStarted' },
-  { type: 'runFinished' },
   { type: 'updateReady' },
   { type: 'close' },
+  { type: 'resetPlayerDialogs' },
 ];
 
-function busy(state: DialogState): boolean {
-  return (
-    state === 'export-running' ||
-    state === 'track-saving' ||
-    state === 'update-restarting'
-  );
-}
-
-function pinned(state: DialogState): boolean {
-  return busy(state) || state === 'update-prompt';
-}
-
-function expected(state: DialogState, event: DialogEvent): DialogState {
+function expected(state: DialogId, event: DialogEvent, busy: boolean): DialogId {
+  const pinned = busy || state === 'update';
   switch (event.type) {
     case 'openHelp':
-      return pinned(state) ? state : 'help';
+      return pinned ? state : 'help';
     case 'openAbout':
-      return pinned(state) ? state : 'about';
+      return pinned ? state : 'about';
     case 'openSettings':
-      return pinned(state) ? state : 'settings';
+      return pinned ? state : 'settings';
     case 'openMapAppearance':
-      return pinned(state) ? state : 'map-appearance';
+      return pinned ? state : 'map-appearance';
     case 'openExport':
-      return pinned(state) ? state : 'export-form';
+      return pinned ? state : 'export';
     case 'openTrackSave':
-      return pinned(state) ? state : 'track-save';
-    case 'runStarted':
-      return state === 'export-form'
-        ? 'export-running'
-        : state === 'track-save'
-          ? 'track-saving'
-          : state === 'update-prompt'
-            ? 'update-restarting'
-            : state;
-    case 'runFinished':
-      return state === 'export-running'
-        ? 'export-form'
-        : state === 'track-saving'
-          ? 'track-save'
-          : state === 'update-restarting'
-            ? 'update-prompt'
-            : state;
+      return pinned ? state : 'track-save';
     case 'updateReady':
-      return state === 'closed' ? 'update-prompt' : state;
+      return state === 'closed' ? 'update' : state;
     case 'close':
-      return busy(state) ? state : 'closed';
+      return busy ? state : 'closed';
+    case 'resetPlayerDialogs':
+      return isPlayerDialog(state) ? 'closed' : state;
   }
 }
 
 const TABLE = STATES.flatMap((from) =>
-  EVENTS.map((event) => ({ when: event.type, from, event, to: expected(from, event) })),
+  [false, true].flatMap((busy) =>
+    EVENTS.map((event) => ({
+      when: event.type,
+      from,
+      busy,
+      event,
+      to: expected(from, event, busy),
+    })),
+  ),
 );
 
-describe.each(TABLE)('dialogReducer: $when from $from', ({ from, event, to }) => {
+describe.each(TABLE)('dialogReducer: $when from $from (busy=$busy)', ({ from, busy, event, to }) => {
   it(`lands on ${to}`, () => {
-    expect(dialogReducer(from, event)).toBe(to);
+    expect(dialogReducer(from, event, busy)).toBe(to);
   });
 });
 
-describe.each<DialogState>([
-  'closed',
-  'help',
-  'about',
-  'map-appearance',
-  'settings',
-  'export-form',
-  'track-save',
-  'update-prompt',
-])('canDismiss(%s)', (state) => {
-  it('is true, so Escape, the backdrop and the close may dismiss', () => {
-    expect(canDismiss(state)).toBe(true);
+describe('isPlayerDialog', () => {
+  it('identifies recording-bound modals only', () => {
+    expect(isPlayerDialog('export')).toBe(true);
+    expect(isPlayerDialog('track-save')).toBe(true);
+    expect(isPlayerDialog('closed')).toBe(false);
+    expect(isPlayerDialog('help')).toBe(false);
+    expect(isPlayerDialog('about')).toBe(false);
+    expect(isPlayerDialog('map-appearance')).toBe(false);
+    expect(isPlayerDialog('settings')).toBe(false);
+    expect(isPlayerDialog('update')).toBe(false);
   });
 });
 
-describe.each<DialogState>(['export-running', 'track-saving', 'update-restarting'])(
-  'canDismiss(%s)',
-  (state) => {
-    it('is false, so the running work keeps its dialog on screen', () => {
-      expect(canDismiss(state)).toBe(false);
-    });
-  },
-);
-
-describe('the export run round trip', () => {
-  it('pins the dialog from start to finish and lets close through afterwards', () => {
-    let state: DialogState = 'closed';
-    state = dialogReducer(state, { type: 'openExport' });
-    expect(canDismiss(state)).toBe(true);
-    state = dialogReducer(state, { type: 'runStarted' });
-    expect(canDismiss(state)).toBe(false);
-    expect(dialogReducer(state, { type: 'close' })).toBe('export-running');
-    state = dialogReducer(state, { type: 'runFinished' });
-    expect(canDismiss(state)).toBe(true);
-    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
-  });
-});
-
-describe('the telemetry save round trip', () => {
-  it('pins the dialog while the write runs, so a late failure can never close into silence', () => {
-    let state: DialogState = 'closed';
-    state = dialogReducer(state, { type: 'openTrackSave' });
-    expect(state).toBe('track-save');
-    expect(canDismiss(state)).toBe(true);
-    state = dialogReducer(state, { type: 'runStarted' });
-    expect(canDismiss(state)).toBe(false);
-    expect(dialogReducer(state, { type: 'close' })).toBe('track-saving');
-    expect(dialogReducer(state, { type: 'openExport' })).toBe('track-saving');
-    state = dialogReducer(state, { type: 'runFinished' });
-    expect(canDismiss(state)).toBe(true);
-    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
-  });
-});
-
-describe('the map appearance dialog round trip', () => {
-  it('opens over a quiet UI, replaces another dialog and closes like any dialog', () => {
-    let state: DialogState = 'closed';
-    state = dialogReducer(state, { type: 'openMapAppearance' });
-    expect(state).toBe('map-appearance');
-    expect(canDismiss(state)).toBe(true);
-    expect(dialogReducer(state, { type: 'openAbout' })).toBe('about');
-    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
+describe('dialog round trips', () => {
+  it('pins the active modal while busy and lets close through once idle', () => {
+    let state: DialogId = 'closed';
+    state = dialogReducer(state, { type: 'openExport' }, false);
+    expect(state).toBe('export');
+    expect(dialogReducer(state, { type: 'close' }, true)).toBe('export');
+    expect(dialogReducer(state, { type: 'openAbout' }, true)).toBe('export');
+    expect(dialogReducer(state, { type: 'close' }, false)).toBe('closed');
   });
 
-  it('never opens over pinned work', () => {
-    expect(dialogReducer('export-running', { type: 'openMapAppearance' })).toBe('export-running');
-    expect(dialogReducer('update-prompt', { type: 'openMapAppearance' })).toBe('update-prompt');
+  it('closes recording-bound dialogs on resetPlayerDialogs even if busy, while keeping app dialogs', () => {
+    expect(dialogReducer('track-save', { type: 'resetPlayerDialogs' }, true)).toBe('closed');
+    expect(dialogReducer('export', { type: 'resetPlayerDialogs' }, true)).toBe('closed');
+    expect(dialogReducer('help', { type: 'resetPlayerDialogs' }, false)).toBe('help');
+    expect(dialogReducer('update', { type: 'resetPlayerDialogs' }, true)).toBe('update');
   });
-});
 
-describe('the update prompt round trip', () => {
-  it('waits for a quiet UI, pins during restart, and dismisses once settled', () => {
-    let state: DialogState = 'help';
-    state = dialogReducer(state, { type: 'updateReady' });
+  it('keeps the update prompt pinned against other open requests while allowing close when idle', () => {
+    let state: DialogId = 'help';
+    state = dialogReducer(state, { type: 'updateReady' }, false);
     expect(state).toBe('help');
-    state = dialogReducer(state, { type: 'close' });
-    state = dialogReducer(state, { type: 'updateReady' });
-    expect(state).toBe('update-prompt');
-    expect(canDismiss(state)).toBe(true);
-    state = dialogReducer(state, { type: 'runStarted' });
-    expect(state).toBe('update-restarting');
-    expect(canDismiss(state)).toBe(false);
-    expect(dialogReducer(state, { type: 'close' })).toBe('update-restarting');
-    state = dialogReducer(state, { type: 'runFinished' });
-    expect(state).toBe('update-prompt');
-    expect(canDismiss(state)).toBe(true);
-    expect(dialogReducer(state, { type: 'close' })).toBe('closed');
+    state = dialogReducer(state, { type: 'close' }, false);
+    state = dialogReducer(state, { type: 'updateReady' }, false);
+    expect(state).toBe('update');
+    expect(dialogReducer(state, { type: 'openMapAppearance' }, false)).toBe('update');
+    expect(dialogReducer(state, { type: 'close' }, true)).toBe('update');
+    expect(dialogReducer(state, { type: 'close' }, false)).toBe('closed');
   });
 });

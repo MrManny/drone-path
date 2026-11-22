@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useCallback, useReducer } from 'react';
+import { useState } from 'react';
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,9 +10,10 @@ import type { EncodeSettings, ExportRequest, RenderConfig } from 'drone-path-eng
 import type { ExportOutcome } from '../../src/exportjob.js';
 import type { CaptureProgress } from 'drone-path-engine/render';
 import type { ExportOutputPayload } from '../../ui/lib/backend.js';
-import { canDismiss, dialogReducer } from '../../ui/lib/dialogstate.js';
-import type { DialogEvent } from '../../ui/lib/dialogstate.js';
+import { initialExportState } from '../../ui/lib/exportstate.js';
 import type { LoopState } from '../../ui/lib/loop.js';
+import { frameRangeOf, resolveLoop } from '../../ui/lib/loop.js';
+import { useExport } from '../../ui/hooks/useExport.js';
 import { ExportModal } from '../../ui/components/ExportModal.js';
 
 vi.mock('../../ui/components/ExportPreview.js', () => ({
@@ -117,55 +118,64 @@ function installBridge(overrides: Partial<Record<string, unknown>> = {}) {
 
 function Harness({
   loop,
-  onRunEvent,
   onEncoderChange,
   settings = SETTINGS,
   initialSizes,
-  onSizesChange,
+  onCloseCalled,
 }: {
   loop: LoopState;
-  onRunEvent?: (event: DialogEvent) => void;
   onEncoderChange?: (patch: Partial<EncodeSettings>) => void;
   settings?: RenderConfig;
   initialSizes?: { width: number; height: number } | null;
-  onSizesChange?: (sizes: { width: number; height: number }) => void;
+  onCloseCalled?: () => void;
 }) {
-  const [dialog, dispatchDialog] = useReducer(dialogReducer, 'export-form');
-  const handleRunEvent = useCallback(
-    (event: DialogEvent) => {
-      dispatchDialog(event);
-      onRunEvent?.(event);
-    },
-    [onRunEvent],
+  const [open, setOpen] = useState(true);
+  const exportFlow = useExport(
+    initialExportState(
+      initialSizes?.width ?? settings.width,
+      initialSizes?.height ?? settings.height,
+      (() => {
+        const points = resolveLoop(loop, SESSION.video.frames - 1);
+        return points ? frameRangeOf(points) : null;
+      })(),
+    ),
   );
-  if (dialog === 'closed') return null;
+  if (!open || !exportFlow.state) return null;
+  const dismissible = !exportFlow.busy;
   return (
     <ExportModal
       session={SESSION}
       settings={settings}
       loop={loop}
-      onClose={() => dispatchDialog({ type: 'close' })}
-      dismissible={canDismiss(dialog)}
-      dispatchDialog={handleRunEvent}
+      state={exportFlow.state}
+      dismissible={dismissible}
+      onDispatch={exportFlow.dispatch}
+      onStart={(segment) => exportFlow.start(settings, segment)}
+      onCancel={exportFlow.cancel}
+      onRunDone={exportFlow.runDone}
       onEncoderChange={onEncoderChange ?? (() => {})}
-      initialSizes={initialSizes}
-      onSizesChange={onSizesChange}
+      onClose={() => {
+        onCloseCalled?.();
+        if (!dismissible) return;
+        exportFlow.close();
+        setOpen(false);
+      }}
     />
   );
 }
 
 function renderModal(
   loop: LoopState,
-  onRunEvent?: (event: DialogEvent) => void,
   onEncoderChange?: (patch: Partial<EncodeSettings>) => void,
   settings?: RenderConfig,
+  onCloseCalled?: () => void,
 ) {
   return render(
     <Harness
       loop={loop}
-      onRunEvent={onRunEvent}
       onEncoderChange={onEncoderChange}
       settings={settings}
+      onCloseCalled={onCloseCalled}
     />,
   );
 }
@@ -222,11 +232,12 @@ describe('ExportModal form memory', () => {
     expect(screen.getByLabelText<HTMLInputElement>('Height').value).toBe('576');
   });
 
-  it('reports every committed size in its effective form', () => {
-    const onSizesChange = vi.fn();
-    render(<Harness loop={{ in: null, out: null }} onSizesChange={onSizesChange} />);
-    fireEvent.change(screen.getByLabelText('Width'), { target: { value: '769' } });
-    expect(onSizesChange).toHaveBeenLastCalledWith({ width: 768, height: 768 });
+  it('commits every size edit in its effective form', () => {
+    render(<Harness loop={{ in: null, out: null }} />);
+    const width = screen.getByLabelText<HTMLInputElement>('Width');
+    fireEvent.change(width, { target: { value: '769' } });
+    fireEvent.blur(width);
+    expect(width.value).toBe('768');
   });
 
   it('exports the frames marked at confirm when the loop moved under the dialog', async () => {
@@ -244,7 +255,6 @@ describe('ExportModal encoder choices', () => {
     renderModal(
       { in: null, out: null },
       undefined,
-      undefined,
       { ...SETTINGS, codec: 'h265', quality: 'low', preset: 'veryfast' },
     );
     expect(screen.getByLabelText<HTMLSelectElement>('Codec').value).toBe('h265');
@@ -254,7 +264,7 @@ describe('ExportModal encoder choices', () => {
 
   it('reports encoder edits for the page to persist', () => {
     const onEncoderChange = vi.fn();
-    renderModal({ in: null, out: null }, undefined, onEncoderChange);
+    renderModal({ in: null, out: null }, onEncoderChange);
     fireEvent.change(screen.getByLabelText('Codec'), { target: { value: 'h265' } });
     expect(onEncoderChange).toHaveBeenCalledWith({ codec: 'h265' });
   });
@@ -274,7 +284,6 @@ describe('ExportModal encoder choices', () => {
     const { bridge } = installBridge();
     renderModal(
       { in: null, out: null },
-      undefined,
       undefined,
       { ...SETTINGS, codec: 'h265', quality: 'low', preset: 'veryfast' },
     );
@@ -434,30 +443,29 @@ describe('ExportModal dismissal', () => {
 
   it('closes on a backdrop click once the job has settled', async () => {
     const { emitDone } = installBridge();
-    const events: DialogEvent[] = [];
-    renderModal({ in: null, out: null }, (event) => events.push(event));
+    renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
-    await waitFor(() => expect(events).toEqual([{ type: 'runStarted' }]));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    expect(headerClose().disabled).toBe(true);
     emitDone({ status: 'canceled' });
-    await waitFor(() =>
-      expect(events).toEqual([{ type: 'runStarted' }, { type: 'runFinished' }]),
-    );
+    await screen.findByRole('button', { name: 'Start export' });
+    expect(headerClose().disabled).toBe(false);
     fireEvent.click(screen.getByRole('dialog', { name: 'Export video' }).parentElement as HTMLElement);
     expect(screen.queryByRole('dialog', { name: 'Export video' })).toBeNull();
   });
 });
 
-describe('ExportModal job lifecycle reporting', () => {
-  it('tells the dialog machine when the job starts and settles', async () => {
+describe('ExportModal busy locking', () => {
+  it('derives dismissible directly from the running phase without effect lag', async () => {
     const { emitDone } = installBridge();
-    const events: DialogEvent[] = [];
-    renderModal({ in: null, out: null }, (event) => events.push(event));
+    renderModal({ in: null, out: null });
+    expect(headerClose().disabled).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
-    await waitFor(() => expect(events).toEqual([{ type: 'runStarted' }]));
+    await screen.findByRole('button', { name: 'Cancel export' });
+    expect(headerClose().disabled).toBe(true);
     emitDone({ status: 'canceled' });
-    await waitFor(() =>
-      expect(events).toEqual([{ type: 'runStarted' }, { type: 'runFinished' }]),
-    );
+    await screen.findByRole('button', { name: 'Start export' });
+    expect(headerClose().disabled).toBe(false);
   });
 });
 
@@ -843,7 +851,6 @@ describe('ExportModal save-picker guards (#313)', () => {
 
   it('aborts without starting an export if the modal closes while the save picker is open', async () => {
     let resolvePick: (result: { ok: boolean; path?: string }) => void = () => {};
-    const onRunEvent = vi.fn();
     const { bridge } = installBridge({
       pickExportOutput: vi.fn(
         () =>
@@ -852,7 +859,7 @@ describe('ExportModal save-picker guards (#313)', () => {
           }),
       ),
     });
-    renderModal({ in: null, out: null }, onRunEvent);
+    renderModal({ in: null, out: null });
     fireEvent.click(screen.getByRole('button', { name: 'Start export' }));
     expect(bridge.pickExportOutput).toHaveBeenCalledTimes(1);
 
@@ -863,6 +870,5 @@ describe('ExportModal save-picker guards (#313)', () => {
       resolvePick({ ok: true, path: '/exports/a.mp4' });
     });
     expect(bridge.startExport).not.toHaveBeenCalled();
-    expect(onRunEvent).not.toHaveBeenCalled();
   });
 });

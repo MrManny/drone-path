@@ -1,27 +1,15 @@
 'use client';
 
-import { useTranslation } from '../lib/i18n.js';
-import { useCallback, useEffect, useReducer, useRef } from 'react';
-
-import type { UiSession } from '../../src/appsession.js';
-import { normalizeDimensions } from 'drone-path-engine/config';
-import type { EncodeSettings, RenderConfig } from 'drone-path-engine/config';
 import type { FrameRange } from 'drone-path-core/frame-range';
-import { appBridge, tryAppBridge } from '../lib/backend.js';
-import { useMountedRef } from '../hooks/useMountedRef.js';
-import type { DialogEvent } from '../lib/dialogstate.js';
-import type { ExportFlowDeps } from '../lib/exportflow.js';
-import { cancelExport, chooseAndExport, runDoneAction } from '../lib/exportflow.js';
-import type { ExportEvent } from '../lib/exportstate.js';
-import {
-  captureFraction,
-  exportPhaseText,
-  exportReducer,
-  initialExportState,
-  previewFrame,
-} from '../lib/exportstate.js';
+import type { EncodeSettings, RenderConfig } from 'drone-path-engine/config';
+import type { UiSession } from '../../src/appsession.js';
+import type { ExportAck } from '../lib/backend.js';
 import { canceledSentence } from '../lib/errortext.js';
+import type { ExportFlowDeps } from '../lib/exportflow.js';
+import type { ExportEvent, ExportState } from '../lib/exportstate.js';
+import { captureFraction, exportPhaseText, previewFrame } from '../lib/exportstate.js';
 import { formatFrameRange, formatTime } from '../lib/frametime.js';
+import { useTranslation } from '../lib/i18n.js';
 import type { LoopState } from '../lib/loop.js';
 import { frameRangeOf, resolveLoop } from '../lib/loop.js';
 import { DialogShell } from './DialogShell.js';
@@ -30,78 +18,36 @@ import { ExportForm } from './ExportForm.js';
 import { ExportPreview } from './ExportPreview.js';
 import { ExportRunning } from './ExportRunning.js';
 
-interface ExportModalProps {
+export interface ExportModalProps {
   session: UiSession;
   settings: RenderConfig;
   loop: LoopState;
-  onClose: () => void;
+  state: ExportState;
   dismissible: boolean;
-  dispatchDialog: (event: DialogEvent) => void;
+  onDispatch: (event: ExportEvent) => void;
+  onStart: (segment: { range: FrameRange } | null) => void;
+  onCancel: () => void;
+  onRunDone: (call: (deps: ExportFlowDeps) => Promise<ExportAck>) => void;
   onEncoderChange: (patch: Partial<EncodeSettings>) => void;
-  initialSizes?: { width: number; height: number } | null;
-  onSizesChange?: (sizes: { width: number; height: number }) => void;
+  onClose: () => void;
 }
 
 export function ExportModal({
   session,
   settings,
   loop,
-  onClose,
+  state,
   dismissible,
-  dispatchDialog,
+  onDispatch,
+  onStart,
+  onCancel,
+  onRunDone,
   onEncoderChange,
-  initialSizes = null,
-  onSizesChange,
+  onClose,
 }: ExportModalProps) {
   const t = useTranslation();
   const { video, durationSec } = session;
   const loopPoints = resolveLoop(loop, video.frames - 1);
-  const [state, dispatchRaw] = useReducer(exportReducer, undefined, () =>
-    initialExportState(
-      initialSizes?.width ?? settings.width,
-      initialSizes?.height ?? settings.height,
-      loopPoints ? frameRangeOf(loopPoints) : null,
-    ),
-  );
-  const busy = state.phase === 'running';
-  const mountedRef = useMountedRef();
-  const pickingRef = useRef(false);
-
-  const dispatch = useCallback(
-    (event: ExportEvent) => {
-      if (state.phase === 'form' && (event.type === 'setWidth' || event.type === 'setHeight')) {
-        onSizesChange?.(
-          normalizeDimensions(
-            event.type === 'setWidth' ? event.width : state.form.width,
-            event.type === 'setHeight' ? event.height : state.form.height,
-          ),
-        );
-      }
-      dispatchRaw(event);
-    },
-    [state.phase, state.form.width, state.form.height, onSizesChange],
-  );
-
-  useEffect(() => {
-    if (busy) dispatchDialog({ type: 'runStarted' });
-    return () => {
-      if (busy) dispatchDialog({ type: 'runFinished' });
-    };
-  }, [busy, dispatchDialog]);
-
-  useEffect(() => {
-    const bridge = tryAppBridge();
-    if (!bridge) return;
-    const offCapture = bridge.onExportCapture?.((progress) =>
-      dispatchRaw({ type: 'capture', progress }),
-    );
-    const offDone = bridge.onExportDone?.((outcome) => dispatchRaw({ type: 'finish', outcome }));
-    return () => {
-      offCapture?.();
-      offDone?.();
-    };
-  }, []);
-
   const { phase, form, result, error, notice, canceling } = state;
 
   const previewConfig = state.request?.config ?? settings;
@@ -114,32 +60,9 @@ export function ExportModal({
       }
     : null;
 
-  // Every method resolves the bridge inside the flow's call so an absent
-  // backend surfaces as a failure event, never an unhandled throw.
-  const flowDeps = (): ExportFlowDeps => ({
-    pickExportOutput: () => appBridge().pickExportOutput(),
-    startExport: (request) => appBridge().startExport(request),
-    cancelExport: () => appBridge().cancelExport(),
-    revealExportOutput: (payload) => appBridge().revealExportOutput(payload),
-    openExportOutput: (payload) => appBridge().openExportOutput(payload),
-  });
-
   const changeEncoder = (patch: Partial<EncodeSettings>): void => {
-    dispatch({ type: 'clearError' });
+    onDispatch({ type: 'clearError' });
     onEncoderChange(patch);
-  };
-
-  const startExportFlow = (): void => {
-    if (pickingRef.current) return;
-    pickingRef.current = true;
-    void chooseAndExport(
-      flowDeps(),
-      { settings, form, segment },
-      dispatch,
-      () => mountedRef.current,
-    ).finally(() => {
-      pickingRef.current = false;
-    });
   };
 
   return (
@@ -171,7 +94,7 @@ export function ExportModal({
               encode={{ codec: settings.codec, quality: settings.quality, preset: settings.preset }}
               error={error}
               notice={notice ? canceledSentence(t) : null}
-              dispatch={dispatch}
+              dispatch={onDispatch}
               onEncoderChange={changeEncoder}
             />
           ) : null}
@@ -193,7 +116,7 @@ export function ExportModal({
               type="button"
               className="dialog-primary"
               data-phase-focus
-              onClick={startExportFlow}
+              onClick={() => onStart(segment ? { range: segment.range } : null)}
             >
               {t('exportModal.startExport')}
             </button>
@@ -204,7 +127,7 @@ export function ExportModal({
             type="button"
             data-phase-focus
             disabled={canceling}
-            onClick={() => cancelExport(flowDeps(), dispatch)}
+            onClick={onCancel}
           >
             {t('exportModal.cancelExport')}
           </button>
@@ -213,13 +136,7 @@ export function ExportModal({
           <>
             <button
               type="button"
-              onClick={() =>
-                runDoneAction(
-                  flowDeps(),
-                  (deps) => deps.openExportOutput({ out: result.out }),
-                  dispatch,
-                )
-              }
+              onClick={() => onRunDone((deps) => deps.openExportOutput({ out: result.out }))}
             >
               {t('exportModal.openVideo')}
             </button>
@@ -227,13 +144,7 @@ export function ExportModal({
               type="button"
               className="dialog-primary"
               data-phase-focus
-              onClick={() =>
-                runDoneAction(
-                  flowDeps(),
-                  (deps) => deps.revealExportOutput({ out: result.out }),
-                  dispatch,
-                )
-              }
+              onClick={() => onRunDone((deps) => deps.revealExportOutput({ out: result.out }))}
             >
               {t('exportModal.revealInFolder')}
             </button>
