@@ -1,6 +1,6 @@
 {
   "name": "drone-path-tooling",
-  "version": "1.0.0-rc1",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -17,8 +17,8 @@
     "docs:schema": "node dist/telemetry-json-schema.js"
   },
   "dependencies": {
-    "drone-path-core": "~1.0.0-rc1",
-    "drone-path-engine": "~1.0.0-rc1",
+    "drone-path-core": "*",
+    "drone-path-engine": "*",
     "marked": "~18.2.0"
   }
 }

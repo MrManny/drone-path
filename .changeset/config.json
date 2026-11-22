@@ -10,5 +10,5 @@
   "baseBranch": "main",
   "privatePackages": { "version": true, "tag": false },
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": ["drone-path-tooling"]
 }
