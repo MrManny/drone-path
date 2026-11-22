@@ -16,6 +16,8 @@ interface FakeMedia {
     seeking: boolean;
     emit: (type: string) => void;
     completeSeek: () => void;
+    pause: ReturnType<typeof vi.fn>;
+    load: ReturnType<typeof vi.fn>;
     removeAttribute: (name: string) => void;
     addEventListener: (type: string, fn: () => void) => void;
     removeEventListener: (type: string, fn: () => void) => void;
@@ -68,10 +70,13 @@ function fakeMedia(
       if (!seekPending) return;
       video.emit('seeked');
     },
+    pause: vi.fn(),
+    load: vi.fn(() => {
+      if (!video.src) video.emit('emptied');
+    }),
     removeAttribute: (name: string): void => {
       if (name === 'src') {
         video.src = '';
-        video.emit('emptied');
       }
     },
     addEventListener: on,
@@ -255,7 +260,20 @@ describe('createThumbSampler', () => {
     const sampler = createThumbSampler('/video', 30, media.doc);
     expect(media.video.src).toBe('/video');
     sampler.dispose();
+    expect(media.video.pause).toHaveBeenCalledTimes(1);
     expect(media.video.src).toBe('');
+    expect(media.video.load).toHaveBeenCalledTimes(1);
+  });
+
+  it('settles pending grab to null when disposed before loadeddata', async () => {
+    const media = fakeMedia();
+    const sampler = createThumbSampler('/video', 30, media.doc);
+    const pending = sampler.grab(0);
+    sampler.dispose();
+    await expect(pending).resolves.toBeNull();
+    expect(media.video.pause).toHaveBeenCalledTimes(1);
+    expect(media.video.load).toHaveBeenCalledTimes(1);
+    expect(media.ctx.drawImage).not.toHaveBeenCalled();
   });
 
   it.for<{

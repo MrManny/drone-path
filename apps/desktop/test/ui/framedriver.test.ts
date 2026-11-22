@@ -272,7 +272,10 @@ describe('createFrameDriver loop wrap', () => {
     const { driver } = build(video);
     driver.setLoop({ in: 5, out: 299 });
     driver.start();
+    video.paused = false;
+    flushRaf();
     video.currentTime = 299 / 30;
+    video.paused = true;
     video.ended = true;
     flushRaf();
     expect(video.currentTime).toBeCloseTo(5.5 / 30);
@@ -285,7 +288,10 @@ describe('createFrameDriver loop wrap', () => {
     const { driver } = build(video);
     driver.setLoop({ in: 5, out: null });
     driver.start();
+    video.paused = false;
+    flushRaf();
     video.currentTime = 299 / 30;
+    video.paused = true;
     video.ended = true;
     flushRaf();
     expect(video.currentTime).toBeCloseTo(5.5 / 30);
@@ -338,6 +344,49 @@ describe('createFrameDriver loop wrap', () => {
     flushRaf();
     expect(video.play).not.toHaveBeenCalled();
     expect(video.currentTime).toBe(0);
+  });
+
+  it('does not auto-play when a loop point is set while paused at the end', () => {
+    const video = fakeVideo();
+    const { driver } = build(video);
+    driver.start();
+    video.paused = false;
+    flushRaf();
+    video.currentTime = 299 / 30;
+    video.paused = true;
+    video.ended = true;
+    flushRaf();
+    driver.setLoop({ in: 5, out: null });
+    flushRaf();
+    expect(video.play).not.toHaveBeenCalled();
+    expect(video.currentTime).toBeCloseTo(299 / 30);
+  });
+
+  it('does not auto-play when started while already paused at the end with a loop', () => {
+    const video = fakeVideo();
+    const { driver } = build(video);
+    driver.setLoop({ in: 5, out: 299 });
+    video.currentTime = 299 / 30;
+    video.ended = true;
+    driver.start();
+    flushRaf();
+    expect(video.play).not.toHaveBeenCalled();
+    expect(video.currentTime).toBeCloseTo(299 / 30);
+  });
+
+  it('ignores a lone in point at the last frame instead of re-triggering play', () => {
+    const video = fakeVideo();
+    const { driver } = build(video);
+    driver.setLoop({ in: 299, out: null });
+    driver.start();
+    video.paused = false;
+    flushRaf();
+    video.currentTime = 299 / 30;
+    video.paused = true;
+    video.ended = true;
+    flushRaf();
+    expect(video.play).not.toHaveBeenCalled();
+    expect(video.currentTime).toBeCloseTo(299 / 30);
   });
 });
 

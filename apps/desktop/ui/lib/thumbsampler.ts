@@ -20,7 +20,9 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
   const pending = new Set<() => void>();
   let queue: Promise<unknown> = Promise.resolve();
 
+  let resolveReady: () => void = () => {};
   const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
     if (video.readyState >= 2) {
       resolve();
       return;
@@ -98,8 +100,11 @@ export function createThumbSampler(src: string, fps: number, doc: Document = doc
     },
     dispose() {
       disposed = true;
+      resolveReady();
       for (const abort of [...pending]) abort();
+      video.pause();
       video.removeAttribute('src');
+      video.load();
     },
   };
 }
