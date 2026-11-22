@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 
 import type { ExportRequest } from 'drone-path-engine/config';
@@ -30,6 +29,12 @@ export type RunExportJobFn = (
   onCapture?: (progress: CaptureProgress) => void,
 ) => Promise<RecordingSummary>;
 
+export interface ExportIo {
+  exists(filePath: string): boolean;
+  remove(filePath: string): void;
+  rename(from: string, to: string): void;
+}
+
 const runViaPipeline =
   (deps: Partial<PipelineDeps> | undefined): RunExportJobFn =>
   (videoPath, request, log, workingPath, signal, onCapture) =>
@@ -40,7 +45,8 @@ const runViaPipeline =
       deps,
     });
 
-interface ExportRunnerOptions {
+export interface ExportRunnerOptions {
+  io: ExportIo;
   log?: LogFn;
   onDone: (outcome: ExportOutcome) => void;
   onCapture?: (progress: CaptureProgress) => void;
@@ -48,30 +54,30 @@ interface ExportRunnerOptions {
   deps?: Partial<PipelineDeps>;
 }
 
-interface ExportRunner {
+export interface ExportRunner {
   start(videoPath: string, request: ExportRequest): void;
   cancel(): void;
   running(): boolean;
 }
 
 // The working file keeps the .mp4 suffix: ffmpeg infers the container from it.
-function workingPathFor(outPath: string): string {
+function workingPathFor(outPath: string, exists: ExportIo['exists']): string {
   const dir = path.dirname(outPath);
   const stem = `${path.basename(outPath, path.extname(outPath))}.partial`;
-  return uniquePath(dir, stem, '.mp4', (candidate) => fs.existsSync(candidate));
+  return uniquePath(dir, stem, '.mp4', exists);
 }
 
-function removeQuietly(working: string): void {
+function removeQuietly(working: string, remove: ExportIo['remove']): void {
   try {
-    fs.rmSync(working, { force: true });
+    remove(working);
   } catch {
     // best-effort removal; a cleanup failure must never throw from here
   }
 }
 
-function swapIntoPlace(working: string, outPath: string): void {
+function swapIntoPlace(working: string, outPath: string, rename: ExportIo['rename']): void {
   try {
-    fs.renameSync(working, outPath);
+    rename(working, outPath);
   } catch (e) {
     throw new Error(
       `${ERR_COULD_NOT_REPLACE}${outPath}: ${errorMessage(e)} ` +
@@ -82,6 +88,7 @@ function swapIntoPlace(working: string, outPath: string): void {
 }
 
 export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
+  const { io } = options;
   const log = options.log ?? ((): void => {});
   const run = options.run ?? runViaPipeline(options.deps);
   let job: { abort: () => void } | null = null;
@@ -96,17 +103,17 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
     try {
       summary = await run(videoPath, request, log, working, controller.signal, options.onCapture);
     } catch (e) {
-      removeQuietly(working);
+      removeQuietly(working, io.remove);
       return controller.signal.aborted
         ? { status: 'canceled' }
         : { status: 'error', error: errorMessage(e) };
     }
     if (controller.signal.aborted) {
-      removeQuietly(working);
+      removeQuietly(working, io.remove);
       return { status: 'canceled' };
     }
     try {
-      swapIntoPlace(working, request.outPath);
+      swapIntoPlace(working, request.outPath, io.rename);
     } catch (e) {
       return { status: 'error', error: errorMessage(e) };
     }
@@ -125,7 +132,7 @@ export function createExportRunner(options: ExportRunnerOptions): ExportRunner {
       }
       const controller = new AbortController();
       job = { abort: () => controller.abort() };
-      const working = workingPathFor(request.outPath);
+      const working = workingPathFor(request.outPath, io.exists);
       // The catch guards a consumer's throwing onDone: an unhandled rejection here would kill the process.
       void execute(videoPath, request, working, controller)
         .then((outcome) => {

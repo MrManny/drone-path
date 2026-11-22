@@ -1,9 +1,8 @@
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { z } from 'zod';
 
-import { TILE_BASE, mediaUrlFor } from './apppaths.js';
+import { TILE_BASE, mediaUrlFor } from './appurls.js';
 import { parseAppearanceSettings } from 'drone-path-engine/config';
 import type { AppearanceSettings, RenderConfig } from 'drone-path-engine/config';
 import { parseFrameRange } from 'drone-path-core/frame-range';
@@ -31,7 +30,7 @@ import type { LogFn } from 'drone-path-engine/logging';
 import type { PipelineDeps, PrepareProgressFn } from 'drone-path-engine/pipeline';
 import type { TelemetryDocumentInput } from 'drone-path-core/telemetry-json';
 import { trackFormatOf } from 'drone-path-core/track-format';
-import { writeTrackFile } from 'drone-path-core/track-write';
+import type { TrackExportInput } from 'drone-path-core/track-write';
 import type { TrackStream } from 'drone-path-core/track';
 
 export interface PageVideo {
@@ -159,9 +158,15 @@ export const prepareUiSession: PrepareUiSessionFn = async (
   };
 };
 
-interface AppSessionOptions {
+export interface SessionIo {
+  isFile(filePath: string): boolean;
+  writeTrack(file: string, input: TrackExportInput, range: FrameRange | null): void;
+}
+
+export interface AppSessionOptions {
   config: RenderConfig;
   pickFile: () => Promise<string | null>;
+  io: SessionIo;
   prepare?: PrepareUiSessionFn;
   log?: (msg: string) => void;
   onPreparing?: (videoPath: string) => void;
@@ -175,17 +180,12 @@ export interface AppSession {
   saveTrack(file: string, range: FrameRange | null): void;
 }
 
-function isReadableVideo(filePath: string): boolean {
-  if (!isRecordingName(filePath)) return false;
-  try {
-    return fs.statSync(filePath).isFile();
-  } catch {
-    return false;
-  }
+function isReadableVideo(filePath: string, isFile: (path: string) => boolean): boolean {
+  return isRecordingName(filePath) && isFile(filePath);
 }
 
 export function createAppSession(options: AppSessionOptions): AppSession {
-  const { config, pickFile } = options;
+  const { config, pickFile, io } = options;
   const prepare = options.prepare ?? prepareUiSession;
   const log = options.log ?? ((): void => {});
   const onPreparing = options.onPreparing ?? ((): void => {});
@@ -202,7 +202,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
         const picked = await pickFile();
         if (picked === null) return { ok: false, canceled: true };
         const resolved = path.resolve(picked);
-        if (!isReadableVideo(resolved)) {
+        if (!isReadableVideo(resolved, io.isFile)) {
           log(`rejected: ${resolved}`);
           return { ok: false, error: `${ERR_NOT_READABLE_MP4}${resolved}` };
         }
@@ -222,7 +222,7 @@ export function createAppSession(options: AppSessionOptions): AppSession {
     videoPath: () => videoPath,
     saveTrack(file: string, range: FrameRange | null): void {
       if (!prepared) throw new Error(ERR_NO_RECORDING);
-      writeTrackFile(file, { document: prepared.telemetry, track: prepared.track }, range);
+      io.writeTrack(file, { document: prepared.telemetry, track: prepared.track }, range);
     },
   };
 }

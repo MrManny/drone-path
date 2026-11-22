@@ -8,11 +8,14 @@ import {
   prepareUiSession,
 } from '../src/appsession.js';
 import type {
+  AppSessionOptions,
   PickRequest,
   PreparedUiSession,
   PrepareUiSessionFn,
+  SessionIo,
   UiSession,
 } from '../src/appsession.js';
+import { nodeSessionIo } from '../src/shellio.js';
 import type { RenderConfig } from 'drone-path-engine/config';
 import { processRecording } from 'drone-path-engine/pipeline';
 import type { PrepareProgress } from 'drone-path-engine/pipeline';
@@ -96,11 +99,15 @@ afterEach(() => {
   cleanupTmpDirs();
 });
 
+function makeSession(options: Omit<AppSessionOptions, 'io'> & { io?: SessionIo }) {
+  return createAppSession({ io: nodeSessionIo, ...options });
+}
+
 describe('createAppSession', () => {
   it('prepares a picked recording and holds its session', async () => {
     const file = mp4();
     const prepare = vi.fn(async (): Promise<PreparedUiSession> => PREPARED);
-    const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare });
+    const session = makeSession({ config: CONFIG, pickFile: async () => file, prepare });
 
     expect(await session.pick(REQUEST)).toEqual({ ok: true });
     expect(prepare).toHaveBeenCalledWith(
@@ -113,8 +120,27 @@ describe('createAppSession', () => {
     expect(session.videoPath()).toBe(file);
   });
 
+  it('uses injected SessionIo without touching the real filesystem', async () => {
+    const virtualFile = path.resolve('virtual', 'flight.mp4');
+    const writeTrack = vi.fn();
+    const io: SessionIo = {
+      isFile: (candidate) => candidate === virtualFile,
+      writeTrack,
+    };
+    const prepare = vi.fn(async (): Promise<PreparedUiSession> => PREPARED);
+    const session = createAppSession({ config: CONFIG, pickFile: async () => virtualFile, io, prepare });
+
+    expect(await session.pick(REQUEST)).toEqual({ ok: true });
+    session.saveTrack(path.resolve('virtual', 'out.json'), { start: 0, end: 2 });
+    expect(writeTrack).toHaveBeenCalledWith(
+      path.resolve('virtual', 'out.json'),
+      { document: PREPARED.telemetry, track: PREPARED.track },
+      { start: 0, end: 2 },
+    );
+  });
+
   it('reports a canceled dialog', async () => {
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => null,
       prepare: vi.fn(),
@@ -127,7 +153,7 @@ describe('createAppSession', () => {
     const file = path.join(tmpDir(), 'clip.mov');
     fs.writeFileSync(file, Buffer.from('video'));
     const prepare = vi.fn();
-    const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare });
+    const session = makeSession({ config: CONFIG, pickFile: async () => file, prepare });
     const result = await session.pick(REQUEST);
     expect(result.ok).toBe(false);
     expect(result.error).toContain('not a readable .mp4 file');
@@ -136,7 +162,7 @@ describe('createAppSession', () => {
 
   it('rejects a missing file', async () => {
     const missing = path.join(tmpDir(), 'gone.mp4');
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => missing,
       prepare: vi.fn(),
@@ -146,7 +172,7 @@ describe('createAppSession', () => {
 
   it('surfaces preparation failures and keeps no session', async () => {
     const file = mp4();
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => file,
       prepare: vi.fn(async () => {
@@ -163,7 +189,7 @@ describe('createAppSession', () => {
     const first = mp4('first.mp4');
     const prepare = vi.fn(async (): Promise<PreparedUiSession> => PREPARED);
     let pickFile = async (): Promise<string | null> => first;
-    const session = createAppSession({ config: CONFIG, pickFile: () => pickFile(), prepare });
+    const session = makeSession({ config: CONFIG, pickFile: () => pickFile(), prepare });
     await session.pick(REQUEST);
     pickFile = async (): Promise<string | null> => null;
     await session.pick(REQUEST);
@@ -180,7 +206,7 @@ describe('createAppSession', () => {
           release = resolve;
         }),
     );
-    const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare });
+    const session = makeSession({ config: CONFIG, pickFile: async () => file, prepare });
 
     const first = session.pick(REQUEST);
     const second = await session.pick(REQUEST);
@@ -201,7 +227,7 @@ describe('createAppSession onPreparing hook', () => {
       order.push('prepare');
       return PREPARED;
     });
-    const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare, onPreparing });
+    const session = makeSession({ config: CONFIG, pickFile: async () => file, prepare, onPreparing });
 
     expect(await session.pick(REQUEST)).toEqual({ ok: true });
     expect(onPreparing).toHaveBeenCalledTimes(1);
@@ -210,7 +236,7 @@ describe('createAppSession onPreparing hook', () => {
 
   it('stays silent when the dialog is canceled', async () => {
     const onPreparing = vi.fn();
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => null,
       prepare: vi.fn(),
@@ -222,7 +248,7 @@ describe('createAppSession onPreparing hook', () => {
 
   it('stays silent when the dialog itself fails', async () => {
     const onPreparing = vi.fn();
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => {
         throw new Error('dialog unavailable');
@@ -239,7 +265,7 @@ describe('createAppSession onPreparing hook', () => {
     fs.writeFileSync(file, Buffer.from('video'));
     const onPreparing = vi.fn();
     const prepare = vi.fn();
-    const session = createAppSession({ config: CONFIG, pickFile: async () => file, prepare, onPreparing });
+    const session = makeSession({ config: CONFIG, pickFile: async () => file, prepare, onPreparing });
     expect((await session.pick(REQUEST)).ok).toBe(false);
     expect(onPreparing).not.toHaveBeenCalled();
     expect(prepare).not.toHaveBeenCalled();
@@ -260,7 +286,7 @@ describe('createAppSession onPrepareProgress hook', () => {
       onProgress?.(reported);
       return PREPARED;
     });
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => file,
       prepare,
@@ -280,7 +306,7 @@ describe('createAppSession onPrepareProgress hook', () => {
 
   it('stays silent when the pick is rejected before preparation', async () => {
     const onPrepareProgress = vi.fn();
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => null,
       prepare: vi.fn(),
@@ -443,7 +469,7 @@ function saveDeps() {
 }
 
 async function loadedSession(file: string, deps = saveDeps()) {
-  const session = createAppSession({
+  const session = makeSession({
     config: testConfig(),
     pickFile: async () => file,
     prepare: (video, config, log, onProgress) =>
@@ -641,7 +667,7 @@ describe('AppSession.saveTrack', () => {
   });
 
   it('refuses to save when no recording is loaded', () => {
-    const session = createAppSession({
+    const session = makeSession({
       config: CONFIG,
       pickFile: async () => null,
       prepare: vi.fn(),

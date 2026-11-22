@@ -12,24 +12,9 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, dialog, Menu, net, protocol, session, shell } from 'electron';
 
 import { resolveAppAsset } from '../dist/appassets.js';
-import {
-  APP_ORIGIN,
-  appStateFile,
-  isAllowedAppUrl,
-  resolveDevUrl,
-  uiExportRoot,
-} from '../dist/apppaths.js';
-import {
-  applyAppState,
-  emptyAppState,
-  readAppState,
-  rememberOpenedFile,
-  saveAppStateSafely,
-} from '../dist/appstate.js';
+import { appStateFile, uiExportRoot } from '../dist/apppaths.js';
+import { APP_ORIGIN, isAllowedAppUrl, resolveDevUrl } from '../dist/appurls.js';
 import { createAppSession } from '../dist/appsession.js';
-import { CONFIG_FILE_NAME } from 'drone-path-engine/config';
-import { resolveConfig } from 'drone-path-engine/configfile';
-import { userDataDir } from 'drone-path-engine/paths';
 import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
 import { createExportRunner } from '../dist/exportjob.js';
@@ -43,12 +28,31 @@ import {
   shouldApplySecurityHeaders,
   withResponseSecurityHeaders,
 } from '../dist/securityheaders.js';
+import { createShellController } from '../dist/shellcontroller.js';
+import {
+  createAppStateStore,
+  nodeExportIo,
+  nodeSessionIo,
+  resolveDesktopConfig,
+} from '../dist/shellio.js';
 import { createTileTraffic } from 'drone-path-engine/tiles';
 import { registerIpcHandlers } from './ipc.mjs';
-import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
+import { showDialogWithParent } from './shell.mjs';
 import { initUpdates } from './update.mjs';
 
+export { resolveDesktopConfig };
+
+/**
+ * @typedef {import('../dist/shellcontroller.js').HeaderSession} HeaderSession
+ * @typedef {import('../dist/shellcontroller.js').NavigationWebContents} NavigationWebContents
+ * @typedef {import('../dist/shellcontroller.js').ShellController} ShellController
+ * @typedef {import('../dist/shellcontroller.js').ShellWindow} ShellWindow
+ * @typedef {import('../dist/desktop-i18n/messages.js').Locale} Locale
+ * @typedef {import('../dist/desktop-i18n/messages.js').Translate} Translate
+ */
+
 const SCHEME = 'app';
+/** @param {string} msg */
 const log = (msg) => process.stderr.write(`[drone-path] ${msg}\n`);
 
 // Must run before app ready so the scheme gets standard/secure semantics.
@@ -64,89 +68,70 @@ protocol.registerSchemesAsPrivileged([
 // is started with a script path.
 const exportRoot = uiExportRoot(import.meta.dirname);
 
-// The one window's mutable state, created in startup() and handed to every
-// stage as one object: the IPC handlers, the export runner callbacks and the
-// window lifecycle handlers share it, so each writer (export completion, the
-// close guard, window-all-closed) is a named handler instead of a nested
-// closure over scattered module globals.
-export function createShellState() {
-  return {
-    win: null,
-    session: null,
-    config: null,
-    appState: emptyAppState(),
-    systemLanguages: app.getPreferredSystemLanguages(),
-    tileTraffic: null,
-    // The one tile prefetch entry point every in-process lane drives.
-    tilePrefetch: null,
-    exportRunner: null,
-    // The update controller, or null when this build cannot self-update.
-    updates: null,
-    // A downloaded update waits even if its announcement raced the renderer.
-    updateReady: false,
-    // The destinations of the last successful export and the last track
-    // save: the only paths the renderer may reveal or open.
-    lastExportOut: null,
-    lastTrackOut: null,
-    // The destinations most recently approved by native save dialogs.
-    pendingExportOut: null,
-    pendingTrackOut: null,
-    closePromptOpen: false,
-    pendingClose: false,
-  };
-}
-
-async function pickRecording(state) {
-  const t = translationFor(state);
+/**
+ * @param {ShellController} controller
+ * @returns {Promise<string | null>}
+ */
+async function pickRecording(controller) {
+  const t = controller.translator();
+  /** @type {Electron.OpenDialogOptions} */
   const options = {
     title: t('native.chooseRecording'),
     filters: [{ name: t('native.djiRecordings'), extensions: ['mp4'] }],
     properties: ['openFile'],
     // Back where the last recording came from, when that folder still exists.
-    defaultPath: rememberedOpenDir(state) ?? undefined,
+    defaultPath: controller.rememberedOpenDir(),
   };
-  const result = await showDialogWithParent(state, dialog.showOpenDialog.bind(dialog), options);
-  const picked = result.canceled ? null : result.filePaths[0];
-  if (picked) rememberPicked(state, picked);
+  const result = await showDialogWithParent(
+    controller.liveWindow(),
+    dialog.showOpenDialog.bind(dialog),
+    options,
+  );
+  const picked = result.canceled ? null : (result.filePaths[0] ?? null);
+  if (picked) controller.rememberPickedFile(picked);
   return picked;
 }
 
-function rememberedOpenDir(state) {
-  const dir = state.appState.lastOpenDir;
-  return dir && fs.existsSync(dir) ? dir : undefined;
+/**
+ * @param {ShellWindow | null} win
+ * @param {Translate} t
+ * @returns {Promise<boolean>}
+ */
+async function confirmStopExport(win, t) {
+  /** @type {Electron.MessageBoxOptions} */
+  const box = {
+    type: 'warning',
+    buttons: [t('native.stopExport'), t('native.keepExporting')],
+    defaultId: 1,
+    cancelId: 1,
+    message: t('native.exportInProgress'),
+    detail: t('native.closeExportDetail'),
+  };
+  const { response } = await showDialogWithParent(win, dialog.showMessageBox.bind(dialog), box);
+  return response === 0;
 }
 
-function rememberPicked(state, filePath) {
-  state.appState = rememberOpenedFile(state.appState, filePath);
-  saveAppStateSafely(appStateFile(), state.appState, log);
-}
-
-function fail(state, error) {
+/**
+ * @param {Locale} locale
+ * @param {unknown} error
+ */
+function fail(locale, error) {
   const message = errorMessage(error);
   process.stderr.write(`${ERROR_PREFIX}${message}\n`);
-  const locale = resolveLocale(state.appState.language, state.systemLanguages);
   const t = translator(locale);
-  dialog.showErrorBox(t('app.title'), locale === DEFAULT_LOCALE
-    ? message
-    : t('native.startupFailure', { details: message }));
+  dialog.showErrorBox(
+    t('app.title'),
+    locale === DEFAULT_LOCALE ? message : t('native.startupFailure', { details: message }),
+  );
   app.quit();
 }
 
-function sendToWindow(state, channel, payload) {
-  liveWindow(state)?.webContents.send(channel, payload);
-}
-
-export function handleExportDone(state, outcome) {
-  if (outcome.status === 'ok') state.lastExportOut = outcome.summary.out;
-  sendToWindow(state, 'dronepath:export:done', outcome);
-  if (state.pendingClose) {
-    state.pendingClose = false;
-    const win = liveWindow(state);
-    if (win) win.close();
-    else app.quit();
-  }
-}
-
+/**
+ * @param {Request} request
+ * @param {string} filePath
+ * @param {string} csp
+ * @returns {Response}
+ */
 function videoResponse(request, filePath, csp) {
   const size = fs.statSync(filePath).size;
   const plan = planByteRange(request.headers.get('range') ?? undefined, size, 'video/mp4');
@@ -158,11 +143,19 @@ function videoResponse(request, filePath, csp) {
     plan.status === 206
       ? fs.createReadStream(filePath, { start: plan.span.start, end: plan.span.end })
       : fs.createReadStream(filePath);
-  return new Response(Readable.toWeb(stream), { status: plan.status, headers });
+  const body = /** @type {BodyInit} */ (/** @type {unknown} */ (Readable.toWeb(stream)));
+  return new Response(body, { status: plan.status, headers });
 }
 
 // net.fetch only sets request headers; wrapping the body gives the client
 // the intended MIME and status.
+/**
+ * @param {string} filePath
+ * @param {string} mime
+ * @param {number} [status]
+ * @param {string} [csp]
+ * @returns {Promise<Response>}
+ */
 async function fileResponse(filePath, mime, status = 200, csp = '') {
   const fetched = await net.fetch(pathToFileURL(filePath).toString());
   const headers = csp
@@ -171,6 +164,10 @@ async function fileResponse(filePath, mime, status = 200, csp = '') {
   return new Response(fetched.body, { status, headers });
 }
 
+/**
+ * @param {string} csp
+ * @returns {Promise<Response> | Response}
+ */
 function notFound(csp) {
   const fallback = path.join(exportRoot, '404.html');
   return fs.existsSync(fallback)
@@ -181,7 +178,14 @@ function notFound(csp) {
       });
 }
 
-async function handleRequest(state, request, csp) {
+/**
+ * @param {ShellController} controller
+ * @param {ReturnType<typeof createTileTraffic>} tileTraffic
+ * @param {Request} request
+ * @param {string} csp
+ * @returns {Promise<Response>}
+ */
+async function handleRequest(controller, tileTraffic, request, csp) {
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname);
@@ -193,7 +197,7 @@ async function handleRequest(state, request, csp) {
   }
   const plan = resolveAppAsset(pathname, {
     exportRoot,
-    videoPath: state.session ? state.session.videoPath() : null,
+    videoPath: controller.videoPath(),
   });
   switch (plan.kind) {
     case 'video':
@@ -202,7 +206,7 @@ async function handleRequest(state, request, csp) {
       // Always through the tile traffic: it serves cached tiles immediately,
       // retries tiles whose earlier download failed (so they recover once
       // connectivity returns) and falls back to the placeholder.
-      const file = await state.tileTraffic.ensure(plan.style, plan.tile);
+      const file = await tileTraffic.ensure(plan.style, plan.tile);
       return fileResponse(file, 'image/png', 200, csp);
     }
     case 'export':
@@ -213,54 +217,51 @@ async function handleRequest(state, request, csp) {
   }
 }
 
-// Desktop never walks process.cwd() upward for .dronepath.json; only a
-// config file placed inside the controlled userDataDir() is consulted, and
-// relative outDir values stay relative so exportDefaultFor() anchors them at
-// the recording folder.
-export function resolveDesktopConfig(userDir = userDataDir()) {
-  const candidate = path.join(userDir, CONFIG_FILE_NAME);
-  const configPath = fs.existsSync(candidate) ? candidate : null;
-  return resolveConfig({
-    cwd: userDir,
-    configPath,
-    discover: false,
-    resolveOutDir: false,
-  });
-}
-
 // The backing services behind the window: tool check, config, tile cache and
 // the recording session.
-async function initServices(state) {
-  state.appState = readAppState(appStateFile());
-  const resolved = resolveDesktopConfig();
-  state.config = applyAppState(resolved.config, state.appState);
-  await requireFfmpegTools(resolveFfmpegTools(state.config));
+/**
+ * @param {ShellController} controller
+ * @returns {Promise<ReturnType<typeof createTileTraffic>>}
+ */
+async function initServices(controller) {
+  const config = controller.getConfig();
+  await requireFfmpegTools(resolveFfmpegTools(config));
   // One polite tile queue for the whole app: on-demand tiles and the export
   // prefetch share its request budget, and on-demand tiles the player needs
   // right now jump the queue.
-  state.tileTraffic = createTileTraffic(state.config.tileCache, app.isPackaged ? app.getVersion() : undefined);
-  state.tilePrefetch = (options) => state.tileTraffic.stream(options);
-  state.session = createAppSession({
-    config: state.config,
-    pickFile: () => pickRecording(state),
-    log,
-    onPreparing: () => sendToWindow(state, 'dronepath:preparing'),
-    onPrepareProgress: (progress) =>
-      sendToWindow(state, 'dronepath:preparing:progress', progress),
-  });
+  const tileTraffic = createTileTraffic(config.tileCache, app.isPackaged ? app.getVersion() : undefined);
+  /** @type {(options: import('drone-path-engine/tiles').WarmOptions) => Promise<import('drone-path-engine/tiles').PrefetchStats>} */
+  const tilePrefetch = (options) => tileTraffic.stream(options);
+  controller.attachSession(
+    createAppSession({
+      config,
+      pickFile: () => pickRecording(controller),
+      io: nodeSessionIo,
+      log,
+      onPreparing: () => controller.sendToWindow('dronepath:preparing'),
+      onPrepareProgress: (progress) =>
+        controller.sendToWindow('dronepath:preparing:progress', progress),
+    }),
+  );
+  controller.attachExportRunner(
+    createExportRunner({
+      io: nodeExportIo,
+      log,
+      onCapture: (progress) =>
+        controller.sendToWindow('dronepath:export:capture', progress),
+      onDone: (outcome) => controller.handleExportDone(outcome),
+      // An export warms tiles next to the live app: same queue, same budget.
+      deps: { prefetchTiles: tilePrefetch },
+    }),
+  );
+  return tileTraffic;
 }
 
-function initExportRunner(state) {
-  state.exportRunner = createExportRunner({
-    log,
-    onCapture: (progress) =>
-      sendToWindow(state, 'dronepath:export:capture', progress),
-    onDone: (outcome) => handleExportDone(state, outcome),
-    // An export warms tiles next to the live app: same queue, same budget.
-    deps: { prefetchTiles: state.tilePrefetch },
-  });
-}
-
+/**
+ * @param {HeaderSession} targetSession
+ * @param {string} csp
+ * @param {string | null} [devUrl]
+ */
 export function installSecurityHeaders(targetSession, csp, devUrl = null) {
   targetSession.webRequest.onHeadersReceived((details, callback) => {
     if (!shouldApplySecurityHeaders(details.url, devUrl)) {
@@ -271,9 +272,14 @@ export function installSecurityHeaders(targetSession, csp, devUrl = null) {
   });
 }
 
-function installProtocolHandler(state, csp) {
+/**
+ * @param {ShellController} controller
+ * @param {ReturnType<typeof createTileTraffic>} tileTraffic
+ * @param {string} csp
+ */
+function installProtocolHandler(controller, tileTraffic, csp) {
   protocol.handle(SCHEME, (request) =>
-    handleRequest(state, request, csp).catch((e) => {
+    handleRequest(controller, tileTraffic, request, csp).catch((e) => {
       log(`scheme error: ${errorMessage(e)}`);
       return new Response('internal error', {
         status: 500,
@@ -283,13 +289,22 @@ function installProtocolHandler(state, csp) {
   );
 }
 
+/** @param {string | null} devUrl */
 function ensureUiExport(devUrl) {
   if (devUrl === null && !fs.existsSync(path.join(exportRoot, 'index.html'))) {
     throw new Error('ui export missing; run "npm run build" first');
   }
 }
 
+/**
+ * @param {NavigationWebContents} webContents
+ * @param {string | null} devUrl
+ */
 export function installNavigationGuards(webContents, devUrl) {
+  /**
+   * @param {{ preventDefault(): void }} event
+   * @param {string} url
+   */
   const guard = (event, url) => {
     if (!isAllowedAppUrl(url, devUrl)) event.preventDefault();
   };
@@ -297,12 +312,17 @@ export function installNavigationGuards(webContents, devUrl) {
   webContents.on('will-redirect', guard);
 }
 
-function createWindow(state, devUrl) {
+/**
+ * @param {ShellController} controller
+ * @param {string | null} devUrl
+ * @returns {BrowserWindow}
+ */
+function createWindow(controller, devUrl) {
   // The in-app menu bar owns all workspace commands; a native Alt/F10 menu
   // would compete with it, so none is installed (Windows and Linux).
   Menu.setApplicationMenu(null);
-  const t = translationFor(state);
-  state.win = new BrowserWindow({
+  const t = controller.translator();
+  const win = new BrowserWindow({
     width: 1600,
     height: 950,
     // The control bar needs ~1000px of min-content width; below this the
@@ -326,109 +346,83 @@ function createWindow(state, devUrl) {
       nodeIntegration: false,
     },
   });
-  state.win.on('closed', () => {
-    state.win = null;
+  controller.setWindow(win);
+  win.on('closed', () => {
+    controller.setWindow(null);
   });
   // Web links (e.g. in the user manual) open in the system browser, never in
   // a second app window.
-  state.win.webContents.setWindowOpenHandler(({ url }) => {
+  win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
-  installNavigationGuards(state.win.webContents, devUrl);
+  installNavigationGuards(win.webContents, devUrl);
+  return win;
 }
 
 // Closing the window must not silently kill a running export and strand
 // minutes of work; the user chooses between stopping and keeping it.
-export function installCloseGuard(state) {
-  state.win.on('close', (e) => {
-    // A close already confirmed by the user, or with nothing running, passes.
-    if (state.pendingClose || !state.exportRunner || !state.exportRunner.running()) return;
-    if (state.closePromptOpen) {
-      e.preventDefault();
-      return;
-    }
-    e.preventDefault();
-    state.closePromptOpen = true;
-    const t = translationFor(state);
-    const box = {
-      type: 'warning',
-      buttons: [t('native.stopExport'), t('native.keepExporting')],
-      defaultId: 1,
-      cancelId: 1,
-      message: t('native.exportInProgress'),
-      detail: t('native.closeExportDetail'),
-    };
-    void showDialogWithParent(state, dialog.showMessageBox.bind(dialog), box)
-      .then(({ response }) => {
-        state.closePromptOpen = false;
-        if (response !== 0) return;
-        // The export may have settled while the dialog was open; close
-        // directly instead of setting pendingClose for an onDone that already ran.
-        if (!state.exportRunner || !state.exportRunner.running()) {
-          const win = liveWindow(state);
-          if (win) win.close();
-          else app.quit();
-          return;
-        }
-        // Cancellation settles asynchronously: the close completes from the
-        // job's onDone, never from a synchronous running() check.
-        state.pendingClose = true;
-        state.exportRunner.cancel();
-      })
-      .catch((err) => {
-        log(`close guard dialog failed: ${errorMessage(err)}`);
-      })
-      .finally(() => {
-        state.closePromptOpen = false;
-      });
-  });
-}
-
-async function loadUi(state, devUrl) {
-  await state.win.loadURL(devUrl ?? `${APP_ORIGIN}/`);
-}
-
-// The window is the app: closing it quits. A still-running export delays the
-// quit until its job has settled and cleaned up after itself.
-export function handleWindowAllClosed(state) {
-  if (state.exportRunner && state.exportRunner.running()) {
-    state.pendingClose = true;
-    state.exportRunner.cancel();
-    return;
-  }
-  app.quit();
+/**
+ * @param {ShellWindow} win
+ * @param {ShellController} controller
+ */
+export function installCloseGuard(win, controller) {
+  win.on('close', (e) => controller.closeGuard.onWindowClose(e));
 }
 
 async function startup() {
-  const state = createShellState();
-  app.on('window-all-closed', () => handleWindowAllClosed(state));
+  const systemLanguages = app.getPreferredSystemLanguages();
+  const stateStore = createAppStateStore(appStateFile(), log);
+  const initialAppState = stateStore.read();
+  /** @type {ShellController | null} */
+  let controller = null;
+  // The window is the app: closing it quits. A still-running export delays the
+  // quit until its job has settled and cleaned up after itself.
+  app.on('window-all-closed', () => {
+    if (controller) controller.closeGuard.onWindowAllClosed();
+    else app.quit();
+  });
   try {
     const devUrl = resolveDevUrl(process.argv, app.isPackaged);
-    await initServices(state);
-    initExportRunner(state);
-    state.updates = initUpdates({
+    const resolved = resolveDesktopConfig();
+    controller = createShellController({
+      config: resolved.config,
+      appState: initialAppState,
+      stateStore,
+      systemLanguages,
+      dirExists: (dirPath) => fs.existsSync(dirPath),
+      confirmStopExport,
+      quitApp: () => app.quit(),
       log,
-      onReady: () => {
-        // Buffered: the cache fast path can announce before the renderer
-        // subscribes, and the state handler replays it on mount.
-        state.updateReady = true;
-        sendToWindow(state, 'dronepath:update:ready');
-      },
     });
-    registerIpcHandlers(state, { devUrl, log, sendToWindow });
+    const tileTraffic = await initServices(controller);
+    controller.attachUpdates(
+      initUpdates({
+        log,
+        onReady: () => {
+          // Buffered: the cache fast path can announce before the renderer
+          // subscribes, and the state handler replays it on mount.
+          controller?.markUpdateReady();
+          controller?.sendToWindow('dronepath:update:ready');
+        },
+      }),
+    );
+    registerIpcHandlers(controller.ipc, { devUrl, log });
     ensureUiExport(devUrl);
     const csp = buildRendererCsp({
       devUrl,
       scriptHashes: devUrl !== null ? [] : collectExportScriptHashes(exportRoot),
     });
     installSecurityHeaders(session.defaultSession, csp, devUrl);
-    installProtocolHandler(state, csp);
-    createWindow(state, devUrl);
-    installCloseGuard(state);
-    await loadUi(state, devUrl);
+    installProtocolHandler(controller, tileTraffic, csp);
+    const win = createWindow(controller, devUrl);
+    installCloseGuard(win, controller);
+    await win.loadURL(devUrl ?? `${APP_ORIGIN}/`);
   } catch (e) {
-    fail(state, e);
+    const locale = controller
+      ? controller.locale()
+      : resolveLocale(initialAppState.language, systemLanguages);
+    fail(locale, e);
   }
 }
 

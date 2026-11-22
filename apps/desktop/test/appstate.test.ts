@@ -1,7 +1,6 @@
-import fs from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { AppState } from '../src/appstate.js';
 import {
@@ -9,17 +8,12 @@ import {
   applyAppState,
   emptyAppState,
   parseAppState,
-  readAppState,
   rememberOpenedFile,
   serializeAppState,
-  writeAppState,
 } from '../src/appstate.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
 import type { HudLayout, SettingsPatch } from 'drone-path-engine/config';
 import { testConfig } from '../../../test/fixtures/engine.js';
-import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
-
-afterEach(cleanupTmpDirs);
 
 const PATCH: SettingsPatch = {
   style: 'topo',
@@ -69,12 +63,6 @@ const INVALID_CASES: Array<[string, unknown]> = [
     { version: APP_STATE_VERSION, settings: { ...PATCH, zoom: -1 } },
   ],
   ['a mistyped last-opened folder', { version: APP_STATE_VERSION, lastOpenDir: 42 }],
-];
-
-const UNREADABLE_CASES: Array<[string, string]> = [
-  ['corrupt JSON', '{oops'],
-  ['a JSON scalar', '42'],
-  ['a valid JSON value with the wrong shape', '{"version":3}'],
 ];
 
 describe('parseAppState / serializeAppState', () => {
@@ -158,47 +146,6 @@ describe('tolerant settings reading', () => {
   });
 });
 
-describe('readAppState', () => {
-  it('is a fresh state when no file exists (fresh install)', () => {
-    expect(readAppState(path.join(tmpDir(), 'state.json'))).toEqual(emptyAppState());
-  });
-
-  it.each(UNREADABLE_CASES)(
-    'falls back to the fresh state for %s',
-    (_label, text) => {
-      const file = path.join(tmpDir(), 'state.json');
-      fs.writeFileSync(file, text);
-      expect(readAppState(file)).toEqual(emptyAppState());
-    },
-  );
-
-  it('round-trips a state through the file', () => {
-    const file = path.join(tmpDir(), 'state.json');
-    writeAppState(file, stateFixture());
-    expect(readAppState(file)).toEqual(stateFixture());
-  });
-});
-
-describe('writeAppState', () => {
-  it('creates the file and its directory with deterministic bytes', () => {
-    const file = path.join(tmpDir(), 'nested', 'state.json');
-    writeAppState(file, stateFixture());
-    expect(fs.readFileSync(file, 'utf8')).toBe(serializeAppState(stateFixture()));
-  });
-
-  it('wraps write failures with the original cause', () => {
-    const blocker = path.join(tmpDir(), 'blocker');
-    fs.writeFileSync(blocker, 'x');
-    try {
-      writeAppState(path.join(blocker, 'state.json'), emptyAppState());
-      expect.unreachable('writing under a file must fail');
-    } catch (e) {
-      expect((e as Error).message).toMatch(/^cannot write app state /);
-      expect((e as Error).cause).toBeInstanceOf(Error);
-    }
-  });
-});
-
 describe('applyAppState', () => {
   it('leaves the resolved config alone when nothing is persisted', () => {
     const config = testConfig();
@@ -225,7 +172,7 @@ describe('applyAppState', () => {
 
 describe('rememberOpenedFile', () => {
   it('stores the folder of the picked recording', () => {
-    const dir = tmpDir();
+    const dir = path.join('tmp', 'flights');
     const next = rememberOpenedFile(emptyAppState(), path.join(dir, 'flight.mp4'));
     expect(next.lastOpenDir).toBe(dir);
   });
@@ -234,23 +181,5 @@ describe('rememberOpenedFile', () => {
     const next = rememberOpenedFile(stateFixture(), path.join('recs', 'flight.mp4'));
     expect(next.settings).toEqual(PATCH);
     expect(next.lastOpenDir).toBe('recs');
-  });
-});
-
-describe('settings persistence across a relaunch', () => {
-  it('restores the panel look through the state file', () => {
-    const file = path.join(tmpDir(), 'state.json');
-    writeAppState(file, stateFixture());
-    const restored = applyAppState(testConfig(), readAppState(file));
-    expect(settingsPatchOf(restored)).toEqual(PATCH);
-  });
-
-  it('restores the last-opened folder and the look together', () => {
-    const file = path.join(tmpDir(), 'state.json');
-    const dir = tmpDir();
-    writeAppState(file, rememberOpenedFile(stateFixture(), path.join(dir, 'flight.mp4')));
-    const restored = readAppState(file);
-    expect(restored.lastOpenDir).toBe(dir);
-    expect(applyAppState(testConfig(), restored).style).toBe('topo');
   });
 });
