@@ -132,7 +132,7 @@ Packaged builds update themselves: when a newer [release](https://github.com/MrM
 
 **Help → User manual** opens the manual inside the app. It is bundled with the app, so it works offline.
 
-**Help → About** opens a small dialog with the app's identity: the *drone / path* lockup, the installed version below it, the MIT license line and a link to the project repository, which opens in the default browser. The version reads `MAJOR.MINOR.PATCH` in a release build (like `0.8.1`) and adds `+` with the short commit (like `0.8.1+cb40df32`) in every other build, so a support answer names the exact build; release builds never carry the commit suffix.
+**Help → About** opens a small dialog with the app's identity: the *drone / path* lockup, the installed version below it, the MIT license line, and links to the official website and project repository. Both links open in your default browser. The version reads `MAJOR.MINOR.PATCH` in a release build (like `0.8.1`) and adds `+` with the short commit (like `0.8.1+cb40df32`) in every other build, so a support answer names the exact build; release builds never carry the commit suffix.
 
 ## Notes
 

@@ -7,6 +7,7 @@ import { formatVersion } from './buildversion.js';
 export interface AboutContent {
   versionLine: string;
   licenseLine: string;
+  websiteUrl: string;
   repoLabel: string;
   repoUrl: string;
 }
@@ -15,6 +16,7 @@ export function aboutContent(version: string, git: BuildGit | null, t: Translate
   return {
     versionLine: t('abouttext.version', { version: formatVersion(version, git) }),
     licenseLine: t('abouttext.license'),
+    websiteUrl: 'https://www.dronepath.dev/',
     repoLabel: 'MrManny/drone-path',
     repoUrl: 'https://github.com/MrManny/drone-path',
   };
