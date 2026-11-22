@@ -1,3 +1,4 @@
+import type { RenderConfig } from 'drone-path-engine/config';
 import type { ExportOutcome } from '../src/exportjob.js';
 
 export interface MainWindow {
@@ -7,6 +8,13 @@ export interface MainWindow {
   webContents: {
     send(channel: string, payload?: unknown): void;
   };
+}
+
+export interface NavigationWebContents {
+  on(
+    event: 'will-navigate' | 'will-redirect',
+    listener: (event: { preventDefault(): void }, url: string) => void,
+  ): void;
 }
 
 export interface ShellState {
@@ -25,6 +33,8 @@ export interface ShellState {
   updateReady: boolean;
   lastExportOut: string | null;
   lastTrackOut: string | null;
+  pendingExportOut: string | null;
+  pendingTrackOut: string | null;
   closePromptOpen: boolean;
   pendingClose: boolean;
 }
@@ -41,6 +51,8 @@ export interface HeaderSession {
 }
 
 export function createShellState(): ShellState;
+export function resolveDesktopConfig(userDir?: string): { config: RenderConfig; configPath: string | null };
+export function installNavigationGuards(webContents: NavigationWebContents, devUrl: string | null): void;
 export function handleExportDone(state: ShellState, outcome: ExportOutcome): void;
 export function installCloseGuard(state: ShellState): void;
 export function handleWindowAllClosed(state: ShellState): void;

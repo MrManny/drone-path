@@ -9,7 +9,12 @@ import type { AppearanceSettings, RenderConfig } from 'drone-path-engine/config'
 import { parseFrameRange } from 'drone-path-core/frame-range';
 import type { FrameRange } from 'drone-path-core/frame-range';
 import { asRecord, parseValue, strictShape } from 'drone-path-core/validation';
-import { ERR_NO_RECORDING, ERR_NOT_READABLE_MP4, errorMessage } from 'drone-path-core/errors';
+import {
+  ERR_NO_RECORDING,
+  ERR_NOT_READABLE_MP4,
+  ERR_OUTPUT_PATH_ABSOLUTE,
+  errorMessage,
+} from 'drone-path-core/errors';
 import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import { timeAt } from 'drone-path-core/frametime';
 import type { Bbox } from 'drone-path-core/geo';
@@ -90,6 +95,9 @@ export function parseTrackSaveRequest(raw: unknown): TrackSaveRequest {
       .min(1, { error: () => 'invalid track save request: outPath' }),
     request.outPath,
   );
+  if (!path.isAbsolute(outPath)) {
+    throw new Error(`${ERR_OUTPUT_PATH_ABSOLUTE}${outPath}`);
+  }
   try {
     trackFormatOf(outPath);
   } catch (e) {

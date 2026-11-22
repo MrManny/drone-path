@@ -4,6 +4,8 @@
 
 Options can live in a `.dronepath.json` file, discovered upward from the working directory, or in a file named explicitly with `--config <path>`.
 
+The desktop app skips working-directory discovery and reads `.dronepath.json` only from the per-user data directory (`%LOCALAPPDATA%/drone-path/` when `LOCALAPPDATA` is set, or `~/.cache/drone-path/` otherwise).
+
 ## Keys
 
 All keys are optional: anything omitted falls back to the default listed in [CLI and config reference](cli-reference.md). Precedence is CLI flags over config-file values over built-in defaults. The checked-in `.dronepath.example.json` is a complete example.

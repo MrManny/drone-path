@@ -235,4 +235,35 @@ describe('resolveConfig', () => {
     expect(DEFAULT_CONFIG.hud.alt).toBe(false);
     expect(first.hud.alt).toBe(true);
   });
+
+  it('skips upward discovery from cwd when discover is false', () => {
+    const root = tmpDir();
+    const nested = path.join(root, 'a', 'b');
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(root, '.dronepath.json'), JSON.stringify({ ffmpeg: '/evil/ffmpeg' }));
+
+    const skipped = resolveConfig({ cwd: nested, discover: false });
+    expect(skipped.configPath).toBeNull();
+    expect(skipped.config.ffmpeg).toBeNull();
+
+    const explicitFile = path.join(root, 'explicit.json');
+    fs.writeFileSync(explicitFile, JSON.stringify({ style: 'topo' }));
+    const explicit = resolveConfig({ cwd: nested, configPath: explicitFile, discover: false });
+    expect(explicit.configPath).toBe(explicitFile);
+    expect(explicit.config.style).toBe('topo');
+  });
+
+  it('keeps relative outDir unresolved when resolveOutDir is false', () => {
+    const root = tmpDir();
+    const file = path.join(root, '.dronepath.json');
+    fs.writeFileSync(file, JSON.stringify({ outDir: 'renders' }));
+
+    expect(
+      resolveConfig({ cwd: root, configPath: file, resolveOutDir: false }).config.outDir,
+    ).toBe('renders');
+    expect(
+      resolveConfig({ cwd: root, configPath: null, discover: false, resolveOutDir: false }).config
+        .outDir,
+    ).toBe(DEFAULT_CONFIG.outDir);
+  });
 });

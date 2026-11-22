@@ -33,11 +33,15 @@ export function HelpOverlay({ bundle, onClose }: HelpOverlayProps) {
   const onContentClick = useCallback(
     (event: MouseEvent<HTMLElement>) => {
       const link = (event.target as HTMLElement).closest('a');
-      const target = link?.dataset['manualSlug'];
-      if (target === undefined) return;
+      if (!link) return;
+      const target = link.dataset['manualSlug'];
+      if (target === undefined) {
+        if (link.target !== '_blank') event.preventDefault();
+        return;
+      }
       event.preventDefault();
       if (target in bundle.pages) {
-        const id = link?.dataset['manualAnchor'];
+        const id = link.dataset['manualAnchor'];
         setAnchor(id === undefined ? null : { id });
         setSlug(target);
       }

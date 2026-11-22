@@ -8,7 +8,7 @@ import { dialog, ipcMain, shell } from 'electron';
 
 import { parsePickRequest, parseTrackSaveRequest } from '../dist/appsession.js';
 import { applyAppState, saveAppStateSafely, writeAppState } from '../dist/appstate.js';
-import { APP_ORIGIN, appStateFile } from '../dist/apppaths.js';
+import { appStateFile, isAllowedAppUrl } from '../dist/apppaths.js';
 import { parseExportRequest, parseSettingsPatch } from 'drone-path-engine/config';
 import { isLocale, resolveLocale } from '../dist/desktop-i18n/messages.js';
 import { ERR_NO_RECORDING, errorMessage } from 'drone-path-core/errors';
@@ -18,19 +18,10 @@ import { outputPathFor } from 'drone-path-engine/pipeline';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
 import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
 
-function sameOrigin(url, target) {
-  try {
-    return new URL(url).origin === new URL(target).origin;
-  } catch {
-    return false;
-  }
-}
-
 // Only this app's window may drive the session state machine.
 function assertTrusted(event, devUrl) {
   const url = (event.senderFrame && event.senderFrame.url) || '';
-  const devOk = devUrl !== null && sameOrigin(url, devUrl);
-  if (!url.startsWith(APP_ORIGIN + '/') && !devOk) {
+  if (!isAllowedAppUrl(url, devUrl)) {
     throw new Error('untrusted ipc sender');
   }
 }
@@ -122,8 +113,26 @@ async function pickSavePath(state, { title, defaultPath, filters, extensions, de
   return { ok: true, path: chosen };
 }
 
+// The write guard: export:start and track:save may only write to the exact
+// absolute path last approved through the corresponding native save dialog.
+function consumePendingOutput(state, key, outPath) {
+  const expected = state[key];
+  state[key] = null;
+  if (typeof expected !== 'string' || !path.isAbsolute(expected) || outPath !== expected) {
+    throw new Error('output path was not approved by save dialog');
+  }
+  return expected;
+}
+
 function registerSessionHandlers(state, devUrl) {
-  handle(devUrl, 'dronepath:pick', (raw) => state.session.pick(parsePickRequest(raw)));
+  handle(devUrl, 'dronepath:pick', async (raw) => {
+    const result = await state.session.pick(parsePickRequest(raw));
+    if (result.ok) {
+      state.pendingExportOut = null;
+      state.pendingTrackOut = null;
+    }
+    return result;
+  });
   handleQuery(devUrl, 'dronepath:session', () => state.session.getSession());
 }
 
@@ -157,19 +166,24 @@ function registerLanguageHandlers(state, devUrl) {
 
 function registerExportHandlers(state, devUrl) {
   handle(devUrl, 'dronepath:export:pick-output', async () => {
+    state.pendingExportOut = null;
     const video = requireVideo(state);
     const t = translationFor(state);
-    return pickSavePath(state, {
+    const result = await pickSavePath(state, {
       title: t('native.exportVideo'),
       defaultPath: exportDefaultFor(state, video),
       filters: [{ name: t('native.mp4Video'), extensions: ['mp4'] }],
       extensions: ['mp4'],
       defaultExtension: 'mp4',
     });
+    if (result.ok) state.pendingExportOut = result.path;
+    return result;
   });
   handle(devUrl, 'dronepath:export:start', (raw) => {
     const video = requireVideo(state);
-    state.exportRunner.start(video, parseExportRequest(raw, state.config));
+    const request = parseExportRequest(raw, state.config);
+    const approved = consumePendingOutput(state, 'pendingExportOut', request.outPath);
+    state.exportRunner.start(video, { ...request, outPath: approved });
     return { ok: true };
   });
   handle(devUrl, 'dronepath:export:cancel', () => {
@@ -188,13 +202,14 @@ function registerExportHandlers(state, devUrl) {
 
 function registerTrackHandlers(state, devUrl, log) {
   handle(devUrl, 'dronepath:track:pick-output', async () => {
+    state.pendingTrackOut = null;
     const video = requireVideo(state);
     // The export dialog's default folder, named after the recording
     // (<basename>.telemetry.json); the typed name selects the format by its
     // extension, with the telemetry document as the bare-name default.
     const exportDefault = exportDefaultFor(state, video);
     const t = translationFor(state);
-    return pickSavePath(state, {
+    const result = await pickSavePath(state, {
       title: t('native.exportTelemetry'),
       defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
       filters: [
@@ -207,13 +222,16 @@ function registerTrackHandlers(state, devUrl, log) {
       extensions: [...TRACK_FORMAT_VALUES],
       defaultExtension: 'json',
     });
+    if (result.ok) state.pendingTrackOut = result.path;
+    return result;
   });
   handle(devUrl, 'dronepath:track:save', (raw) => {
     requireVideo(state);
     const request = parseTrackSaveRequest(raw);
-    state.session.saveTrack(request.outPath, request.range);
-    state.lastTrackOut = request.outPath;
-    log(`track: wrote ${request.outPath}`);
+    const approved = consumePendingOutput(state, 'pendingTrackOut', request.outPath);
+    state.session.saveTrack(approved, request.range);
+    state.lastTrackOut = approved;
+    log(`track: wrote ${approved}`);
     return { ok: true };
   });
 }
