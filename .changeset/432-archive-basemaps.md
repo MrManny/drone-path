@@ -3,4 +3,4 @@
 "drone-path-archive": patch
 ---
 
-Archive HTML maps open with Esri imagery and let viewers switch to a topographic basemap or turn the basemap off. Flight tracks and camera footprints remain visible offline.
+Archive HTML maps open with OpenTopoMap and let viewers switch to Esri imagery with an ArcGIS API key or turn the basemap off. Use `--offline` to export tracks and camera footprints without tile requests.

@@ -108,6 +108,7 @@ function listFilters(command: Command): Command {
 interface ExportOptions extends ListOptions {
   redactLaunch?: number;
   includeGaze?: boolean;
+  offline?: boolean;
 }
 
 function exportOptions(command: Command): Command {
@@ -172,9 +173,11 @@ export function addArchiveQueries(program: Command): void {
     .description('Write a standalone HTML map of matching flights.')
     .argument('<out.html>', 'output HTML file')
     .option('--include-gaze', 'show estimated camera ground footprints')
+    .option('--offline', 'omit online basemaps and block tile requests')
     .action((output: string, options: ExportOptions) => {
       exportArchiveMap(archiveDbPath(options.archiveDb), output, {
         filters: listOptions(options), redactLaunchM: options.redactLaunch, includeGaze: options.includeGaze,
+        offline: options.offline,
       });
     });
 

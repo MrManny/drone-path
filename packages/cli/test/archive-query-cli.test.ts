@@ -107,10 +107,11 @@ it('rejects invalid --segment-type choices via Commander', async () => {
 
 it('routes archive export commands through the list filters', async () => {
   await main(['node', 'drone-path', 'archive', 'export-map', 'out.html',
-    '--archive-db', 'query.sqlite', '--status', 'offline', '--redact-launch', '150', '--include-gaze']);
+    '--archive-db', 'query.sqlite', '--status', 'offline', '--redact-launch', '150', '--include-gaze', '--offline']);
   await main(['node', 'drone-path', 'archive', 'export-tracks', 'out.kmz', '--after', '2025-01-01']);
   expect(exportArchiveMap).toHaveBeenCalledWith(path.resolve('query.sqlite'), 'out.html', {
     filters: expect.objectContaining({ availability: 'offline' }), redactLaunchM: 150, includeGaze: true,
+    offline: true,
   });
   expect(exportArchiveTracks).toHaveBeenCalledWith(expect.any(String), 'out.kmz', {
     filters: expect.objectContaining({ afterMs: parseDateBound('2025-01-01') }), redactLaunchM: undefined,

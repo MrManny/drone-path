@@ -81,9 +81,9 @@ function writeExport(db: string, output: string, content: string | Buffer): void
   fs.writeFileSync(output, content);
 }
 
-export function exportArchiveMap(db: string, output: string, options: ExportOptions = {}): void {
+export function exportArchiveMap(db: string, output: string, options: ExportOptions & { offline?: boolean } = {}): void {
   if (path.extname(output).toLowerCase() !== '.html') throw new Error('expected an .html output file');
-  writeExport(db, output, archiveMapHtml(exportFlights(db, options)));
+  writeExport(db, output, archiveMapHtml(exportFlights(db, options), { offline: options.offline }));
 }
 
 export function exportArchiveTracks(db: string, output: string, options: Omit<ExportOptions, 'includeGaze'> = {}): void {
