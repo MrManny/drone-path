@@ -5,8 +5,8 @@
 Render flight-path map videos from DJI drone recordings (DJI Neo 2 and similar):
 the actual flight path on a 2D map, ready to overlay over the drone recording.
 You can also index a local recording library, search flights by location or camera
-gaze, export combined tracks or standalone HTML maps, and expose your library to AI
-agents via an MCP server.
+gaze, export combined tracks or standalone HTML maps with selectable basemaps, and
+expose your library to AI agents via an MCP server.
 
 Drone Path reads geo-coordinates from DJI's telemetry in two ways:
 
