@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { APP_ORIGIN } from '../src/apppaths.js';
+import { APP_ORIGIN } from '../src/appurls.js';
 import {
   X_CONTENT_TYPE_OPTIONS,
   applySecurityHeaders,

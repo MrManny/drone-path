@@ -14,6 +14,10 @@ import { errorMessage } from 'drone-path-core/errors';
 
 const { autoUpdater } = electronUpdater;
 
+/**
+ * @param {import('../dist/shellcontroller.js').InitUpdatesOptions} options
+ * @returns {import('../dist/shellcontroller.js').UpdateController | null}
+ */
 export function initUpdates({ log, onReady }) {
   // Only packaged builds carrying electron-builder's update metadata talk to
   // the feed: NSIS and AppImage ship app-update.yml, portable and dev runs do not.
@@ -38,7 +42,9 @@ export function initUpdates({ log, onReady }) {
     // keeps running: both the thrown and the emitted failure must surface or
     // the restart prompt would wait forever.
     restart({ onError }) {
+      /** @type {'pending' | { ok: false, error: string } | null} */
       let syncResult = null;
+      /** @param {unknown} e */
       const fail = (e) => {
         autoUpdater.removeListener('error', fail);
         if (syncResult === 'pending') {

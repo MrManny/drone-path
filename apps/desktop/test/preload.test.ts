@@ -11,6 +11,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const preload = fs.readFileSync(path.join(root, 'app', 'preload.cjs'), 'utf8');
 const ipc = fs.readFileSync(path.join(root, 'app', 'ipc.mjs'), 'utf8');
 const main = fs.readFileSync(path.join(root, 'app', 'main.mjs'), 'utf8');
+const controller = fs.readFileSync(path.join(root, 'src', 'shellcontroller.ts'), 'utf8');
 
 function channels(source: string, pattern: RegExp): string[] {
   return [...source.matchAll(pattern)].map((match) => match[1]).sort();
@@ -20,7 +21,7 @@ const invokes = (): string[] => channels(preload, /ipcRenderer\.invoke\('([^']+)
 const handles = (): string[] => channels(ipc, /handle(?:Query)?\(devUrl, '([^']+)'/g);
 const subscribes = (): string[] => channels(preload, /subscribe\('([^']+)'/g);
 const sends = (): string[] =>
-  [...new Set(channels(`${main}\n${ipc}`, /sendToWindow\(state, '([^']+)'/g))].sort();
+  [...new Set(channels(`${main}\n${ipc}\n${controller}`, /sendToWindow\('([^']+)'/g))].sort();
 
 describe('the preload and ipc channel lists', () => {
   it('match one to one across the invoke/handle wire', () => {

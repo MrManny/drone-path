@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { z } from 'zod';
@@ -10,7 +9,6 @@ import {
   parseSettingsPatch,
 } from 'drone-path-engine/config';
 import type { RenderConfig, SettingsPatch } from 'drone-path-engine/config';
-import { errorMessage } from 'drone-path-core/errors';
 import { isRecord, parseValue, strictShape } from 'drone-path-core/validation';
 
 export const APP_STATE_VERSION = 1;
@@ -103,41 +101,4 @@ export function applyAppState(config: RenderConfig, state: AppState): RenderConf
 
 export function rememberOpenedFile(state: AppState, filePath: string): AppState {
   return { ...state, lastOpenDir: path.dirname(filePath) };
-}
-
-export function readAppState(file: string): AppState {
-  let text: string;
-  try {
-    text = fs.readFileSync(file, 'utf8');
-  } catch {
-    return emptyAppState();
-  }
-  try {
-    return parseAppState(JSON.parse(text));
-  } catch {
-    return emptyAppState();
-  }
-}
-
-export function writeAppState(file: string, state: AppState): void {
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, serializeAppState(state));
-  } catch (e) {
-    throw new Error(`cannot write app state ${file}: ${errorMessage(e)}`, {
-      cause: e,
-    });
-  }
-}
-
-export function saveAppStateSafely(
-  file: string,
-  state: AppState,
-  log: (msg: string) => void,
-): void {
-  try {
-    writeAppState(file, state);
-  } catch (e) {
-    log(`app state not saved: ${errorMessage(e)}`);
-  }
 }

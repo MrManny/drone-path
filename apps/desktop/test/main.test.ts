@@ -45,23 +45,23 @@ vi.mock('electron', () => ({
 vi.mock('electron-updater', () => ({ default: { autoUpdater: {} } }));
 
 import {
-  createShellState,
-  handleExportDone,
-  handleWindowAllClosed,
   installCloseGuard,
   installNavigationGuards,
   installSecurityHeaders,
   resolveDesktopConfig,
 } from '../app/main.mjs';
-import type { HeaderSession, MainWindow, NavigationWebContents, ShellState } from '../app/main.mjs';
-import { APP_ORIGIN } from '../src/apppaths.js';
+import { showDialogWithParent } from '../app/shell.mjs';
+import { APP_ORIGIN } from '../src/appurls.js';
 import { buildRendererCsp } from '../src/securityheaders.js';
+import { createShellController } from '../src/shellcontroller.js';
+import type { HeaderSession, NavigationWebContents, ShellWindow } from '../src/shellcontroller.js';
+import { createAppStateStore } from '../src/shellio.js';
 
 function makeWindow() {
   let closeHandler: ((e: { preventDefault(): void }) => void) | null = null;
   let destroyed = false;
   const sent: Array<{ channel: string; payload: unknown }> = [];
-  const win: MainWindow = {
+  const win: ShellWindow = {
     on: (_event, listener) => {
       closeHandler = listener;
     },
@@ -85,13 +85,38 @@ function makeWindow() {
   return { win, sent, attemptClose, markDestroyed: () => { destroyed = true; } };
 }
 
-function makeState(running: () => boolean, cancel = vi.fn()): { state: ShellState; cancel: ReturnType<typeof vi.fn>; winTools: ReturnType<typeof makeWindow> } {
-  const state = createShellState();
+function makeHarness(running: () => boolean, cancel = vi.fn()) {
+  const log = (msg: string) => process.stderr.write(`[drone-path] ${msg}\n`);
+  const stateFile = path.join(tmpDir(), 'state.json');
+  const controller = createShellController({
+    config: DEFAULT_CONFIG,
+    stateStore: createAppStateStore(stateFile, log),
+    systemLanguages: ['en-US'],
+    dirExists: (dirPath) => fs.existsSync(dirPath),
+    confirmStopExport: async (win, t) => {
+      const box = {
+        type: 'warning' as const,
+        buttons: [t('native.stopExport'), t('native.keepExporting')],
+        defaultId: 1,
+        cancelId: 1,
+        message: t('native.exportInProgress'),
+        detail: t('native.closeExportDetail'),
+      };
+      const { response } = await showDialogWithParent(
+        win,
+        harness.dialog.showMessageBox as (...args: unknown[]) => Promise<{ response: number }>,
+        box,
+      );
+      return response === 0;
+    },
+    quitApp: () => harness.app.quit(),
+    log,
+  });
   const winTools = makeWindow();
-  state.win = winTools.win;
-  state.exportRunner = { running, cancel };
-  installCloseGuard(state);
-  return { state, cancel, winTools };
+  controller.setWindow(winTools.win);
+  controller.attachExportRunner({ start: vi.fn(), running, cancel });
+  installCloseGuard(winTools.win, controller);
+  return { controller, cancel, winTools };
 }
 
 async function flushMicrotasks(): Promise<void> {
@@ -110,7 +135,7 @@ afterEach(() => {
 
 describe('window close guard and export completion', () => {
   it('allows closing immediately when no export is running', () => {
-    const { winTools } = makeState(() => false);
+    const { winTools } = makeHarness(() => false);
     const event = winTools.attemptClose();
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(harness.dialog.showMessageBox).not.toHaveBeenCalled();
@@ -119,36 +144,36 @@ describe('window close guard and export completion', () => {
   it('cancels a running export and closes once onDone arrives when Stop export is chosen', async () => {
     let active = true;
     const cancel = vi.fn();
-    const { state, winTools } = makeState(() => active, cancel);
+    const { controller, winTools } = makeHarness(() => active, cancel);
     harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 0 });
 
     const event = winTools.attemptClose();
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
-    expect(state.closePromptOpen).toBe(true);
+    expect(controller.closeGuard.isPromptOpen()).toBe(true);
 
     await flushMicrotasks();
-    expect(state.closePromptOpen).toBe(false);
-    expect(state.pendingClose).toBe(true);
+    expect(controller.closeGuard.isPromptOpen()).toBe(false);
+    expect(controller.closeGuard.isPendingClose()).toBe(true);
     expect(cancel).toHaveBeenCalledTimes(1);
 
     active = false;
-    handleExportDone(state, { status: 'canceled' });
-    expect(state.pendingClose).toBe(false);
+    controller.handleExportDone({ status: 'canceled' });
+    expect(controller.closeGuard.isPendingClose()).toBe(false);
     expect(winTools.win.close).toHaveBeenCalledTimes(1);
     expect(winTools.sent).toEqual([{ channel: 'dronepath:export:done', payload: { status: 'canceled' } }]);
   });
 
   it('keeps the export running and leaves pendingClose false when Keep exporting is chosen', async () => {
     const cancel = vi.fn();
-    const { state, winTools } = makeState(() => true, cancel);
+    const { controller, winTools } = makeHarness(() => true, cancel);
     harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 1 });
 
     const event = winTools.attemptClose();
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
     await flushMicrotasks();
 
-    expect(state.closePromptOpen).toBe(false);
-    expect(state.pendingClose).toBe(false);
+    expect(controller.closeGuard.isPromptOpen()).toBe(false);
+    expect(controller.closeGuard.isPendingClose()).toBe(false);
     expect(cancel).not.toHaveBeenCalled();
     expect(winTools.win.close).not.toHaveBeenCalled();
   });
@@ -156,7 +181,7 @@ describe('window close guard and export completion', () => {
   it('closes cleanly without poisoning future close guards when an export finishes while the prompt is open', async () => {
     let active = true;
     const cancel = vi.fn();
-    const { state, winTools } = makeState(() => active, cancel);
+    const { controller, winTools } = makeHarness(() => active, cancel);
 
     let resolveDialog!: (value: { response: number }) => void;
     harness.dialog.showMessageBox.mockImplementationOnce(
@@ -168,24 +193,24 @@ describe('window close guard and export completion', () => {
 
     const firstClose = winTools.attemptClose();
     expect(firstClose.preventDefault).toHaveBeenCalledTimes(1);
-    expect(state.closePromptOpen).toBe(true);
+    expect(controller.closeGuard.isPromptOpen()).toBe(true);
 
     // Export completes while the confirmation prompt is still open.
     active = false;
-    handleExportDone(state, {
+    controller.handleExportDone({
       status: 'ok',
       summary: { video: 'a.mp4', out: 'out.mp4', status: 'ok', elapsedSec: 1, frames: 30, fps: '30' },
     });
-    expect(state.lastExportOut).toBe('out.mp4');
-    expect(state.pendingClose).toBe(false);
+    expect(controller.ipc.resolveKnownOutput({ out: 'out.mp4' })).toBe('out.mp4');
+    expect(controller.closeGuard.isPendingClose()).toBe(false);
     expect(winTools.win.close).not.toHaveBeenCalled();
 
     // User clicks "Stop export" after the export has already settled.
     resolveDialog({ response: 0 });
     await flushMicrotasks();
 
-    expect(state.closePromptOpen).toBe(false);
-    expect(state.pendingClose).toBe(false);
+    expect(controller.closeGuard.isPromptOpen()).toBe(false);
+    expect(controller.closeGuard.isPendingClose()).toBe(false);
     expect(cancel).not.toHaveBeenCalled();
     expect(winTools.win.close).toHaveBeenCalledTimes(1);
 
@@ -196,11 +221,11 @@ describe('window close guard and export completion', () => {
     expect(secondClose.preventDefault).toHaveBeenCalledTimes(1);
     expect(harness.dialog.showMessageBox).toHaveBeenCalledTimes(2);
     await flushMicrotasks();
-    expect(state.closePromptOpen).toBe(false);
+    expect(controller.closeGuard.isPromptOpen()).toBe(false);
   });
 
   it('ignores a second close attempt while the confirmation prompt is already open', async () => {
-    const { winTools } = makeState(() => true);
+    const { winTools } = makeHarness(() => true);
     let resolveDialog!: (value: { response: number }) => void;
     harness.dialog.showMessageBox.mockImplementationOnce(
       () =>
@@ -221,15 +246,15 @@ describe('window close guard and export completion', () => {
 
   it('resets closePromptOpen and logs when dialog.showMessageBox rejects', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    const { state, winTools } = makeState(() => true);
+    const { controller, winTools } = makeHarness(() => true);
     harness.dialog.showMessageBox.mockRejectedValueOnce(new Error('dialog failed'));
 
     const first = winTools.attemptClose();
     expect(first.preventDefault).toHaveBeenCalledTimes(1);
     await flushMicrotasks();
 
-    expect(state.closePromptOpen).toBe(false);
-    expect(state.pendingClose).toBe(false);
+    expect(controller.closeGuard.isPromptOpen()).toBe(false);
+    expect(controller.closeGuard.isPendingClose()).toBe(false);
     expect(stderr).toHaveBeenCalledWith(expect.stringContaining('close guard dialog failed: dialog failed'));
 
     // A subsequent close attempt can open the dialog again.
@@ -242,22 +267,22 @@ describe('window close guard and export completion', () => {
   it('quits when all windows close with no running export, or waits for cancel completion', () => {
     let active = false;
     const cancel = vi.fn();
-    const { state, winTools } = makeState(() => active, cancel);
+    const { controller, winTools } = makeHarness(() => active, cancel);
 
-    handleWindowAllClosed(state);
+    controller.closeGuard.onWindowAllClosed();
     expect(harness.app.quit).toHaveBeenCalledTimes(1);
 
     harness.app.quit.mockClear();
     active = true;
     winTools.markDestroyed();
-    handleWindowAllClosed(state);
+    controller.closeGuard.onWindowAllClosed();
     expect(harness.app.quit).not.toHaveBeenCalled();
-    expect(state.pendingClose).toBe(true);
+    expect(controller.closeGuard.isPendingClose()).toBe(true);
     expect(cancel).toHaveBeenCalledTimes(1);
 
     active = false;
-    handleExportDone(state, { status: 'canceled' });
-    expect(state.pendingClose).toBe(false);
+    controller.handleExportDone({ status: 'canceled' });
+    expect(controller.closeGuard.isPendingClose()).toBe(false);
     expect(harness.app.quit).toHaveBeenCalledTimes(1);
   });
 });

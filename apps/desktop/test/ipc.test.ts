@@ -3,12 +3,17 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { registerIpcHandlers, resolveSavePath } from '../app/ipc.mjs';
-import type { IpcState, IpcWindow } from '../app/ipc.mjs';
-import { APP_ORIGIN } from '../src/apppaths.js';
-import { emptyAppState, readAppState } from '../src/appstate.js';
+import { registerIpcHandlers } from '../app/ipc.mjs';
+import { appStateFile } from '../src/apppaths.js';
+import type { AppSession } from '../src/appsession.js';
+import type { AppState } from '../src/appstate.js';
+import { emptyAppState } from '../src/appstate.js';
+import { APP_ORIGIN } from '../src/appurls.js';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
-import type { RenderConfig } from 'drone-path-engine/config';
+import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
+import { createShellController } from '../src/shellcontroller.js';
+import type { ExportRunnerPort, ShellController, ShellWindow } from '../src/shellcontroller.js';
+import { createAppStateStore, readAppState } from '../src/shellio.js';
 import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
@@ -39,41 +44,48 @@ vi.mock('electron', () => ({
   shell: harness.shell,
 }));
 
-function fakeState(options: {
+function makeController(options: {
   video?: string | null;
   config?: Partial<RenderConfig>;
-  win?: IpcWindow | null;
-} = {}): IpcState {
+  appState?: AppState;
+  win?: ShellWindow | null;
+} = {}): {
+  controller: ShellController;
+  session: AppSession;
+  exportRunner: ExportRunnerPort;
+} {
   const video =
     options.video === undefined ? path.join(tmpDir(), 'flight.mp4') : options.video;
-  return {
-    session: {
-      pick: vi.fn(async () => ({ ok: true })),
-      getSession: vi.fn(() => null),
-      videoPath: () => video,
-      saveTrack: vi.fn(() => {}),
-    },
+  const log = vi.fn();
+  const controller = createShellController({
     config: { ...DEFAULT_CONFIG, ...options.config },
-    appState: emptyAppState(),
+    appState: options.appState ?? emptyAppState(),
+    stateStore: createAppStateStore(appStateFile, log),
     systemLanguages: ['en-US'],
-    win: options.win ?? null,
-    exportRunner: {
-      start: vi.fn(
-        (_video: string, _request: Parameters<IpcState['exportRunner']['start']>[1]) => {},
-      ),
-      cancel: vi.fn(() => {}),
-    },
-    updates: null,
-    updateReady: false,
-    lastExportOut: null,
-    lastTrackOut: null,
-    pendingExportOut: null,
-    pendingTrackOut: null,
+    dirExists: (dirPath) => fs.existsSync(dirPath),
+    confirmStopExport: async () => false,
+    quitApp: vi.fn(),
+    log,
+  });
+  const session: AppSession = {
+    pick: vi.fn(async () => ({ ok: true })),
+    getSession: vi.fn(() => null),
+    videoPath: () => video,
+    saveTrack: vi.fn(() => {}),
   };
+  const exportRunner: ExportRunnerPort = {
+    start: vi.fn((_video: string, _request: ExportRequest) => {}),
+    cancel: vi.fn(() => {}),
+    running: vi.fn(() => false),
+  };
+  controller.attachSession(session);
+  controller.attachExportRunner(exportRunner);
+  controller.setWindow(options.win ?? null);
+  return { controller, session, exportRunner };
 }
 
-function setup(state: IpcState): void {
-  registerIpcHandlers(state, { devUrl: null, log: vi.fn(), sendToWindow: vi.fn() });
+function setup(controller: ShellController): void {
+  registerIpcHandlers(controller.ipc, { devUrl: null, log: vi.fn() });
 }
 
 function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
@@ -100,10 +112,10 @@ afterEach(() => {
 
 describe('IPC sender trust and query channels', () => {
   it('checks devUrl by origin rather than raw prefix', async () => {
-    registerIpcHandlers(fakeState(), {
+    const { controller } = makeController();
+    registerIpcHandlers(controller.ipc, {
       devUrl: 'http://localhost:3210',
       log: vi.fn(),
-      sendToWindow: vi.fn(),
     });
     const handler = harness.handlers.get('dronepath:update:state')!;
     await expect(
@@ -115,10 +127,10 @@ describe('IPC sender trust and query channels', () => {
   });
 
   it('rejects non-loopback devUrl origins even when sender matches', async () => {
-    registerIpcHandlers(fakeState(), {
+    const { controller } = makeController();
+    registerIpcHandlers(controller.ipc, {
       devUrl: 'https://attacker.example',
       log: vi.fn(),
-      sendToWindow: vi.fn(),
     });
     const handler = harness.handlers.get('dronepath:update:state')!;
     await expect(
@@ -127,14 +139,14 @@ describe('IPC sender trust and query channels', () => {
   });
 
   it('rejects query channels on unexpected throws instead of resolving { ok: false }', async () => {
-    const state = fakeState();
-    state.session = {
-      ...state.session!,
+    const { controller, session } = makeController();
+    controller.attachSession({
+      ...session,
       getSession: () => {
         throw new Error('boom');
       },
-    };
-    setup(state);
+    });
+    setup(controller);
     await expect(invoke('dronepath:session')).rejects.toThrow('boom');
   });
 });
@@ -143,9 +155,9 @@ describe('desktop language settings', () => {
   it('persists the explicit language alongside the other desktop settings', async () => {
     const local = tmpDir();
     vi.stubEnv('LOCALAPPDATA', local);
-    const state = fakeState();
-    state.appState.lastOpenDir = local;
-    setup(state);
+    const initial = { ...emptyAppState(), lastOpenDir: local };
+    const { controller } = makeController({ appState: initial });
+    setup(controller);
 
     expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
     expect(await invoke('dronepath:language:save', 'en')).toEqual({
@@ -155,9 +167,10 @@ describe('desktop language settings', () => {
     });
     const file = path.join(local, 'drone-path', 'state.json');
     const restored = readAppState(file);
-    expect(restored).toEqual({ ...state.appState, language: 'en', lastOpenDir: local });
+    expect(restored).toEqual({ ...initial, language: 'en', lastOpenDir: local });
 
-    setup({ ...state, appState: restored });
+    const restarted = makeController({ appState: restored });
+    setup(restarted.controller);
     expect(await invoke('dronepath:language')).toEqual({ preference: 'en', locale: 'en' });
     expect(await invoke('dronepath:language:save', null)).toEqual({
       ok: true,
@@ -168,20 +181,20 @@ describe('desktop language settings', () => {
   });
 
   it('rejects unsupported values before changing the preference', async () => {
-    const state = fakeState();
-    setup(state);
+    const { controller } = makeController();
+    setup(controller);
     expect(await invoke('dronepath:language:save', 'und')).toEqual({
       ok: false,
       error: 'invalid app language',
     });
-    expect(state.appState.language).toBeNull();
+    expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
   });
 
   it('keeps the previous preference when the settings file cannot be saved', async () => {
     const blocker = writeFile(path.join(tmpDir(), 'unwritable'));
     vi.stubEnv('LOCALAPPDATA', blocker);
-    const state = fakeState();
-    setup(state);
+    const { controller } = makeController();
+    setup(controller);
     expect(await invoke('dronepath:language:save', 'en')).toMatchObject({ ok: false });
     expect(await invoke('dronepath:language')).toEqual({ preference: null, locale: 'en' });
   });
@@ -191,7 +204,7 @@ describe('dronepath:export:pick-output', () => {
   it('offers the CLI default name in the out dir anchored at the recording', async () => {
     const clipsDir = tmpDir();
     const video = path.join(clipsDir, 'flight.mp4');
-    setup(fakeState({ video }));
+    setup(makeController({ video }).controller);
     const defaultPath = path.join(clipsDir, 'out', 'flight_map.mp4');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
 
@@ -207,8 +220,13 @@ describe('dronepath:export:pick-output', () => {
   });
 
   it('uses the app window as the dialog parent when it exists', async () => {
-    const win: IpcWindow = { isDestroyed: () => false, close: vi.fn() };
-    setup(fakeState({ win }));
+    const win: ShellWindow = {
+      on: vi.fn(),
+      isDestroyed: () => false,
+      close: vi.fn(),
+      webContents: { send: vi.fn() },
+    };
+    setup(makeController({ win }).controller);
     harness.dialog.showSaveDialog.mockResolvedValueOnce({
       canceled: false,
       filePath: path.join(tmpDir(), 'out.mp4'),
@@ -221,7 +239,7 @@ describe('dronepath:export:pick-output', () => {
   });
 
   it('appends the .mp4 extension when the dialog name omits it', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     const chosen = path.join(tmpDir(), 'exports', 'a');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
 
@@ -231,7 +249,7 @@ describe('dronepath:export:pick-output', () => {
   });
 
   it('answers a dialog without a path with the canceled result shape', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false });
 
     const result = await invoke('dronepath:export:pick-output');
@@ -240,7 +258,7 @@ describe('dronepath:export:pick-output', () => {
   });
 
   it('asks before replacing an existing file', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     const chosen = writeFile(path.join(tmpDir(), 'exports', 'a.mp4'));
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 0 });
@@ -259,7 +277,7 @@ describe('dronepath:export:pick-output', () => {
   });
 
   it('cancels when the replace confirmation is declined', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     const chosen = writeFile(path.join(tmpDir(), 'exports', 'a.mp4'));
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 1 });
@@ -270,7 +288,7 @@ describe('dronepath:export:pick-output', () => {
   });
 
   it('re-checks the appended path so an existing file is never silently replaced', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     const typed = path.join(tmpDir(), 'exports', 'a');
     const appended = writeFile(`${typed}.mp4`);
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: typed });
@@ -289,7 +307,7 @@ describe('dronepath:track:pick-output', () => {
   it('offers <basename>.telemetry.json in the export folder', async () => {
     const clipsDir = tmpDir();
     const video = path.join(clipsDir, 'flight.mp4');
-    setup(fakeState({ video }));
+    setup(makeController({ video }).controller);
     const defaultPath = path.join(clipsDir, 'out', 'flight.telemetry.json');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
 
@@ -310,7 +328,7 @@ describe('dronepath:track:pick-output', () => {
   });
 
   it('appends .json behind a typed name with another extension', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     const typed = path.join(tmpDir(), 'exports', 'telemetry-test.csv');
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: typed });
 
@@ -322,7 +340,7 @@ describe('dronepath:track:pick-output', () => {
   });
 
   it('asks before replacing an existing file and cancels when declined', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     const chosen = writeFile(path.join(tmpDir(), 'exports', 'a.json'));
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     harness.dialog.showMessageBox.mockResolvedValueOnce({ response: 1 });
@@ -334,7 +352,6 @@ describe('dronepath:track:pick-output', () => {
     );
     expect(result).toEqual({ ok: false, canceled: true });
   });
-
 });
 
 describe.for([
@@ -344,7 +361,7 @@ describe.for([
   it('offers the recording folder when no out dir is set', async () => {
     const clipsDir = tmpDir();
     const video = path.join(clipsDir, 'flight.mp4');
-    setup(fakeState({ video, config: { outDir: null } }));
+    setup(makeController({ video, config: { outDir: null } }).controller);
     const defaultPath = path.join(clipsDir, defaultName);
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: defaultPath });
 
@@ -354,7 +371,7 @@ describe.for([
   });
 
   it('answers a cancelled dialog with the canceled result shape', async () => {
-    setup(fakeState());
+    setup(makeController().controller);
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: true });
 
     const result = await invoke(channel);
@@ -363,7 +380,7 @@ describe.for([
   });
 
   it('reports no recording loaded when nothing is open', async () => {
-    setup(fakeState({ video: null }));
+    setup(makeController({ video: null }).controller);
 
     const result = await invoke(channel);
 
@@ -371,53 +388,33 @@ describe.for([
   });
 });
 
-describe('resolveSavePath', () => {
-  const TRACK = ['gpx', 'geojson', 'kml', 'kmz', 'json'];
-  it.for([
-    { typed: 'a', extensions: ['json'], defaultExtension: 'json', want: 'a.json' },
-    { typed: 'a.json', extensions: ['json'], defaultExtension: 'json', want: 'a.json' },
-    { typed: 'A.JSON', extensions: ['json'], defaultExtension: 'json', want: 'A.JSON' },
-    { typed: 'telemetry-test.csv', extensions: ['json'], defaultExtension: 'json', want: 'telemetry-test.csv.json' },
-    { typed: 'flight.telemetry', extensions: ['json'], defaultExtension: 'json', want: 'flight.telemetry.json' },
-    { typed: 'map', extensions: ['mp4'], defaultExtension: 'mp4', want: 'map.mp4' },
-    { typed: 'map.MP4', extensions: ['mp4'], defaultExtension: 'mp4', want: 'map.MP4' },
-    { typed: 'map.mov', extensions: ['mp4'], defaultExtension: 'mp4', want: 'map.mov.mp4' },
-    { typed: 'flight', extensions: TRACK, defaultExtension: 'json', want: 'flight.json' },
-    { typed: 'flight.GPX', extensions: TRACK, defaultExtension: 'json', want: 'flight.GPX' },
-    { typed: 'flight.geojson', extensions: TRACK, defaultExtension: 'json', want: 'flight.geojson' },
-    { typed: 'flight.kmz', extensions: TRACK, defaultExtension: 'json', want: 'flight.kmz' },
-    { typed: 'notes.csv', extensions: TRACK, defaultExtension: 'json', want: 'notes.csv.json' },
-  ])('resolves $typed to $want', ({ typed, extensions, defaultExtension, want }) => {
-    expect(resolveSavePath(typed, extensions, defaultExtension)).toBe(want);
-  });
-});
-
 describe('main-held dialog selection guards (#390)', () => {
   it('rejects export:start without an approved dialog path or with a mismatched path', async () => {
-    const state = fakeState();
-    setup(state);
+    const { controller, exportRunner } = makeController();
+    setup(controller);
     const chosen = path.join(tmpDir(), 'exports', 'approved.mp4');
     const other = path.join(tmpDir(), 'exports', 'other.mp4');
 
     expect(
       await invoke('dronepath:export:start', { outPath: other, config: {} }),
     ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
-    expect(state.exportRunner.start).not.toHaveBeenCalled();
+    expect(exportRunner.start).not.toHaveBeenCalled();
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     expect(await invoke('dronepath:export:pick-output')).toEqual({ ok: true, path: chosen });
-    expect(state.pendingExportOut).toBe(chosen);
 
     expect(
       await invoke('dronepath:export:start', { outPath: other, config: {} }),
     ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
-    expect(state.exportRunner.start).not.toHaveBeenCalled();
-    expect(state.pendingExportOut).toBeNull();
+    expect(exportRunner.start).not.toHaveBeenCalled();
+    expect(
+      await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
   });
 
   it('consumes the approved export path once and clears it on canceled re-pick', async () => {
-    const state = fakeState();
-    setup(state);
+    const { controller, exportRunner } = makeController();
+    setup(controller);
     const chosen = path.join(tmpDir(), 'exports', 'approved.mp4');
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
@@ -434,15 +431,15 @@ describe('main-held dialog selection guards (#390)', () => {
     expect(
       await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
     ).toEqual({ ok: true });
-    expect(state.exportRunner.start).toHaveBeenCalledTimes(1);
+    expect(exportRunner.start).toHaveBeenCalledTimes(1);
     expect(
       await invoke('dronepath:export:start', { outPath: chosen, config: {} }),
     ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
   });
 
   it('rejects track:save without an approved dialog path, on mismatch, or on replay', async () => {
-    const state = fakeState();
-    setup(state);
+    const { controller, session } = makeController();
+    setup(controller);
     const chosen = path.join(tmpDir(), 'exports', 'approved.json');
     const other = path.join(tmpDir(), 'exports', 'other.json');
 
@@ -450,8 +447,11 @@ describe('main-held dialog selection guards (#390)', () => {
       ok: false,
       error: 'output path was not approved by save dialog',
     });
-    expect(state.session!.saveTrack).not.toHaveBeenCalled();
-    expect(state.lastTrackOut).toBeNull();
+    expect(session.saveTrack).not.toHaveBeenCalled();
+    expect(await invoke('dronepath:export:reveal', { out: other })).toEqual({
+      ok: false,
+      error: 'unknown output',
+    });
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     expect(await invoke('dronepath:track:pick-output')).toEqual({ ok: true, path: chosen });
@@ -460,25 +460,24 @@ describe('main-held dialog selection guards (#390)', () => {
       ok: false,
       error: 'output path was not approved by save dialog',
     });
-    expect(state.session!.saveTrack).not.toHaveBeenCalled();
-    expect(state.lastTrackOut).toBeNull();
+    expect(session.saveTrack).not.toHaveBeenCalled();
 
     harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: chosen });
     await invoke('dronepath:track:pick-output');
     expect(await invoke('dronepath:track:save', { outPath: chosen })).toEqual({ ok: true });
-    expect(state.session!.saveTrack).toHaveBeenCalledWith(chosen, null);
-    expect(state.lastTrackOut).toBe(chosen);
+    expect(session.saveTrack).toHaveBeenCalledWith(chosen, null);
+    expect(await invoke('dronepath:export:reveal', { out: chosen })).toEqual({ ok: true });
 
     expect(await invoke('dronepath:track:save', { outPath: chosen })).toEqual({
       ok: false,
       error: 'output path was not approved by save dialog',
     });
-    expect(state.session!.saveTrack).toHaveBeenCalledTimes(1);
+    expect(session.saveTrack).toHaveBeenCalledTimes(1);
   });
 
   it('clears pending output selections when a new recording is picked', async () => {
-    const state = fakeState();
-    setup(state);
+    const { controller } = makeController();
+    setup(controller);
     const chosenExport = path.join(tmpDir(), 'exports', 'a.mp4');
     const chosenTrack = path.join(tmpDir(), 'exports', 'a.json');
 
@@ -489,7 +488,11 @@ describe('main-held dialog selection guards (#390)', () => {
 
     await invoke('dronepath:pick', { settings: DEFAULT_CONFIG });
 
-    expect(state.pendingExportOut).toBeNull();
-    expect(state.pendingTrackOut).toBeNull();
+    expect(
+      await invoke('dronepath:export:start', { outPath: chosenExport, config: {} }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
+    expect(
+      await invoke('dronepath:track:save', { outPath: chosenTrack }),
+    ).toEqual({ ok: false, error: 'output path was not approved by save dialog' });
   });
 });

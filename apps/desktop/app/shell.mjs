@@ -1,13 +1,11 @@
-import { resolveLocale, translator } from '../dist/desktop-i18n/messages.js';
-
-export function liveWindow(state) {
-  return state.win && !state.win.isDestroyed() ? state.win : null;
-}
-
-export function showDialogWithParent(state, show, options) {
-  return state.win ? show(state.win, options) : show(options);
-}
-
-export function translationFor(state) {
-  return translator(resolveLocale(state.appState.language, state.systemLanguages));
+/**
+ * Invokes an Electron dialog function with a parent window when one is available.
+ * @template TOptions, TResult
+ * @param {import('../dist/shellcontroller.js').ShellWindow | null} win
+ * @param {(...args: any[]) => Promise<TResult>} show
+ * @param {TOptions} options
+ * @returns {Promise<TResult>}
+ */
+export function showDialogWithParent(win, show, options) {
+  return win ? show(win, options) : show(options);
 }

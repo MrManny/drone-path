@@ -1,3 +1,4 @@
+import { TILE_BASE } from '../../src/appurls.js';
 import { tEnglish } from '../../src/desktop-i18n/messages.js';
 import type { Translate } from '../../src/desktop-i18n/messages.js';
 import { DEFAULT_CONFIG, appearanceOf } from 'drone-path-engine/config';
@@ -25,8 +26,6 @@ const EXAMPLE_DURATION_SEC = EXAMPLE_FRAMES / EXAMPLE_FPS;
 export function exampleStateLabel(t: Translate = tEnglish): string {
   return t('exampleflight.preview');
 }
-/** Mirrors TILE_BASE in src/apppaths.ts, which cannot load in the browser. */
-const EXAMPLE_TILE_BASE = 'app://bundle/tiles';
 const PREVIEW_WIDTH = 1280;
 const PREVIEW_HEIGHT = 720;
 
@@ -228,11 +227,11 @@ function buildExampleFlight(): ExampleFlight {
     fps: EXAMPLE_FPS,
     frames: EXAMPLE_FRAMES,
     durationSec: EXAMPLE_DURATION_SEC,
-    baseScene: buildSceneData(planned, EXAMPLE_TILE_BASE),
+    baseScene: buildSceneData(planned, TILE_BASE),
     meta: {
       fps: EXAMPLE_FPS,
       frames: EXAMPLE_FRAMES,
-      tileBase: EXAMPLE_TILE_BASE,
+      tileBase: TILE_BASE,
       bbox,
     },
   };

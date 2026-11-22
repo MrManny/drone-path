@@ -6,26 +6,35 @@ import path from 'node:path';
 
 import { dialog, ipcMain, shell } from 'electron';
 
-import { parsePickRequest, parseTrackSaveRequest } from '../dist/appsession.js';
-import { applyAppState, saveAppStateSafely, writeAppState } from '../dist/appstate.js';
-import { appStateFile, isAllowedAppUrl } from '../dist/apppaths.js';
-import { parseExportRequest, parseSettingsPatch } from 'drone-path-engine/config';
-import { isLocale, resolveLocale } from '../dist/desktop-i18n/messages.js';
-import { ERR_NO_RECORDING, errorMessage } from 'drone-path-core/errors';
-import { isRecord } from 'drone-path-core/validation';
-import { videoBaseName } from 'drone-path-engine/recordings';
-import { outputPathFor } from 'drone-path-engine/pipeline';
+import { isAllowedAppUrl } from '../dist/appurls.js';
+import { resolveSavePath } from '../dist/outputguard.js';
+import { errorMessage } from 'drone-path-core/errors';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
-import { liveWindow, showDialogWithParent, translationFor } from './shell.mjs';
+import { showDialogWithParent } from './shell.mjs';
+
+/**
+ * @typedef {import('../dist/shellcontroller.js').IpcController} IpcController
+ * @typedef {import('../dist/desktop-i18n/messages.js').Translate} Translate
+ * @typedef {{ devUrl: string | null; log: (message: string) => void }} IpcHandlersOptions
+ */
 
 // Only this app's window may drive the session state machine.
+/**
+ * @param {Electron.IpcMainInvokeEvent} event
+ * @param {string | null} devUrl
+ */
 function assertTrusted(event, devUrl) {
-  const url = (event.senderFrame && event.senderFrame.url) || '';
+  const url = event.senderFrame?.url ?? '';
   if (!isAllowedAppUrl(url, devUrl)) {
     throw new Error('untrusted ipc sender');
   }
 }
 
+/**
+ * @param {string | null} devUrl
+ * @param {string} channel
+ * @param {(...args: any[]) => unknown} fn
+ */
 function handle(devUrl, channel, fn) {
   ipcMain.handle(channel, async (event, ...args) => {
     // Outside the envelope: an untrusted sender must see a rejected promise,
@@ -41,6 +50,11 @@ function handle(devUrl, channel, fn) {
 
 // Query/void channels return raw payloads rather than { ok } envelopes, so
 // unexpected throws reject the IPC promise instead of leaking { ok: false }.
+/**
+ * @param {string | null} devUrl
+ * @param {string} channel
+ * @param {(...args: any[]) => unknown} fn
+ */
 function handleQuery(devUrl, channel, fn) {
   ipcMain.handle(channel, async (event, ...args) => {
     assertTrusted(event, devUrl);
@@ -48,29 +62,18 @@ function handleQuery(devUrl, channel, fn) {
   });
 }
 
-function requireVideo(state) {
-  const video = state.session ? state.session.videoPath() : null;
-  if (!video) throw new Error(ERR_NO_RECORDING);
-  return video;
-}
-
-// The reveal/open guard: the renderer may only name a file this shell wrote
-// (the last export or the last track file, both set only by trusted
-// handlers), never an arbitrary path.
-function knownOutputOf(state, payload) {
-  const out = isRecord(payload) ? payload.out : null;
-  if (typeof out !== 'string' || (out !== state.lastExportOut && out !== state.lastTrackOut)) {
-    throw new Error('unknown output');
-  }
-  return out;
-}
-
 // The native dialog confirmed the name as typed, but the extension may have
 // been appended after it: re-check the final path on every platform so an
 // existing file is never replaced without a confirmation.
-async function confirmReplace(state, chosen) {
+/**
+ * @param {IpcController} controller
+ * @param {Translate} t
+ * @param {string} chosen
+ * @returns {Promise<boolean>}
+ */
+async function confirmReplace(controller, t, chosen) {
   if (!fs.existsSync(chosen)) return true;
-  const t = translationFor(state);
+  /** @type {Electron.MessageBoxOptions} */
   const box = {
     type: 'warning',
     buttons: [t('native.replace'), t('native.cancel')],
@@ -79,139 +82,120 @@ async function confirmReplace(state, chosen) {
     message: t('native.replaceFile', { name: path.basename(chosen) }),
     detail: chosen,
   };
-  const confirm = await showDialogWithParent(state, dialog.showMessageBox.bind(dialog), box);
+  const confirm = await showDialogWithParent(
+    controller.liveWindow(),
+    dialog.showMessageBox.bind(dialog),
+    box,
+  );
   return confirm.response === 0;
 }
 
-// The CLI's default naming, with a relative out dir anchored at the
-// recording: the app process has no meaningful working directory.
-function exportDefaultFor(state, video) {
-  const outDir = state.config.outDir
-    ? path.resolve(path.dirname(video), state.config.outDir)
-    : null;
-  return outputPathFor(video, { ...state.config, outDir });
-}
-
-// Pure name rule for save dialogs: the typed name stands as typed when it
-// already ends in one of the accepted extensions (any case); otherwise the
-// default extension is appended to it as typed, so "notes.csv" becomes
-// "notes.csv.json". The dialogs that report the result show this final name,
-// so the append is never silent.
-export function resolveSavePath(typedPath, extensions, defaultExtension) {
-  const lower = typedPath.toLowerCase();
-  return extensions.some((extension) => lower.endsWith(`.${extension}`))
-    ? typedPath
-    : `${typedPath}.${defaultExtension}`;
-}
-
-async function pickSavePath(state, { title, defaultPath, filters, extensions, defaultExtension }) {
+/**
+ * @param {IpcController} controller
+ * @param {{
+ *   title: string;
+ *   defaultPath: string;
+ *   filters: Electron.FileFilter[];
+ *   extensions: readonly string[];
+ *   defaultExtension: string;
+ *   t: Translate;
+ * }} params
+ * @returns {Promise<{ ok: true; path: string } | { ok: false; canceled: true }>}
+ */
+async function pickSavePath(controller, { title, defaultPath, filters, extensions, defaultExtension, t }) {
+  /** @type {Electron.SaveDialogOptions} */
   const options = { title, defaultPath, filters };
-  const result = await showDialogWithParent(state, dialog.showSaveDialog.bind(dialog), options);
+  const result = await showDialogWithParent(
+    controller.liveWindow(),
+    dialog.showSaveDialog.bind(dialog),
+    options,
+  );
   if (result.canceled || !result.filePath) return { ok: false, canceled: true };
   const chosen = resolveSavePath(result.filePath, extensions, defaultExtension);
-  if (!(await confirmReplace(state, chosen))) return { ok: false, canceled: true };
+  if (!(await confirmReplace(controller, t, chosen))) return { ok: false, canceled: true };
   return { ok: true, path: chosen };
 }
 
-// The write guard: export:start and track:save may only write to the exact
-// absolute path last approved through the corresponding native save dialog.
-function consumePendingOutput(state, key, outPath) {
-  const expected = state[key];
-  state[key] = null;
-  if (typeof expected !== 'string' || !path.isAbsolute(expected) || outPath !== expected) {
-    throw new Error('output path was not approved by save dialog');
-  }
-  return expected;
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerSessionHandlers(controller, devUrl) {
+  handle(devUrl, 'dronepath:pick', (raw) => controller.pickRecording(raw));
+  handleQuery(devUrl, 'dronepath:session', () => controller.getSession());
 }
 
-function registerSessionHandlers(state, devUrl) {
-  handle(devUrl, 'dronepath:pick', async (raw) => {
-    const result = await state.session.pick(parsePickRequest(raw));
-    if (result.ok) {
-      state.pendingExportOut = null;
-      state.pendingTrackOut = null;
-    }
-    return result;
-  });
-  handleQuery(devUrl, 'dronepath:session', () => state.session.getSession());
-}
-
-function registerSettingsHandlers(state, devUrl, log) {
-  handleQuery(devUrl, 'dronepath:settings', () => state.config);
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerSettingsHandlers(controller, devUrl) {
+  handleQuery(devUrl, 'dronepath:settings', () => controller.getSettings());
   handle(devUrl, 'dronepath:settings:save', (raw) => {
-    const settings = parseSettingsPatch(raw, 'settings');
-    state.appState = { ...state.appState, settings };
-    state.config = applyAppState(state.config, state.appState);
-    // The look still applies when the state file cannot be written.
-    saveAppStateSafely(appStateFile(), state.appState, log);
+    controller.saveSettings(raw);
     return { ok: true };
   });
 }
 
-function languageSettings(state) {
-  const preference = isLocale(state.appState.language) ? state.appState.language : null;
-  return { preference, locale: resolveLocale(preference, state.systemLanguages) };
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerLanguageHandlers(controller, devUrl) {
+  handleQuery(devUrl, 'dronepath:language', () => controller.getLanguage());
+  handle(devUrl, 'dronepath:language:save', (preference) => ({
+    ok: true,
+    ...controller.saveLanguage(preference),
+  }));
 }
 
-function registerLanguageHandlers(state, devUrl) {
-  handleQuery(devUrl, 'dronepath:language', () => languageSettings(state));
-  handle(devUrl, 'dronepath:language:save', (preference) => {
-    if (preference !== null && !isLocale(preference)) throw new Error('invalid app language');
-    const appState = { ...state.appState, language: preference };
-    writeAppState(appStateFile(), appState);
-    state.appState = appState;
-    return { ok: true, ...languageSettings(state) };
-  });
-}
-
-function registerExportHandlers(state, devUrl) {
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerExportHandlers(controller, devUrl) {
   handle(devUrl, 'dronepath:export:pick-output', async () => {
-    state.pendingExportOut = null;
-    const video = requireVideo(state);
-    const t = translationFor(state);
-    const result = await pickSavePath(state, {
+    const { defaultPath, t } = controller.beginExportPick();
+    const result = await pickSavePath(controller, {
       title: t('native.exportVideo'),
-      defaultPath: exportDefaultFor(state, video),
+      defaultPath,
       filters: [{ name: t('native.mp4Video'), extensions: ['mp4'] }],
       extensions: ['mp4'],
       defaultExtension: 'mp4',
+      t,
     });
-    if (result.ok) state.pendingExportOut = result.path;
+    if (result.ok) controller.approveExportOut(result.path);
     return result;
   });
   handle(devUrl, 'dronepath:export:start', (raw) => {
-    const video = requireVideo(state);
-    const request = parseExportRequest(raw, state.config);
-    const approved = consumePendingOutput(state, 'pendingExportOut', request.outPath);
-    state.exportRunner.start(video, { ...request, outPath: approved });
+    controller.startExport(raw);
     return { ok: true };
   });
   handle(devUrl, 'dronepath:export:cancel', () => {
-    state.exportRunner.cancel();
+    controller.cancelExport();
     return { ok: true };
   });
   handle(devUrl, 'dronepath:export:reveal', (payload) => {
-    shell.showItemInFolder(knownOutputOf(state, payload));
+    shell.showItemInFolder(controller.resolveKnownOutput(payload));
     return { ok: true };
   });
   handle(devUrl, 'dronepath:export:open', async (payload) => {
-    const error = await shell.openPath(knownOutputOf(state, payload));
+    const error = await shell.openPath(controller.resolveKnownOutput(payload));
     return error ? { ok: false, error } : { ok: true };
   });
 }
 
-function registerTrackHandlers(state, devUrl, log) {
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ * @param {(message: string) => void} log
+ */
+function registerTrackHandlers(controller, devUrl, log) {
   handle(devUrl, 'dronepath:track:pick-output', async () => {
-    state.pendingTrackOut = null;
-    const video = requireVideo(state);
-    // The export dialog's default folder, named after the recording
-    // (<basename>.telemetry.json); the typed name selects the format by its
-    // extension, with the telemetry document as the bare-name default.
-    const exportDefault = exportDefaultFor(state, video);
-    const t = translationFor(state);
-    const result = await pickSavePath(state, {
+    const { defaultPath, t } = controller.beginTrackPick();
+    const result = await pickSavePath(controller, {
       title: t('native.exportTelemetry'),
-      defaultPath: path.join(path.dirname(exportDefault), `${videoBaseName(video)}.telemetry.json`),
+      defaultPath,
       filters: [
         { name: t('native.telemetryJson'), extensions: ['json'] },
         { name: t('native.gpx'), extensions: ['gpx'] },
@@ -221,46 +205,48 @@ function registerTrackHandlers(state, devUrl, log) {
       ],
       extensions: [...TRACK_FORMAT_VALUES],
       defaultExtension: 'json',
+      t,
     });
-    if (result.ok) state.pendingTrackOut = result.path;
+    if (result.ok) controller.approveTrackOut(result.path);
     return result;
   });
   handle(devUrl, 'dronepath:track:save', (raw) => {
-    requireVideo(state);
-    const request = parseTrackSaveRequest(raw);
-    const approved = consumePendingOutput(state, 'pendingTrackOut', request.outPath);
-    state.session.saveTrack(approved, request.range);
-    state.lastTrackOut = approved;
+    const approved = controller.saveTrack(raw);
     log(`track: wrote ${approved}`);
     return { ok: true };
   });
 }
 
-function registerUpdateHandlers(state, devUrl, sendToWindow) {
-  handle(devUrl, 'dronepath:update:restart', () => {
-    if (!state.updates) return { ok: false, error: 'this build does not self-update' };
-    // No pendingClose here: the prompt never opens over a running export, and
-    // a failed restart must not poison the export close guard.
-    return state.updates.restart({
-      onError: (message) => sendToWindow(state, 'dronepath:update:restart-failed', message),
-    });
-  });
-  handleQuery(devUrl, 'dronepath:update:state', () => ({ ready: state.updateReady }));
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerUpdateHandlers(controller, devUrl) {
+  handle(devUrl, 'dronepath:update:restart', () => controller.restartUpdate());
+  handleQuery(devUrl, 'dronepath:update:state', () => controller.getUpdateState());
 }
 
-function registerWindowHandlers(state, devUrl) {
+/**
+ * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerWindowHandlers(controller, devUrl) {
   handleQuery(devUrl, 'dronepath:window:close', () => {
     // The window's close handler runs the running-export guard.
-    liveWindow(state)?.close();
+    controller.closeWindow();
   });
 }
 
-export function registerIpcHandlers(state, { devUrl, log, sendToWindow }) {
-  registerSessionHandlers(state, devUrl);
-  registerSettingsHandlers(state, devUrl, log);
-  registerLanguageHandlers(state, devUrl);
-  registerExportHandlers(state, devUrl);
-  registerTrackHandlers(state, devUrl, log);
-  registerUpdateHandlers(state, devUrl, sendToWindow);
-  registerWindowHandlers(state, devUrl);
+/**
+ * @param {IpcController} controller
+ * @param {IpcHandlersOptions} options
+ */
+export function registerIpcHandlers(controller, { devUrl, log }) {
+  registerSessionHandlers(controller, devUrl);
+  registerSettingsHandlers(controller, devUrl);
+  registerLanguageHandlers(controller, devUrl);
+  registerExportHandlers(controller, devUrl);
+  registerTrackHandlers(controller, devUrl, log);
+  registerUpdateHandlers(controller, devUrl);
+  registerWindowHandlers(controller, devUrl);
 }

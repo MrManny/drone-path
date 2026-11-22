@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ExportRequest } from 'drone-path-engine/config';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import { createExportRunner } from '../src/exportjob.js';
-import type { ExportOutcome, RunExportJobFn } from '../src/exportjob.js';
+import type { ExportIo, ExportOutcome, RunExportJobFn } from '../src/exportjob.js';
+import { nodeExportIo } from '../src/shellio.js';
 import type { PipelineDeps, RecordingSummary } from 'drone-path-engine/pipeline';
 import { createTileTraffic } from 'drone-path-engine/tiles';
 import type { PrefetchStats, WarmOptions } from 'drone-path-engine/tiles';
@@ -34,9 +35,9 @@ const writesOutput: PipelineDeps['renderVideo'] = async ({ outPath }) => {
   return { profile: { evalMs: 1, captureMs: 2, emitMs: 3 } };
 };
 
-function harness(run: RunExportJobFn) {
+function harness(run: RunExportJobFn, io: ExportIo = nodeExportIo) {
   const outcomes: ExportOutcome[] = [];
-  const runner = createExportRunner({ run, onDone: (o) => outcomes.push(o) });
+  const runner = createExportRunner({ io, run, onDone: (o) => outcomes.push(o) });
   const settled = () =>
     new Promise<ExportOutcome>((resolve) => {
       const tick = () => (outcomes.length ? resolve(outcomes[0]) : setTimeout(tick, 2));
@@ -90,8 +91,38 @@ describe('export runner: successful export', () => {
       return summaryFor(working);
     });
     runner.start(SOURCE, requestFor(out));
-    expect((await settled()).status).toBe('ok');
+    await settled();
     expect(fs.readFileSync(out, 'utf8')).toBe('new export');
+  });
+
+  it('operates purely through an injected ExportIo port', async () => {
+    const files = new Map<string, string>();
+    const dir = path.resolve('virtual');
+    const out = path.join(dir, 'flight_map.mp4');
+    files.set(path.join(dir, 'flight_map.partial.mp4'), 'stale');
+    const io: ExportIo = {
+      exists: (filePath) => files.has(filePath),
+      remove: (filePath) => {
+        files.delete(filePath);
+      },
+      rename: (from, to) => {
+        const content = files.get(from);
+        if (content === undefined) throw new Error('missing working file');
+        files.delete(from);
+        files.set(to, content);
+      },
+    };
+    const { runner, settled } = harness(async (_v, _r, _log, working) => {
+      files.set(working, 'in-memory');
+      return summaryFor(working);
+    }, io);
+
+    runner.start(SOURCE, requestFor(out));
+    const outcome = await settled();
+    expect(outcome.status).toBe('ok');
+    expect(files.get(out)).toBe('in-memory');
+    expect(files.has(path.join(dir, 'flight_map.partial-2.mp4'))).toBe(false);
+    expect(files.get(path.join(dir, 'flight_map.partial.mp4'))).toBe('stale');
   });
 });
 
@@ -204,6 +235,7 @@ describe('export runner: guard rails', () => {
     const out = path.join(tmpDir(), 'a.mp4');
     const outcomes: ExportOutcome[] = [];
     const runner = createExportRunner({
+      io: nodeExportIo,
       run: async (_v, _r, _log, working) => {
         fs.writeFileSync(working, 'x');
         return summaryFor(working);
@@ -328,6 +360,7 @@ describe('export runner: completion safety', () => {
     process.on('unhandledRejection', onRejection);
     try {
       const runner = createExportRunner({
+        io: nodeExportIo,
         log: (message) => logs.push(message),
         run: async (_v, _r, _log, working) => {
           fs.writeFileSync(working, 'x');
@@ -365,6 +398,7 @@ describe('export runner: the default run honors injected deps', () => {
 
     const outcome = await new Promise<ExportOutcome>((resolve) => {
       const runner = createExportRunner({
+        io: nodeExportIo,
         deps: stubDeps({ prefetchTiles, renderVideo: writesOutput }),
         onDone: resolve,
       });
@@ -391,6 +425,7 @@ describe('export runner: the default run honors injected deps', () => {
 
     const outcome = await new Promise<ExportOutcome>((resolve) => {
       const runner = createExportRunner({
+        io: nodeExportIo,
         deps: stubDeps({ prefetchTiles }),
         onDone: resolve,
       });
@@ -421,6 +456,7 @@ describe('export runner: the default run honors injected deps', () => {
     const traffic = createTileTraffic(cacheDir);
     const outcome = new Promise<ExportOutcome>((resolve) => {
       const runner = createExportRunner({
+        io: nodeExportIo,
         deps: stubDeps({
           prefetchTiles: (options) => traffic.stream(options),
           renderVideo: writesOutput,
