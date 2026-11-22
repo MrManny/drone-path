@@ -11,7 +11,7 @@ import type { LogFn } from 'drone-path-engine/logging';
 import { runBatch } from 'drone-path-engine/pipeline';
 
 import { resolveAllowedRoots } from './mcp-paths.js';
-import { registerMcpTools } from './mcp-tools.js';
+import { registerMcpTools, sanitizeMcpErrorMessage } from './mcp-tools.js';
 import { VERSION } from './version.js';
 
 export interface McpServerOptions {
@@ -67,7 +67,7 @@ export function createMcpServer(options: McpServerOptions = {}): McpServer {
     { capabilities: { tools: {} } },
   );
   sdkServer.server.onerror = (err) => {
-    log(`mcp error: ${errorMessage(err)}`);
+    log(`mcp error: ${sanitizeMcpErrorMessage(errorMessage(err))}`);
   };
 
   registerMcpTools(sdkServer, {

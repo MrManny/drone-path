@@ -81,7 +81,7 @@ vi.mock('node:child_process', async (importOriginal) => {
 
 import { main } from '../src/cli.js';
 import { createMcpServer } from '../src/mcp-server.js';
-import { sanitizeMcpErrorMessage } from '../src/mcp-tools.js';
+import { MAX_MCP_RENDER_VIDEOS, sanitizeMcpErrorMessage } from '../src/mcp-tools.js';
 import { VERSION } from '../src/version.js';
 
 const TEST_PROTOCOL_VERSION = '2024-11-05';
@@ -222,7 +222,7 @@ function createHarness(options: Parameters<typeof createMcpServer>[0] = {}) {
     await running;
   }
 
-  return { server, request, notify, initialize, callTool, shutdown, logs, rawLines };
+  return { server, input, request, notify, initialize, callTool, shutdown, logs, rawLines };
 }
 
 describe('MCP stdio protocol', () => {
@@ -651,8 +651,8 @@ describe('drone-path mcp CLI entrypoint', () => {
 
     expect(stdinSpy).toHaveBeenCalled();
     const errText = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
-    expect(errText).toContain('mcp stdio server ready');
-    expect(errText).toContain(fs.realpathSync(root));
+    expect(errText).toContain('mcp stdio server ready (roots: 1)');
+    expect(errText).not.toContain(fs.realpathSync(root));
   });
 
   it('requires --allow-root when omitted from CLI and createMcpServer', async () => {
@@ -673,16 +673,23 @@ describe('drone-path mcp CLI entrypoint', () => {
 });
 
 describe('MCP security hardening', () => {
-  it('refuses to overwrite existing marker files unless DRONE_PATH_MCP_ALLOW_OVERWRITE is enabled', async () => {
+  it('refuses to overwrite existing marker and render output files unless DRONE_PATH_MCP_ALLOW_OVERWRITE is enabled', async () => {
     const workspace = tmpDir();
     const footageDir = path.join(workspace, 'footage');
+    const outDir = path.join(workspace, 'renders');
     const archiveDb = path.join(tmpDir(), 'archive.sqlite');
     fs.mkdirSync(footageDir, { recursive: true });
+    fs.mkdirSync(outDir, { recursive: true });
     const videoPath = path.join(footageDir, 'DJI_0200.MP4');
     fs.writeFileSync(videoPath, 'mp4');
     fs.writeFileSync(path.join(footageDir, 'DJI_0200.SRT'), SAMPLE_SRT_FLIGHT);
 
-    const h = createHarness({ allowedRoots: [workspace], archiveDb });
+    const runBatchStub = vi.fn(async (videos) => ({ ok: videos.length, skipped: 0, failed: 0 }));
+    const h = createHarness({
+      allowedRoots: [workspace],
+      archiveDb,
+      runBatch: runBatchStub,
+    });
     await h.initialize();
 
     await h.callTool('archive_scan', { dirs: [footageDir] });
@@ -710,6 +717,31 @@ describe('MCP security hardening', () => {
     );
     expect(fs.readFileSync(existingCsv, 'utf8')).toBe('keep-me');
 
+    const existingRender = path.join(outDir, 'DJI_0200_map.mp4');
+    fs.writeFileSync(existingRender, 'keep-render');
+    const refusedRender = await h.callTool('render_map_video', {
+      inputs: [videoPath],
+      outDir,
+    });
+    expect(refusedRender.envelope.isError).toBe(true);
+    expect(refusedRender.envelope.content[0]?.text).toMatch(
+      /refusing to overwrite existing render output file/,
+    );
+    expect(runBatchStub).not.toHaveBeenCalled();
+
+    const existingTrack = path.join(workspace, 'existing.gpx');
+    fs.writeFileSync(existingTrack, 'keep-track');
+    const refusedTrack = await h.callTool('render_map_video', {
+      inputs: [videoPath],
+      outDir: path.join(workspace, 'fresh-renders'),
+      trackOut: existingTrack,
+    });
+    expect(refusedTrack.envelope.isError).toBe(true);
+    expect(refusedTrack.envelope.content[0]?.text).toMatch(
+      /refusing to overwrite existing track output file/,
+    );
+    expect(runBatchStub).not.toHaveBeenCalled();
+
     vi.stubEnv('DRONE_PATH_MCP_ALLOW_OVERWRITE', '1');
     const allowedRanges = await h.callTool<{ count: number }>('export_markers', {
       outputPath: existingCsv,
@@ -726,10 +758,46 @@ describe('MCP security hardening', () => {
     expect(allowedArchive.envelope.isError).not.toBe(true);
     expect(fs.readFileSync(existingCsv, 'utf8')).toContain('smooth-glide');
 
+    const allowedRender = await h.callTool<{ ok: number }>('render_map_video', {
+      inputs: [videoPath],
+      outDir,
+      trackOut: existingTrack,
+    });
+    expect(allowedRender.envelope.isError).not.toBe(true);
+    expect(runBatchStub).toHaveBeenCalledTimes(1);
+
     await h.shutdown();
   });
 
-  it('redacts absolute filesystem paths from client error responses and tool error logs', async () => {
+  it('caps render_map_video batch size per MCP tool call', async () => {
+    const workspace = tmpDir();
+    const batchDir = path.join(workspace, 'bulk');
+    fs.mkdirSync(batchDir, { recursive: true });
+    for (let i = 0; i <= MAX_MCP_RENDER_VIDEOS; i++) {
+      fs.writeFileSync(path.join(batchDir, `DJI_${String(i).padStart(4, '0')}.MP4`), 'mp4');
+    }
+
+    const runBatchStub = vi.fn(async (videos) => ({ ok: videos.length, skipped: 0, failed: 0 }));
+    const h = createHarness({
+      allowedRoots: [workspace],
+      archiveDb: path.join(tmpDir(), 'archive.sqlite'),
+      runBatch: runBatchStub,
+    });
+    await h.initialize();
+
+    const overCap = await h.callTool('render_map_video', {
+      inputs: [batchDir],
+    });
+    expect(overCap.envelope.isError).toBe(true);
+    expect(overCap.envelope.content[0]?.text).toMatch(
+      /refusing to render more than 10 recordings in a single MCP tool call/,
+    );
+    expect(runBatchStub).not.toHaveBeenCalled();
+
+    await h.shutdown();
+  });
+
+  it('redacts absolute filesystem paths from client error responses, tool error logs, and server onerror logs', async () => {
     expect(sanitizeMcpErrorMessage('failed at C:\\Users\\Alice Smith\\clip.mp4')).toBe(
       'failed at <path>',
     );
@@ -767,6 +835,16 @@ describe('MCP security hardening', () => {
       h.logs.some(
         (entry) =>
           entry.includes('tool error: path is outside allowed roots: <path>') &&
+          !entry.includes('secret-outside-folder') &&
+          !entry.includes('private.mp4'),
+      ),
+    ).toBe(true);
+
+    h.input.emit('error', new Error(`EIO: stream failure on '${outsideClip}'`));
+    expect(
+      h.logs.some(
+        (entry) =>
+          entry.includes("mcp error: EIO: stream failure on '<path>'") &&
           !entry.includes('secret-outside-folder') &&
           !entry.includes('private.mp4'),
       ),

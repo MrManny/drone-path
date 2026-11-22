@@ -62,6 +62,12 @@ export interface McpToolContext {
 }
 
 const DEFAULT_MAX_SAMPLES = 100;
+export const MAX_MCP_RENDER_VIDEOS = 10;
+
+function isMcpOverwriteAllowed(): boolean {
+  const envOverwrite = process.env.DRONE_PATH_MCP_ALLOW_OVERWRITE?.trim().toLowerCase();
+  return envOverwrite === '1' || envOverwrite === 'true';
+}
 
 const BboxSchema = z
   .object({
@@ -505,8 +511,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       }
       const outputPath = assertPathInAllowedRoots(args.outputPath, ctx.allowedRoots);
       assertNotArchiveDb(outputPath, ctx.archiveDb);
-      const envOverwrite = process.env.DRONE_PATH_MCP_ALLOW_OVERWRITE?.trim().toLowerCase();
-      const allowOverwrite = envOverwrite === '1' || envOverwrite === 'true';
+      const allowOverwrite = isMcpOverwriteAllowed();
       const assertCanWriteOutput = () => {
         if (fs.existsSync(outputPath) && !allowOverwrite) {
           throw new Error(
@@ -609,7 +614,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         'Render flight-path map overlay videos (and optional track export) for allowed recordings or folders.',
       inputSchema: z
         .object({
-          inputs: z.array(z.string().min(1)).min(1),
+          inputs: z.array(z.string().min(1)).min(1).max(MAX_MCP_RENDER_VIDEOS),
           outDir: z.string().min(1).optional(),
           outSuffix: z.string().min(1).optional(),
           width: z.number().int().min(1).optional(),
@@ -692,7 +697,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       const { config } = resolveConfig({
         cli,
         cwd: ctx.allowedRoots[0],
-        onDeprecated: (msg) => ctx.log(msg),
+        onDeprecated: (msg) => ctx.log(sanitizeMcpErrorMessage(msg)),
       });
       if (config.outDir) {
         assertPathInAllowedRoots(config.outDir, ctx.allowedRoots);
@@ -707,12 +712,28 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       }
 
       const videos = collectRecordings(inputs, { recurse: config.recurse });
+      if (videos.length > MAX_MCP_RENDER_VIDEOS) {
+        throw new Error(
+          `refusing to render more than ${MAX_MCP_RENDER_VIDEOS} recordings in a single MCP tool call (found ${videos.length})`,
+        );
+      }
       for (const video of videos) {
         assertPathInAllowedRoots(video, ctx.allowedRoots);
+      }
+      const allowOverwrite = isMcpOverwriteAllowed();
+      if (config.trackOut && fs.existsSync(config.trackOut) && !allowOverwrite) {
+        throw new Error(
+          'refusing to overwrite existing track output file (set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
+        );
       }
       for (const plan of planOutputs(videos, config)) {
         assertPathInAllowedRoots(plan.out, ctx.allowedRoots);
         assertNotArchiveDb(plan.out, ctx.archiveDb);
+        if (fs.existsSync(plan.out) && !allowOverwrite) {
+          throw new Error(
+            'refusing to overwrite existing render output file (set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
+          );
+        }
       }
 
       const tools = await ctx.getTools();
@@ -726,7 +747,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       const batch = await ctx.runBatch(
         videos,
         config,
-        ctx.log,
+        (msg) => ctx.log(sanitizeMcpErrorMessage(msg)),
         (summary) => summaries.push(summary),
         { tools, range },
       );

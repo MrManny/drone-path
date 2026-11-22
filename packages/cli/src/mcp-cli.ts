@@ -31,9 +31,8 @@ export async function runMcp(argv: string[]): Promise<void> {
   process.on('SIGINT', onSignal);
   process.on('SIGTERM', onSignal);
   try {
-    process.stderr.write(
-      `[drone-path] mcp stdio server ready (roots: ${server.allowedRoots.join(', ')})\n`,
-    );
+    const rootCount = server.allowedRoots.length;
+    process.stderr.write(`[drone-path] mcp stdio server ready (roots: ${rootCount})\n`);
     await server.start();
   } finally {
     process.off('SIGINT', onSignal);

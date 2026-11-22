@@ -251,9 +251,9 @@ Starts a stdio JSON-RPC 2.0 Model Context Protocol (MCP) server over `stdin` and
 | --- | --- | --- |
 | `--allow-root <dir...>` | Required | One or more existing directories restricting all file and folder tool inputs and outputs. |
 | `--archive-db <path>` | Optional | Override the default per-user archive SQLite database path. |
-| `DRONE_PATH_MCP_ALLOW_OVERWRITE` | Env var (`1` or `true`) | Allows `export_markers` to overwrite an existing output file (refused by default). |
+| `DRONE_PATH_MCP_ALLOW_OVERWRITE` | Env var (`1` or `true`) | Allows `export_markers` and `render_map_video` to overwrite existing output files (refused by default). |
 
-- **Path boundaries & safety:** Every allowed root is resolved canonically via realpath, and every input or output path argument (including discovered clips and planned render outputs) is verified against those roots after resolving symlinks and `..` segments. Archive query tools filter results to clips inside the allowed roots, tools cannot overwrite the archive SQLite database (or its `-wal`, `-shm`, and `-journal` files), `export_markers` refuses to overwrite existing files unless `DRONE_PATH_MCP_ALLOW_OVERWRITE=1` (or `true`), and tool error logs sanitize absolute paths.
+- **Path boundaries & safety:** Every allowed root is resolved canonically via realpath, and every input or output path argument (including discovered clips and planned render outputs) is verified against those roots after resolving symlinks and `..` segments. Archive query tools filter results to clips inside the allowed roots, tools cannot overwrite the archive SQLite database (or its `-wal`, `-shm`, and `-journal` files), `export_markers` and `render_map_video` refuse to overwrite existing output files unless `DRONE_PATH_MCP_ALLOW_OVERWRITE=1` (or `true`), `render_map_video` caps each call to at most 10 recordings, and MCP logs redact absolute filesystem paths.
 
 | Tool | Purpose | Key arguments |
 | --- | --- | --- |
