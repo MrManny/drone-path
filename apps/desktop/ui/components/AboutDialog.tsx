@@ -25,7 +25,15 @@ export function AboutDialog({ version, git, onClose }: AboutDialogProps) {
         <p className="about-version">{content.versionLine}</p>
         <p className="about-license">{content.licenseLine}</p>
         <a
-          className="about-repo"
+          className="about-link"
+          href={content.websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {new URL(content.websiteUrl).hostname}
+        </a>
+        <a
+          className="about-link"
           href={content.repoUrl}
           target="_blank"
           rel="noopener noreferrer"

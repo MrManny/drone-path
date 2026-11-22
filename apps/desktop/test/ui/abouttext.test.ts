@@ -30,6 +30,7 @@ describe.for<ContentCase>([
     expect(aboutContent('0.8.1', git)).toEqual({
       versionLine,
       licenseLine: 'MIT license',
+      websiteUrl: 'https://www.dronepath.dev/',
       repoLabel: 'MrManny/drone-path',
       repoUrl: 'https://github.com/MrManny/drone-path',
     });
