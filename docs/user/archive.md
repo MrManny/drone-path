@@ -11,16 +11,22 @@ When no watched folders are configured yet, launching the app opens the empty [R
 
 The app switches to **Archive** mode, remembers the folder, and scans it recursively in the background. When watched folders already exist at launch, the app opens directly into **Archive** mode and runs a background rescan.
 
+Once at least one folder is configured, the compact **Watched folders** bar stays collapsed by default, showing a single-line folder summary alongside its header controls:
+
 - **Add folder…** adds another watched folder and scans it.
-- **Rescan** re-indexes all watched folders. Unchanged recordings and `.SRT` sidecars are reused, previously failed clips are retried, and clip availability is refreshed.
-- **Cancel scan** stops an active scan cleanly without losing already indexed clips.
-- **Remove** removes a watched folder from the list and immediately deletes its indexed clips from the archive database. Video files on disk are never modified or deleted.
+- **Rescan** (the icon button beside **Add folder…**) re-indexes all watched folders. Unchanged recordings and `.SRT` sidecars are reused, previously failed clips are retried, and clip availability is refreshed.
+- **Cancel scan** (replacing **Rescan** while a scan runs) stops an active scan cleanly without losing already indexed clips.
+- **Toggle watched folders** (the chevron button) expands or collapses the folder list so you can inspect full folder paths or click **Remove** to remove a watched folder from the list and immediately delete its indexed clips from the archive database. Video files on disk are never modified or deleted.
 
 Index data is stored in the same per-user SQLite archive database used by `drone-path archive` (see [Spatial archive](cli.md#spatial-archive)).
 
+![Archive workspace showing watched folders, flight list, and multi-flight satellite map](../images/app-archive-workspace.jpg)
+
+*The Archive workspace: collapsed **Watched folders** summary, flight-grouped clip list with poster thumbnails, and multi-flight tracks on the satellite map with the bottom-left readout bar.*
+
 ## Switching between Archive and Review
 
-Once at least one watched folder exists (or while in Archive mode), an **Archive | Review** mode switch sits at the right end of the workspace header:
+Once at least one watched folder exists (or while in Archive mode), a flush **Archive | Review** tab strip sits at the right end of the workspace header. When focused, use `Left` / `Right`, `Home`, or `End` to move between the two tabs:
 
 - Clicking any online recording in the clip list, clicking **Open in Review** on the map readout, or picking a match from **What filmed here?** opens that recording in **Review** mode at auto-fit zoom.
 - Switching back to **Archive** preserves your watched folders, active filters, selected clip, map viewport, and any open **What filmed here?** query results in memory.
@@ -28,12 +34,18 @@ Once at least one watched folder exists (or while in Archive mode), an **Archive
 
 ## Browsing the multi-flight map
 
-The right-hand pane displays all matching GPS tracks on a Canvas-rendered map colored by inferred flight:
+The right-hand pane displays all matching GPS tracks on a Canvas-rendered map colored by inferred flight. While basemap tiles load, a quiet `Preparing map…` indicator appears near the top of the map:
 
 - **Clustering:** At wider zoom levels (`zoom` 11 and below), nearby clips group into numbered coral clusters. Hover a cluster to see how many recordings it holds, and click it to zoom in until the individual flight tracks appear.
 - **Selection & readout:** Hovering or clicking a track highlights it and shows its filename, flight number, distance, and duration in the bottom-left readout bar, along with an **Open in Review** button for the selected online clip.
 - **Map style & navigation:** Switch between **Satellite** and **Topographic** basemaps in the top-left toolbar (shared with [Map appearance](desktop-app.md#map-appearance) in Review). Use **Fit all**, `+`, and `−` in the top-right toolbar to frame all matching tracks or step zoom levels. See [Tiles and attribution](tiles-and-attribution.md) for map sources and tile caching.
 - **Viewport sync:** Panning or zooming updates the active map bounds automatically when **Only in map view** is enabled in the filter rail.
+
+At the compact 1024×600 minimum window size, the **Watched folders** header, clip list, and map controls remain single-line and reachable without clipping.
+
+![Archive workspace at the compact 1024x600 window size](../images/app-archive-compact.jpg)
+
+*The Archive workspace at the compact 1024×600 window size.*
 
 ## Point-in-view search ("What filmed here?")
 
@@ -48,6 +60,10 @@ The **Clips at this spot** popover lists the clicked coordinates and ranked matc
 - **Track** — clips whose GPS track passed within the zoom-scaled search radius (between `50 m` and `500 m`), sorted by closest distance.
 
 Each match shows the filename, the clip-relative timestamp (`tSec`), its match type badge, and its distance from the clicked point. Click any online match to open that recording in **Review** and jump straight to that second. Press `Esc`, click the close button, or click **Dismiss** (when no clips matched) to close the popover.
+
+![Point-in-view search with the Clips at this spot popover over the satellite map](../images/app-archive-point-search.jpg)
+
+*Point-in-view search: **What filmed here?** shows ranked clip matches for the clicked spot in the **Clips at this spot** popover.*
 
 ## Filtering recordings
 
@@ -67,7 +83,7 @@ Click **Clear filters** to reset every filter back to its default.
 
 ## Thumbnails, Reveal in folder, and archive exports
 
-Each clip card shows a lazy-loaded JPEG poster thumbnail extracted from the video (falling back to a film icon when unavailable), filename, path, duration, and track distance, plus status badges (`No GPS` or `Unreadable`) when applicable. Click the folder icon beside an online clip to highlight the file in your system file manager (**Reveal in folder**).
+Each flight group header shows the flight number, clip count, and total flight duration. Each 2-line clip row shows a lazy-loaded JPEG poster thumbnail extracted from the video (falling back to a film icon when unavailable), a readable filename (with the full file path in a hover tooltip), tabular duration and track distance, status badges (`No GPS`, `Offline`, or `Unreadable`) when applicable, and a **Reveal in folder** icon button beside online clips to highlight the file in your system file manager.
 
 Click **Export…** above the recording list to open **Export archive**. If filters are active, the export includes only the recordings matching those filters.
 
@@ -82,11 +98,11 @@ After choosing a destination and completing the export, click **Reveal in folder
 If a watched folder resides on a disconnected external drive or SD card, or if indexed recordings were moved or deleted:
 
 - Missing recordings stay in the archive marked **Offline**, appear as dashed tracks on the map, and still appear in **What filmed here?** matches so your flight history stays searchable.
-- Watched folders whose files are missing or unreachable show an **Offline** badge and dashed border.
+- Watched folders whose files are missing or unreachable show an **Offline** badge and dim the folder name when expanded.
 - Opening an offline recording or using **Reveal in folder** is disabled until you reconnect the drive and click **Rescan**.
 
 To clean up records for files you permanently deleted or moved, click **Remove missing clips…** and confirm **Remove missing clips** in the dialog. This removes only the cached flight tracks and telemetry statistics for offline clips from the archive database — video files on disk are never touched.
 
 ## Keyboard navigation
 
-See [Keyboard shortcuts](keyboard-shortcuts.md#archive-workspace) for moving through the recording list with `Up` / `Down` and dismissing the point-query popover with `Esc`.
+See [Keyboard shortcuts](keyboard-shortcuts.md#archive-workspace) for switching the **Archive | Review** header tabs with `Left` / `Right` and `Home` / `End`, moving through the recording list with `Up` / `Down`, and dismissing the point-query popover with `Esc`.

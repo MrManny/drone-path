@@ -14,7 +14,7 @@ Open **View → Settings…** and choose a **Language**. **System default** uses
 
 ## Loading a recording
 
-Launching the app with no watched folders lands in the review workspace with no recording loaded: the transport, timeline and export menu items sit disabled, and the map pane reads *No flight path yet*. When watched folders are configured, the app launches into the [Archive workspace](archive.md) instead, and an **Archive | Review** mode switch in the header lets you move between browsing folders and reviewing the loaded clip.
+Launching the app with no watched folders lands in the review workspace with no recording loaded: the transport, timeline and export menu items sit disabled, and the map pane reads *No flight path yet*. When watched folders are configured, the app launches into the [Archive workspace](archive.md) instead, and an **Archive | Review** tab strip in the header lets you move between browsing folders and reviewing the loaded clip.
 
 To load a single recording, use the **Open…** button in the recording pane — **File → Open…** and `Ctrl+O` do the same. The dialog starts in the folder the last recording was opened from. To index a whole folder of recordings, choose **File → Open folder…**.
 
