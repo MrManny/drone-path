@@ -842,4 +842,101 @@ describe('Archive workspace and mode switch', () => {
       screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' }).getAttribute('data-selected'),
     ).toBeNull();
   });
+
+  it('switches between Archive and Review via header tab keyboard navigation while preserving tab focus', async () => {
+    installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    fireEvent.click(clipButton);
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+
+    fireEvent.click(
+      within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', {
+        name: 'Archive',
+      }),
+    );
+    const archiveTab = within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', {
+      name: 'Archive',
+    });
+    act(() => {
+      archiveTab.focus();
+    });
+    expect(document.activeElement).toBe(archiveTab);
+
+    fireEvent.keyDown(archiveTab, { key: 'ArrowRight' });
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+    const reviewTab = within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', {
+      name: 'Review',
+    });
+    expect(reviewTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(reviewTab);
+
+    fireEvent.keyDown(reviewTab, { key: 'ArrowLeft' });
+    const remountedArchiveTab = await screen.findByRole('tab', { name: 'Archive' });
+    expect(remountedArchiveTab.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(remountedArchiveTab);
+
+    fireEvent.keyDown(remountedArchiveTab, { key: 'End' });
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+    const endReviewTab = within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', {
+      name: 'Review',
+    });
+    expect(document.activeElement).toBe(endReviewTab);
+
+    fireEvent.keyDown(endReviewTab, { key: 'Home' });
+    const homeArchiveTab = await screen.findByRole('tab', { name: 'Archive' });
+    expect(document.activeElement).toBe(homeArchiveTab);
+  });
+
+  it('shows multi-folder collapsed summary with extra count and full path tooltip', async () => {
+    installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights', 'F:\\Drone\\Other'] });
+    render(<Page />);
+
+    const summary = await screen.findByText('2 folders · Flights (+1)');
+    expect(summary.getAttribute('title')).toBe('E:\\Drone\\Flights\nF:\\Drone\\Other');
+  });
+
+  it('shows empty watched folder message when no recordings are indexed', async () => {
+    installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      queryResult: { flights: [], totalCount: 0, offlineCount: 0 },
+    });
+    render(<Page />);
+
+    expect(
+      await screen.findByText('No drone recordings found in your watched folders.'),
+    ).toBeTruthy();
+  });
+
+  it('hides flight duration when totalDurationSec is zero', async () => {
+    installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      queryResult: {
+        totalCount: 1,
+        offlineCount: 0,
+        flights: [
+          {
+            flightId: 'flight-zero',
+            clips: [
+              {
+                ...SAMPLE_QUERY.flights[0].clips[0],
+                video: {
+                  fps: { num: 30, den: 1, value: 30, str: '30' },
+                  frames: 0,
+                  width: 1920,
+                  height: 1080,
+                  durationSec: 0,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const { container } = render(<Page />);
+
+    await screen.findByText('Flight 1');
+    expect(container.querySelector('.archive-flight-duration')).toBeNull();
+  });
 });

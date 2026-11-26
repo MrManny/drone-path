@@ -81,6 +81,7 @@
     "one": "{count} Ordner · {name}",
     "other": "{count} Ordner · {name}"
   },
+  "archiveWorkspace.folderSummaryMulti": "{count} Ordner · {name} (+{rest})",
   "archiveWorkspace.noFolders": "Noch keine überwachten Ordner. Füge einen Ordner hinzu, um deine Drohnenaufnahmen zu indizieren.",
   "archiveWorkspace.noRecordings": "Keine Drohnenaufnahmen in den überwachten Ordnern gefunden.",
   "archiveWorkspace.noTelemetryBadge": "Kein GPS",

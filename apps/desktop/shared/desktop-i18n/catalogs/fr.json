@@ -81,6 +81,7 @@
     "one": "{count} dossier · {name}",
     "other": "{count} dossiers · {name}"
   },
+  "archiveWorkspace.folderSummaryMulti": "{count} dossiers · {name} (+{rest})",
   "archiveWorkspace.noFolders": "Aucun dossier surveillé pour le moment. Ajoute un dossier pour indexer tes enregistrements de drone.",
   "archiveWorkspace.noRecordings": "Aucun enregistrement de drone trouvé dans tes dossiers surveillés.",
   "archiveWorkspace.noTelemetryBadge": "Sans GPS",

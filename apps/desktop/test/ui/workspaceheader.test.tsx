@@ -100,4 +100,30 @@ describe('WorkspaceHeader', () => {
     expect(document.activeElement).toBe(archiveTab);
     expect(onModeChange).toHaveBeenCalledTimes(1);
   });
+
+  it('switches mode with Home and End keys and ignores modified presses', () => {
+    const onModeChange = vi.fn();
+    render(
+      <WorkspaceHeader
+        durationSec={null}
+        mode="archive"
+        showModeSwitch
+        onModeChange={onModeChange}
+      />,
+    );
+    const archiveTab = screen.getByRole('tab', { name: 'Archive' });
+    const reviewTab = screen.getByRole('tab', { name: 'Review' });
+
+    archiveTab.focus();
+    fireEvent.keyDown(archiveTab, { key: 'End', shiftKey: true });
+    expect(onModeChange).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(archiveTab, { key: 'End' });
+    expect(document.activeElement).toBe(reviewTab);
+    expect(onModeChange).toHaveBeenCalledWith('review');
+
+    fireEvent.keyDown(reviewTab, { key: 'Home' });
+    expect(document.activeElement).toBe(archiveTab);
+    expect(onModeChange).toHaveBeenCalledTimes(1);
+  });
 });

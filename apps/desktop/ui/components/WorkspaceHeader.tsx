@@ -1,13 +1,30 @@
 'use client';
 
 import { Film, Layers } from 'lucide-react';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { useTranslation } from '../lib/i18n.js';
 import { formatTime } from '../lib/frametime.js';
 
 export type WorkspaceMode = 'archive' | 'review';
+
+// Mode switches unmount the outgoing WorkspaceHeader before mounting the incoming one;
+// hand off keyboard focus across that boundary without leaking state in isolated renders.
+let pendingFocusMode: WorkspaceMode | null = null;
+
+function schedulePendingTabFocus(mode: WorkspaceMode): void {
+  pendingFocusMode = mode;
+  setTimeout(() => {
+    if (pendingFocusMode === mode) pendingFocusMode = null;
+  }, 0);
+}
+
+function consumePendingTabFocus(mode: WorkspaceMode | undefined): boolean {
+  if (!mode || pendingFocusMode !== mode) return false;
+  pendingFocusMode = null;
+  return true;
+}
 
 interface WorkspaceHeaderProps {
   /** Recording length in seconds; null while no recording is loaded. */
@@ -28,6 +45,11 @@ export function WorkspaceHeader({
     archive: null,
     review: null,
   });
+  useLayoutEffect(() => {
+    if (mode && consumePendingTabFocus(mode)) {
+      tabRefs.current[mode]?.focus();
+    }
+  }, [mode]);
   const modeTabs: ReadonlyArray<{
     id: WorkspaceMode;
     label: string;
@@ -38,7 +60,7 @@ export function WorkspaceHeader({
   ];
 
   const handleTabKeyDown = (current: WorkspaceMode, e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     let next: WorkspaceMode | null = null;
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       next = current === 'archive' ? 'review' : 'archive';
@@ -50,9 +72,12 @@ export function WorkspaceHeader({
     if (!next) return;
     e.preventDefault();
     e.stopPropagation();
-    tabRefs.current[next]?.focus();
     if (next !== mode) {
+      schedulePendingTabFocus(next);
+      tabRefs.current[next]?.focus();
       onModeChange?.(next);
+    } else {
+      tabRefs.current[next]?.focus();
     }
   };
 

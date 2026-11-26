@@ -207,14 +207,24 @@ export function ArchiveWorkspace({
                   </button>
                   {roots.length > 0 ? (
                     scanning ? (
-                      <button type="button" onClick={() => void cancelScan()}>
+                      <button
+                        type="button"
+                        className="archive-folder-icon-btn"
+                        aria-label={t('archiveWorkspace.cancelScan')}
+                        title={t('archiveWorkspace.cancelScan')}
+                        onClick={() => void cancelScan()}
+                      >
                         <X aria-hidden="true" />
-                        {t('archiveWorkspace.cancelScan')}
                       </button>
                     ) : (
-                      <button type="button" onClick={() => void rescan()}>
+                      <button
+                        type="button"
+                        className="archive-folder-icon-btn"
+                        aria-label={t('archiveWorkspace.rescan')}
+                        title={t('archiveWorkspace.rescan')}
+                        onClick={() => void rescan()}
+                      >
                         <RefreshCw aria-hidden="true" />
-                        {t('archiveWorkspace.rescan')}
                       </button>
                     )
                   ) : null}
@@ -283,11 +293,17 @@ export function ArchiveWorkspace({
               ) : (
                 <div className="archive-folders-summary">
                   <Folder aria-hidden="true" />
-                  <span className="archive-folders-summary-text" title={roots[0]}>
-                    {t('archiveWorkspace.folderSummary', {
-                      count: roots.length,
-                      name: leafName(roots[0]) || roots[0],
-                    })}
+                  <span className="archive-folders-summary-text" title={roots.join('\n')}>
+                    {roots.length === 1
+                      ? t('archiveWorkspace.folderSummary', {
+                          count: roots.length,
+                          name: leafName(roots[0]) || roots[0],
+                        })
+                      : t('archiveWorkspace.folderSummaryMulti', {
+                          count: roots.length,
+                          name: leafName(roots[0]) || roots[0],
+                          rest: roots.length - 1,
+                        })}
                   </span>
                   {offlineRoots.size > 0 ? (
                     <span className="archive-badge archive-badge-offline">
@@ -438,7 +454,7 @@ export function ArchiveWorkspace({
                             return (
                               <li
                                 key={clip.path}
-                                className={`archive-clip-card${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
+                                className={`archive-clip-card${isSelected ? ' is-selected' : ''}`}
                               >
                                 <button
                                   ref={(el) => {
@@ -446,7 +462,7 @@ export function ArchiveWorkspace({
                                     else clipButtonRefs.current.delete(clip.path);
                                   }}
                                   type="button"
-                                  className={`archive-clip-row${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
+                                  className={`archive-clip-row${isOffline ? ' archive-clip-row-offline' : ''}`}
                                   data-selected={isSelected ? 'true' : undefined}
                                   aria-label={
                                     isOffline
@@ -482,7 +498,9 @@ export function ArchiveWorkspace({
                                           className={
                                             isOffline
                                               ? 'archive-badge archive-badge-offline'
-                                              : 'archive-badge'
+                                              : clip.status === 'error'
+                                                ? 'archive-badge archive-badge-error'
+                                                : 'archive-badge'
                                           }
                                         >
                                           {badge}

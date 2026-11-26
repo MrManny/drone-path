@@ -81,6 +81,7 @@
     "one": "{count} folder · {name}",
     "other": "{count} folders · {name}"
   },
+  "archiveWorkspace.folderSummaryMulti": "{count} folders · {name} (+{rest})",
   "archiveWorkspace.noFolders": "No watched folders yet. Add a folder to index your drone recordings.",
   "archiveWorkspace.noRecordings": "No drone recordings found in your watched folders.",
   "archiveWorkspace.noTelemetryBadge": "No GPS",

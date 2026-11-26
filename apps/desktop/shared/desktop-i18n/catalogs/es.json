@@ -81,6 +81,7 @@
     "one": "{count} carpeta · {name}",
     "other": "{count} carpetas · {name}"
   },
+  "archiveWorkspace.folderSummaryMulti": "{count} carpetas · {name} (+{rest})",
   "archiveWorkspace.noFolders": "Aún no hay carpetas vigiladas. Añade una carpeta para indexar tus grabaciones de dron.",
   "archiveWorkspace.noRecordings": "No se encontraron grabaciones de dron en tus carpetas vigiladas.",
   "archiveWorkspace.noTelemetryBadge": "Sin GPS",

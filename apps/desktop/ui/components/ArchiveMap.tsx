@@ -688,7 +688,9 @@ export function ArchiveMap({
                 : '--'}
             </span>
             {activeClipItem.clip.availability === 'offline' ? (
-              <span className="archive-badge">{t('archiveWorkspace.offlineBadge')}</span>
+              <span className="archive-badge archive-badge-offline">
+                {t('archiveWorkspace.offlineBadge')}
+              </span>
             ) : null}
           </div>
           {onOpenClip &&
