@@ -18,6 +18,7 @@ import { archivePosterUrlFor } from '../../shared/appurls.js';
 import { leafName } from '../../shared/errors.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import type { ArchiveWorkspaceState } from '../hooks/useArchiveWorkspace.js';
+import { formatArchiveDistance } from '../lib/archivedistance.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 import type { PickState } from '../lib/pickstate.js';
@@ -361,7 +362,7 @@ export function ArchiveWorkspace({
                               ? formatTime(clip.video.durationSec)
                               : '--';
                           const distanceText = clip.telemetry
-                            ? `${Math.round(clip.telemetry.trackDistanceM)} m`
+                            ? formatArchiveDistance(clip.telemetry.trackDistanceM, t)
                             : '--';
                           const badge = isOffline
                             ? t('archiveWorkspace.offlineBadge')

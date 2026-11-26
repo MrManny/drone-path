@@ -40,3 +40,13 @@ The menu bar at the top of the workspace follows the Windows menu conventions:
 - The In–Out segment's edge handles on the timeline are a pointer-only enhancement: with the keyboard, set the points with `I` / `O` or the in/out-point buttons in the timeline header.
 - One point is enough to mark a passage: `I` alone plays to the end of the recording, `O` alone from its start. Setting a point past the other replaces it, so the in point always stays before the out point.
 - Held keys auto-repeat only for stepping and jumping; every other shortcut acts once per press.
+
+## Archive workspace
+
+The [Archive workspace](archive.md) supports keyboard navigation in the recording list and point-query popover:
+
+| Keys | Action |
+| --- | --- |
+| `Up` / `Down` | Move focus and selection through recordings in the Archive clip list |
+| `Enter` / `Space` | Open the focused recording in Review (when online) or activate the focused control |
+| `Esc` | Close the **Clips at this spot** point-query popover or an open dialog |

@@ -17,6 +17,7 @@ import {
   extractClipSpatialItems,
 } from '../lib/archivecluster.js';
 import type { ArchiveMapClipItem, ArchiveMapCluster } from '../lib/archivecluster.js';
+import { formatArchiveDistance } from '../lib/archivedistance.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 import { ArchivePointPopover } from './ArchivePointPopover.js';
@@ -130,12 +131,6 @@ function pathStyleFor(
     opacity: offline ? 0.5 : 0.88,
     dashArray: offline ? '6 4' : undefined,
   };
-}
-
-function formatDistance(distanceM: number | null | undefined): string {
-  if (distanceM === null || distanceM === undefined || !Number.isFinite(distanceM)) return '--';
-  if (distanceM >= 1000) return `${(distanceM / 1000).toFixed(1)} km`;
-  return `${Math.round(distanceM)} m`;
 }
 
 export function ArchiveMap({
@@ -642,7 +637,7 @@ export function ArchiveMap({
             <span className="archive-map-readout-meta readout">
               {t('archiveWorkspace.flightHeading', { index: activeClipItem.flightIndex + 1 })}
               {' · '}
-              {formatDistance(activeClipItem.clip.telemetry?.trackDistanceM)}
+              {formatArchiveDistance(activeClipItem.clip.telemetry?.trackDistanceM, t)}
               {' · '}
               {activeClipItem.clip.video?.durationSec !== null &&
               activeClipItem.clip.video?.durationSec !== undefined

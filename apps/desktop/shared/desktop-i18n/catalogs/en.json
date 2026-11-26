@@ -67,6 +67,8 @@
   "archivePointPopover.title": "Clips at this spot",
   "archiveWorkspace.addFolder": "Add folder…",
   "archiveWorkspace.cancelScan": "Cancel scan",
+  "archiveWorkspace.distanceKilometers": "{value} km",
+  "archiveWorkspace.distanceMeters": "{value} m",
   "archiveWorkspace.emptyPrompt": "Add a folder of drone recordings to browse flights and open any clip for review.",
   "archiveWorkspace.errorBadge": "Unreadable",
   "archiveWorkspace.exportArchive": "Export…",

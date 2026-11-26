@@ -6,6 +6,7 @@ import { MapPin, Navigation, Video, X } from 'lucide-react';
 import type { LatLon } from 'drone-path-core/geo';
 import { leafName } from '../../shared/errors.js';
 import type { ArchiveNearHit } from '../../shared/ipc.js';
+import { formatArchiveDistance } from '../lib/archivedistance.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 
@@ -19,12 +20,6 @@ export interface ArchivePointPopoverProps {
 
 function formatCoord(coord: LatLon): string {
   return `${coord.lat.toFixed(5)}, ${coord.lon.toFixed(5)}`;
-}
-
-function formatDistance(distanceM: number): string {
-  if (!Number.isFinite(distanceM)) return '--';
-  if (distanceM >= 1000) return `${(distanceM / 1000).toFixed(1)} km`;
-  return `${Math.round(distanceM)} m`;
 }
 
 export function ArchivePointPopover({
@@ -95,7 +90,7 @@ export function ArchivePointPopover({
           {hits.map((hit, index) => {
             const name = leafName(hit.clip.path);
             const timeText = formatTime(hit.tSec);
-            const distanceText = formatDistance(hit.distanceM);
+            const distanceText = formatArchiveDistance(hit.distanceM, t);
             const isOffline = hit.clip.availability === 'offline';
             const isGaze = hit.matchType === 'gaze';
             const matchLabel = isGaze
