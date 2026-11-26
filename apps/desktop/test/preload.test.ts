@@ -92,7 +92,7 @@ describe('preload bridge runtime contracts', () => {
     expect(fs.readFileSync(preloadPath, 'utf8')).toBe(buildPreloadSource());
   });
 
-  it('exposes the exact 32 invoke and event methods in a sandboxed preload', () => {
+  it('exposes the exact 35 invoke and event methods in a sandboxed preload', () => {
     const { api } = loadPreloadInSandbox();
     const expected = [
       ...Object.keys(IPC_INVOKE_CHANNELS),

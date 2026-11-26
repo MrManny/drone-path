@@ -2,15 +2,27 @@
 
 import { useCallback, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { FolderPlus, RefreshCw, Trash2, X } from 'lucide-react';
+import {
+  Download,
+  Film,
+  FolderOpen,
+  FolderPlus,
+  RefreshCw,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react';
 
 import type { MapStyle } from 'drone-path-engine/config';
+import { archivePosterUrlFor } from '../../shared/appurls.js';
 import { leafName } from '../../shared/errors.js';
 import type { Dialogs } from '../hooks/useDialogs.js';
 import type { ArchiveWorkspaceState } from '../hooks/useArchiveWorkspace.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 import type { PickState } from '../lib/pickstate.js';
+import { ArchiveExportModal } from './ArchiveExportModal.js';
+import { ArchiveFilterRail } from './ArchiveFilterRail.js';
 import { ArchiveMap } from './ArchiveMap.js';
 import { DialogShell } from './DialogShell.js';
 import { ErrorNotice } from './ErrorNotice.js';
@@ -18,6 +30,31 @@ import { Notice } from './Notice.js';
 import { OpenNotice } from './OpenNotice.js';
 import type { WorkspaceMode } from './WorkspaceHeader.js';
 import { WorkspaceShell } from './WorkspaceShell.js';
+
+function ClipPoster({ posterId }: { posterId?: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!posterId || failed) {
+    return (
+      <span className="archive-clip-poster archive-clip-poster-fallback" aria-hidden="true">
+        <Film aria-hidden="true" />
+      </span>
+    );
+  }
+
+  return (
+    <span className="archive-clip-poster" aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="archive-clip-poster-img"
+        src={archivePosterUrlFor(posterId)}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </span>
+  );
+}
 
 interface ArchiveWorkspaceProps {
   archive: ArchiveWorkspaceState;
@@ -56,10 +93,13 @@ export function ArchiveWorkspace({
 }: ArchiveWorkspaceProps) {
   const t = useTranslation();
   const [confirmPruneOpen, setConfirmPruneOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const {
     roots,
     offlineRoots,
     flights,
+    availableFlightIds,
     totalCount,
     offlineCount,
     scanning,
@@ -71,13 +111,19 @@ export function ArchiveWorkspace({
     pointQueryCoord,
     pointQueryLoading,
     pointQueryActive,
+    filters,
+    activeFilterCount,
+    activeQueryFilters,
     setViewportBbox,
     togglePointQuery,
     queryAtPoint,
     clearPointQuery,
+    setFilters,
+    clearFilters,
     removeFolder,
     rescan,
     cancelScan,
+    revealClip,
     pruneOffline,
     dismissPruneStatus,
     dismissError,
@@ -240,16 +286,50 @@ export function ArchiveWorkspace({
                     </span>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  className="archive-prune-trigger"
-                  disabled={offlineCount === 0 || scanning || pruning}
-                  onClick={() => setConfirmPruneOpen(true)}
-                >
-                  <Trash2 aria-hidden="true" />
-                  {t('archiveWorkspace.pruneOffline')}
-                </button>
+                <div className="archive-clips-actions">
+                  <button
+                    type="button"
+                    className="archive-filter-toggle"
+                    aria-expanded={filtersOpen}
+                    onClick={() => setFiltersOpen((open) => !open)}
+                  >
+                    <SlidersHorizontal aria-hidden="true" />
+                    <span>{t('archiveFilters.toggle')}</span>
+                    {activeFilterCount > 0 ? (
+                      <span className="archive-filter-count">{activeFilterCount}</span>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    className="archive-export-trigger"
+                    disabled={totalCount === 0 || scanning}
+                    onClick={() => setExportModalOpen(true)}
+                  >
+                    <Download aria-hidden="true" />
+                    <span>{t('archiveWorkspace.exportArchive')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="archive-prune-trigger"
+                    disabled={offlineCount === 0 || scanning || pruning}
+                    onClick={() => setConfirmPruneOpen(true)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                    {t('archiveWorkspace.pruneOffline')}
+                  </button>
+                </div>
               </div>
+
+              {filtersOpen ? (
+                <ArchiveFilterRail
+                  filters={filters}
+                  roots={roots}
+                  flightIds={availableFlightIds}
+                  activeCount={activeFilterCount}
+                  onChange={setFilters}
+                  onClear={clearFilters}
+                />
+              ) : null}
 
               {flights.length === 0 ? (
                 <div className="archive-empty">
@@ -291,7 +371,10 @@ export function ArchiveWorkspace({
                                 ? t('archiveWorkspace.errorBadge')
                                 : null;
                           return (
-                            <li key={clip.path}>
+                            <li
+                              key={clip.path}
+                              className={`archive-clip-card${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
+                            >
                               <button
                                 ref={(el) => {
                                   if (el) clipButtonRefs.current.set(clip.path, el);
@@ -318,6 +401,7 @@ export function ArchiveWorkspace({
                                   onOpenClip(clip.path);
                                 }}
                               >
+                                <ClipPoster key={clip.posterId ?? 'none'} posterId={clip.posterId} />
                                 <div className="archive-clip-main">
                                   <span className="archive-clip-name">{name}</span>
                                   <span className="archive-clip-path hint" title={clip.path}>
@@ -339,6 +423,16 @@ export function ArchiveWorkspace({
                                   <span className="readout">{durationText}</span>
                                   <span className="readout">{distanceText}</span>
                                 </div>
+                              </button>
+                              <button
+                                type="button"
+                                className="archive-clip-reveal"
+                                aria-label={t('archiveWorkspace.revealClipLabel', { name })}
+                                title={t('archiveWorkspace.revealClip')}
+                                disabled={isOffline}
+                                onClick={() => void revealClip(clip.path)}
+                              >
+                                <FolderOpen aria-hidden="true" />
                               </button>
                             </li>
                           );
@@ -404,6 +498,13 @@ export function ArchiveWorkspace({
                 </button>
               </div>
             </DialogShell>
+          ) : null}
+          {exportModalOpen ? (
+            <ArchiveExportModal
+              filters={activeQueryFilters}
+              hasActiveFilters={activeFilterCount > 0}
+              onClose={() => setExportModalOpen(false)}
+            />
           ) : null}
         </div>
       }

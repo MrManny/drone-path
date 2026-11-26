@@ -646,7 +646,7 @@ describe('structured IPC error codes and contract parity (#394, #413)', () => {
       Parameters<IpcEventSender>[1] extends infer _ ? Parameters<Parameters<AppBridge<Locale>['onUpdateRestartFailed']>[0]>[0] : never
     >();
     const allChannels = [...Object.values(IPC_INVOKE_CHANNELS), ...Object.values(IPC_EVENT_CHANNELS)];
-    expect(new Set(allChannels).size).toBe(32);
+    expect(new Set(allChannels).size).toBe(35);
     expectTypeOf<IpcEventChannel>().toEqualTypeOf<
       (typeof IPC_EVENT_CHANNELS)[keyof typeof IPC_EVENT_CHANNELS]
     >();
@@ -942,7 +942,9 @@ describe('archive IPC handlers (#326)', () => {
     const query = vi.fn(() => ({ flights: [], totalCount: 0, offlineCount: 0 }));
     const findAtPoint = vi.fn(() => []);
     let fileExists = true;
+    let availability: 'online' | 'offline' | null = 'online';
     const pruneOffline = vi.fn(() => 2);
+    const exportArchive = vi.fn();
     controller.attachArchiveService({
       listRoots: () => [...roots],
       addRoot: (nextDir) => {
@@ -957,8 +959,9 @@ describe('archive IPC handlers (#326)', () => {
       cancelScan,
       query,
       findAtPoint,
+      exportArchive,
       pruneOffline,
-      clipAvailability: () => (fileExists ? 'online' : 'offline'),
+      clipAvailability: () => availability,
       fileExists: () => fileExists,
     });
     setup(controller);
@@ -1018,6 +1021,58 @@ describe('archive IPC handlers (#326)', () => {
       code: 'ARCHIVE_CLIP_OFFLINE',
       detail: `recording is offline or missing: ${clipPath}`,
       params: { name: 'clip.mp4', path: clipPath },
+    });
+
+    fileExists = true;
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealArchiveClip, clipPath)).toEqual({ ok: true });
+    expect(harness.shell.showItemInFolder).toHaveBeenCalledWith(clipPath);
+
+    availability = 'offline';
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealArchiveClip, clipPath)).toEqual({
+      ok: false,
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      detail: `recording is offline or missing: ${clipPath}`,
+      params: { name: 'clip.mp4', path: clipPath },
+    });
+
+    availability = null;
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealArchiveClip, clipPath)).toEqual({
+      ok: false,
+      code: 'FS_NOT_FOUND',
+      detail: `archive clip not found: ${clipPath}`,
+      params: { name: 'clip.mp4' },
+    });
+
+    const archiveOut = path.join(dir, 'exports', 'archive.html');
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.exportArchive, { outPath: archiveOut, format: 'html' }),
+    ).toEqual({
+      ok: false,
+      code: 'OUTPUT_NOT_APPROVED',
+      detail: 'output path was not approved by save dialog',
+    });
+
+    harness.dialog.showSaveDialog.mockResolvedValueOnce({ canceled: false, filePath: archiveOut });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickArchiveExportOutput, 'html')).toEqual({
+      ok: true,
+      path: archiveOut,
+    });
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.exportArchive, {
+        outPath: archiveOut,
+        format: 'html',
+        includeGaze: true,
+        offline: true,
+      }),
+    ).toEqual({ ok: true });
+    expect(exportArchive).toHaveBeenCalledWith({
+      outPath: archiveOut,
+      format: 'html',
+      includeGaze: true,
+      offline: true,
+    });
+    expect(await invoke(IPC_INVOKE_CHANNELS.revealExportOutput, { out: archiveOut })).toEqual({
+      ok: true,
     });
 
     expect(await invoke(IPC_INVOKE_CHANNELS.pruneArchiveOffline)).toEqual({ ok: true, removed: 2 });

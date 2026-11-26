@@ -2,6 +2,7 @@ export const APP_ORIGIN = 'app://bundle';
 export const MEDIA_PATH = '/media/video';
 const MEDIA_URL = APP_ORIGIN + MEDIA_PATH;
 export const TILE_BASE = APP_ORIGIN + '/tiles';
+export const ARCHIVE_POSTER_PREFIX = '/archive/poster/';
 
 const APP_URL = new URL(APP_ORIGIN);
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -66,4 +67,8 @@ export function isAllowedAppUrl(rawUrl: string, devUrl: string | null): boolean 
 // The ?v= query names the file so a reload can never replay another recording's bytes from a URL-keyed cache.
 export function mediaUrlFor(videoPath: string): string {
   return `${MEDIA_URL}?v=${encodeURIComponent(videoPath)}`;
+}
+
+export function archivePosterUrlFor(posterId: string): string {
+  return `${APP_ORIGIN}${ARCHIVE_POSTER_PREFIX}${encodeURIComponent(posterId)}`;
 }

@@ -3,27 +3,37 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
+import {
+  exportArchiveMap as defaultExportArchiveMap,
+  exportArchiveTracks as defaultExportArchiveTracks,
+} from 'drone-path-archive/export';
 import { scanArchive as defaultScanArchive } from 'drone-path-archive/indexed-scan';
 import { archiveDbPath } from 'drone-path-archive/paths';
 import {
   listArchiveFlightOverviews as defaultListArchiveFlightOverviews,
   nearArchive as defaultNearArchive,
 } from 'drone-path-archive/query';
-import type { listArchiveFlights as defaultListArchiveFlights } from 'drone-path-archive/query';
+import type { ListFilters, listArchiveFlights as defaultListArchiveFlights } from 'drone-path-archive/query';
 import type { ScanRecord } from 'drone-path-archive/scanner';
 import { withArchiveStore as defaultWithArchiveStore } from 'drone-path-archive/store';
+import { errorMessage } from 'drone-path-core/errors';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { LatLon } from 'drone-path-core/geo';
 import { SHOT_TYPES } from 'drone-path-core/shot-segmentation';
 import { parseValue, strictShape } from 'drone-path-core/validation';
 import { codedDesktopError } from 'drone-path-desktop/shared/errors';
+import { ARCHIVE_EXPORT_FORMATS } from 'drone-path-desktop/shared/ipc';
 import type {
   ArchiveAvailability,
+  ArchiveExportRequest,
+  ArchiveFlightDto,
   ArchiveNearHit,
   ArchiveQueryFilters,
   ArchiveQueryResult,
   ArchiveScanProgress,
 } from 'drone-path-desktop/shared/ipc';
+import { posterIdFor } from './archiveposters.js';
+import type { PosterRegistration } from './archiveposters.js';
 
 export interface ArchiveServiceDeps {
   dbPath?: string;
@@ -34,7 +44,10 @@ export interface ArchiveServiceDeps {
   listArchiveFlights?: typeof defaultListArchiveFlights;
   listArchiveFlightOverviews?: typeof defaultListArchiveFlightOverviews;
   nearArchive?: typeof defaultNearArchive;
+  exportArchiveTracks?: typeof defaultExportArchiveTracks;
+  exportArchiveMap?: typeof defaultExportArchiveMap;
   withArchiveStore?: typeof defaultWithArchiveStore;
+  registerPoster?: (clip: PosterRegistration) => string;
 }
 
 export interface ArchiveServiceOptions {
@@ -54,6 +67,7 @@ export interface ArchiveService {
   cancelScan(): void;
   query(filters?: ArchiveQueryFilters): ArchiveQueryResult;
   findAtPoint(point: LatLon, radiusM?: number, includeGaze?: boolean): ArchiveNearHit[];
+  exportArchive(request: ArchiveExportRequest): void;
   pruneOffline(): number;
   clipAvailability(clipPath: string): ArchiveAvailability | null;
   fileExists(filePath: string): boolean;
@@ -81,12 +95,52 @@ const QUERY_FILTERS_SCHEMA = strictShape(
     availability: z.enum(['online', 'offline']).optional(),
     segmentType: z.enum(SHOT_TYPES).optional(),
     minSmoothness: z.number().finite().min(0).max(1).optional(),
+    folderRoot: z.string().min(1).optional(),
+    flightId: z.string().min(1).optional(),
   },
   {
     invalid: 'invalid archive query filters',
     unknownKey: (key) => `unknown archive query filter key ${key}`,
   },
 );
+
+const ARCHIVE_EXPORT_SCHEMA = strictShape(
+  {
+    outPath: z.string().min(1, { error: () => 'invalid archive export request: outPath' }),
+    format: z.enum(ARCHIVE_EXPORT_FORMATS),
+    filters: QUERY_FILTERS_SCHEMA.optional(),
+    redactLaunchM: z.number().finite().min(0).optional(),
+    includeGaze: z.boolean().optional(),
+    offline: z.boolean().optional(),
+  },
+  {
+    invalid: 'invalid archive export request',
+    unknownKey: (key) => `unknown archive export request key ${key}`,
+  },
+);
+
+export function parseArchiveExportRequest(raw: unknown): ArchiveExportRequest {
+  const parsed = parseValue(ARCHIVE_EXPORT_SCHEMA, raw);
+  if (!path.isAbsolute(parsed.outPath)) {
+    throw codedDesktopError(
+      'OUTPUT_PATH_ABSOLUTE',
+      `output path must be absolute: ${parsed.outPath}`,
+    );
+  }
+  const ext = path.extname(parsed.outPath).toLowerCase();
+  if (ext !== `.${parsed.format}`) {
+    throw codedDesktopError(
+      'INVALID_REQUEST',
+      `archive export path extension (${ext || 'none'}) does not match format ${parsed.format}`,
+    );
+  }
+  return parsed;
+}
+
+function toListFilters(filters: ArchiveQueryFilters): ListFilters {
+  const { folderRoot: _folderRoot, flightId: _flightId, ...rest } = filters;
+  return rest;
+}
 
 const POINT_SCHEMA = strictShape(
   {
@@ -150,7 +204,10 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
     deps.listArchiveFlights ??
     defaultListArchiveFlightOverviews;
   const nearArchiveFn = deps.nearArchive ?? defaultNearArchive;
+  const exportArchiveTracksFn = deps.exportArchiveTracks ?? defaultExportArchiveTracks;
+  const exportArchiveMapFn = deps.exportArchiveMap ?? defaultExportArchiveMap;
   const withArchiveStoreFn = deps.withArchiveStore ?? defaultWithArchiveStore;
+  const registerPoster = deps.registerPoster;
   const onScanProgress = options.onScanProgress ?? ((): void => {});
   const log = options.log ?? ((): void => {});
   const getTools =
@@ -290,14 +347,35 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
     query(filters?: ArchiveQueryFilters): ArchiveQueryResult {
       const parsed =
         filters === undefined ? {} : parseValue(QUERY_FILTERS_SCHEMA, filters);
-      const flights = listArchiveFlightOverviewsFn(dbPath, parsed);
+      const rawFlights = listArchiveFlightOverviewsFn(dbPath, toListFilters(parsed));
+      const folderRoot = parsed.folderRoot ? path.resolve(parsed.folderRoot) : null;
+      const flights: ArchiveFlightDto[] = [];
       let totalCount = 0;
       let offlineCount = 0;
-      for (const flight of flights) {
-        for (const clip of flight.clips) {
+
+      for (const flight of rawFlights) {
+        if (parsed.flightId !== undefined && flight.flightId !== parsed.flightId) continue;
+        const matchedClips = folderRoot
+          ? flight.clips.filter((clip) => isWithinScanRoot(folderRoot, clip.path))
+          : flight.clips;
+        if (matchedClips.length === 0) continue;
+
+        const mappedClips = matchedClips.map((clip) => {
           totalCount += 1;
           if (clip.availability === 'offline') offlineCount += 1;
-        }
+          const registration: PosterRegistration = {
+            path: clip.path,
+            mtimeMs: clip.mtimeMs,
+            size: clip.size,
+            durationSec: clip.video?.durationSec ?? null,
+            availability: clip.availability,
+          };
+          const posterId = registerPoster
+            ? registerPoster(registration)
+            : posterIdFor(clip.path, clip.mtimeMs, clip.size);
+          return { ...clip, posterId };
+        });
+        flights.push({ flightId: flight.flightId, clips: mappedClips });
       }
       const offlineRoots = options.getRoots().filter((root) => !isDir(root));
       return offlineRoots.length > 0
@@ -313,6 +391,34 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
           : parseValue(z.number().finite().positive(), radiusM);
       const parsedGaze = parseValue(z.boolean(), includeGaze);
       return nearArchiveFn(dbPath, parsedPoint, parsedRadius, parsedGaze);
+    },
+
+    exportArchive(request: ArchiveExportRequest): void {
+      const parsed = parseArchiveExportRequest(request);
+      const listFilters = parsed.filters ? toListFilters(parsed.filters) : undefined;
+      try {
+        if (parsed.format === 'html') {
+          exportArchiveMapFn(dbPath, parsed.outPath, {
+            ...(listFilters ? { filters: listFilters } : {}),
+            ...(parsed.redactLaunchM !== undefined ? { redactLaunchM: parsed.redactLaunchM } : {}),
+            ...(parsed.includeGaze !== undefined ? { includeGaze: parsed.includeGaze } : {}),
+            ...(parsed.offline !== undefined ? { offline: parsed.offline } : {}),
+          });
+        } else {
+          exportArchiveTracksFn(dbPath, parsed.outPath, {
+            ...(listFilters ? { filters: listFilters } : {}),
+            ...(parsed.redactLaunchM !== undefined ? { redactLaunchM: parsed.redactLaunchM } : {}),
+          });
+        }
+        log(`archive export complete: ${parsed.outPath}`);
+      } catch (error) {
+        throw codedDesktopError(
+          'ARCHIVE_EXPORT_FAILED',
+          `archive export failed: ${errorMessage(error)}`,
+          undefined,
+          error,
+        );
+      }
     },
 
     pruneOffline(): number {
