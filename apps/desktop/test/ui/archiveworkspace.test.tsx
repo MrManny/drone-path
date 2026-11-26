@@ -252,4 +252,25 @@ describe('Archive workspace and mode switch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove Added' }));
     await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('E:\\Drone\\Added'));
   });
+
+  it('renders the master map region and supports keyboard clip navigation and style switching', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    await screen.findByRole('region', { name: 'Archive flight map' });
+    const firstClip = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    const secondClip = screen.getByRole('button', { name: 'Open DJI_0002.MP4 in Review' });
+
+    act(() => {
+      firstClip.focus();
+    });
+    expect(firstClip.getAttribute('data-selected')).toBe('true');
+
+    fireEvent.keyDown(firstClip, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(secondClip);
+    expect(secondClip.getAttribute('data-selected')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));
+    expect(bridge.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ style: 'topo' }));
+  });
 });

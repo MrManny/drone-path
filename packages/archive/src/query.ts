@@ -65,25 +65,36 @@ function toClip({ record, availability }: IndexedClip): ArchiveClip {
   return { ...record, availability };
 }
 
-function matchingClips(db: string, filters: ListFilters) {
+function matchingClips(db: string, filters: ListFilters, overview = false) {
   const segmentFilter = segmentFilterOf(filters);
-  return withArchiveStore(db, (store) =>
-    store.listClips(filters.bbox, filters.availability, segmentFilter).flatMap((indexed) => {
+  return withArchiveStore(db, (store) => {
+    const clips = overview
+      ? store.listClipOverviews(filters.bbox, filters.availability, segmentFilter)
+      : store.listClips(filters.bbox, filters.availability, segmentFilter);
+    return clips.flatMap((indexed) => {
       const clip = toClip(indexed);
       return matchesMetadata(clip, filters) ? [{ clip, flight: indexed.flight }] : [];
-    }),
-  );
+    });
+  });
 }
 
 export function listArchive(db: string, filters: ListFilters = {}): ArchiveClip[] {
   return matchingClips(db, filters).map(({ clip }) => clip);
 }
 
-export function listArchiveFlights(db: string, filters: ListFilters = {}): ArchiveFlight[] {
-  const flights = groupFlightMembers(matchingClips(db, filters));
+export function listArchiveFlights(
+  db: string,
+  filters: ListFilters = {},
+  options: { overview?: boolean } = {},
+): ArchiveFlight[] {
+  const flights = groupFlightMembers(matchingClips(db, filters, options.overview === true));
   return [...flights].map(([flightId, members]) => ({
     flightId, clips: members.map(({ clip, flight }) => ({ ...clip, splitFromKey: flight.splitFromKey })),
   }));
+}
+
+export function listArchiveFlightOverviews(db: string, filters: ListFilters = {}): ArchiveFlight[] {
+  return listArchiveFlights(db, filters, { overview: true });
 }
 
 export function listArchiveSegments(db: string, filters: ListFilters = {}): ArchiveSegment[] {

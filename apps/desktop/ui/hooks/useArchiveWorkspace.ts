@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import type { Bbox } from 'drone-path-core/geo';
 import { classifyError, fromIpcFailure } from '../../shared/errors.js';
 import type { StructuredError } from '../../shared/errors.js';
 import type { ArchiveFlightDto, ArchiveScanProgress } from '../../shared/ipc.js';
@@ -16,11 +17,25 @@ export interface ArchiveWorkspaceState {
   scanning: boolean;
   scanProgress: ArchiveScanProgress | null;
   error: StructuredError | null;
+  viewportBbox: Bbox | null;
+  setViewportBbox: (bbox: Bbox | null) => void;
   addFolder: () => Promise<boolean>;
   removeFolder: (dir: string) => Promise<void>;
   rescan: () => Promise<void>;
   cancelScan: () => Promise<void>;
   dismissError: () => void;
+}
+
+function bboxEqual(a: Bbox | null, b: Bbox | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  const eps = 1e-6;
+  return (
+    Math.abs(a.minLat - b.minLat) < eps &&
+    Math.abs(a.maxLat - b.maxLat) < eps &&
+    Math.abs(a.minLon - b.minLon) < eps &&
+    Math.abs(a.maxLon - b.maxLon) < eps
+  );
 }
 
 export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspaceState {
@@ -31,27 +46,44 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ArchiveScanProgress | null>(null);
   const [error, setError] = useState<StructuredError | null>(null);
+  const [viewportBbox, setViewportBboxState] = useState<Bbox | null>(null);
 
   const mounted = useMountedRef();
+  const viewportBboxRef = useRef<Bbox | null>(null);
+  const querySeqRef = useRef(0);
   const onInitialRootsRef = useRef(onInitialRoots);
   useLayoutEffect(() => {
     onInitialRootsRef.current = onInitialRoots;
   }, [onInitialRoots]);
 
-  const refreshQuery = useCallback(async () => {
-    const bridge = tryAppBridge();
-    if (!bridge || typeof bridge.queryArchive !== 'function') return;
-    try {
-      const result = await bridge.queryArchive();
-      if (!mounted.current) return;
-      setFlights(result.flights);
-      setTotalCount(result.totalCount);
-      setOfflineCount(result.offlineCount);
-    } catch (e) {
-      if (!mounted.current) return;
-      setError(classifyError(e));
-    }
-  }, [mounted]);
+  const refreshQuery = useCallback(
+    async (bbox: Bbox | null = viewportBboxRef.current) => {
+      const bridge = tryAppBridge();
+      if (!bridge || typeof bridge.queryArchive !== 'function') return;
+      const seq = (querySeqRef.current += 1);
+      try {
+        const result = await (bbox ? bridge.queryArchive({ bbox }) : bridge.queryArchive());
+        if (!mounted.current || querySeqRef.current !== seq) return;
+        setFlights(result.flights);
+        setTotalCount(result.totalCount);
+        setOfflineCount(result.offlineCount);
+      } catch (e) {
+        if (!mounted.current || querySeqRef.current !== seq) return;
+        setError(classifyError(e));
+      }
+    },
+    [mounted],
+  );
+
+  const setViewportBbox = useCallback(
+    (bbox: Bbox | null) => {
+      if (bboxEqual(viewportBboxRef.current, bbox)) return;
+      viewportBboxRef.current = bbox;
+      setViewportBboxState(bbox);
+      void refreshQuery(bbox);
+    },
+    [refreshQuery],
+  );
 
   const runScan = useCallback(
     async (targetRoots?: string[]) => {
@@ -186,6 +218,8 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     scanning,
     scanProgress,
     error,
+    viewportBbox,
+    setViewportBbox,
     addFolder,
     removeFolder,
     rescan,
