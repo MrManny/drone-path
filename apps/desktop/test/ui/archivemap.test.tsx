@@ -728,6 +728,5 @@ describe('ArchiveMap', () => {
     expect(fittedView.center.lat).toBeCloseTo(46.605, 6);
     expect(fittedView.center.lon).toBeCloseTo(14.205, 6);
     expect(fittedView.zoom).toBe(16);
->>>>>>> swarm-view-preserve-3c17c7d7
   });
 });
