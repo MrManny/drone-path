@@ -21,6 +21,7 @@ import { formatArchiveDistance } from '../lib/archivedistance.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 import { ArchivePointPopover } from './ArchivePointPopover.js';
+import { BusyStatus } from './BusyStatus.js';
 
 const SELECTED_COLOR = '#e87f54';
 const HOVER_COLOR = '#f0a967';
@@ -171,16 +172,15 @@ export function ArchiveMap({
   const onViewportChangeRef = useRef(onViewportChange);
   const onPointQueryRef = useRef(onPointQuery);
   const pointQueryActiveRef = useRef(pointQueryActive);
-  const styleRef = useRef(style);
   useEffect(() => {
     onSelectClipRef.current = onSelectClip;
     onViewportChangeRef.current = onViewportChange;
     onPointQueryRef.current = onPointQuery;
     pointQueryActiveRef.current = pointQueryActive;
-    styleRef.current = style;
   });
 
   const [mapReady, setMapReady] = useState(false);
+  const [tilesLoading, setTilesLoading] = useState(false);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [fullBounds, setFullBounds] = useState<Bbox | null>(null);
   const [hoveredClipPath, setHoveredClipPath] = useState<string | null>(null);
@@ -258,10 +258,6 @@ export function ArchiveMap({
       });
       mapRef.current = map;
 
-      const initialStyle = styleRef.current;
-      tileLayerRef.current = L.tileLayer(tileUrlFor(initialStyle), tileOptionsFor(initialStyle)).addTo(
-        map,
-      );
       vectorGroupRef.current = L.layerGroup().addTo(map);
 
       const initialBounds = computeItemsBounds(spatialItemsRef.current);
@@ -323,8 +319,23 @@ export function ArchiveMap({
     const map = mapRef.current;
     if (!mapReady || !L || !map) return;
 
-    tileLayerRef.current?.remove();
-    tileLayerRef.current = L.tileLayer(tileUrlFor(style), tileOptionsFor(style)).addTo(map);
+    const layer = L.tileLayer(tileUrlFor(style), tileOptionsFor(style));
+    const handleLoading = () => setTilesLoading(true);
+    const handleLoad = () => setTilesLoading(false);
+    if (typeof layer.on === 'function') {
+      layer.on('loading', handleLoading);
+      layer.on('load', handleLoad);
+    }
+    layer.addTo(map);
+    tileLayerRef.current = layer;
+
+    return () => {
+      layer.off?.('loading', handleLoading);
+      layer.off?.('load', handleLoad);
+      layer.remove();
+      tileLayerRef.current = null;
+      setTilesLoading(false);
+    };
   }, [mapReady, style]);
 
   useEffect(() => {
@@ -610,6 +621,8 @@ export function ArchiveMap({
           </button>
         </div>
       </div>
+
+      {!mapReady || tilesLoading ? <BusyStatus>{t('mapCard.preparingMap')}</BusyStatus> : null}
 
       {pointQueryCoord ? (
         <ArchivePointPopover
