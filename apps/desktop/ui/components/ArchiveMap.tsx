@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { LocateFixed, Minus, Plus } from 'lucide-react';
+import { Crosshair, LocateFixed, Minus, Plus } from 'lucide-react';
 
-import type { Bbox } from 'drone-path-core/geo';
+import type { Bbox, LatLon } from 'drone-path-core/geo';
 import type { MapStyle } from 'drone-path-engine/config';
 import { TILE_BASE } from '../../shared/appurls.js';
 import { leafName } from '../../shared/errors.js';
-import type { ArchiveFlightDto } from '../../shared/ipc.js';
+import type { ArchiveFlightDto, ArchiveNearHit } from '../../shared/ipc.js';
 import {
   ARCHIVE_CLUSTER_MAX_ZOOM,
   clusterArchiveClips,
@@ -19,6 +19,7 @@ import {
 import type { ArchiveMapClipItem, ArchiveMapCluster } from '../lib/archivecluster.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
+import { ArchivePointPopover } from './ArchivePointPopover.js';
 
 const SELECTED_COLOR = '#e87f54';
 const HOVER_COLOR = '#f0a967';
@@ -43,9 +44,20 @@ export interface ArchiveMapProps {
   style: MapStyle;
   selectedClipPath: string | null;
   onSelectClip: (clipPath: string) => void;
-  onOpenClip?: (clipPath: string) => void;
+  onOpenClip?: (clipPath: string, seekSec?: number) => void;
   onViewportChange: (bbox: Bbox | null) => void;
   onStyleChange?: (style: MapStyle) => void;
+  pointQueryActive?: boolean;
+  onTogglePointQuery?: () => void;
+  pointQueryCoord?: LatLon | null;
+  pointHits?: readonly ArchiveNearHit[] | null;
+  pointQueryLoading?: boolean;
+  onPointQuery?: (point: LatLon, radiusM: number) => void;
+  onClearPointQuery?: () => void;
+}
+
+function queryRadiusForZoom(zoom: number): number {
+  return Math.round(Math.min(500, Math.max(50, 100 * Math.pow(2, 14 - zoom))));
 }
 
 function tileUrlFor(style: MapStyle): string {
@@ -134,6 +146,13 @@ export function ArchiveMap({
   onOpenClip,
   onViewportChange,
   onStyleChange,
+  pointQueryActive = false,
+  onTogglePointQuery,
+  pointQueryCoord = null,
+  pointHits = null,
+  pointQueryLoading = false,
+  onPointQuery,
+  onClearPointQuery,
 }: ArchiveMapProps) {
   const t = useTranslation();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -142,6 +161,7 @@ export function ArchiveMap({
   const rendererRef = useRef<Leaflet.Canvas | null>(null);
   const tileLayerRef = useRef<Leaflet.TileLayer | null>(null);
   const vectorGroupRef = useRef<Leaflet.LayerGroup | null>(null);
+  const queryMarkerRef = useRef<Leaflet.CircleMarker | null>(null);
   const clipLayersRef = useRef<Map<string, { item: ArchiveMapClipItem; layers: Leaflet.Path[] }>>(
     new Map(),
   );
@@ -154,10 +174,14 @@ export function ArchiveMap({
 
   const onSelectClipRef = useRef(onSelectClip);
   const onViewportChangeRef = useRef(onViewportChange);
+  const onPointQueryRef = useRef(onPointQuery);
+  const pointQueryActiveRef = useRef(pointQueryActive);
   const styleRef = useRef(style);
   useEffect(() => {
     onSelectClipRef.current = onSelectClip;
     onViewportChangeRef.current = onViewportChange;
+    onPointQueryRef.current = onPointQuery;
+    pointQueryActiveRef.current = pointQueryActive;
     styleRef.current = style;
   });
 
@@ -268,6 +292,15 @@ export function ArchiveMap({
 
       map.on('zoomend', handleMoveOrZoom);
       map.on('moveend', handleMoveOrZoom);
+      map.on('click', (event: Leaflet.LeafletMouseEvent) => {
+        if (!pointQueryActiveRef.current || !onPointQueryRef.current) return;
+        const latlng = event?.latlng;
+        if (!latlng) return;
+        onPointQueryRef.current(
+          { lat: clampLat(latlng.lat), lon: wrapLon(latlng.lng) },
+          queryRadiusForZoom(map.getZoom()),
+        );
+      });
       setMapReady(true);
     })();
 
@@ -278,6 +311,8 @@ export function ArchiveMap({
         clearTimeout(viewportTimerRef.current);
         viewportTimerRef.current = null;
       }
+      queryMarkerRef.current?.remove();
+      queryMarkerRef.current = null;
       clipLayers.clear();
       mapRef.current?.remove();
       mapRef.current = null;
@@ -346,7 +381,8 @@ export function ArchiveMap({
       marker.on('mouseout', () =>
         setHoveredCluster((prev) => (prev?.id === cluster.id ? null : prev)),
       );
-      marker.on('click', () => {
+      marker.on('click', (event) => {
+        L.DomEvent?.stopPropagation?.(event);
         map.fitBounds(toLeafletBounds(L, cluster.bounds), {
           padding: [32, 32],
           maxZoom: ARCHIVE_CLUSTER_MAX_ZOOM + 3,
@@ -401,8 +437,16 @@ export function ArchiveMap({
         layer.on('mouseout', () => {
           setHoveredClipPath((prev) => (prev === item.clip.path ? null : prev));
         });
-        layer.on('click', () => {
+        layer.on('click', (event) => {
+          L.DomEvent?.stopPropagation?.(event);
           onSelectClipRef.current(item.clip.path);
+          if (onPointQueryRef.current) {
+            const latlng = event?.latlng;
+            const point: LatLon = latlng
+              ? { lat: clampLat(latlng.lat), lon: wrapLon(latlng.lng) }
+              : { lat: item.lat, lon: item.lon };
+            onPointQueryRef.current(point, queryRadiusForZoom(map.getZoom()));
+          }
         });
         layer.addTo(group);
         if (item.clip.path === selectedRef.current || item.clip.path === hoveredRef.current) {
@@ -436,6 +480,27 @@ export function ArchiveMap({
       layer.bringToFront?.();
     }
   }, [selectedClipPath, hoveredClipPath]);
+
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    queryMarkerRef.current?.remove();
+    queryMarkerRef.current = null;
+    if (!mapReady || !L || !map || !pointQueryCoord) return;
+
+    const marker = L.circleMarker([pointQueryCoord.lat, pointQueryCoord.lon], {
+      renderer: rendererRef.current ?? undefined,
+      radius: 8,
+      color: '#e8e8e8',
+      weight: 2,
+      fillColor: SELECTED_COLOR,
+      fillOpacity: 0.9,
+      interactive: false,
+    });
+    marker.addTo(map);
+    marker.bringToFront?.();
+    queryMarkerRef.current = marker;
+  }, [mapReady, pointQueryCoord]);
 
   const handleZoomIn = useCallback(() => {
     mapRef.current?.zoomIn();
@@ -476,7 +541,7 @@ export function ArchiveMap({
     <div className="archive-map-container" role="region" aria-label={t('archiveMap.regionLabel')}>
       <div
         ref={hostRef}
-        className={`archive-map-canvas style-${style}`}
+        className={`archive-map-canvas style-${style}${pointQueryActive ? ' is-point-query' : ''}`}
         data-testid="archive-map-canvas"
       />
 
@@ -507,6 +572,18 @@ export function ArchiveMap({
         ) : null}
 
         <div className="archive-map-nav" role="group" aria-label={t('archiveMap.controls')}>
+          {onTogglePointQuery ? (
+            <button
+              type="button"
+              className="archive-map-btn archive-map-point-toggle"
+              aria-pressed={Boolean(pointQueryActive)}
+              title={t('archiveMap.whatFilmedHereHint')}
+              onClick={onTogglePointQuery}
+            >
+              <Crosshair aria-hidden="true" />
+              <span>{t('archiveMap.whatFilmedHere')}</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className="archive-map-btn"
@@ -539,14 +616,24 @@ export function ArchiveMap({
         </div>
       </div>
 
-      {hoveredCluster ? (
+      {pointQueryCoord ? (
+        <ArchivePointPopover
+          coord={pointQueryCoord}
+          hits={pointHits}
+          loading={pointQueryLoading}
+          onOpenClip={onOpenClip}
+          onClose={() => onClearPointQuery?.()}
+        />
+      ) : null}
+
+      {!pointQueryCoord && hoveredCluster ? (
         <div className="archive-map-readout" role="status" aria-live="polite">
           <span className="archive-map-readout-title">
             {t('archiveWorkspace.recordingCount', { count: hoveredCluster.count })}
           </span>
           <span className="hint">{t('archiveMap.clusterZoomHint')}</span>
         </div>
-      ) : activeClipItem ? (
+      ) : !pointQueryCoord && activeClipItem ? (
         <div className="archive-map-readout" role="status" aria-live="polite">
           <div className="archive-map-readout-info">
             <span className="archive-map-readout-title">
@@ -578,7 +665,7 @@ export function ArchiveMap({
             </button>
           ) : null}
         </div>
-      ) : flights.length > 0 && spatialItems.length === 0 ? (
+      ) : !pointQueryCoord && flights.length > 0 && spatialItems.length === 0 ? (
         <div className="archive-map-readout" role="status">
           <span className="hint">{t('archiveMap.noGpsInView')}</span>
         </div>

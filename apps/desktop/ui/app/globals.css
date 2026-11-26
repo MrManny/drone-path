@@ -2132,6 +2132,9 @@ input[type='radio']:disabled {
   height: 100%;
   background: var(--frame-bg);
 }
+.archive-map-canvas.is-point-query {
+  cursor: crosshair;
+}
 .archive-map-canvas * {
   animation: none !important;
   transition: none !important;
@@ -2143,6 +2146,7 @@ input[type='radio']:disabled {
   right: 12px;
   z-index: 1200;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -2152,6 +2156,7 @@ input[type='radio']:disabled {
 .archive-map-nav {
   pointer-events: auto;
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -2163,6 +2168,16 @@ input[type='radio']:disabled {
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-float);
+}
+.archive-map-point-toggle[aria-pressed='true'] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+.archive-map-point-toggle[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: transparent;
 }
 .archive-map-icon-btn {
   width: 30px;
@@ -2227,6 +2242,165 @@ input[type='radio']:disabled {
 }
 .archive-cluster-label::before {
   display: none;
+}
+.archive-point-popover {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 1250;
+  width: min(340px, calc(100% - 24px));
+  max-height: calc(100% - 68px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-4) transparent;
+}
+.archive-point-popover:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.archive-point-popover-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.archive-point-popover-title-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.archive-point-popover-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.archive-point-popover-pin {
+  flex: none;
+  color: var(--accent-text);
+}
+.archive-point-popover-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.archive-point-popover-coord {
+  font-size: var(--type-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.archive-point-popover-close {
+  flex: none;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+.archive-point-popover-status {
+  margin: 0;
+}
+.archive-point-popover-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.archive-point-popover-empty p {
+  margin: 0;
+}
+.archive-point-popover-dismiss {
+  min-height: 30px;
+  padding: 0 12px;
+}
+.archive-point-hit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.archive-point-hit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px;
+  min-height: auto;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+}
+.archive-point-hit:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
+.archive-point-hit-offline {
+  background: var(--surface-1);
+  border-color: var(--hairline);
+}
+.archive-point-hit-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.archive-point-hit-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text);
+}
+.archive-point-hit-time {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
+.archive-point-hit-offline .archive-point-hit-time {
+  color: var(--text-3);
+}
+.archive-point-hit-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.archive-point-match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: var(--type-label);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-1);
+  color: var(--text-2);
+}
+.archive-point-match-badge.is-gaze {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.archive-point-hit-distance {
+  font-size: var(--type-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.archive-point-hit-reason {
+  line-height: 1.35;
 }
 
 /* The timeline shrinks on short windows so the stage keeps room. */

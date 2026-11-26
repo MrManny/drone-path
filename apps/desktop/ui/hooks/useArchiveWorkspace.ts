@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import type { Bbox } from 'drone-path-core/geo';
+import type { Bbox, LatLon } from 'drone-path-core/geo';
 import { classifyError, fromIpcFailure } from '../../shared/errors.js';
 import type { StructuredError } from '../../shared/errors.js';
-import type { ArchiveFlightDto, ArchiveScanProgress } from '../../shared/ipc.js';
+import type { ArchiveFlightDto, ArchiveNearHit, ArchiveScanProgress } from '../../shared/ipc.js';
 import { tryAppBridge } from '../lib/backend.js';
 import { useMountedRef } from './useMountedRef.js';
+
+const DEFAULT_POINT_QUERY_RADIUS_M = 100;
 
 export interface ArchiveWorkspaceState {
   roots: string[];
@@ -21,7 +23,15 @@ export interface ArchiveWorkspaceState {
   scanProgress: ArchiveScanProgress | null;
   error: StructuredError | null;
   viewportBbox: Bbox | null;
+  pointHits: ArchiveNearHit[] | null;
+  pointQueryCoord: LatLon | null;
+  pointQueryLoading: boolean;
+  pointQueryActive: boolean;
   setViewportBbox: (bbox: Bbox | null) => void;
+  setPointQueryActive: (active: boolean) => void;
+  togglePointQuery: () => void;
+  queryAtPoint: (point: LatLon, radiusM?: number) => Promise<void>;
+  clearPointQuery: () => void;
   addFolder: () => Promise<boolean>;
   removeFolder: (dir: string) => Promise<void>;
   rescan: () => Promise<void>;
@@ -94,10 +104,15 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const [scanProgress, setScanProgress] = useState<ArchiveScanProgress | null>(null);
   const [error, setError] = useState<StructuredError | null>(null);
   const [viewportBbox, setViewportBboxState] = useState<Bbox | null>(null);
+  const [pointHits, setPointHits] = useState<ArchiveNearHit[] | null>(null);
+  const [pointQueryCoord, setPointQueryCoord] = useState<LatLon | null>(null);
+  const [pointQueryLoading, setPointQueryLoading] = useState(false);
+  const [pointQueryActive, setPointQueryActive] = useState(false);
 
   const mounted = useMountedRef();
   const viewportBboxRef = useRef<Bbox | null>(null);
   const querySeqRef = useRef(0);
+  const pointQuerySeqRef = useRef(0);
   const rootsRef = useRef(roots);
   useLayoutEffect(() => {
     rootsRef.current = roots;
@@ -136,6 +151,44 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
       void refreshQuery(bbox);
     },
     [refreshQuery],
+  );
+
+  const clearPointQuery = useCallback(() => {
+    pointQuerySeqRef.current += 1;
+    setPointQueryCoord(null);
+    setPointHits(null);
+    setPointQueryLoading(false);
+  }, []);
+
+  const togglePointQuery = useCallback(() => {
+    setPointQueryActive((prev) => !prev);
+  }, []);
+
+  const queryAtPoint = useCallback(
+    async (point: LatLon, radiusM: number = DEFAULT_POINT_QUERY_RADIUS_M): Promise<void> => {
+      const bridge = tryAppBridge();
+      if (!bridge || typeof bridge.findArchiveAtPoint !== 'function') return;
+      const seq = (pointQuerySeqRef.current += 1);
+      setPointQueryCoord(point);
+      setPointHits(null);
+      setPointQueryLoading(true);
+      setError(null);
+      try {
+        const hits = await bridge.findArchiveAtPoint(point, radiusM, true);
+        if (!mounted.current || pointQuerySeqRef.current !== seq) return;
+        setPointHits(hits);
+      } catch (e) {
+        if (!mounted.current || pointQuerySeqRef.current !== seq) return;
+        setPointQueryCoord(null);
+        setPointHits(null);
+        setError(classifyError(e));
+      } finally {
+        if (mounted.current && pointQuerySeqRef.current === seq) {
+          setPointQueryLoading(false);
+        }
+      }
+    },
+    [mounted],
   );
 
   const runScan = useCallback(
@@ -240,12 +293,13 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
         }
         rootsRef.current = result.roots;
         setRoots(result.roots);
+        clearPointQuery();
         await refreshQuery(viewportBboxRef.current, result.roots);
       } catch (e) {
         if (mounted.current) setError(classifyError(e));
       }
     },
-    [mounted, refreshQuery],
+    [clearPointQuery, mounted, refreshQuery],
   );
 
   const rescan = useCallback(async (): Promise<void> => {
@@ -278,6 +332,7 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
         return null;
       }
       setLastPrunedCount(result.removed);
+      if (result.removed > 0) clearPointQuery();
       await refreshQuery();
       return result.removed;
     } catch (e) {
@@ -286,7 +341,7 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     } finally {
       if (mounted.current) setPruning(false);
     }
-  }, [mounted, refreshQuery]);
+  }, [clearPointQuery, mounted, refreshQuery]);
 
   const dismissPruneStatus = useCallback(() => setLastPrunedCount(null), []);
   const dismissError = useCallback(() => setError(null), []);
@@ -303,7 +358,15 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     scanProgress,
     error,
     viewportBbox,
+    pointHits,
+    pointQueryCoord,
+    pointQueryLoading,
+    pointQueryActive,
     setViewportBbox,
+    setPointQueryActive,
+    togglePointQuery,
+    queryAtPoint,
+    clearPointQuery,
     addFolder,
     removeFolder,
     rescan,
