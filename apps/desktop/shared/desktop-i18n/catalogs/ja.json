@@ -67,12 +67,18 @@
   "archivePointPopover.title": "この地点のクリップ",
   "archiveWorkspace.addFolder": "フォルダーを追加…",
   "archiveWorkspace.cancelScan": "スキャンをキャンセル",
+  "archiveWorkspace.clipCount": {
+    "other": "{count} 件のクリップ"
+  },
   "archiveWorkspace.distanceKilometers": "{value} km",
   "archiveWorkspace.distanceMeters": "{value} m",
   "archiveWorkspace.emptyPrompt": "ドローンの撮影動画が入ったフォルダーを追加すると、飛行一覧を表示して任意のクリップをレビューできます。",
   "archiveWorkspace.errorBadge": "読み込み不可",
   "archiveWorkspace.exportArchive": "書き出し…",
   "archiveWorkspace.flightHeading": "フライト {index}",
+  "archiveWorkspace.folderSummary": {
+    "other": "{count} 件のフォルダー · {name}"
+  },
   "archiveWorkspace.noFolders": "監視中のフォルダーはまだありません。フォルダーを追加して撮影動画をインデックス化してください。",
   "archiveWorkspace.noRecordings": "監視中のフォルダーにドローンの撮影動画が見つかりませんでした。",
   "archiveWorkspace.noTelemetryBadge": "GPS なし",
@@ -108,6 +114,7 @@
   },
   "archiveWorkspace.scanning": "スキャン中… {count}",
   "archiveWorkspace.scanningFile": "スキャン中… {count} · {name}",
+  "archiveWorkspace.toggleFolders": "監視中のフォルダーを切り替え",
   "archiveWorkspace.watchedFolders": "監視中のフォルダー",
   "cameraControls.autoFitOnly": "自動調整のみ",
   "cameraControls.autoFitZoom": "ズームを自動調整",

@@ -67,12 +67,20 @@
   "archivePointPopover.title": "Clips an dieser Stelle",
   "archiveWorkspace.addFolder": "Ordner hinzufügen…",
   "archiveWorkspace.cancelScan": "Scan abbrechen",
+  "archiveWorkspace.clipCount": {
+    "one": "{count} Clip",
+    "other": "{count} Clips"
+  },
   "archiveWorkspace.distanceKilometers": "{value} km",
   "archiveWorkspace.distanceMeters": "{value} m",
   "archiveWorkspace.emptyPrompt": "Füge einen Ordner mit Drohnenaufnahmen hinzu, um Flüge zu durchsuchen und Clips zur Prüfung zu öffnen.",
   "archiveWorkspace.errorBadge": "Nicht lesbar",
   "archiveWorkspace.exportArchive": "Exportieren…",
   "archiveWorkspace.flightHeading": "Flug {index}",
+  "archiveWorkspace.folderSummary": {
+    "one": "{count} Ordner · {name}",
+    "other": "{count} Ordner · {name}"
+  },
   "archiveWorkspace.noFolders": "Noch keine überwachten Ordner. Füge einen Ordner hinzu, um deine Drohnenaufnahmen zu indizieren.",
   "archiveWorkspace.noRecordings": "Keine Drohnenaufnahmen in den überwachten Ordnern gefunden.",
   "archiveWorkspace.noTelemetryBadge": "Kein GPS",
@@ -113,6 +121,7 @@
   },
   "archiveWorkspace.scanning": "Wird gescannt… {count}",
   "archiveWorkspace.scanningFile": "Wird gescannt… {count} · {name}",
+  "archiveWorkspace.toggleFolders": "Überwachte Ordner ein-/ausblenden",
   "archiveWorkspace.watchedFolders": "Überwachte Ordner",
   "cameraControls.autoFitOnly": "Nur automatisch",
   "cameraControls.autoFitZoom": "Automatischer Zoom",
