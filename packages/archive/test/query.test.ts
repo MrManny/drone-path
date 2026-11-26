@@ -10,6 +10,7 @@ import {
   listArchiveSegments,
   nearArchive,
   parseDateBound,
+  pruneArchiveOffline,
 } from '../src/query.js';
 import type { SparseSample } from '../src/scan-track.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from '../src/store.js';
@@ -251,4 +252,16 @@ it('lists decimated flight overviews without transferring full 500-point tracks'
   expect(overviewFlights).toHaveLength(1);
   expect(overviewFlights[0].clips[0].track).toEqual([overviewSegment]);
   expect(listArchiveFlights(db, {}, { overview: true })[0].clips[0].track).toEqual([overviewSegment]);
+});
+
+it('prunes offline clips via pruneArchiveOffline while keeping online clips intact', () => {
+  const points = [{ lat: 46, lon: 14, tSec: 1, segment: 0 }];
+  const db = index(
+    clip('keep.mp4', points, 'online'),
+    clip('gone-1.mp4', points, 'offline'),
+    clip('gone-2.mp4', points, 'offline'),
+  );
+  expect(pruneArchiveOffline(db)).toBe(2);
+  expect(listArchive(db).map(({ path: p }) => p)).toEqual(['keep.mp4']);
+  expect(pruneArchiveOffline(db)).toBe(0);
 });

@@ -203,6 +203,8 @@ describe('createShellController IPC coordination and update state', () => {
       running: () => false,
     };
     let exists = true;
+    let availability: 'online' | 'offline' | null = 'online';
+    const pruneOffline = vi.fn(() => 3);
     controller.attachSession(session);
     controller.attachExportRunner(runner);
     controller.attachArchiveService({
@@ -213,6 +215,8 @@ describe('createShellController IPC coordination and update state', () => {
       cancelScan: () => {},
       query: () => ({ flights: [], totalCount: 0, offlineCount: 0 }),
       findAtPoint: () => [],
+      pruneOffline,
+      clipAvailability: () => availability,
       fileExists: () => exists,
     });
 
@@ -238,11 +242,24 @@ describe('createShellController IPC coordination and update state', () => {
         path: video,
         settings: settingsPatchOf(DEFAULT_CONFIG),
       }),
-    ).resolves.toEqual({
-      ok: false,
+    ).rejects.toMatchObject({
       code: 'ARCHIVE_CLIP_OFFLINE',
-      detail: `recording is offline or missing: ${video}`,
-      params: { name: 'flight.mp4' },
+      params: { name: 'flight.mp4', path: video },
     });
+
+    exists = true;
+    availability = 'offline';
+    await expect(
+      controller.ipc.openArchiveClip({
+        path: video,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+      }),
+    ).rejects.toMatchObject({
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      params: { name: 'flight.mp4', path: video },
+    });
+
+    expect(controller.ipc.pruneArchiveOffline()).toBe(3);
+    expect(pruneOffline).toHaveBeenCalledTimes(1);
   });
 });

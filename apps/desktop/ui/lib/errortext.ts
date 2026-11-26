@@ -75,7 +75,12 @@ const CODE_MESSAGES: Partial<Record<DesktopErrorCode, (error: StructuredError, t
   ARCHIVE_SCAN_CANCELED: (_error, t) => t('errors.archiveScanCanceled'),
   ARCHIVE_ROOT_INVALID: (_error, t) => t('errors.archiveRootInvalid'),
   ARCHIVE_CLIP_OFFLINE: (error, t) =>
-    t('errors.archiveClipOffline', { name: String(error.params?.name ?? '') }),
+    error.params?.path
+      ? t('errors.archiveClipOfflineAtPath', {
+          name: String(error.params?.name ?? ''),
+          path: String(error.params.path),
+        })
+      : t('errors.archiveClipOffline', { name: String(error.params?.name ?? '') }),
   ARCHIVE_EXPORT_FAILED: (_error, t) => t('errors.archiveExportFailed'),
   UNKNOWN: (_error, t) => t('errors.unknown'),
 };

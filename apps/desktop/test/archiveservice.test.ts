@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { probeVideo } from 'drone-path-core/ffmpeg';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { IndexedScanOptions } from 'drone-path-archive/indexed-scan';
 import type { ArchiveFlight, NearHit } from 'drone-path-archive/query';
@@ -11,7 +12,15 @@ import type { ArchiveStore } from 'drone-path-archive/store';
 import type { ArchiveScanProgress } from '../shared/ipc.js';
 import { createArchiveService } from '../src/archiveservice.js';
 import { addArchiveRoot, emptyAppState, removeArchiveRoot } from '../src/appstate.js';
-import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
+import { cleanupTmpDirs, probeFixture, SRT_SAMPLE, tmpDir } from '../../../test/fixtures/core.js';
+
+vi.mock('drone-path-core/ffmpeg', { spy: true });
+
+const mockedProbe = vi.mocked(probeVideo);
+
+beforeEach(() => {
+  mockedProbe.mockReset().mockResolvedValue(probeFixture({ camMeta: null }));
+});
 
 afterEach(cleanupTmpDirs);
 
@@ -39,12 +48,16 @@ function makeHarness(overrides: {
   listArchiveFlightOverviews?: () => ArchiveFlight[];
   nearArchive?: () => NearHit[];
   removeClipsUnder?: (root: string) => number;
+  pruneOffline?: () => number;
+  snapshotClips?: ReturnType<ArchiveStore['snapshot']>['clips'];
   isDir?: (dir: string) => boolean;
   isFile?: (file: string) => boolean;
 } = {}) {
   let state = { ...emptyAppState(), archiveRoots: overrides.initialRoots ?? [] };
   const progressEvents: ArchiveScanProgress[] = [];
   const removeClipsUnder = vi.fn(overrides.removeClipsUnder ?? (() => 0));
+  const pruneOffline = vi.fn(overrides.pruneOffline ?? (() => 0));
+  const snapshot = vi.fn(() => ({ revision: 0, clips: overrides.snapshotClips ?? [] }));
   const scanArchive = vi.fn(
     overrides.scanArchive ??
       (async (_dirs: readonly string[], opts: IndexedScanOptions) => {
@@ -80,7 +93,7 @@ function makeHarness(overrides: {
       ...(listArchiveFlightOverviews ? { listArchiveFlightOverviews } : {}),
       nearArchive,
       withArchiveStore: (_db, run) =>
-        run({ removeClipsUnder } as unknown as ArchiveStore),
+        run({ removeClipsUnder, pruneOffline, snapshot } as unknown as ArchiveStore),
     },
   });
 
@@ -88,6 +101,7 @@ function makeHarness(overrides: {
     service,
     progressEvents,
     removeClipsUnder,
+    pruneOffline,
     scanArchive,
     listArchiveFlights,
     listArchiveFlightOverviews,
@@ -208,18 +222,18 @@ describe('createArchiveService', () => {
     expect(() => service.findAtPoint({ lat: 95, lon: 14.2 })).toThrow();
   });
 
-  it('propagates scan errors for missing unindexed roots and emits error progress', async () => {
-    const missing = path.join(tmpDir(), 'missing-folder');
+  it('propagates scan errors on reachable roots and emits error progress', async () => {
+    const dir = tmpDir();
     const { service, progressEvents } = makeHarness({
       scanArchive: async () => {
-        throw Object.assign(new Error(`ENOENT: no such file or directory, scandir '${missing}'`), {
-          code: 'ENOENT',
-          path: missing,
+        throw Object.assign(new Error(`EIO: i/o error, scandir '${dir}'`), {
+          code: 'EIO',
+          path: dir,
         });
       },
     });
 
-    await expect(service.scan([missing])).rejects.toThrow(/ENOENT/);
+    await expect(service.scan([dir])).rejects.toThrow(/EIO/);
     expect(progressEvents.at(-1)).toEqual({ phase: 'error', scanned: 0, status: 'error' });
   });
 
@@ -234,5 +248,95 @@ describe('createArchiveService', () => {
     expect(service.query({ bbox })).toEqual({ flights, totalCount: 1, offlineCount: 0 });
     expect(listArchiveFlightOverviews).toHaveBeenCalledWith(expect.any(String), { bbox });
     expect(listArchiveFlights).not.toHaveBeenCalled();
+  });
+
+  it('handles unreachable empty roots gracefully without failing scan', async () => {
+    const missing = path.join(tmpDir(), 'unplugged-empty');
+    const { service, progressEvents, scanArchive } = makeHarness({
+      initialRoots: [missing],
+    });
+
+    await expect(service.scan()).resolves.toEqual({ scanned: 0 });
+    expect(scanArchive).not.toHaveBeenCalled();
+    expect(progressEvents.at(-1)).toEqual({ phase: 'done', scanned: 0, total: 0, status: 'done' });
+    expect(service.query().offlineRoots).toEqual([missing]);
+  });
+
+  it('prunes deleted files on online roots, preserves unplugged drives offline, restores on reconnect without reprobing, and prunes offline on demand', async () => {
+    const base = fs.realpathSync(tmpDir());
+    const dbPath = path.join(base, 'archive.sqlite');
+    const onlineRoot = path.join(base, 'local-drive');
+    const driveRoot = path.join(base, 'external-drive');
+    const displacedDrive = path.join(base, 'external-drive-unplugged');
+    fs.mkdirSync(onlineRoot);
+    fs.mkdirSync(driveRoot);
+
+    const localKept = path.join(onlineRoot, 'DJI_0001.MP4');
+    const localDeleted = path.join(onlineRoot, 'DJI_0002.MP4');
+    const driveClip = path.join(driveRoot, 'DJI_0003.MP4');
+    fs.writeFileSync(localKept, 'video-1');
+    fs.writeFileSync(localDeleted, 'video-2');
+    fs.writeFileSync(driveClip, 'video-3');
+    fs.writeFileSync(path.join(driveRoot, 'DJI_0003.SRT'), SRT_SAMPLE);
+
+    let roots = [onlineRoot, driveRoot];
+    const service = createArchiveService({
+      getRoots: () => roots,
+      addRootState: (dir) => {
+        roots = [...roots, dir];
+        return roots;
+      },
+      removeRootState: (dir) => {
+        roots = roots.filter((r) => r !== dir);
+        return roots;
+      },
+      deps: {
+        dbPath,
+        getTools: async () => TOOLS,
+      },
+    });
+
+    await expect(service.scan()).resolves.toEqual({ scanned: 3 });
+    expect(mockedProbe).toHaveBeenCalledTimes(3);
+    expect(service.clipAvailability(localKept)).toBe('online');
+    expect(service.clipAvailability(driveClip)).toBe('online');
+    expect(service.clipAvailability(path.join(base, 'unknown.mp4'))).toBeNull();
+
+    // Delete one file from the connected local drive and unplug the external drive.
+    fs.rmSync(localDeleted);
+    fs.renameSync(driveRoot, displacedDrive);
+
+    await expect(service.scan()).resolves.toEqual({ scanned: 1 });
+    const afterUnplug = service.query();
+    expect(afterUnplug.totalCount).toBe(2);
+    expect(afterUnplug.offlineCount).toBe(1);
+    expect(afterUnplug.offlineRoots).toEqual([driveRoot]);
+    const clipsAfterUnplug = afterUnplug.flights.flatMap((f) => f.clips);
+    expect(clipsAfterUnplug.find((c) => c.path === localDeleted)).toBeUndefined();
+    const offlineRecord = clipsAfterUnplug.find((c) => c.path === driveClip);
+    expect(offlineRecord?.availability).toBe('offline');
+    expect(offlineRecord?.status).toBe('ok');
+    expect(offlineRecord?.telemetry?.fixCount).toBe(2);
+    expect(offlineRecord?.track.length).toBeGreaterThan(0);
+    expect(service.clipAvailability(driveClip)).toBe('offline');
+
+    // Reconnect the external drive: clip becomes online again without re-probing.
+    fs.renameSync(displacedDrive, driveRoot);
+    await expect(service.scan()).resolves.toEqual({ scanned: 2 });
+    expect(mockedProbe).toHaveBeenCalledTimes(3);
+    const afterReconnect = service.query();
+    expect(afterReconnect.offlineCount).toBe(0);
+    expect(afterReconnect.offlineRoots).toBeUndefined();
+    expect(service.clipAvailability(driveClip)).toBe('online');
+
+    // Unplug again, scan to mark offline, then explicitly prune offline clips.
+    fs.renameSync(driveRoot, displacedDrive);
+    await service.scan();
+    expect(service.pruneOffline()).toBe(1);
+    expect(service.pruneOffline()).toBe(0);
+    const afterPrune = service.query();
+    expect(afterPrune.totalCount).toBe(1);
+    expect(afterPrune.offlineCount).toBe(0);
+    expect(afterPrune.flights.flatMap((f) => f.clips).map((c) => c.path)).toEqual([localKept]);
   });
 });

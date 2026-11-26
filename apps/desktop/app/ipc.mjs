@@ -279,6 +279,10 @@ function registerArchiveHandlers(controller, devUrl) {
     controller.findArchiveAtPoint(point, radiusM, includeGaze),
   );
   handle(devUrl, IPC_INVOKE_CHANNELS.openArchiveClip, (raw) => controller.openArchiveClip(raw));
+  handle(devUrl, IPC_INVOKE_CHANNELS.pruneArchiveOffline, () => ({
+    ok: true,
+    removed: controller.pruneArchiveOffline(),
+  }));
 }
 
 /**

@@ -18,11 +18,26 @@
   "archiveWorkspace.noRecordings": "No se encontraron grabaciones de dron en tus carpetas vigiladas.",
   "archiveWorkspace.noTelemetryBadge": "Sin GPS",
   "archiveWorkspace.offlineBadge": "Sin conexión",
+  "archiveWorkspace.offlineClipHint": "Sin conexión o falta en {path}. Vuelve a conectar la unidad o analiza de nuevo.",
+  "archiveWorkspace.offlineClipLabel": "{name} (sin conexión)",
   "archiveWorkspace.offlineCount": {
     "one": "{count} sin conexión",
     "other": "{count} sin conexión"
   },
   "archiveWorkspace.openClip": "Abrir {name} en Revisión",
+  "archiveWorkspace.pruneOffline": "Quitar clips faltantes…",
+  "archiveWorkspace.pruneOfflineCancel": "Cancelar",
+  "archiveWorkspace.pruneOfflineConfirm": {
+    "one": "¿Quitar {count} clip sin conexión del archivo? Se eliminarán su trayectoria y estadísticas en caché. Los archivos de video en el disco no se modificarán.",
+    "other": "¿Quitar {count} clips sin conexión del archivo? Se eliminarán sus trayectorias y estadísticas en caché. Los archivos de video en el disco no se modificarán."
+  },
+  "archiveWorkspace.pruneOfflineConfirmAction": "Quitar clips faltantes",
+  "archiveWorkspace.pruneOfflineTitle": "Quitar clips faltantes",
+  "archiveWorkspace.prunedOffline": {
+    "one": "Se quitó {count} clip faltante del archivo.",
+    "other": "Se quitaron {count} clips faltantes del archivo."
+  },
+  "archiveWorkspace.pruningOffline": "Quitando…",
   "archiveWorkspace.recordingCount": {
     "one": "{count} grabación",
     "other": "{count} grabaciones"
@@ -63,6 +78,7 @@
   "errors.accessDeniedNamed": "Se denegó el acceso a «{name}». Elige una ubicación donde puedas guardar el archivo.",
   "errors.actionFailed": "No se pudo completar la acción. Inténtalo de nuevo.",
   "errors.archiveClipOffline": "«{name}» está sin conexión o falta en su carpeta. Vuelve a conectar la unidad o analiza las carpetas de nuevo.",
+  "errors.archiveClipOfflineAtPath": "«{name}» está sin conexión o falta en {path}. Vuelve a conectar la unidad o analiza las carpetas de nuevo.",
   "errors.archiveExportFailed": "No se pudo completar la exportación del archivo. Inténtalo de nuevo.",
   "errors.archiveRootInvalid": "No se pudo abrir la carpeta seleccionada. Elige una carpeta existente.",
   "errors.archiveScanCanceled": "Se canceló el análisis del archivo.",

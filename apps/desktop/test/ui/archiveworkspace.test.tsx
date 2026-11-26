@@ -6,6 +6,7 @@ import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { Scene } from 'drone-path-engine/renderer/scene';
 import type {
   ArchivePickFolderResult,
+  ArchivePruneOfflineResult,
   ArchiveQueryResult,
   ArchiveScanProgress,
   ArchiveScanResult,
@@ -100,6 +101,7 @@ function installArchiveBridge(options: {
   initialRoots?: string[];
   queryResult?: ArchiveQueryResult;
   scanResult?: ArchiveScanResult;
+  pruneResult?: ArchivePruneOfflineResult;
 } = {}) {
   let roots = [...(options.initialRoots ?? [])];
   let progressListener: ((progress: ArchiveScanProgress) => void) | undefined;
@@ -141,6 +143,9 @@ function installArchiveBridge(options: {
     queryArchive: vi.fn(async () => options.queryResult ?? SAMPLE_QUERY),
     findArchiveAtPoint: vi.fn(async () => []),
     openArchiveClip: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+    pruneArchiveOffline: vi.fn(
+      async (): Promise<ArchivePruneOfflineResult> => options.pruneResult ?? { ok: true, removed: 1 },
+    ),
     onArchiveScanProgress: vi.fn((cb: (progress: ArchiveScanProgress) => void) => {
       progressListener = cb;
       return () => {
@@ -188,6 +193,15 @@ describe('Archive workspace and mode switch', () => {
     expect(screen.getByText('2 recordings')).toBeTruthy();
     expect(screen.getByText(/1 offline/)).toBeTruthy();
     expect(screen.getByText('Offline')).toBeTruthy();
+
+    const offlineButton = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'DJI_0002.MP4 (offline)',
+    });
+    expect(offlineButton.disabled).toBe(true);
+    expect(offlineButton.className).toContain('archive-clip-row-offline');
+    expect(within(offlineButton).getByText('0:05')).toBeTruthy();
+    fireEvent.click(offlineButton);
+    expect(bridge.openArchiveClip).not.toHaveBeenCalled();
 
     const modeGroup = screen.getByRole('group', { name: 'Workspace mode' });
     expect(within(modeGroup).getByRole('button', { name: 'Archive' }).getAttribute('aria-pressed')).toBe('true');
@@ -254,7 +268,26 @@ describe('Archive workspace and mode switch', () => {
   });
 
   it('renders the master map region and supports keyboard clip navigation and style switching', async () => {
-    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    const twoOnlineQuery: ArchiveQueryResult = {
+      totalCount: 2,
+      offlineCount: 0,
+      flights: [
+        {
+          flightId: 'flight-1',
+          clips: [
+            SAMPLE_QUERY.flights[0].clips[0],
+            {
+              ...SAMPLE_QUERY.flights[0].clips[0],
+              path: SAMPLE_OFFLINE_PATH,
+            },
+          ],
+        },
+      ],
+    };
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      queryResult: twoOnlineQuery,
+    });
     render(<Page />);
 
     await screen.findByRole('region', { name: 'Archive flight map' });
@@ -272,5 +305,67 @@ describe('Archive workspace and mode switch', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));
     expect(bridge.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ style: 'topo' }));
+  });
+
+  it('marks offline watched folders and gates missing-clip pruning behind confirmation', async () => {
+    const offlineRoot = 'F:\\DroneSD';
+    const offlineOnlyQuery: ArchiveQueryResult = {
+      totalCount: 2,
+      offlineCount: 1,
+      offlineRoots: [offlineRoot],
+      flights: [
+        {
+          flightId: 'flight-1',
+          clips: [
+            SAMPLE_QUERY.flights[0].clips[0],
+            {
+              ...SAMPLE_QUERY.flights[0].clips[1],
+              path: 'F:\\DroneSD\\DJI_0002.MP4',
+            },
+          ],
+        },
+      ],
+    };
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights', offlineRoot],
+      queryResult: offlineOnlyQuery,
+      pruneResult: { ok: true, removed: 1 },
+    });
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByText('DroneSD')).toBeTruthy());
+    const offlineFolderRow = screen.getByText('DroneSD').closest('li') as HTMLElement;
+    expect(offlineFolderRow.className).toContain('archive-folder-row-offline');
+    expect(within(offlineFolderRow).getByText('Offline')).toBeTruthy();
+    expect(within(offlineFolderRow).getByRole<HTMLButtonElement>('button', { name: 'Remove DroneSD' }).disabled).toBe(false);
+
+    const pruneTrigger = screen.getByRole<HTMLButtonElement>('button', { name: 'Remove missing clips…' });
+    await waitFor(() => expect(pruneTrigger.disabled).toBe(false));
+    fireEvent.click(pruneTrigger);
+
+    const dialog = screen.getByRole('dialog', { name: 'Remove missing clips' });
+    expect(within(dialog).getByText(/Remove 1 offline clip from the archive\?/)).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Remove missing clips' })).toBeNull();
+    expect(bridge.pruneArchiveOffline).not.toHaveBeenCalled();
+
+    fireEvent.click(pruneTrigger);
+    const reopenedDialog = screen.getByRole('dialog', { name: 'Remove missing clips' });
+    bridge.queryArchive.mockResolvedValueOnce({
+      totalCount: 1,
+      offlineCount: 0,
+      flights: [
+        {
+          flightId: 'flight-1',
+          clips: [SAMPLE_QUERY.flights[0].clips[0]],
+        },
+      ],
+    });
+    fireEvent.click(within(reopenedDialog).getByRole('button', { name: 'Remove missing clips' }));
+
+    await waitFor(() => expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText('Removed 1 missing clip from the archive.')).toBeTruthy());
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove missing clips…' }).disabled).toBe(true);
   });
 });

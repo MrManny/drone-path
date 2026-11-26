@@ -18,10 +18,23 @@
   "archiveWorkspace.noRecordings": "監視中のフォルダーにドローンの撮影動画が見つかりませんでした。",
   "archiveWorkspace.noTelemetryBadge": "GPS なし",
   "archiveWorkspace.offlineBadge": "オフライン",
+  "archiveWorkspace.offlineClipHint": "オフラインか、{path} に見つかりません。ドライブを再接続するか、再スキャンしてください。",
+  "archiveWorkspace.offlineClipLabel": "{name}（オフライン）",
   "archiveWorkspace.offlineCount": {
     "other": "{count} 件がオフライン"
   },
   "archiveWorkspace.openClip": "レビューで {name} を開く",
+  "archiveWorkspace.pruneOffline": "見つからないクリップを削除…",
+  "archiveWorkspace.pruneOfflineCancel": "キャンセル",
+  "archiveWorkspace.pruneOfflineConfirm": {
+    "other": "{count} 件のオフラインクリップをアーカイブから削除しますか？キャッシュされた飛行経路とテレメトリ統計は削除されますが、ディスク上の動画ファイルは変更されません。"
+  },
+  "archiveWorkspace.pruneOfflineConfirmAction": "見つからないクリップを削除",
+  "archiveWorkspace.pruneOfflineTitle": "見つからないクリップを削除",
+  "archiveWorkspace.prunedOffline": {
+    "other": "{count} 件の見つからないクリップをアーカイブから削除しました。"
+  },
+  "archiveWorkspace.pruningOffline": "削除中…",
   "archiveWorkspace.recordingCount": {
     "other": "{count} 件の撮影動画"
   },
@@ -59,6 +72,7 @@
   "errors.accessDeniedNamed": "「{name}」へのアクセスが拒否されました。書き込みできる場所を選んでください。",
   "errors.actionFailed": "操作を完了できませんでした。もう一度お試しください。",
   "errors.archiveClipOffline": "「{name}」はオフラインか、フォルダーに見つかりません。ドライブを再接続するか、フォルダーを再スキャンしてください。",
+  "errors.archiveClipOfflineAtPath": "「{name}」はオフラインか、{path} に見つかりません。ドライブを再接続するか、フォルダーを再スキャンしてください。",
   "errors.archiveExportFailed": "アーカイブの書き出しを完了できませんでした。もう一度お試しください。",
   "errors.archiveRootInvalid": "選択したフォルダーを開けませんでした。存在するフォルダーを選んでください。",
   "errors.archiveScanCanceled": "アーカイブのスキャンをキャンセルしました。",

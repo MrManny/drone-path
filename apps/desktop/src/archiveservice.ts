@@ -10,6 +10,7 @@ import {
   nearArchive as defaultNearArchive,
 } from 'drone-path-archive/query';
 import type { listArchiveFlights as defaultListArchiveFlights } from 'drone-path-archive/query';
+import type { ScanRecord } from 'drone-path-archive/scanner';
 import { withArchiveStore as defaultWithArchiveStore } from 'drone-path-archive/store';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { LatLon } from 'drone-path-core/geo';
@@ -17,6 +18,7 @@ import { SHOT_TYPES } from 'drone-path-core/shot-segmentation';
 import { parseValue, strictShape } from 'drone-path-core/validation';
 import { codedDesktopError } from 'drone-path-desktop/shared/errors';
 import type {
+  ArchiveAvailability,
   ArchiveNearHit,
   ArchiveQueryFilters,
   ArchiveQueryResult,
@@ -52,6 +54,8 @@ export interface ArchiveService {
   cancelScan(): void;
   query(filters?: ArchiveQueryFilters): ArchiveQueryResult;
   findAtPoint(point: LatLon, radiusM?: number, includeGaze?: boolean): ArchiveNearHit[];
+  pruneOffline(): number;
+  clipAvailability(clipPath: string): ArchiveAvailability | null;
   fileExists(filePath: string): boolean;
 }
 
@@ -113,6 +117,16 @@ function defaultIsFile(filePath: string): boolean {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
+}
+
+function isWithinScanRoot(root: string, filePath: string): boolean {
+  const rel = path.relative(path.resolve(root), filePath);
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
+function clipLookupKey(filePath: string): string {
+  const resolved = path.resolve(filePath);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 function requireNonEmptyPath(raw: unknown, code: 'ARCHIVE_ROOT_INVALID' | 'INVALID_REQUEST'): string {
@@ -193,29 +207,69 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
       onScanProgress({ phase: 'scanning', scanned: 0, status: 'running' });
 
       try {
-        const records = await scanArchiveFn(targets, {
-          db: dbPath,
-          recurse: true,
-          signal: controller.signal,
-          getTools,
-          onRecord: (record) => {
-            scanned += 1;
-            onScanProgress({
-              phase: 'scanning',
-              scanned,
-              currentPath: record.path,
-              status: 'running',
-            });
-          },
-        });
+        const onlineRoots: string[] = [];
+        const offlineRoots: string[] = [];
+        for (const root of targets) {
+          if (isDir(root)) onlineRoots.push(root);
+          else offlineRoots.push(root);
+        }
+
+        // Only pass unreachable roots that already have indexed clips: scanRoots
+        // throws ENOENT when prune is false and a missing root has zero indexed paths.
+        const offlineWithClips =
+          offlineRoots.length === 0
+            ? []
+            : withArchiveStoreFn(dbPath, (store) => {
+                const indexedPaths = store.snapshot().clips.map((clip) => clip.record.path);
+                return offlineRoots.filter((root) =>
+                  indexedPaths.some((filePath) => isWithinScanRoot(root, filePath)),
+                );
+              });
+
+        let totalScanned = 0;
+        const onRecord = (record: ScanRecord) => {
+          scanned += 1;
+          onScanProgress({
+            phase: 'scanning',
+            scanned,
+            currentPath: record.path,
+            status: 'running',
+          });
+        };
+
+        if (onlineRoots.length > 0) {
+          const onlineRecords = await scanArchiveFn(onlineRoots, {
+            db: dbPath,
+            recurse: true,
+            prune: true,
+            signal: controller.signal,
+            getTools,
+            onRecord,
+          });
+          totalScanned += onlineRecords.length;
+        }
+
+        if (offlineWithClips.length > 0) {
+          controller.signal.throwIfAborted();
+          const offlineRecords = await scanArchiveFn(offlineWithClips, {
+            db: dbPath,
+            recurse: true,
+            prune: false,
+            signal: controller.signal,
+            getTools,
+            onRecord,
+          });
+          totalScanned += offlineRecords.length;
+        }
+
         onScanProgress({
           phase: 'done',
-          scanned: records.length,
-          total: records.length,
+          scanned: totalScanned,
+          total: totalScanned,
           status: 'done',
         });
-        log(`archive scan complete: ${records.length} recording(s)`);
-        return { scanned: records.length };
+        log(`archive scan complete: ${totalScanned} recording(s)`);
+        return { scanned: totalScanned };
       } catch (error) {
         if (controller.signal.aborted || isAbortError(error)) {
           onScanProgress({ phase: 'canceled', scanned, status: 'canceled' });
@@ -245,7 +299,10 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
           if (clip.availability === 'offline') offlineCount += 1;
         }
       }
-      return { flights, totalCount, offlineCount };
+      const offlineRoots = options.getRoots().filter((root) => !isDir(root));
+      return offlineRoots.length > 0
+        ? { flights, totalCount, offlineCount, offlineRoots }
+        : { flights, totalCount, offlineCount };
     },
 
     findAtPoint(point: LatLon, radiusM?: number, includeGaze = true): ArchiveNearHit[] {
@@ -256,6 +313,18 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
           : parseValue(z.number().finite().positive(), radiusM);
       const parsedGaze = parseValue(z.boolean(), includeGaze);
       return nearArchiveFn(dbPath, parsedPoint, parsedRadius, parsedGaze);
+    },
+
+    pruneOffline(): number {
+      return withArchiveStoreFn(dbPath, (store) => store.pruneOffline());
+    },
+
+    clipAvailability(clipPath: string): ArchiveAvailability | null {
+      const key = clipLookupKey(clipPath);
+      return withArchiveStoreFn(dbPath, (store) => {
+        const match = store.snapshot().clips.find((clip) => clip.key === key);
+        return match?.availability ?? null;
+      });
     },
 
     fileExists(filePath: string): boolean {

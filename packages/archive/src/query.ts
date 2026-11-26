@@ -132,3 +132,7 @@ export function nearArchive(
     return hits.sort((a, b) => a.distanceM - b.distanceM);
   });
 }
+
+export function pruneArchiveOffline(db: string): number {
+  return withArchiveStore(db, (store) => store.pruneOffline());
+}

@@ -1971,11 +1971,24 @@ input[type='radio']:disabled {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
 }
+.archive-folder-row-offline {
+  background: var(--surface-1);
+  border-style: dashed;
+}
 .archive-folder-meta {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.archive-folder-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.archive-folder-row-offline .archive-folder-name {
+  color: var(--text-3);
 }
 .archive-folder-name,
 .archive-clip-name {
@@ -2016,8 +2029,19 @@ input[type='radio']:disabled {
 }
 .archive-clips-summary {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.archive-clips-counts {
+  display: flex;
   align-items: baseline;
   gap: 4px;
+}
+.archive-prune-trigger {
+  min-height: 30px;
+  padding: 0 10px;
 }
 .archive-empty {
   flex: 1 1 auto;
@@ -2062,6 +2086,10 @@ input[type='radio']:disabled {
 .archive-clip-row.is-selected {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+}
+.archive-clip-row-offline {
+  background: var(--surface-1);
+  border-color: var(--hairline);
 }
 .archive-clip-main {
   min-width: 0;

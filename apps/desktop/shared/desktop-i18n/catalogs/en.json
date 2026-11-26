@@ -18,11 +18,26 @@
   "archiveWorkspace.noRecordings": "No drone recordings found in your watched folders.",
   "archiveWorkspace.noTelemetryBadge": "No GPS",
   "archiveWorkspace.offlineBadge": "Offline",
+  "archiveWorkspace.offlineClipHint": "Offline or missing at {path}. Reconnect the drive or rescan.",
+  "archiveWorkspace.offlineClipLabel": "{name} (offline)",
   "archiveWorkspace.offlineCount": {
     "one": "{count} offline",
     "other": "{count} offline"
   },
   "archiveWorkspace.openClip": "Open {name} in Review",
+  "archiveWorkspace.pruneOffline": "Remove missing clips…",
+  "archiveWorkspace.pruneOfflineCancel": "Cancel",
+  "archiveWorkspace.pruneOfflineConfirm": {
+    "one": "Remove {count} offline clip from the archive? Its cached flight track and telemetry stats will be deleted. Video files on disk are not touched.",
+    "other": "Remove {count} offline clips from the archive? Their cached flight tracks and telemetry stats will be deleted. Video files on disk are not touched."
+  },
+  "archiveWorkspace.pruneOfflineConfirmAction": "Remove missing clips",
+  "archiveWorkspace.pruneOfflineTitle": "Remove missing clips",
+  "archiveWorkspace.prunedOffline": {
+    "one": "Removed {count} missing clip from the archive.",
+    "other": "Removed {count} missing clips from the archive."
+  },
+  "archiveWorkspace.pruningOffline": "Removing…",
   "archiveWorkspace.recordingCount": {
     "one": "{count} recording",
     "other": "{count} recordings"
@@ -63,6 +78,7 @@
   "errors.accessDeniedNamed": "Access to \"{name}\" was denied. Choose a location you can write to.",
   "errors.actionFailed": "The action could not be completed. Try again.",
   "errors.archiveClipOffline": "\"{name}\" is offline or missing from its folder. Reconnect the drive or rescan your folders.",
+  "errors.archiveClipOfflineAtPath": "\"{name}\" is offline or missing at {path}. Reconnect the drive or rescan your folders.",
   "errors.archiveExportFailed": "The archive export could not be completed. Try again.",
   "errors.archiveRootInvalid": "The selected folder could not be opened. Choose an existing folder.",
   "errors.archiveScanCanceled": "Archive scan canceled.",
