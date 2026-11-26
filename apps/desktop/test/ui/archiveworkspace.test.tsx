@@ -38,11 +38,17 @@ vi.mock('drone-path-engine/renderer/boot', async () => {
 
 const workspaceLeafletMock = vi.hoisted(() => {
   type Handler = (ev?: unknown) => void;
+  let zoomLevel = 13;
+  let currentCenter = { lat: 46.6, lng: 14.2 };
   const mapHandlers = new Map<string, Handler[]>();
   const fakeMap = {
     fitBounds: vi.fn(),
-    setView: vi.fn(),
-    getZoom: vi.fn(() => 13),
+    setView: vi.fn((center: [number, number], z: number) => {
+      currentCenter = { lat: center[0], lng: center[1] };
+      zoomLevel = z;
+    }),
+    getCenter: vi.fn(() => currentCenter),
+    getZoom: vi.fn(() => zoomLevel),
     getBounds: vi.fn(() => ({
       getSouthWest: () => ({ lat: 46.5, lng: 14.1 }),
       getNorthEast: () => ({ lat: 46.7, lng: 14.3 }),
@@ -78,9 +84,10 @@ const workspaceLeafletMock = vi.hoisted(() => {
     return layer;
   };
   const polylines: ReturnType<typeof makeLayer>[] = [];
+  const mapFn = vi.fn(() => fakeMap);
   return {
     L: {
-      map: vi.fn(() => fakeMap),
+      map: mapFn,
       canvas: vi.fn(() => ({})),
       tileLayer: vi.fn(() => ({ addTo: vi.fn(), remove: vi.fn() })),
       layerGroup: vi.fn(() => {
@@ -104,13 +111,25 @@ const workspaceLeafletMock = vi.hoisted(() => {
       circleMarker: vi.fn(() => makeLayer()),
       DomEvent: { stopPropagation: vi.fn() },
     },
+    fakeMap,
     polylines,
+    setViewState(center: { lat: number; lng: number }, zoom: number) {
+      currentCenter = center;
+      zoomLevel = zoom;
+    },
     triggerMap(ev: string, evData?: unknown) {
       for (const fn of mapHandlers.get(ev) ?? []) fn(evData);
     },
     reset() {
+      zoomLevel = 13;
+      currentCenter = { lat: 46.6, lng: 14.2 };
       mapHandlers.clear();
       polylines.length = 0;
+      mapFn.mockClear();
+      fakeMap.fitBounds.mockClear();
+      fakeMap.setView.mockClear();
+      fakeMap.getCenter.mockClear();
+      fakeMap.getZoom.mockClear();
     },
   };
 });
@@ -705,5 +724,101 @@ describe('Archive workspace and mode switch', () => {
     fireEvent.click(within(rail).getByLabelText('Only in map view'));
     await waitFor(() => expect(bridge.queryArchive.mock.calls.length).toBeGreaterThan(callsBefore));
     expect(screen.getByRole('button', { name: /Filters/ })).toBeTruthy();
+  });
+
+  it('preserves map center/zoom, selected clip, filter rail state, and point-query popover across Review switches', async () => {
+    const pointHits: ArchiveNearHit[] = [
+      {
+        clip: SAMPLE_QUERY.flights[0].clips[0],
+        tSec: 12,
+        distanceM: 18,
+        matchType: 'track',
+      },
+    ];
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      pointHits,
+    });
+    render(<Page />);
+
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalledTimes(1));
+    expect(workspaceLeafletMock.fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+
+    const filterToggle = screen.getByRole('button', { name: 'Filters' });
+    fireEvent.click(filterToggle);
+    expect(filterToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('region', { name: 'Archive filters' })).toBeTruthy();
+
+    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    fireEvent.focus(clipButton);
+    expect(clipButton.getAttribute('data-selected')).toBe('true');
+
+    workspaceLeafletMock.setViewState({ lat: 46.609, lng: 14.209 }, 16);
+    act(() => {
+      workspaceLeafletMock.triggerMap('moveend');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'What filmed here?' }));
+    act(() => {
+      workspaceLeafletMock.triggerMap('click', { latlng: { lat: 46.602, lng: 14.202 } });
+    });
+
+    const popover = await screen.findByRole('region', { name: 'Clips at selected point' });
+    expect(within(popover).getByText('Track')).toBeTruthy();
+    fireEvent.click(
+      within(popover).getByRole('button', { name: 'Open DJI_0001.MP4 at 0:12 in Review' }),
+    );
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+    expect(bridge.openArchiveClip).toHaveBeenCalledWith({
+      path: SAMPLE_CLIP_PATH,
+      settings: expect.objectContaining({ zoom: 0 }),
+      seekSec: 12,
+    });
+
+    workspaceLeafletMock.fakeMap.fitBounds.mockClear();
+    workspaceLeafletMock.fakeMap.setView.mockClear();
+
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Workspace mode' })).getByRole('button', {
+        name: 'Archive',
+      }),
+    );
+
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalledTimes(2));
+    expect(workspaceLeafletMock.fakeMap.setView).toHaveBeenCalledWith([46.609, 14.209], 16);
+    expect(workspaceLeafletMock.fakeMap.fitBounds).not.toHaveBeenCalled();
+
+    expect(
+      screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' }).getAttribute('data-selected'),
+    ).toBe('true');
+    expect(screen.getByRole('button', { name: 'Filters' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('region', { name: 'Archive filters' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Clips at selected point' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'What filmed here?' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+  });
+
+  it('clears selectedClipPath only when its watched folder is removed', async () => {
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights', 'F:\\Drone\\Other'],
+    });
+    render(<Page />);
+
+    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    fireEvent.focus(clipButton);
+    expect(clipButton.getAttribute('data-selected')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Other' }));
+    await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('F:\\Drone\\Other'));
+    expect(
+      screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' }).getAttribute('data-selected'),
+    ).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Flights' }));
+    await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('E:\\Drone\\Flights'));
+    expect(
+      screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' }).getAttribute('data-selected'),
+    ).toBeNull();
   });
 });

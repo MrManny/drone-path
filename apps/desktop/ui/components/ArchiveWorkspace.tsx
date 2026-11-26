@@ -94,7 +94,6 @@ export function ArchiveWorkspace({
 }: ArchiveWorkspaceProps) {
   const t = useTranslation();
   const [confirmPruneOpen, setConfirmPruneOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const {
     roots,
@@ -108,6 +107,9 @@ export function ArchiveWorkspace({
     lastPrunedCount,
     scanProgress,
     error,
+    mapView,
+    selectedClipPath,
+    filtersOpen,
     pointHits,
     pointQueryCoord,
     pointQueryLoading,
@@ -116,6 +118,9 @@ export function ArchiveWorkspace({
     activeFilterCount,
     activeQueryFilters,
     setViewportBbox,
+    setMapView,
+    setSelectedClipPath,
+    setFiltersOpen,
     togglePointQuery,
     queryAtPoint,
     clearPointQuery,
@@ -130,15 +135,17 @@ export function ArchiveWorkspace({
     dismissError,
   } = archive;
 
-  const [selectedClipPath, setSelectedClipPath] = useState<string | null>(null);
   const clipButtonRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
   const opening = openState.kind === 'preparing';
 
-  const handleSelectClipFromMap = useCallback((clipPath: string) => {
-    setSelectedClipPath(clipPath);
-    const button = clipButtonRefs.current.get(clipPath);
-    button?.scrollIntoView?.({ block: 'nearest' });
-  }, []);
+  const handleSelectClipFromMap = useCallback(
+    (clipPath: string) => {
+      setSelectedClipPath(clipPath);
+      const button = clipButtonRefs.current.get(clipPath);
+      button?.scrollIntoView?.({ block: 'nearest' });
+    },
+    [setSelectedClipPath],
+  );
 
   const handleClipListKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -454,6 +461,8 @@ export function ArchiveWorkspace({
               onSelectClip={handleSelectClipFromMap}
               onOpenClip={onOpenClip}
               onViewportChange={setViewportBbox}
+              initialMapView={mapView}
+              onMapViewChange={setMapView}
               onStyleChange={onMapStyleChange}
               pointQueryActive={pointQueryActive}
               onTogglePointQuery={togglePointQuery}

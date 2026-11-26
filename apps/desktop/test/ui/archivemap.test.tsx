@@ -57,6 +57,7 @@ const leafletMock = vi.hoisted(() => {
   }
 
   let zoomLevel = 13;
+  let currentCenter = { lat: 46.6, lng: 14.2 };
   let currentBounds = {
     getSouthWest: () => ({ lat: 46.5, lng: 14.1 }),
     getNorthEast: () => ({ lat: 46.7, lng: 14.3 }),
@@ -74,10 +75,16 @@ const leafletMock = vi.hoisted(() => {
         getSouthWest: () => bounds._southWest,
         getNorthEast: () => bounds._northEast,
       };
+      currentCenter = {
+        lat: (bounds._southWest.lat + bounds._northEast.lat) / 2,
+        lng: (bounds._southWest.lng + bounds._northEast.lng) / 2,
+      };
     }),
-    setView: vi.fn((_center: [number, number], z: number) => {
+    setView: vi.fn((center: [number, number], z: number) => {
+      currentCenter = { lat: center[0], lng: center[1] };
       zoomLevel = z;
     }),
+    getCenter: vi.fn(() => currentCenter),
     getZoom: vi.fn(() => zoomLevel),
     getBounds: vi.fn(() => currentBounds),
     zoomIn: vi.fn(() => {
@@ -152,11 +159,15 @@ const leafletMock = vi.hoisted(() => {
     setZoom(z: number) {
       zoomLevel = z;
     },
+    setCenter(lat: number, lng: number) {
+      currentCenter = { lat, lng };
+    },
     triggerMap(ev: string, evData?: unknown) {
       for (const fn of mapHandlers.get(ev) ?? []) fn(evData);
     },
     reset() {
       zoomLevel = 13;
+      currentCenter = { lat: 46.6, lng: 14.2 };
       mapHandlers.clear();
       tileLayers.length = 0;
       polylines.length = 0;
@@ -550,5 +561,84 @@ describe('ArchiveMap', () => {
     expect(onClearPointQuery).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClearPointQuery).toHaveBeenCalledTimes(3);
+  });
+
+  it('restores initialMapView via setView without calling fitBounds', async () => {
+    const { rerender } = render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+        initialMapView={{ center: { lat: 46.607, lon: 14.208 }, zoom: 16 }}
+      />,
+    );
+
+    await waitFor(() => expect(leafletMock.L.map).toHaveBeenCalledTimes(1));
+    expect(leafletMock.fakeMap.setView).toHaveBeenCalledWith([46.607, 14.208], 16);
+    expect(leafletMock.fakeMap.fitBounds).not.toHaveBeenCalled();
+
+    // Updating flights later must not override the restored camera with auto-fit.
+    rerender(
+      <ArchiveMap
+        flights={[
+          {
+            flightId: 'f2',
+            clips: [FLIGHTS[0].clips[0]],
+          },
+        ]}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+        initialMapView={{ center: { lat: 46.607, lon: 14.208 }, zoom: 16 }}
+      />,
+    );
+    expect(leafletMock.fakeMap.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it('reports onMapViewChange on moveend, zoomend, and Fit all', async () => {
+    const onMapViewChange = vi.fn();
+    render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+        onMapViewChange={onMapViewChange}
+      />,
+    );
+
+    await waitFor(() => expect(leafletMock.L.map).toHaveBeenCalledTimes(1));
+
+    leafletMock.setCenter(46.612, 194.25);
+    leafletMock.setZoom(15);
+    act(() => {
+      leafletMock.triggerMap('moveend');
+    });
+    expect(onMapViewChange).toHaveBeenLastCalledWith({
+      center: { lat: 46.612, lon: -165.75 },
+      zoom: 15,
+    });
+
+    act(() => {
+      leafletMock.fakeMap.zoomIn();
+    });
+    expect(onMapViewChange).toHaveBeenLastCalledWith({
+      center: { lat: 46.612, lon: -165.75 },
+      zoom: 16,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fit all' }));
+    expect(leafletMock.fakeMap.fitBounds).toHaveBeenCalledTimes(2);
+    const fittedView = onMapViewChange.mock.calls.at(-1)?.[0] as {
+      center: { lat: number; lon: number };
+      zoom: number;
+    };
+    expect(fittedView.center.lat).toBeCloseTo(46.605, 6);
+    expect(fittedView.center.lon).toBeCloseTo(14.205, 6);
+    expect(fittedView.zoom).toBe(16);
   });
 });
