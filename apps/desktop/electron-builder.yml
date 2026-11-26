@@ -19,6 +19,7 @@ files:
   - dist/**
   - '!dist/**/*.tsbuildinfo'
   - app/**
+  - '!app/**/*.tsbuildinfo'
   - ui/out/**
   # The window icon is read at runtime; build resources are not packed by default.
   - build/icon.ico

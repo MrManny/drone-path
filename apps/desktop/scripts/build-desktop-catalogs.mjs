@@ -33,7 +33,7 @@ async function buildCatalogs() {
   await mkdir(localesDir, { recursive: true });
   for (const existing of await readdir(localesDir)) {
     if (!expectedFiles.has(existing)) {
-      await rm(new URL(existing, localesDir), { force: true });
+      await rm(new URL(existing, localesDir), { recursive: true, force: true });
     }
   }
 
