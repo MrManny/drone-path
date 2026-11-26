@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceHeader } from '../../ui/components/WorkspaceHeader.js';
 
@@ -35,5 +35,69 @@ describe('WorkspaceHeader', () => {
   it('hides the recording line while no recording is loaded', () => {
     render(<WorkspaceHeader durationSec={null} />);
     expect(screen.queryByText(/Recording/)).toBeNull();
+  });
+
+  it('renders flush mode tabs when showModeSwitch is enabled', () => {
+    render(
+      <WorkspaceHeader
+        durationSec={null}
+        mode="archive"
+        showModeSwitch
+        onModeChange={vi.fn()}
+      />,
+    );
+    const tablist = screen.getByRole('tablist', { name: 'Workspace mode' });
+    expect(tablist.className).toBe('header-mode-tabs');
+    const archiveTab = within(tablist).getByRole('tab', { name: 'Archive' });
+    const reviewTab = within(tablist).getByRole('tab', { name: 'Review' });
+    expect(archiveTab.getAttribute('aria-selected')).toBe('true');
+    expect(reviewTab.getAttribute('aria-selected')).toBe('false');
+    expect(archiveTab.getAttribute('tabindex')).toBe('0');
+    expect(reviewTab.getAttribute('tabindex')).toBe('-1');
+  });
+
+  it('updates aria-selected for review mode and invokes onModeChange on click', () => {
+    const onModeChange = vi.fn();
+    render(
+      <WorkspaceHeader
+        durationSec={12}
+        mode="review"
+        showModeSwitch
+        onModeChange={onModeChange}
+      />,
+    );
+    const archiveTab = screen.getByRole('tab', { name: 'Archive' });
+    const reviewTab = screen.getByRole('tab', { name: 'Review' });
+    expect(archiveTab.getAttribute('aria-selected')).toBe('false');
+    expect(reviewTab.getAttribute('aria-selected')).toBe('true');
+
+    fireEvent.click(archiveTab);
+    expect(onModeChange).toHaveBeenCalledWith('archive');
+
+    fireEvent.click(reviewTab);
+    expect(onModeChange).toHaveBeenCalledWith('review');
+  });
+
+  it('moves focus and switches mode with horizontal arrow keys', () => {
+    const onModeChange = vi.fn();
+    render(
+      <WorkspaceHeader
+        durationSec={null}
+        mode="archive"
+        showModeSwitch
+        onModeChange={onModeChange}
+      />,
+    );
+    const archiveTab = screen.getByRole('tab', { name: 'Archive' });
+    const reviewTab = screen.getByRole('tab', { name: 'Review' });
+
+    archiveTab.focus();
+    fireEvent.keyDown(archiveTab, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(reviewTab);
+    expect(onModeChange).toHaveBeenCalledWith('review');
+
+    fireEvent.keyDown(reviewTab, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(archiveTab);
+    expect(onModeChange).toHaveBeenCalledTimes(1);
   });
 });

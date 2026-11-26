@@ -313,6 +313,53 @@ button.primary {
   display: block;
 }
 
+/* Flush workspace mode tab strip anchored to the right edge of the header. */
+.header-mode-tabs {
+  margin-left: auto;
+  height: 100%;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.header-mode-tabs .header-mode-tab {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+.header-mode-tabs .header-mode-tab:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.header-mode-tabs .header-mode-tab:active:not(:disabled) {
+  transform: none;
+  background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+}
+.header-mode-tabs .header-mode-tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
+.header-mode-tabs .header-mode-tab[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 600;
+}
+.header-mode-tabs .header-mode-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+}
+
 /* The stage: the video pane beside the bare flight map rail (split), or with
    the map as a square corner card on the footage (overlay). The map island
    host isolates Leaflet's own z-indexes inside its own box. */

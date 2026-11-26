@@ -1,9 +1,22 @@
 'use client';
 
+import { Film, Layers } from 'lucide-react';
+import { useRef } from 'react';
+import type { KeyboardEvent } from 'react';
+
 import { useTranslation } from '../lib/i18n.js';
 import { formatTime } from '../lib/frametime.js';
 
 export type WorkspaceMode = 'archive' | 'review';
+
+const MODE_TABS: ReadonlyArray<{
+  id: WorkspaceMode;
+  labelKey: 'workspaceHeader.archiveMode' | 'workspaceHeader.reviewMode';
+  Icon: typeof Layers;
+}> = [
+  { id: 'archive', labelKey: 'workspaceHeader.archiveMode', Icon: Layers },
+  { id: 'review', labelKey: 'workspaceHeader.reviewMode', Icon: Film },
+];
 
 interface WorkspaceHeaderProps {
   /** Recording length in seconds; null while no recording is loaded. */
@@ -20,6 +33,30 @@ export function WorkspaceHeader({
   onModeChange,
 }: WorkspaceHeaderProps) {
   const t = useTranslation();
+  const tabRefs = useRef<Record<WorkspaceMode, HTMLButtonElement | null>>({
+    archive: null,
+    review: null,
+  });
+
+  const handleTabKeyDown = (current: WorkspaceMode, e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    let next: WorkspaceMode | null = null;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      next = current === 'archive' ? 'review' : 'archive';
+    } else if (e.key === 'Home') {
+      next = 'archive';
+    } else if (e.key === 'End') {
+      next = 'review';
+    }
+    if (!next) return;
+    e.preventDefault();
+    e.stopPropagation();
+    tabRefs.current[next]?.focus();
+    if (next !== mode) {
+      onModeChange?.(next);
+    }
+  };
+
   return (
     <header className="workspace-header">
       <div className="brand">
@@ -34,23 +71,25 @@ export function WorkspaceHeader({
         )}
       </div>
       {showModeSwitch && mode && onModeChange ? (
-        <div className="segmented header-mode-switch" role="group" aria-label={t('workspaceHeader.mode')}>
-          <button
-            type="button"
-            className="segment"
-            aria-pressed={mode === 'archive'}
-            onClick={() => onModeChange('archive')}
-          >
-            {t('workspaceHeader.archiveMode')}
-          </button>
-          <button
-            type="button"
-            className="segment"
-            aria-pressed={mode === 'review'}
-            onClick={() => onModeChange('review')}
-          >
-            {t('workspaceHeader.reviewMode')}
-          </button>
+        <div className="header-mode-tabs" role="tablist" aria-label={t('workspaceHeader.mode')}>
+          {MODE_TABS.map(({ id, labelKey, Icon }) => (
+            <button
+              key={id}
+              ref={(el) => {
+                tabRefs.current[id] = el;
+              }}
+              type="button"
+              role="tab"
+              aria-selected={mode === id}
+              tabIndex={mode === id ? 0 : -1}
+              className="header-mode-tab"
+              onClick={() => onModeChange(id)}
+              onKeyDown={(e) => handleTabKeyDown(id, e)}
+            >
+              <Icon aria-hidden="true" />
+              <span>{t(labelKey)}</span>
+            </button>
+          ))}
         </div>
       ) : null}
     </header>
