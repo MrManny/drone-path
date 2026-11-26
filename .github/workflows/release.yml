@@ -74,9 +74,6 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
-      - name: Build publishable workspaces
-        run: npm run build:cli
-
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

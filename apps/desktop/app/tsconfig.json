@@ -3,6 +3,8 @@
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
+    "incremental": true,
+    "tsBuildInfoFile": "../dist/app/tsconfig.tsbuildinfo",
     "noEmit": true
   },
   "include": [

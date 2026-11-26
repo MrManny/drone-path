@@ -53,8 +53,12 @@ export function buildBuildinfo(
   probe: GitProbe | null,
 ): BuildGit | null {
   const git = resolveBuildGit(version, probe);
-  fs.mkdirSync(path.dirname(paths.moduleFile), { recursive: true });
-  fs.writeFileSync(paths.moduleFile, buildinfoModuleSource(version, git));
+  const source = buildinfoModuleSource(version, git);
+  const existing = fs.existsSync(paths.moduleFile) ? fs.readFileSync(paths.moduleFile, 'utf8') : null;
+  if (existing !== source) {
+    fs.mkdirSync(path.dirname(paths.moduleFile), { recursive: true });
+    fs.writeFileSync(paths.moduleFile, source);
+  }
   return git;
 }
 

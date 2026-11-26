@@ -8,7 +8,7 @@ and [README.md](README.md) is the quick-start. Follow the
 
 - Node.js 24 or 26, npm. Use `npm ci` at the root for the shared lockfile.
 - Run `npm run lint`, `npm test`, and `npm run build` at the root to check the
-  whole repository.
+  whole repository (`npm run clean` removes build outputs and caches).
 - When adding a dependency, pin it to a patch-level range (for example, `~1.2.3`).
   New dependencies must have no high or critical security issues — check
   `https://security.snyk.io/package/npm/<package_name>` before adding one.
