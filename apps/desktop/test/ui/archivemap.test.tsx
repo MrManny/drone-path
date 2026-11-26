@@ -61,8 +61,18 @@ const leafletMock = vi.hoisted(() => {
     getSouthWest: () => ({ lat: 46.5, lng: 14.1 }),
     getNorthEast: () => ({ lat: 46.7, lng: 14.3 }),
   };
+  interface FakeTileLayer {
+    url: string;
+    options: Record<string, unknown>;
+    handlers: Map<string, Handler[]>;
+    on: (ev: string, fn: Handler) => FakeTileLayer;
+    off: (ev: string, fn: Handler) => FakeTileLayer;
+    trigger: (ev: string, evData?: unknown) => void;
+    addTo: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
+  }
   const mapHandlers = new Map<string, Handler[]>();
-  const tileLayers: { url: string; options: Record<string, unknown>; remove: ReturnType<typeof vi.fn> }[] = [];
+  const tileLayers: FakeTileLayer[] = [];
   const polylines: FakeLayer[] = [];
   const circleMarkers: FakeLayer[] = [];
   const canvasInstances: Record<string, unknown>[] = [];
@@ -108,9 +118,30 @@ const leafletMock = vi.hoisted(() => {
       return renderer;
     }),
     tileLayer: vi.fn((url: string, options: Record<string, unknown>) => {
-      const tl = {
+      const handlers = new Map<string, Handler[]>();
+      const tl: FakeTileLayer = {
         url,
         options,
+        handlers,
+        on(ev, fn) {
+          const list = handlers.get(ev) ?? [];
+          list.push(fn);
+          handlers.set(ev, list);
+          return tl;
+        },
+        off(ev, fn) {
+          const list = handlers.get(ev);
+          if (list) {
+            handlers.set(
+              ev,
+              list.filter((entry) => entry !== fn),
+            );
+          }
+          return tl;
+        },
+        trigger(ev, evData) {
+          for (const fn of handlers.get(ev) ?? []) fn(evData);
+        },
         addTo: vi.fn(() => tl),
         remove: vi.fn(),
       };
@@ -550,5 +581,62 @@ describe('ArchiveMap', () => {
     expect(onClearPointQuery).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClearPointQuery).toHaveBeenCalledTimes(3);
+  });
+
+  it('shows Preparing map… while map initializes or tile layer emits loading and hides it on load', async () => {
+    const { rerender } = render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Preparing map…')).toBeTruthy();
+
+    await waitFor(() => expect(leafletMock.tileLayers).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByText('Preparing map…')).toBeNull());
+
+    const satelliteLayer = leafletMock.tileLayers[0];
+    act(() => {
+      satelliteLayer.trigger('loading');
+    });
+    expect(screen.getByText('Preparing map…')).toBeTruthy();
+
+    act(() => {
+      satelliteLayer.trigger('load');
+    });
+    expect(screen.queryByText('Preparing map…')).toBeNull();
+
+    // Switching styles while tiles are loading cleans up the previous layer and clears loading.
+    act(() => {
+      satelliteLayer.trigger('loading');
+    });
+    expect(screen.getByText('Preparing map…')).toBeTruthy();
+
+    rerender(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="topo"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+      />,
+    );
+    expect(satelliteLayer.remove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Preparing map…')).toBeNull();
+
+    const topoLayer = leafletMock.tileLayers[1];
+    act(() => {
+      topoLayer.trigger('loading');
+    });
+    expect(screen.getByText('Preparing map…')).toBeTruthy();
+
+    act(() => {
+      topoLayer.trigger('load');
+    });
+    expect(screen.queryByText('Preparing map…')).toBeNull();
   });
 });
