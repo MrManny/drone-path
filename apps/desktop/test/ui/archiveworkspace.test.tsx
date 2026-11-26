@@ -295,7 +295,7 @@ describe('Archive workspace and mode switch', () => {
     render(<Page />);
     await waitFor(() => expect(bridge.listArchiveRoots).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
-    expect(screen.queryByRole('group', { name: 'Workspace mode' })).toBeNull();
+    expect(screen.queryByRole('tablist', { name: 'Workspace mode' })).toBeNull();
     expect(bridge.scanArchive).not.toHaveBeenCalled();
   });
 
@@ -318,9 +318,9 @@ describe('Archive workspace and mode switch', () => {
     fireEvent.click(offlineButton);
     expect(bridge.openArchiveClip).not.toHaveBeenCalled();
 
-    const modeGroup = screen.getByRole('group', { name: 'Workspace mode' });
-    expect(within(modeGroup).getByRole('button', { name: 'Archive' }).getAttribute('aria-pressed')).toBe('true');
-    expect(within(modeGroup).getByRole('button', { name: 'Review' }).getAttribute('aria-pressed')).toBe('false');
+    const modeTabs = screen.getByRole('tablist', { name: 'Workspace mode' });
+    expect(within(modeTabs).getByRole('tab', { name: 'Archive' }).getAttribute('aria-selected')).toBe('true');
+    expect(within(modeTabs).getByRole('tab', { name: 'Review' }).getAttribute('aria-selected')).toBe('false');
   });
 
   it('opens an archive clip directly into Review and preserves Archive state across mode switches', async () => {
@@ -336,16 +336,16 @@ describe('Archive workspace and mode switch', () => {
       settings: expect.objectContaining({ zoom: 0 }),
     });
 
-    const modeGroup = screen.getByRole('group', { name: 'Workspace mode' });
-    expect(within(modeGroup).getByRole('button', { name: 'Review' }).getAttribute('aria-pressed')).toBe('true');
+    const modeTabs = screen.getByRole('tablist', { name: 'Workspace mode' });
+    expect(within(modeTabs).getByRole('tab', { name: 'Review' }).getAttribute('aria-selected')).toBe('true');
 
     // Switch back to Archive and verify state is preserved in memory without re-querying.
-    fireEvent.click(within(modeGroup).getByRole('button', { name: 'Archive' }));
+    fireEvent.click(within(modeTabs).getByRole('tab', { name: 'Archive' }));
     expect(screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' })).toBeTruthy();
     expect(bridge.listArchiveRoots).toHaveBeenCalledTimes(1);
 
     // Switch back to Review and verify loaded recording is still present.
-    fireEvent.click(within(screen.getByRole('group', { name: 'Workspace mode' })).getByRole('button', { name: 'Review' }));
+    fireEvent.click(within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', { name: 'Review' }));
     await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
   });
 
@@ -547,7 +547,7 @@ describe('Archive workspace and mode switch', () => {
 
     // Switch back to Archive and verify point-query state is preserved in memory.
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Workspace mode' })).getByRole('button', {
+      within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', {
         name: 'Archive',
       }),
     );
@@ -782,7 +782,7 @@ describe('Archive workspace and mode switch', () => {
     workspaceLeafletMock.fakeMap.setView.mockClear();
 
     fireEvent.click(
-      within(screen.getByRole('group', { name: 'Workspace mode' })).getByRole('button', {
+      within(screen.getByRole('tablist', { name: 'Workspace mode' })).getByRole('tab', {
         name: 'Archive',
       }),
     );

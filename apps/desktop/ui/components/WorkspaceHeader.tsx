@@ -9,15 +9,6 @@ import { formatTime } from '../lib/frametime.js';
 
 export type WorkspaceMode = 'archive' | 'review';
 
-const MODE_TABS: ReadonlyArray<{
-  id: WorkspaceMode;
-  labelKey: 'workspaceHeader.archiveMode' | 'workspaceHeader.reviewMode';
-  Icon: typeof Layers;
-}> = [
-  { id: 'archive', labelKey: 'workspaceHeader.archiveMode', Icon: Layers },
-  { id: 'review', labelKey: 'workspaceHeader.reviewMode', Icon: Film },
-];
-
 interface WorkspaceHeaderProps {
   /** Recording length in seconds; null while no recording is loaded. */
   durationSec: number | null;
@@ -37,6 +28,14 @@ export function WorkspaceHeader({
     archive: null,
     review: null,
   });
+  const modeTabs: ReadonlyArray<{
+    id: WorkspaceMode;
+    label: string;
+    Icon: typeof Layers;
+  }> = [
+    { id: 'archive', label: t('workspaceHeader.archiveMode'), Icon: Layers },
+    { id: 'review', label: t('workspaceHeader.reviewMode'), Icon: Film },
+  ];
 
   const handleTabKeyDown = (current: WorkspaceMode, e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -72,7 +71,7 @@ export function WorkspaceHeader({
       </div>
       {showModeSwitch && mode && onModeChange ? (
         <div className="header-mode-tabs" role="tablist" aria-label={t('workspaceHeader.mode')}>
-          {MODE_TABS.map(({ id, labelKey, Icon }) => (
+          {modeTabs.map(({ id, label, Icon }) => (
             <button
               key={id}
               ref={(el) => {
@@ -87,7 +86,7 @@ export function WorkspaceHeader({
               onKeyDown={(e) => handleTabKeyDown(id, e)}
             >
               <Icon aria-hidden="true" />
-              <span>{t(labelKey)}</span>
+              <span>{label}</span>
             </button>
           ))}
         </div>
