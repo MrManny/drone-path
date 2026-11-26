@@ -12,11 +12,26 @@
   "archiveWorkspace.noRecordings": "Aucun enregistrement de drone trouvé dans tes dossiers surveillés.",
   "archiveWorkspace.noTelemetryBadge": "Sans GPS",
   "archiveWorkspace.offlineBadge": "Hors ligne",
+  "archiveWorkspace.offlineClipHint": "Hors ligne ou introuvable à {path}. Reconnecte le lecteur ou réanalyse.",
+  "archiveWorkspace.offlineClipLabel": "{name} (hors ligne)",
   "archiveWorkspace.offlineCount": {
     "one": "{count} hors ligne",
     "other": "{count} hors ligne"
   },
   "archiveWorkspace.openClip": "Ouvrir {name} dans Examen",
+  "archiveWorkspace.pruneOffline": "Retirer les clips manquants…",
+  "archiveWorkspace.pruneOfflineCancel": "Annuler",
+  "archiveWorkspace.pruneOfflineConfirm": {
+    "one": "Retirer {count} clip hors ligne de l’archive ? Sa trajectoire et ses statistiques en cache seront supprimées. Les fichiers vidéo sur le disque restent intacts.",
+    "other": "Retirer {count} clips hors ligne de l’archive ? Leurs trajectoires et statistiques en cache seront supprimées. Les fichiers vidéo sur le disque restent intacts."
+  },
+  "archiveWorkspace.pruneOfflineConfirmAction": "Retirer les clips manquants",
+  "archiveWorkspace.pruneOfflineTitle": "Retirer les clips manquants",
+  "archiveWorkspace.prunedOffline": {
+    "one": "{count} clip manquant retiré de l’archive.",
+    "other": "{count} clips manquants retirés de l’archive."
+  },
+  "archiveWorkspace.pruningOffline": "Suppression…",
   "archiveWorkspace.recordingCount": {
     "one": "{count} enregistrement",
     "other": "{count} enregistrements"
@@ -57,6 +72,7 @@
   "errors.accessDeniedNamed": "Accès à « {name} » refusé. Choisis un emplacement où tu peux écrire.",
   "errors.actionFailed": "Impossible de terminer l’action. Réessaie.",
   "errors.archiveClipOffline": "« {name} » est hors ligne ou introuvable dans son dossier. Reconnecte le lecteur ou réanalyse tes dossiers.",
+  "errors.archiveClipOfflineAtPath": "« {name} » est hors ligne ou introuvable à {path}. Reconnecte le lecteur ou réanalyse tes dossiers.",
   "errors.archiveExportFailed": "L’exportation de l’archive n’a pas pu être terminée. Réessaie.",
   "errors.archiveRootInvalid": "Impossible d’ouvrir le dossier sélectionné. Choisis un dossier existant.",
   "errors.archiveScanCanceled": "Analyse de l’archive annulée.",

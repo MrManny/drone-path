@@ -32,6 +32,7 @@ export const IPC_INVOKE_CHANNELS = {
   queryArchive: 'dronepath:archive:query',
   findArchiveAtPoint: 'dronepath:archive:find-at-point',
   openArchiveClip: 'dronepath:archive:open-clip',
+  pruneArchiveOffline: 'dronepath:archive:prune-offline',
 } as const;
 
 export const IPC_EVENT_CHANNELS = {
@@ -170,6 +171,7 @@ export interface ArchiveQueryResult {
   flights: ArchiveFlightDto[];
   totalCount: number;
   offlineCount: number;
+  offlineRoots?: string[];
 }
 
 export interface ArchiveNearHit {
@@ -200,6 +202,7 @@ export type ArchivePickFolderResult =
 
 export type ArchiveRemoveRootResult = { ok: true; roots: string[] } | IpcFailure;
 export type ArchiveScanResult = { ok: true; scanned: number } | IpcFailure;
+export type ArchivePruneOfflineResult = { ok: true; removed: number } | IpcFailure;
 
 export interface IpcInvokeMap<TLocale extends string = string> {
   [IPC_INVOKE_CHANNELS.pickRecording]: {
@@ -297,6 +300,10 @@ export interface IpcInvokeMap<TLocale extends string = string> {
   [IPC_INVOKE_CHANNELS.openArchiveClip]: {
     args: [request: OpenArchiveClipRequest];
     result: PickResult;
+  };
+  [IPC_INVOKE_CHANNELS.pruneArchiveOffline]: {
+    args: [];
+    result: ArchivePruneOfflineResult;
   };
 }
 

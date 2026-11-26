@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { FolderPlus, RefreshCw, Trash2, X } from 'lucide-react';
 
 import { leafName } from '../../shared/errors.js';
@@ -8,7 +10,9 @@ import type { ArchiveWorkspaceState } from '../hooks/useArchiveWorkspace.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
 import type { PickState } from '../lib/pickstate.js';
+import { DialogShell } from './DialogShell.js';
 import { ErrorNotice } from './ErrorNotice.js';
+import { Notice } from './Notice.js';
 import { OpenNotice } from './OpenNotice.js';
 import type { WorkspaceMode } from './WorkspaceHeader.js';
 import { WorkspaceShell } from './WorkspaceShell.js';
@@ -45,17 +49,23 @@ export function ArchiveWorkspace({
   dialogs,
 }: ArchiveWorkspaceProps) {
   const t = useTranslation();
+  const [confirmPruneOpen, setConfirmPruneOpen] = useState(false);
   const {
     roots,
+    offlineRoots,
     flights,
     totalCount,
     offlineCount,
     scanning,
+    pruning,
+    lastPrunedCount,
     scanProgress,
     error,
     removeFolder,
     rescan,
     cancelScan,
+    pruneOffline,
+    dismissPruneStatus,
     dismissError,
   } = archive;
 
@@ -126,10 +136,25 @@ export function ArchiveWorkspace({
               <ul className="archive-folder-list">
                 {roots.map((root) => {
                   const name = leafName(root) || root;
+                  const isFolderOffline = offlineRoots.has(root);
                   return (
-                    <li key={root} className="archive-folder-row">
+                    <li
+                      key={root}
+                      className={
+                        isFolderOffline
+                          ? 'archive-folder-row archive-folder-row-offline'
+                          : 'archive-folder-row'
+                      }
+                    >
                       <div className="archive-folder-meta">
-                        <span className="archive-folder-name">{name}</span>
+                        <div className="archive-folder-heading">
+                          <span className="archive-folder-name">{name}</span>
+                          {isFolderOffline ? (
+                            <span className="archive-badge archive-badge-offline">
+                              {t('archiveWorkspace.offlineBadge')}
+                            </span>
+                          ) : null}
+                        </div>
                         <span className="archive-folder-path hint" title={root}>
                           {root}
                         </span>
@@ -156,17 +181,33 @@ export function ArchiveWorkspace({
               <OpenNotice state={openState} onDismiss={onDismissOpenState} />
             ) : null}
             {error ? <ErrorNotice error={error} onDismiss={dismissError} /> : null}
+            {lastPrunedCount !== null && lastPrunedCount > 0 ? (
+              <Notice tone="info" onDismiss={dismissPruneStatus}>
+                {t('archiveWorkspace.prunedOffline', { count: lastPrunedCount })}
+              </Notice>
+            ) : null}
 
             <div className="archive-clips-summary">
-              <span className="readout">
-                {t('archiveWorkspace.recordingCount', { count: totalCount })}
-              </span>
-              {offlineCount > 0 ? (
-                <span className="hint">
-                  {' · '}
-                  {t('archiveWorkspace.offlineCount', { count: offlineCount })}
+              <div className="archive-clips-counts">
+                <span className="readout">
+                  {t('archiveWorkspace.recordingCount', { count: totalCount })}
                 </span>
-              ) : null}
+                {offlineCount > 0 ? (
+                  <span className="hint">
+                    {' · '}
+                    {t('archiveWorkspace.offlineCount', { count: offlineCount })}
+                  </span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="archive-prune-trigger"
+                disabled={offlineCount === 0 || scanning || pruning}
+                onClick={() => setConfirmPruneOpen(true)}
+              >
+                <Trash2 aria-hidden="true" />
+                {t('archiveWorkspace.pruneOffline')}
+              </button>
             </div>
 
             {flights.length === 0 ? (
@@ -192,6 +233,7 @@ export function ArchiveWorkspace({
                     <ul className="archive-clip-list">
                       {flight.clips.map((clip) => {
                         const name = leafName(clip.path);
+                        const isOffline = clip.availability === 'offline';
                         const durationText =
                           clip.video?.durationSec !== undefined && clip.video.durationSec !== null
                             ? formatTime(clip.video.durationSec)
@@ -199,21 +241,33 @@ export function ArchiveWorkspace({
                         const distanceText = clip.telemetry
                           ? `${Math.round(clip.telemetry.trackDistanceM)} m`
                           : '--';
-                        const badge =
-                          clip.availability === 'offline'
-                            ? t('archiveWorkspace.offlineBadge')
-                            : clip.status === 'no-telemetry' || clip.status === 'no-gps'
-                              ? t('archiveWorkspace.noTelemetryBadge')
-                              : clip.status === 'error'
-                                ? t('archiveWorkspace.errorBadge')
-                                : null;
+                        const badge = isOffline
+                          ? t('archiveWorkspace.offlineBadge')
+                          : clip.status === 'no-telemetry' || clip.status === 'no-gps'
+                            ? t('archiveWorkspace.noTelemetryBadge')
+                            : clip.status === 'error'
+                              ? t('archiveWorkspace.errorBadge')
+                              : null;
                         return (
                           <li key={clip.path}>
                             <button
                               type="button"
-                              className="archive-clip-row"
-                              aria-label={t('archiveWorkspace.openClip', { name })}
-                              disabled={opening}
+                              className={
+                                isOffline
+                                  ? 'archive-clip-row archive-clip-row-offline'
+                                  : 'archive-clip-row'
+                              }
+                              aria-label={
+                                isOffline
+                                  ? t('archiveWorkspace.offlineClipLabel', { name })
+                                  : t('archiveWorkspace.openClip', { name })
+                              }
+                              title={
+                                isOffline
+                                  ? t('archiveWorkspace.offlineClipHint', { path: clip.path })
+                                  : undefined
+                              }
+                              disabled={opening || isOffline}
                               onClick={() => onOpenClip(clip.path)}
                             >
                               <div className="archive-clip-main">
@@ -223,7 +277,17 @@ export function ArchiveWorkspace({
                                 </span>
                               </div>
                               <div className="archive-clip-meta">
-                                {badge ? <span className="archive-badge">{badge}</span> : null}
+                                {badge ? (
+                                  <span
+                                    className={
+                                      isOffline
+                                        ? 'archive-badge archive-badge-offline'
+                                        : 'archive-badge'
+                                    }
+                                  >
+                                    {badge}
+                                  </span>
+                                ) : null}
                                 <span className="readout">{durationText}</span>
                                 <span className="readout">{distanceText}</span>
                               </div>
@@ -237,6 +301,42 @@ export function ArchiveWorkspace({
               </div>
             )}
           </section>
+          {confirmPruneOpen && offlineCount > 0 ? (
+            <DialogShell
+              title={t('archiveWorkspace.pruneOfflineTitle')}
+              onClose={() => {
+                if (!pruning) setConfirmPruneOpen(false);
+              }}
+              closeOnBackdrop={!pruning}
+            >
+              <Notice tone="warning">
+                {t('archiveWorkspace.pruneOfflineConfirm', { count: offlineCount })}
+              </Notice>
+              <div className="dialog-actions">
+                <button
+                  type="button"
+                  disabled={pruning}
+                  onClick={() => setConfirmPruneOpen(false)}
+                >
+                  {t('archiveWorkspace.pruneOfflineCancel')}
+                </button>
+                <button
+                  type="button"
+                  className="dialog-primary"
+                  disabled={pruning}
+                  onClick={() => {
+                    void pruneOffline().then((removed) => {
+                      if (removed !== null) setConfirmPruneOpen(false);
+                    });
+                  }}
+                >
+                  {pruning
+                    ? t('archiveWorkspace.pruningOffline')
+                    : t('archiveWorkspace.pruneOfflineConfirmAction')}
+                </button>
+              </div>
+            </DialogShell>
+          ) : null}
         </div>
       }
     />

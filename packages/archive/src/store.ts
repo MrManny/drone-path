@@ -451,6 +451,17 @@ export class ArchiveStore {
     });
   }
 
+  pruneOffline(): number {
+    return this.transaction('BEGIN IMMEDIATE', () => {
+      const { changes } = this.db.prepare("DELETE FROM clips WHERE availability = 'offline'").run();
+      const count = Number(changes);
+      if (count === 0) return 0;
+      this.refreshFlights();
+      this.db.exec('UPDATE archive_revision SET revision = revision + 1');
+      return count;
+    });
+  }
+
   private revision(): number {
     return this.db.prepare('SELECT revision FROM archive_revision').get()?.revision as number;
   }

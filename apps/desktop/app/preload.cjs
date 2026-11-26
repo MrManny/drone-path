@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('dronepath', {
   queryArchive: (...args) => ipcRenderer.invoke('dronepath:archive:query', ...args),
   findArchiveAtPoint: (...args) => ipcRenderer.invoke('dronepath:archive:find-at-point', ...args),
   openArchiveClip: (...args) => ipcRenderer.invoke('dronepath:archive:open-clip', ...args),
+  pruneArchiveOffline: (...args) => ipcRenderer.invoke('dronepath:archive:prune-offline', ...args),
   onExportCapture: (cb) => subscribe('dronepath:export:capture', cb),
   onExportDone: (cb) => subscribe('dronepath:export:done', cb),
   onPreparing: (cb) => subscribe('dronepath:preparing', () => cb()),

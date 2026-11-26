@@ -185,6 +185,20 @@ describe('structured errors that carry params', () => {
     });
   });
 
+  it('names both file and missing path for ARCHIVE_CLIP_OFFLINE when path is provided', () => {
+    const detail = 'recording is offline or missing: E:\\Drone\\DJI_0001.MP4';
+    expect(
+      describeError({
+        code: 'ARCHIVE_CLIP_OFFLINE',
+        params: { name: 'DJI_0001.MP4', path: 'E:\\Drone\\DJI_0001.MP4' },
+        detail,
+      }),
+    ).toEqual({
+      text: '"DJI_0001.MP4" is offline or missing at E:\\Drone\\DJI_0001.MP4. Reconnect the drive or rescan your folders.',
+      technical: detail,
+    });
+  });
+
   it('points to the kept file from params when COULD_NOT_REPLACE_OUTPUT occurs', () => {
     const detail =
       'could not replace E:\\exports\\a.mp4: EBUSY: resource busy or locked ' +

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 
 import { cleanupTmpDirs, probeFixture, tmpDir } from '../../../test/fixtures/core.js';
-import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from '../src/query.js';
+import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound, pruneArchiveOffline } from '../src/query.js';
 import type { SparseSample } from '../src/scan-track.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from '../src/store.js';
 import type { ClipUpdate } from '../src/store.js';
@@ -220,4 +220,16 @@ it('lists and filters ranked segments and matching clips/flights', () => {
   expect(listArchive(db, { segmentType: 'smooth-glide', minSmoothness: 0.8 }).map(({ path: p }) => p)).toEqual(['beta.mp4']);
   expect(listArchiveFlights(db, { segmentType: 'hover' }).map(({ clips }) => clips[0].path)).toEqual(['gamma.mp4']);
   expect(() => listArchiveSegments(db, { minSmoothness: 1.5 })).toThrow('expected a smoothness score between 0 and 1');
+});
+
+it('prunes offline clips via pruneArchiveOffline while keeping online clips intact', () => {
+  const points = [{ lat: 46, lon: 14, tSec: 1, segment: 0 }];
+  const db = index(
+    clip('keep.mp4', points, 'online'),
+    clip('gone-1.mp4', points, 'offline'),
+    clip('gone-2.mp4', points, 'offline'),
+  );
+  expect(pruneArchiveOffline(db)).toBe(2);
+  expect(listArchive(db).map(({ path: p }) => p)).toEqual(['keep.mp4']);
+  expect(pruneArchiveOffline(db)).toBe(0);
 });

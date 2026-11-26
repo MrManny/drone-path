@@ -250,3 +250,86 @@ describe('ArchiveStore.removeClipsUnder', () => {
     });
   }
 });
+
+describe('ArchiveStore.pruneOffline', () => {
+  function offlineOrOnlineClip(
+    filePath: string,
+    availability: 'online' | 'offline',
+    cameraCreationTime = '2026-01-01T10:00:00Z',
+    size = 100,
+  ) {
+    const key = process.platform === 'win32' ? filePath.toLowerCase() : filePath;
+    return {
+      key,
+      availability,
+      fingerprint: { size, mtimeMs: 1000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+      record: {
+        path: filePath,
+        size,
+        mtimeMs: 1000,
+        status: 'ok' as const,
+        video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 90, width: 1920, height: 1080, durationSec: 3 },
+        cameraCreationTime,
+        telemetry: { source: 'srt' as const, method: 'srt-cues' as const, fixCount: 1, noLock: 0, trackDistanceM: 10 },
+        bbox: { minLat: 46.6, maxLat: 46.6, minLon: 14.2, maxLon: 14.2 },
+        track: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+        error: null,
+      },
+      overview: [[{ lat: 46.6, lon: 14.2, tSec: 0 }, { lat: 46.6, lon: 14.2, tSec: 3 }]],
+      samples: [
+        { segment: 0, lat: 46.6, lon: 14.2, tSec: 0 },
+        { segment: 0, lat: 46.6, lon: 14.2, tSec: 3 },
+      ],
+      gaze: [{ tSec: 0, polygon: [{ lat: 46.6, lon: 14.2 }, { lat: 46.61, lon: 14.2 }, { lat: 46.61, lon: 14.21 }] }],
+      segments: [{
+        type: 'hover' as const,
+        startSec: 0,
+        endSec: 3,
+        durationSec: 3,
+        smoothness: 0.9,
+        exposureStable: true,
+        meanSpeedMps: 0.1,
+        meanYawRateDegPerSec: 0.2,
+      }],
+    };
+  }
+
+  it('deletes offline clips, cascades related rows, refreshes flights, and bumps revision', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const offlineA = offlineOrOnlineClip(path.join(base, 'DJI_0001.MP4'), 'offline', '2026-01-01T10:00:00Z', 4_000_000_000);
+      const onlineB = offlineOrOnlineClip(path.join(base, 'DJI_0002.MP4'), 'online', '2026-01-01T10:00:03Z', 200);
+      const offlineC = offlineOrOnlineClip(path.join(base, 'DJI_0003.MP4'), 'offline', '2026-01-01T12:00:00Z', 100);
+      store.commit(0, [offlineA, onlineB, offlineC], [], [], []);
+      expect(store.snapshot().revision).toBe(1);
+      expect(store.listClips().find((c) => c.key === onlineB.key)?.flight.splitFromKey).toBe(offlineA.key);
+
+      expect(store.pruneOffline()).toBe(2);
+
+      const snap = store.snapshot();
+      expect(snap.revision).toBe(2);
+      expect(snap.clips.map((c) => c.key)).toEqual([onlineB.key]);
+      const remaining = store.listClips();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]?.flight.splitFromKey).toBeNull();
+      expect(store.readSamples(offlineA.key)).toEqual([]);
+      expect(store.readSegments(offlineA.key)).toEqual([]);
+      expect(store.pruneOffline()).toBe(0);
+      expect(store.snapshot().revision).toBe(2);
+    } finally {
+      store.close();
+    }
+
+    const raw = new DatabaseSync(dbFile);
+    try {
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_gaze').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_flights').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_samples').get()?.count).toBe(2);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM segments').get()?.count).toBe(1);
+    } finally {
+      raw.close();
+    }
+  });
+});

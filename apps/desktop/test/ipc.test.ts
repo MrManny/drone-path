@@ -646,7 +646,7 @@ describe('structured IPC error codes and contract parity (#394, #413)', () => {
       Parameters<IpcEventSender>[1] extends infer _ ? Parameters<Parameters<AppBridge<Locale>['onUpdateRestartFailed']>[0]>[0] : never
     >();
     const allChannels = [...Object.values(IPC_INVOKE_CHANNELS), ...Object.values(IPC_EVENT_CHANNELS)];
-    expect(new Set(allChannels).size).toBe(31);
+    expect(new Set(allChannels).size).toBe(32);
     expectTypeOf<IpcEventChannel>().toEqualTypeOf<
       (typeof IPC_EVENT_CHANNELS)[keyof typeof IPC_EVENT_CHANNELS]
     >();
@@ -942,6 +942,7 @@ describe('archive IPC handlers (#326)', () => {
     const query = vi.fn(() => ({ flights: [], totalCount: 0, offlineCount: 0 }));
     const findAtPoint = vi.fn(() => []);
     let fileExists = true;
+    const pruneOffline = vi.fn(() => 2);
     controller.attachArchiveService({
       listRoots: () => [...roots],
       addRoot: (nextDir) => {
@@ -956,6 +957,8 @@ describe('archive IPC handlers (#326)', () => {
       cancelScan,
       query,
       findAtPoint,
+      pruneOffline,
+      clipAvailability: () => (fileExists ? 'online' : 'offline'),
       fileExists: () => fileExists,
     });
     setup(controller);
@@ -1014,8 +1017,11 @@ describe('archive IPC handlers (#326)', () => {
       ok: false,
       code: 'ARCHIVE_CLIP_OFFLINE',
       detail: `recording is offline or missing: ${clipPath}`,
-      params: { name: 'clip.mp4' },
+      params: { name: 'clip.mp4', path: clipPath },
     });
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.pruneArchiveOffline)).toEqual({ ok: true, removed: 2 });
+    expect(pruneOffline).toHaveBeenCalledTimes(1);
 
     expect(await invoke(IPC_INVOKE_CHANNELS.removeArchiveRoot, dir)).toEqual({ ok: true, roots: [] });
   });

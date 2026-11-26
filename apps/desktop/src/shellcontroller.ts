@@ -125,6 +125,7 @@ export interface IpcController {
   queryArchive(filters?: unknown): ArchiveQueryResult;
   findArchiveAtPoint(point: unknown, radiusM?: unknown, includeGaze?: unknown): ArchiveNearHit[];
   openArchiveClip(raw: unknown): Promise<PickResult>;
+  pruneArchiveOffline(): number;
   liveWindow(): ShellWindow | null;
   translator(): Translate;
 }
@@ -348,17 +349,23 @@ export function createShellController(options: ShellControllerOptions): ShellCon
       if (!session) throw new Error('session not initialized');
       const request = parseOpenArchiveClipRequest(raw);
       const resolved = path.resolve(request.path);
-      if (isRecordingName(resolved) && archiveService && !archiveService.fileExists(resolved)) {
-        return {
-          ok: false,
-          code: 'ARCHIVE_CLIP_OFFLINE',
-          detail: `recording is offline or missing: ${resolved}`,
-          params: { name: path.basename(resolved) },
-        };
+      if (
+        archiveService &&
+        (archiveService.clipAvailability(resolved) === 'offline' ||
+          (isRecordingName(resolved) && !archiveService.fileExists(resolved)))
+      ) {
+        throw codedDesktopError(
+          'ARCHIVE_CLIP_OFFLINE',
+          `recording is offline or missing: ${resolved}`,
+          { name: path.basename(resolved), path: resolved },
+        );
       }
       const result = await session.openFile(resolved, { settings: request.settings });
       if (result.ok) outputs.clearPending();
       return result;
+    },
+    pruneArchiveOffline(): number {
+      return requireArchiveService().pruneOffline();
     },
     liveWindow,
     translator: currentTranslator,
