@@ -11,6 +11,8 @@ import type { ScanRecord } from 'drone-path-archive/scanner';
 import type { ArchiveStore } from 'drone-path-archive/store';
 import type { ArchiveScanProgress } from '../shared/ipc.js';
 import { createArchiveService } from '../src/archiveservice.js';
+import { posterIdFor } from '../src/archiveposters.js';
+import type { PosterRegistration } from '../src/archiveposters.js';
 import { addArchiveRoot, emptyAppState, removeArchiveRoot } from '../src/appstate.js';
 import { cleanupTmpDirs, probeFixture, SRT_SAMPLE, tmpDir } from '../../../test/fixtures/core.js';
 
@@ -47,6 +49,9 @@ function makeHarness(overrides: {
   listArchiveFlights?: () => ArchiveFlight[];
   listArchiveFlightOverviews?: () => ArchiveFlight[];
   nearArchive?: () => NearHit[];
+  exportArchiveTracks?: () => void;
+  exportArchiveMap?: () => void;
+  registerPoster?: (clip: PosterRegistration) => string;
   removeClipsUnder?: (root: string) => number;
   pruneOffline?: () => number;
   snapshotClips?: ReturnType<ArchiveStore['snapshot']>['clips'];
@@ -71,6 +76,9 @@ function makeHarness(overrides: {
     ? vi.fn(overrides.listArchiveFlightOverviews)
     : undefined;
   const nearArchive = vi.fn(overrides.nearArchive ?? (() => []));
+  const exportArchiveTracks = vi.fn(overrides.exportArchiveTracks ?? (() => {}));
+  const exportArchiveMap = vi.fn(overrides.exportArchiveMap ?? (() => {}));
+  const registerPoster = overrides.registerPoster ? vi.fn(overrides.registerPoster) : undefined;
 
   const service = createArchiveService({
     getRoots: () => state.archiveRoots,
@@ -92,6 +100,9 @@ function makeHarness(overrides: {
       listArchiveFlights,
       ...(listArchiveFlightOverviews ? { listArchiveFlightOverviews } : {}),
       nearArchive,
+      exportArchiveTracks,
+      exportArchiveMap,
+      ...(registerPoster ? { registerPoster } : {}),
       withArchiveStore: (_db, run) =>
         run({ removeClipsUnder, pruneOffline, snapshot } as unknown as ArchiveStore),
     },
@@ -106,6 +117,9 @@ function makeHarness(overrides: {
     listArchiveFlights,
     listArchiveFlightOverviews,
     nearArchive,
+    exportArchiveTracks,
+    exportArchiveMap,
+    registerPoster,
   };
 }
 
@@ -209,7 +223,15 @@ describe('createArchiveService', () => {
     });
 
     expect(service.query({ minDistanceM: 10 })).toEqual({
-      flights,
+      flights: [
+        {
+          flightId: 'f1',
+          clips: [
+            { ...onlineClip, posterId: posterIdFor(onlineClip.path, onlineClip.mtimeMs, onlineClip.size) },
+            { ...offlineClip, posterId: posterIdFor(offlineClip.path, offlineClip.mtimeMs, offlineClip.size) },
+          ],
+        },
+      ],
       totalCount: 2,
       offlineCount: 1,
     });
@@ -245,9 +267,94 @@ describe('createArchiveService', () => {
       listArchiveFlightOverviews: () => flights,
     });
     const bbox = { minLat: 46, maxLat: 47, minLon: 14, maxLon: 15 };
-    expect(service.query({ bbox })).toEqual({ flights, totalCount: 1, offlineCount: 0 });
+    expect(service.query({ bbox })).toEqual({
+      flights: [
+        {
+          flightId: 'f1',
+          clips: [
+            {
+              ...flights[0].clips[0],
+              posterId: posterIdFor('a.mp4', flights[0].clips[0].mtimeMs, flights[0].clips[0].size),
+            },
+          ],
+        },
+      ],
+      totalCount: 1,
+      offlineCount: 0,
+    });
     expect(listArchiveFlightOverviews).toHaveBeenCalledWith(expect.any(String), { bbox });
     expect(listArchiveFlights).not.toHaveBeenCalled();
+  });
+
+  it('filters query results by folderRoot and flightId and registers poster entries', () => {
+    const rootA = path.join(tmpDir(), 'rootA');
+    const rootB = path.join(tmpDir(), 'rootB');
+    const clipA = { ...makeScanRecord(path.join(rootA, 'DJI_0001.MP4')), availability: 'online' as const, splitFromKey: null };
+    const clipB = { ...makeScanRecord(path.join(rootB, 'DJI_0002.MP4')), availability: 'offline' as const, splitFromKey: null };
+    const registerPoster = vi.fn((clip: PosterRegistration) => posterIdFor(clip.path, clip.mtimeMs, clip.size));
+    const { service, listArchiveFlights } = makeHarness({
+      listArchiveFlights: () => [
+        { flightId: 'flight-a', clips: [clipA] },
+        { flightId: 'flight-b', clips: [clipB] },
+      ],
+      registerPoster,
+    });
+
+    const byFolder = service.query({ folderRoot: rootA });
+    expect(listArchiveFlights).toHaveBeenLastCalledWith(expect.any(String), {});
+    expect(byFolder.totalCount).toBe(1);
+    expect(byFolder.offlineCount).toBe(0);
+    expect(byFolder.flights.map((f) => f.flightId)).toEqual(['flight-a']);
+    expect(registerPoster).toHaveBeenCalledWith(
+      expect.objectContaining({ path: clipA.path, availability: 'online', durationSec: 3 }),
+    );
+
+    const byFlight = service.query({ flightId: 'flight-b' });
+    expect(byFlight.totalCount).toBe(1);
+    expect(byFlight.offlineCount).toBe(1);
+    expect(byFlight.flights[0].clips[0].path).toBe(clipB.path);
+  });
+
+  it('exports archive tracks and HTML maps and wraps export failures as ARCHIVE_EXPORT_FAILED', () => {
+    const outGpx = path.join(tmpDir(), 'out', 'archive.gpx');
+    const outHtml = path.join(tmpDir(), 'out', 'archive.html');
+    const { service, exportArchiveTracks, exportArchiveMap } = makeHarness();
+
+    service.exportArchive({
+      outPath: outGpx,
+      format: 'gpx',
+      filters: { minDistanceM: 25, folderRoot: tmpDir(), flightId: 'flight-1' },
+      redactLaunchM: 200,
+    });
+    expect(exportArchiveTracks).toHaveBeenCalledWith(expect.any(String), outGpx, {
+      filters: { minDistanceM: 25 },
+      redactLaunchM: 200,
+    });
+
+    service.exportArchive({
+      outPath: outHtml,
+      format: 'html',
+      includeGaze: true,
+      offline: true,
+    });
+    expect(exportArchiveMap).toHaveBeenCalledWith(expect.any(String), outHtml, {
+      includeGaze: true,
+      offline: true,
+    });
+
+    expect(() => service.exportArchive({ outPath: 'relative.gpx', format: 'gpx' })).toThrow(
+      expect.objectContaining({ code: 'OUTPUT_PATH_ABSOLUTE' }),
+    );
+    expect(() => service.exportArchive({ outPath: outGpx, format: 'html' })).toThrow(
+      expect.objectContaining({ code: 'INVALID_REQUEST' }),
+    );
+
+    exportArchiveTracks.mockImplementationOnce(() => {
+      throw new Error('sqlite read failed');
+    });
+    expect(() => service.exportArchive({ outPath: outGpx, format: 'gpx' })).toThrow(
+      expect.objectContaining({ code: 'ARCHIVE_EXPORT_FAILED' }),
+    );
   });
 
   it('handles unreachable empty roots gracefully without failing scan', async () => {

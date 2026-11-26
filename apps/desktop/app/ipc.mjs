@@ -9,7 +9,7 @@ import { dialog, ipcMain, shell } from 'electron';
 import { isAllowedAppUrl } from '../dist/shared/appurls.js';
 import { resolveSavePath } from '../dist/outputguard.js';
 import { classifyError } from '../dist/shared/errors.js';
-import { IPC_INVOKE_CHANNELS } from '../dist/shared/ipc.js';
+import { ARCHIVE_EXPORT_FORMATS, IPC_INVOKE_CHANNELS } from '../dist/shared/ipc.js';
 import { TRACK_FORMAT_VALUES } from 'drone-path-core/track-format';
 import { showDialogWithParent } from './shell.mjs';
 
@@ -241,8 +241,9 @@ function registerWindowHandlers(controller, devUrl) {
 /**
  * @param {IpcController} controller
  * @param {string | null} devUrl
+ * @param {(message: string) => void} log
  */
-function registerArchiveHandlers(controller, devUrl) {
+function registerArchiveHandlers(controller, devUrl, log) {
   handle(devUrl, IPC_INVOKE_CHANNELS.pickArchiveFolder, async () => {
     const t = controller.translator();
     /** @type {Electron.OpenDialogOptions} */
@@ -279,6 +280,39 @@ function registerArchiveHandlers(controller, devUrl) {
     controller.findArchiveAtPoint(point, radiusM, includeGaze),
   );
   handle(devUrl, IPC_INVOKE_CHANNELS.openArchiveClip, (raw) => controller.openArchiveClip(raw));
+  handle(devUrl, IPC_INVOKE_CHANNELS.revealArchiveClip, (clipPath) => {
+    shell.showItemInFolder(controller.resolveArchiveClipForReveal(clipPath));
+    return { ok: true };
+  });
+  handle(devUrl, IPC_INVOKE_CHANNELS.pickArchiveExportOutput, async (format) => {
+    const { defaultPath, format: targetFormat, t } = controller.beginArchiveExportPick(format);
+    const allFilters = [
+      { id: 'gpx', name: t('native.gpx'), extensions: ['gpx'] },
+      { id: 'geojson', name: t('native.geojson'), extensions: ['geojson'] },
+      { id: 'kml', name: t('native.kml'), extensions: ['kml'] },
+      { id: 'kmz', name: t('native.kmz'), extensions: ['kmz'] },
+      { id: 'html', name: t('native.htmlMap'), extensions: ['html'] },
+    ];
+    const orderedFilters = [
+      ...allFilters.filter((entry) => entry.id === targetFormat),
+      ...allFilters.filter((entry) => entry.id !== targetFormat),
+    ].map(({ name, extensions }) => ({ name, extensions }));
+    const result = await pickSavePath(controller, {
+      title: t('native.exportArchive'),
+      defaultPath,
+      filters: orderedFilters,
+      extensions: [...ARCHIVE_EXPORT_FORMATS],
+      defaultExtension: targetFormat,
+      t,
+    });
+    if (result.ok) controller.approveArchiveExportOut(result.path);
+    return result;
+  });
+  handle(devUrl, IPC_INVOKE_CHANNELS.exportArchive, (raw) => {
+    const approved = controller.exportArchive(raw);
+    log(`archive: wrote ${approved}`);
+    return { ok: true };
+  });
   handle(devUrl, IPC_INVOKE_CHANNELS.pruneArchiveOffline, () => ({
     ok: true,
     removed: controller.pruneArchiveOffline(),
@@ -297,5 +331,5 @@ export function registerIpcHandlers(controller, { devUrl, log }) {
   registerTrackHandlers(controller, devUrl, log);
   registerUpdateHandlers(controller, devUrl);
   registerWindowHandlers(controller, devUrl);
-  registerArchiveHandlers(controller, devUrl);
+  registerArchiveHandlers(controller, devUrl, log);
 }

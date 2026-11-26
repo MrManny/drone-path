@@ -30,8 +30,10 @@ describe('createOutputGuard', () => {
   const otherExport = path.resolve('exports', 'other.mp4');
   const approvedTrack = path.resolve('exports', 'flight.telemetry.json');
   const otherTrack = path.resolve('exports', 'other.json');
+  const approvedArchiveExport = path.resolve('exports', 'archive.gpx');
+  const otherArchiveExport = path.resolve('exports', 'other.gpx');
 
-  it('approves and consumes export and track paths once', () => {
+  it('approves and consumes export, track, and archive export paths once', () => {
     const guard = createOutputGuard();
 
     guard.approveExport(approvedExport);
@@ -41,6 +43,10 @@ describe('createOutputGuard', () => {
     guard.approveTrack(approvedTrack);
     expect(guard.consumeTrack(approvedTrack)).toBe(approvedTrack);
     expect(() => guard.consumeTrack(approvedTrack)).toThrow('output path was not approved by save dialog');
+
+    guard.approveArchiveExport(approvedArchiveExport);
+    expect(guard.consumeArchiveExport(approvedArchiveExport)).toBe(approvedArchiveExport);
+    expect(() => guard.consumeArchiveExport(approvedArchiveExport)).toThrow('output path was not approved by save dialog');
   });
 
   it('clears pending approvals on mismatch, cancel, or new recording', () => {
@@ -52,16 +58,22 @@ describe('createOutputGuard', () => {
 
     guard.approveExport(approvedExport);
     guard.approveTrack(approvedTrack);
+    guard.approveArchiveExport(approvedArchiveExport);
     guard.clearPending();
     expect(() => guard.consumeExport(approvedExport)).toThrow('output path was not approved by save dialog');
     expect(() => guard.consumeTrack(approvedTrack)).toThrow('output path was not approved by save dialog');
+    expect(() => guard.consumeArchiveExport(approvedArchiveExport)).toThrow('output path was not approved by save dialog');
 
     guard.approveTrack('relative/out.json');
     expect(() => guard.consumeTrack('relative/out.json')).toThrow('output path was not approved by save dialog');
     expect(() => guard.consumeTrack(otherTrack)).toThrow('output path was not approved by save dialog');
+
+    guard.approveArchiveExport(approvedArchiveExport);
+    guard.clearPendingArchiveExport();
+    expect(() => guard.consumeArchiveExport(otherArchiveExport)).toThrow('output path was not approved by save dialog');
   });
 
-  it('allows revealing or opening only recorded export or track outputs', () => {
+  it('allows revealing or opening only recorded export, track, or archive export outputs', () => {
     const guard = createOutputGuard();
     expect(() => guard.knownOutputOf({ out: approvedExport })).toThrow('unknown output');
     expect(() => guard.knownOutputOf(null)).toThrow('unknown output');
@@ -69,8 +81,10 @@ describe('createOutputGuard', () => {
 
     guard.recordExportOut(approvedExport);
     guard.recordTrackOut(approvedTrack);
+    guard.recordArchiveExportOut(approvedArchiveExport);
     expect(guard.knownOutputOf({ out: approvedExport })).toBe(approvedExport);
     expect(guard.knownOutputOf({ out: approvedTrack })).toBe(approvedTrack);
+    expect(guard.knownOutputOf({ out: approvedArchiveExport })).toBe(approvedArchiveExport);
     expect(() => guard.knownOutputOf({ out: otherExport })).toThrow('unknown output');
   });
 });

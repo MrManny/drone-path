@@ -3,6 +3,8 @@ import type {
   AppBridge as SharedAppBridge,
   ArchiveAvailability,
   ArchiveClipDto,
+  ArchiveExportFormat,
+  ArchiveExportRequest,
   ArchiveFlightClipDto,
   ArchiveFlightDto,
   ArchiveNearHit,
@@ -31,6 +33,8 @@ import type { Locale } from '../../shared/desktop-i18n/loader.js';
 export type {
   ArchiveAvailability,
   ArchiveClipDto,
+  ArchiveExportFormat,
+  ArchiveExportRequest,
   ArchiveFlightClipDto,
   ArchiveFlightDto,
   ArchiveNearHit,

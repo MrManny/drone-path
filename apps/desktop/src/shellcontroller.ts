@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 
 import type { LatLon } from 'drone-path-core/geo';
@@ -11,13 +12,16 @@ import { isRecordingName, videoBaseName } from 'drone-path-engine/recordings';
 
 import { codedDesktopError } from 'drone-path-desktop/shared/errors';
 import type { StructuredError } from 'drone-path-desktop/shared/errors';
-import { IPC_EVENT_CHANNELS } from 'drone-path-desktop/shared/ipc';
+import { ARCHIVE_EXPORT_FORMATS, IPC_EVENT_CHANNELS } from 'drone-path-desktop/shared/ipc';
 import type {
+  ArchiveExportFormat,
   ArchiveNearHit,
   ArchiveQueryFilters,
   ArchiveQueryResult,
   IpcAck,
 } from 'drone-path-desktop/shared/ipc';
+import type { ArchivePosters } from './archiveposters.js';
+import { parseArchiveExportRequest } from './archiveservice.js';
 import type { ArchiveService } from './archiveservice.js';
 import type { AppSession, PickResult, UiSession } from './appsession.js';
 import {
@@ -125,6 +129,14 @@ export interface IpcController {
   queryArchive(filters?: unknown): ArchiveQueryResult;
   findArchiveAtPoint(point: unknown, radiusM?: unknown, includeGaze?: unknown): ArchiveNearHit[];
   openArchiveClip(raw: unknown): Promise<PickResult>;
+  resolveArchiveClipForReveal(clipPath: unknown): string;
+  beginArchiveExportPick(format?: unknown): {
+    defaultPath: string;
+    format: ArchiveExportFormat;
+    t: Translate;
+  };
+  approveArchiveExportOut(outPath: string): void;
+  exportArchive(raw: unknown): string;
   pruneArchiveOffline(): number;
   liveWindow(): ShellWindow | null;
   translator(): Translate;
@@ -137,6 +149,8 @@ export interface ShellController {
   liveWindow(): ShellWindow | null;
   attachSession(session: AppSession | null): void;
   attachArchiveService(service: ArchiveService | null): void;
+  attachArchivePosters(posters: ArchivePosters | null): void;
+  resolveArchivePoster(posterId: string): Promise<string | null>;
   getArchiveRoots(): string[];
   addArchiveRootState(dir: string): string[];
   removeArchiveRootState(dir: string): string[];
@@ -158,6 +172,7 @@ export function createShellController(options: ShellControllerOptions): ShellCon
   let win: ShellWindow | null = null;
   let session: AppSession | null = null;
   let archiveService: ArchiveService | null = null;
+  let archivePosters: ArchivePosters | null = null;
   let exportRunner: ExportRunnerPort | null = null;
   let updates: UpdateController | null = null;
   let updateReady = false;
@@ -364,6 +379,63 @@ export function createShellController(options: ShellControllerOptions): ShellCon
       if (result.ok) outputs.clearPending();
       return result;
     },
+    resolveArchiveClipForReveal(clipPath: unknown): string {
+      if (typeof clipPath !== 'string' || clipPath.trim().length === 0) {
+        throw codedDesktopError('INVALID_REQUEST', 'clip path must not be empty');
+      }
+      const resolved = path.resolve(clipPath);
+      const service = requireArchiveService();
+      const availability = service.clipAvailability(resolved);
+      if (availability === null) {
+        throw codedDesktopError(
+          'FS_NOT_FOUND',
+          `archive clip not found: ${resolved}`,
+          { name: path.basename(resolved) },
+        );
+      }
+      if (availability === 'offline' || !service.fileExists(resolved)) {
+        throw codedDesktopError(
+          'ARCHIVE_CLIP_OFFLINE',
+          `recording is offline or missing: ${resolved}`,
+          { name: path.basename(resolved), path: resolved },
+        );
+      }
+      return resolved;
+    },
+    beginArchiveExportPick(format?: unknown): {
+      defaultPath: string;
+      format: ArchiveExportFormat;
+      t: Translate;
+    } {
+      outputs.clearPendingArchiveExport();
+      const targetFormat: ArchiveExportFormat =
+        format === undefined
+          ? 'gpx'
+          : ARCHIVE_EXPORT_FORMATS.find((candidate) => candidate === format) ??
+            (() => {
+              throw codedDesktopError('INVALID_REQUEST', 'invalid archive export format');
+            })();
+      const lastDir = appState.lastOpenDir;
+      const baseDir =
+        (lastDir && options.dirExists(lastDir) ? lastDir : undefined) ??
+        appState.archiveRoots.find((dir) => options.dirExists(dir)) ??
+        os.homedir();
+      return {
+        defaultPath: path.join(baseDir, `archive.${targetFormat}`),
+        format: targetFormat,
+        t: currentTranslator(),
+      };
+    },
+    approveArchiveExportOut(outPath: string): void {
+      outputs.approveArchiveExport(outPath);
+    },
+    exportArchive(raw: unknown): string {
+      const request = parseArchiveExportRequest(raw);
+      const approved = outputs.consumeArchiveExport(request.outPath);
+      requireArchiveService().exportArchive({ ...request, outPath: approved });
+      outputs.recordArchiveExportOut(approved);
+      return approved;
+    },
     pruneArchiveOffline(): number {
       return requireArchiveService().pruneOffline();
     },
@@ -383,6 +455,12 @@ export function createShellController(options: ShellControllerOptions): ShellCon
     },
     attachArchiveService(nextService: ArchiveService | null): void {
       archiveService = nextService;
+    },
+    attachArchivePosters(nextPosters: ArchivePosters | null): void {
+      archivePosters = nextPosters;
+    },
+    resolveArchivePoster(posterId: string): Promise<string | null> {
+      return archivePosters ? archivePosters.resolvePoster(posterId) : Promise.resolve(null);
     },
     getArchiveRoots: () => [...appState.archiveRoots],
     addArchiveRootState(dir: string): string[] {

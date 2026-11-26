@@ -30,6 +30,10 @@ export interface OutputGuard {
   approveTrack(outPath: string): void;
   consumeTrack(outPath: string): string;
   recordTrackOut(outPath: string): void;
+  clearPendingArchiveExport(): void;
+  approveArchiveExport(outPath: string): void;
+  consumeArchiveExport(outPath: string): string;
+  recordArchiveExportOut(outPath: string): void;
   knownOutputOf(payload: unknown): string;
 }
 
@@ -62,15 +66,17 @@ function createApprovalSlot() {
   };
 }
 
-/** Tracks dialog-approved export/track save paths and the reveal/open output allowlist. */
+/** Tracks dialog-approved export/track/archive save paths and the reveal/open output allowlist. */
 export function createOutputGuard(): OutputGuard {
   const exportSlot = createApprovalSlot();
   const trackSlot = createApprovalSlot();
+  const archiveExportSlot = createApprovalSlot();
 
   return {
     clearPending(): void {
       exportSlot.clearPending();
       trackSlot.clearPending();
+      archiveExportSlot.clearPending();
     },
     clearPendingExport: exportSlot.clearPending,
     approveExport: exportSlot.approve,
@@ -80,9 +86,16 @@ export function createOutputGuard(): OutputGuard {
     approveTrack: trackSlot.approve,
     consumeTrack: trackSlot.consume,
     recordTrackOut: trackSlot.record,
+    clearPendingArchiveExport: archiveExportSlot.clearPending,
+    approveArchiveExport: archiveExportSlot.approve,
+    consumeArchiveExport: archiveExportSlot.consume,
+    recordArchiveExportOut: archiveExportSlot.record,
     knownOutputOf(payload: unknown): string {
       const out = isRecord(payload) ? payload.out : null;
-      if (typeof out !== 'string' || (!exportSlot.matches(out) && !trackSlot.matches(out))) {
+      if (
+        typeof out !== 'string' ||
+        (!exportSlot.matches(out) && !trackSlot.matches(out) && !archiveExportSlot.matches(out))
+      ) {
         throw codedDesktopError('UNKNOWN_OUTPUT', 'unknown output');
       }
       return out;

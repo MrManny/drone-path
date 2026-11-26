@@ -7,6 +7,7 @@ import type { Scene } from 'drone-path-engine/renderer/scene';
 import type {
   ArchivePickFolderResult,
   ArchivePruneOfflineResult,
+  ArchiveQueryFilters,
   ArchiveQueryResult,
   ArchiveScanProgress,
   ArchiveScanResult,
@@ -15,6 +16,11 @@ import type {
   PickResult,
 } from '../../shared/ipc.js';
 import Page from '../../ui/app/page.js';
+import {
+  DEFAULT_ARCHIVE_FILTERS,
+  buildArchiveQueryFilters,
+  countActiveArchiveFilters,
+} from '../../ui/hooks/useArchiveWorkspace.js';
 import { SESSION, installRafStub, installResizeObserverStub } from './harness.js';
 
 vi.mock('../../ui/components/MapIsland.js', async () => {
@@ -38,6 +44,7 @@ vi.mock('../../ui/components/ExportPreview.js', async () => {
 
 const SAMPLE_CLIP_PATH = 'E:\\Drone\\Flights\\DJI_0001.MP4';
 const SAMPLE_OFFLINE_PATH = 'E:\\Drone\\Flights\\DJI_0002.MP4';
+const SAMPLE_POSTER_ID = '0123456789abcdef0123456789abcdef';
 
 const SAMPLE_QUERY: ArchiveQueryResult = {
   totalCount: 2,
@@ -52,6 +59,7 @@ const SAMPLE_QUERY: ArchiveQueryResult = {
           mtimeMs: 1000,
           status: 'ok',
           availability: 'online',
+          posterId: SAMPLE_POSTER_ID,
           video: {
             fps: { num: 30, den: 1, value: 30, str: '30' },
             frames: 90,
@@ -140,9 +148,15 @@ function installArchiveBridge(options: {
     }),
     scanArchive: vi.fn(async (): Promise<ArchiveScanResult> => options.scanResult ?? { ok: true, scanned: 2 }),
     cancelArchiveScan: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
-    queryArchive: vi.fn(async () => options.queryResult ?? SAMPLE_QUERY),
+    queryArchive: vi.fn(async (_filters?: ArchiveQueryFilters) => options.queryResult ?? SAMPLE_QUERY),
     findArchiveAtPoint: vi.fn(async () => []),
     openArchiveClip: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+    revealArchiveClip: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
+    pickArchiveExportOutput: vi.fn(
+      async (): Promise<PickOutputResult> => ({ ok: true, path: 'E:\\Drone\\archive.html' }),
+    ),
+    exportArchive: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
+    revealExportOutput: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
     pruneArchiveOffline: vi.fn(
       async (): Promise<ArchivePruneOfflineResult> => options.pruneResult ?? { ok: true, removed: 1 },
     ),
@@ -367,5 +381,140 @@ describe('Archive workspace and mode switch', () => {
     await waitFor(() => expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText('Removed 1 missing clip from the archive.')).toBeTruthy());
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove missing clips…' }).disabled).toBe(true);
+  });
+
+  it('renders lazy clip posters with error fallback and wires Reveal in folder', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    const openOnline = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    const img = openOnline.querySelector<HTMLImageElement>('img');
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute('loading')).toBe('lazy');
+    expect(img!.getAttribute('src')).toBe(`app://bundle/archive/poster/${SAMPLE_POSTER_ID}`);
+
+    fireEvent.error(img!);
+    expect(openOnline.querySelector('img')).toBeNull();
+    expect(openOnline.querySelector('.archive-clip-poster-fallback')).not.toBeNull();
+
+    const revealOnline = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Reveal DJI_0001.MP4 in folder',
+    });
+    const revealOffline = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Reveal DJI_0002.MP4 in folder',
+    });
+    expect(revealOnline.disabled).toBe(false);
+    expect(revealOffline.disabled).toBe(true);
+
+    fireEvent.click(revealOnline);
+    await waitFor(() => expect(bridge.revealArchiveClip).toHaveBeenCalledWith(SAMPLE_CLIP_PATH));
+  });
+
+  it('toggles the collapsible filter rail, queries with filters and viewport sync, and clears filters', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    const initialQueries = bridge.queryArchive.mock.calls.length;
+
+    const toggle = screen.getByRole('button', { name: 'Filters' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    const rail = screen.getByRole('region', { name: 'Archive filters' });
+    fireEvent.change(within(rail).getByLabelText('From date'), {
+      target: { value: '2026-01-01' },
+    });
+    fireEvent.change(within(rail).getByLabelText('To date'), {
+      target: { value: '2026-01-02' },
+    });
+    fireEvent.change(within(rail).getByLabelText('Folder'), {
+      target: { value: 'E:\\Drone\\Flights' },
+    });
+    fireEvent.change(within(rail).getByLabelText('Flight'), {
+      target: { value: 'flight-1' },
+    });
+    fireEvent.change(within(rail).getByLabelText('Min distance'), {
+      target: { value: '50' },
+    });
+    fireEvent.change(within(rail).getByLabelText('Shot type'), {
+      target: { value: 'orbit' },
+    });
+    fireEvent.change(within(rail).getByLabelText('Min smoothness'), {
+      target: { value: '0.6' },
+    });
+
+    await waitFor(() => expect(bridge.queryArchive.mock.calls.length).toBeGreaterThan(initialQueries));
+    const lastFilterCall = bridge.queryArchive.mock.calls.at(-1)?.[0];
+    expect(lastFilterCall).toEqual({
+      afterMs: Date.parse('2026-01-01T00:00:00.000Z'),
+      beforeMs: Date.parse('2026-01-03T00:00:00.000Z'),
+      folderRoot: 'E:\\Drone\\Flights',
+      flightId: 'flight-1',
+      minDistanceM: 50,
+      segmentType: 'orbit',
+      minSmoothness: 0.6,
+    });
+    expect(within(toggle).getByText('7')).toBeTruthy();
+
+    fireEvent.click(within(rail).getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(within(toggle).queryByText('7')).toBeNull());
+    expect(bridge.queryArchive.mock.calls.at(-1)).toEqual([]);
+  });
+
+  it('exports the archive via the export modal with format, redaction, gaze, and offline options', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Export archive' });
+    fireEvent.change(within(dialog).getByLabelText('Format'), { target: { value: 'html' } });
+    fireEvent.click(within(dialog).getByLabelText('Offline map (no online basemaps)'));
+    fireEvent.click(within(dialog).getByLabelText('Redact launch area'));
+    fireEvent.change(within(dialog).getByLabelText('Radius'), { target: { value: '300' } });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Export…' }));
+    await waitFor(() => expect(bridge.pickArchiveExportOutput).toHaveBeenCalledWith('html'));
+    await waitFor(() =>
+      expect(bridge.exportArchive).toHaveBeenCalledWith({
+        outPath: 'E:\\Drone\\archive.html',
+        format: 'html',
+        redactLaunchM: 300,
+        includeGaze: false,
+        offline: true,
+      }),
+    );
+
+    await screen.findByText('Archive exported.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reveal in folder' }));
+    await waitFor(() =>
+      expect(bridge.revealExportOutput).toHaveBeenCalledWith({ out: 'E:\\Drone\\archive.html' }),
+    );
+  });
+
+  it('toggles Only in map view in queryArchive and builds bbox filters cleanly', async () => {
+    const bbox = { minLat: 46.5, maxLat: 46.7, minLon: 14.1, maxLon: 14.3 };
+    expect(buildArchiveQueryFilters(DEFAULT_ARCHIVE_FILTERS, bbox)).toBeUndefined();
+    expect(
+      buildArchiveQueryFilters({ ...DEFAULT_ARCHIVE_FILTERS, onlyInMapView: true }, bbox),
+    ).toEqual({ bbox });
+    expect(
+      countActiveArchiveFilters({ ...DEFAULT_ARCHIVE_FILTERS, onlyInMapView: true }),
+    ).toBe(1);
+
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    const rail = screen.getByRole('region', { name: 'Archive filters' });
+    const callsBefore = bridge.queryArchive.mock.calls.length;
+
+    fireEvent.click(within(rail).getByLabelText('Only in map view'));
+    await waitFor(() => expect(bridge.queryArchive.mock.calls.length).toBeGreaterThan(callsBefore));
+    expect(screen.getByRole('button', { name: /Filters/ })).toBeTruthy();
   });
 });

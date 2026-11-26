@@ -32,6 +32,9 @@ export const IPC_INVOKE_CHANNELS = {
   queryArchive: 'dronepath:archive:query',
   findArchiveAtPoint: 'dronepath:archive:find-at-point',
   openArchiveClip: 'dronepath:archive:open-clip',
+  revealArchiveClip: 'dronepath:archive:reveal-clip',
+  pickArchiveExportOutput: 'dronepath:archive:pick-export-output',
+  exportArchive: 'dronepath:archive:export',
   pruneArchiveOffline: 'dronepath:archive:prune-offline',
 } as const;
 
@@ -128,6 +131,7 @@ export interface ArchiveClipDto {
   mtimeMs: number | null;
   status: ArchiveScanStatus;
   availability: ArchiveAvailability;
+  posterId?: string;
   video: {
     fps: { num: number; den: number; value: number; str: string };
     frames: number;
@@ -165,6 +169,20 @@ export interface ArchiveQueryFilters {
   availability?: ArchiveAvailability;
   segmentType?: ShotType;
   minSmoothness?: number;
+  folderRoot?: string;
+  flightId?: string;
+}
+
+export const ARCHIVE_EXPORT_FORMATS = ['gpx', 'geojson', 'kml', 'kmz', 'html'] as const;
+export type ArchiveExportFormat = (typeof ARCHIVE_EXPORT_FORMATS)[number];
+
+export interface ArchiveExportRequest {
+  outPath: string;
+  format: ArchiveExportFormat;
+  filters?: ArchiveQueryFilters;
+  redactLaunchM?: number;
+  includeGaze?: boolean;
+  offline?: boolean;
 }
 
 export interface ArchiveQueryResult {
@@ -300,6 +318,18 @@ export interface IpcInvokeMap<TLocale extends string = string> {
   [IPC_INVOKE_CHANNELS.openArchiveClip]: {
     args: [request: OpenArchiveClipRequest];
     result: PickResult;
+  };
+  [IPC_INVOKE_CHANNELS.revealArchiveClip]: {
+    args: [clipPath: string];
+    result: IpcAck;
+  };
+  [IPC_INVOKE_CHANNELS.pickArchiveExportOutput]: {
+    args: [format?: ArchiveExportFormat];
+    result: PickOutputResult;
+  };
+  [IPC_INVOKE_CHANNELS.exportArchive]: {
+    args: [request: ArchiveExportRequest];
+    result: IpcAck;
   };
   [IPC_INVOKE_CHANNELS.pruneArchiveOffline]: {
     args: [];

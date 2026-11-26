@@ -9,3 +9,7 @@ export function uiExportRoot(shellDir: string): string {
 export function appStateFile(): string {
   return path.join(userDataDir(), 'state.json');
 }
+
+export function archivePosterCacheDir(): string {
+  return path.join(userDataDir(), 'cache', 'posters');
+}

@@ -1,18 +1,124 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { Bbox } from 'drone-path-core/geo';
+import type { ShotType } from 'drone-path-core/shot-segmentation';
 import { classifyError, fromIpcFailure } from '../../shared/errors.js';
 import type { StructuredError } from '../../shared/errors.js';
-import type { ArchiveFlightDto, ArchiveScanProgress } from '../../shared/ipc.js';
+import type { ArchiveFlightDto, ArchiveQueryFilters, ArchiveScanProgress } from '../../shared/ipc.js';
 import { tryAppBridge } from '../lib/backend.js';
 import { useMountedRef } from './useMountedRef.js';
+
+export interface ArchiveFilterState {
+  afterDate: string;
+  beforeDate: string;
+  folderRoot: string;
+  flightId: string;
+  minDistanceM: string;
+  segmentType: ShotType | '';
+  minSmoothness: number;
+  onlyInMapView: boolean;
+}
+
+export const DEFAULT_ARCHIVE_FILTERS: ArchiveFilterState = {
+  afterDate: '',
+  beforeDate: '',
+  folderRoot: '',
+  flightId: '',
+  minDistanceM: '',
+  segmentType: '',
+  minSmoothness: 0,
+  onlyInMapView: false,
+};
+
+const DAY_MS = 86_400_000;
+const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDayStartMs(dateStr: string): number | undefined {
+  if (!ISO_DAY_RE.test(dateStr)) return undefined;
+  const ms = Date.parse(`${dateStr}T00:00:00.000Z`);
+  return Number.isFinite(ms) ? ms : undefined;
+}
+
+function parsePositiveDistance(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === '') return undefined;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+export function countActiveArchiveFilters(filters: ArchiveFilterState): number {
+  let count = 0;
+  if (parseDayStartMs(filters.afterDate) !== undefined) count += 1;
+  if (parseDayStartMs(filters.beforeDate) !== undefined) count += 1;
+  if (filters.folderRoot !== '') count += 1;
+  if (filters.flightId !== '') count += 1;
+  if (parsePositiveDistance(filters.minDistanceM) !== undefined) count += 1;
+  if (filters.segmentType !== '') count += 1;
+  if (filters.minSmoothness > 0) count += 1;
+  if (filters.onlyInMapView) count += 1;
+  return count;
+}
+
+export function buildArchiveQueryFilters(
+  filters: ArchiveFilterState,
+  viewportBbox: Bbox | null,
+): ArchiveQueryFilters | undefined {
+  const query: ArchiveQueryFilters = {};
+  let hasFilter = false;
+
+  const afterMs = parseDayStartMs(filters.afterDate);
+  if (afterMs !== undefined) {
+    query.afterMs = afterMs;
+    hasFilter = true;
+  }
+
+  const beforeStartMs = parseDayStartMs(filters.beforeDate);
+  if (beforeStartMs !== undefined) {
+    query.beforeMs = beforeStartMs + DAY_MS;
+    hasFilter = true;
+  }
+
+  if (filters.folderRoot !== '') {
+    query.folderRoot = filters.folderRoot;
+    hasFilter = true;
+  }
+
+  if (filters.flightId !== '') {
+    query.flightId = filters.flightId;
+    hasFilter = true;
+  }
+
+  const minDistanceM = parsePositiveDistance(filters.minDistanceM);
+  if (minDistanceM !== undefined) {
+    query.minDistanceM = minDistanceM;
+    hasFilter = true;
+  }
+
+  if (filters.segmentType !== '') {
+    query.segmentType = filters.segmentType;
+    hasFilter = true;
+  }
+
+  if (filters.minSmoothness > 0) {
+    query.minSmoothness = filters.minSmoothness;
+    hasFilter = true;
+  }
+
+  if (filters.onlyInMapView && viewportBbox !== null) {
+    query.bbox = viewportBbox;
+    hasFilter = true;
+  }
+
+  return hasFilter ? query : undefined;
+}
 
 export interface ArchiveWorkspaceState {
   roots: string[];
   offlineRoots: ReadonlySet<string>;
   flights: ArchiveFlightDto[];
+  availableFlightIds: string[];
   totalCount: number;
   offlineCount: number;
   scanning: boolean;
@@ -21,11 +127,17 @@ export interface ArchiveWorkspaceState {
   scanProgress: ArchiveScanProgress | null;
   error: StructuredError | null;
   viewportBbox: Bbox | null;
+  filters: ArchiveFilterState;
+  activeFilterCount: number;
+  activeQueryFilters: ArchiveQueryFilters | undefined;
   setViewportBbox: (bbox: Bbox | null) => void;
+  setFilters: (next: ArchiveFilterState) => void;
+  clearFilters: () => void;
   addFolder: () => Promise<boolean>;
   removeFolder: (dir: string) => Promise<void>;
   rescan: () => Promise<void>;
   cancelScan: () => Promise<void>;
+  revealClip: (clipPath: string) => Promise<void>;
   pruneOffline: () => Promise<number | null>;
   dismissPruneStatus: () => void;
   dismissError: () => void;
@@ -86,6 +198,7 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const [roots, setRoots] = useState<string[]>([]);
   const [offlineRoots, setOfflineRoots] = useState<ReadonlySet<string>>(() => new Set());
   const [flights, setFlights] = useState<ArchiveFlightDto[]>([]);
+  const [availableFlightIds, setAvailableFlightIds] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [offlineCount, setOfflineCount] = useState(0);
   const [scanning, setScanning] = useState(false);
@@ -94,9 +207,11 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const [scanProgress, setScanProgress] = useState<ArchiveScanProgress | null>(null);
   const [error, setError] = useState<StructuredError | null>(null);
   const [viewportBbox, setViewportBboxState] = useState<Bbox | null>(null);
+  const [filters, setFiltersState] = useState<ArchiveFilterState>(DEFAULT_ARCHIVE_FILTERS);
 
   const mounted = useMountedRef();
   const viewportBboxRef = useRef<Bbox | null>(null);
+  const filtersRef = useRef<ArchiveFilterState>(DEFAULT_ARCHIVE_FILTERS);
   const querySeqRef = useRef(0);
   const rootsRef = useRef(roots);
   useLayoutEffect(() => {
@@ -108,15 +223,25 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   }, [onInitialRoots]);
 
   const refreshQuery = useCallback(
-    async (bbox: Bbox | null = viewportBboxRef.current, nextRoots?: readonly string[]) => {
+    async (
+      bbox: Bbox | null = viewportBboxRef.current,
+      nextRoots?: readonly string[],
+      nextFilters: ArchiveFilterState = filtersRef.current,
+    ) => {
       const bridge = tryAppBridge();
       if (!bridge || typeof bridge.queryArchive !== 'function') return;
       const seq = (querySeqRef.current += 1);
+      const queryFilters = buildArchiveQueryFilters(nextFilters, bbox);
       try {
-        const result = await (bbox ? bridge.queryArchive({ bbox }) : bridge.queryArchive());
+        const result = await (queryFilters
+          ? bridge.queryArchive(queryFilters)
+          : bridge.queryArchive());
         if (!mounted.current || querySeqRef.current !== seq) return;
         const activeRoots = nextRoots ?? rootsRef.current;
         setFlights(result.flights);
+        if (nextFilters.flightId === '') {
+          setAvailableFlightIds(result.flights.map((flight) => flight.flightId));
+        }
         setTotalCount(result.totalCount);
         setOfflineCount(result.offlineCount);
         setOfflineRoots(computeOfflineRoots(activeRoots, result.flights, result.offlineRoots));
@@ -133,10 +258,25 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
       if (bboxEqual(viewportBboxRef.current, bbox)) return;
       viewportBboxRef.current = bbox;
       setViewportBboxState(bbox);
-      void refreshQuery(bbox);
+      if (filtersRef.current.onlyInMapView) {
+        void refreshQuery(bbox);
+      }
     },
     [refreshQuery],
   );
+
+  const setFilters = useCallback(
+    (next: ArchiveFilterState) => {
+      filtersRef.current = next;
+      setFiltersState(next);
+      void refreshQuery(viewportBboxRef.current, undefined, next);
+    },
+    [refreshQuery],
+  );
+
+  const clearFilters = useCallback(() => {
+    setFilters(DEFAULT_ARCHIVE_FILTERS);
+  }, [setFilters]);
 
   const runScan = useCallback(
     async (targetRoots?: string[]) => {
@@ -240,7 +380,15 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
         }
         rootsRef.current = result.roots;
         setRoots(result.roots);
-        await refreshQuery(viewportBboxRef.current, result.roots);
+        const nextFilters =
+          filtersRef.current.folderRoot === dir
+            ? { ...filtersRef.current, folderRoot: '' }
+            : filtersRef.current;
+        if (nextFilters !== filtersRef.current) {
+          filtersRef.current = nextFilters;
+          setFiltersState(nextFilters);
+        }
+        await refreshQuery(viewportBboxRef.current, result.roots, nextFilters);
       } catch (e) {
         if (mounted.current) setError(classifyError(e));
       }
@@ -264,6 +412,23 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
       if (mounted.current) setError(classifyError(e));
     }
   }, [mounted]);
+
+  const revealClip = useCallback(
+    async (clipPath: string): Promise<void> => {
+      const bridge = tryAppBridge();
+      if (!bridge || typeof bridge.revealArchiveClip !== 'function') return;
+      setError(null);
+      try {
+        const result = await bridge.revealArchiveClip(clipPath);
+        if (mounted.current && !result.ok) {
+          setError(fromIpcFailure(result));
+        }
+      } catch (e) {
+        if (mounted.current) setError(classifyError(e));
+      }
+    },
+    [mounted],
+  );
 
   const pruneOffline = useCallback(async (): Promise<number | null> => {
     const bridge = tryAppBridge();
@@ -291,10 +456,17 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const dismissPruneStatus = useCallback(() => setLastPrunedCount(null), []);
   const dismissError = useCallback(() => setError(null), []);
 
+  const activeFilterCount = useMemo(() => countActiveArchiveFilters(filters), [filters]);
+  const activeQueryFilters = useMemo(
+    () => buildArchiveQueryFilters(filters, viewportBbox),
+    [filters, viewportBbox],
+  );
+
   return {
     roots,
     offlineRoots,
     flights,
+    availableFlightIds,
     totalCount,
     offlineCount,
     scanning,
@@ -303,11 +475,17 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     scanProgress,
     error,
     viewportBbox,
+    filters,
+    activeFilterCount,
+    activeQueryFilters,
     setViewportBbox,
+    setFilters,
+    clearFilters,
     addFolder,
     removeFolder,
     rescan,
     cancelScan,
+    revealClip,
     pruneOffline,
     dismissPruneStatus,
     dismissError,
