@@ -13,6 +13,10 @@ const checkbox = { tagName: 'INPUT', type: 'checkbox' };
 const select = { tagName: 'SELECT' };
 const textarea = { tagName: 'textarea' };
 const button = { tagName: 'BUTTON' };
+const tab = {
+  tagName: 'BUTTON',
+  getAttribute: (name: string) => (name === 'role' ? 'tab' : null),
+};
 
 function mapSequence(
   events: HotkeyEvent[],
@@ -180,6 +184,10 @@ describe('mapKey', () => {
     { name: 'Space is inert in a text field', event: { key: ' ', target: textarea }, want: null },
     { name: 'letters are inert in a select', event: { key: 'p', target: select }, want: null },
     { name: 'arrows are inert in a text field', event: { key: 'ArrowRight', target: input }, want: null },
+    { name: 'ArrowLeft yields to a focused tab', event: { key: 'ArrowLeft', target: tab }, want: null },
+    { name: 'ArrowRight yields to a focused tab', event: { key: 'ArrowRight', target: tab }, want: null },
+    { name: 'Home yields to a focused tab', event: { key: 'Home', target: tab }, want: null },
+    { name: 'End yields to a focused tab', event: { key: 'End', target: tab }, want: null },
     { name: 'Space yields to a focused checkbox', event: { key: ' ', target: checkbox }, want: null },
     { name: 'first Esc leaves a select dropdown alone', event: { key: 'Escape', target: select }, ctx: MODAL, want: null },
     {

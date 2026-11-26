@@ -1,20 +1,41 @@
+import os from 'node:os';
 import path from 'node:path';
 
+import type { LatLon } from 'drone-path-core/geo';
 import {
   parseExportRequest,
   parseSettingsPatch,
 } from 'drone-path-engine/config';
 import type { ExportRequest, RenderConfig } from 'drone-path-engine/config';
 import { outputPathFor } from 'drone-path-engine/pipeline';
-import { videoBaseName } from 'drone-path-engine/recordings';
+import { isRecordingName, videoBaseName } from 'drone-path-engine/recordings';
 
 import { codedDesktopError } from 'drone-path-desktop/shared/errors';
 import type { StructuredError } from 'drone-path-desktop/shared/errors';
-import { IPC_EVENT_CHANNELS } from 'drone-path-desktop/shared/ipc';
-import type { IpcAck } from 'drone-path-desktop/shared/ipc';
+import { ARCHIVE_EXPORT_FORMATS, IPC_EVENT_CHANNELS } from 'drone-path-desktop/shared/ipc';
+import type {
+  ArchiveExportFormat,
+  ArchiveNearHit,
+  ArchiveQueryFilters,
+  ArchiveQueryResult,
+  IpcAck,
+} from 'drone-path-desktop/shared/ipc';
+import type { ArchivePosters } from './archiveposters.js';
+import { parseArchiveExportRequest } from './archiveservice.js';
+import type { ArchiveService } from './archiveservice.js';
 import type { AppSession, PickResult, UiSession } from './appsession.js';
-import { parsePickRequest, parseTrackSaveRequest } from './appsession.js';
-import { applyAppState, emptyAppState, rememberOpenedFile } from './appstate.js';
+import {
+  parseOpenArchiveClipRequest,
+  parsePickRequest,
+  parseTrackSaveRequest,
+} from './appsession.js';
+import {
+  addArchiveRoot,
+  applyAppState,
+  emptyAppState,
+  rememberOpenedFile,
+  removeArchiveRoot,
+} from './appstate.js';
 import type { AppState } from './appstate.js';
 import { createCloseGuard } from './closeguard.js';
 import type { CloseGuard } from './closeguard.js';
@@ -100,6 +121,23 @@ export interface IpcController {
   getUpdateState(): { ready: boolean };
   restartUpdate(): IpcAck;
   closeWindow(): void;
+  listArchiveRoots(): string[];
+  addArchiveRoot(dir: string): { root: string; roots: string[] };
+  removeArchiveRoot(dir: unknown): string[];
+  scanArchive(roots?: unknown): Promise<{ scanned: number }>;
+  cancelArchiveScan(): void;
+  queryArchive(filters?: unknown): ArchiveQueryResult;
+  findArchiveAtPoint(point: unknown, radiusM?: unknown, includeGaze?: unknown): ArchiveNearHit[];
+  openArchiveClip(raw: unknown): Promise<PickResult>;
+  resolveArchiveClipForReveal(clipPath: unknown): string;
+  beginArchiveExportPick(format?: unknown): {
+    defaultPath: string;
+    format: ArchiveExportFormat;
+    t: Translate;
+  };
+  approveArchiveExportOut(outPath: string): void;
+  exportArchive(raw: unknown): string;
+  pruneArchiveOffline(): number;
   liveWindow(): ShellWindow | null;
   translator(): Translate;
 }
@@ -110,6 +148,12 @@ export interface ShellController {
   setWindow(win: ShellWindow | null): void;
   liveWindow(): ShellWindow | null;
   attachSession(session: AppSession | null): void;
+  attachArchiveService(service: ArchiveService | null): void;
+  attachArchivePosters(posters: ArchivePosters | null): void;
+  resolveArchivePoster(posterId: string): Promise<string | null>;
+  getArchiveRoots(): string[];
+  addArchiveRootState(dir: string): string[];
+  removeArchiveRootState(dir: string): string[];
   videoPath(): string | null;
   attachExportRunner(runner: ExportRunnerPort | null): void;
   attachUpdates(updates: UpdateController | null): void;
@@ -127,12 +171,19 @@ export interface ShellController {
 export function createShellController(options: ShellControllerOptions): ShellController {
   let win: ShellWindow | null = null;
   let session: AppSession | null = null;
+  let archiveService: ArchiveService | null = null;
+  let archivePosters: ArchivePosters | null = null;
   let exportRunner: ExportRunnerPort | null = null;
   let updates: UpdateController | null = null;
   let updateReady = false;
   let appState: AppState = options.appState ?? emptyAppState();
   let config: RenderConfig = applyAppState(options.config, appState);
   const outputs = createOutputGuard();
+
+  function requireArchiveService(): ArchiveService {
+    if (!archiveService) throw new Error('archive service not initialized');
+    return archiveService;
+  }
 
   function liveWindow(): ShellWindow | null {
     return win && !win.isDestroyed() ? win : null;
@@ -278,6 +329,116 @@ export function createShellController(options: ShellControllerOptions): ShellCon
     closeWindow(): void {
       liveWindow()?.close();
     },
+    listArchiveRoots(): string[] {
+      return archiveService ? archiveService.listRoots() : [...appState.archiveRoots];
+    },
+    addArchiveRoot(dir: string): { root: string; roots: string[] } {
+      const resolved = path.resolve(dir);
+      const roots = requireArchiveService().addRoot(resolved);
+      return { root: resolved, roots };
+    },
+    removeArchiveRoot(dir: unknown): string[] {
+      return requireArchiveService().removeRoot(dir as string);
+    },
+    scanArchive(roots?: unknown): Promise<{ scanned: number }> {
+      return requireArchiveService().scan(roots as string[] | undefined);
+    },
+    cancelArchiveScan(): void {
+      archiveService?.cancelScan();
+    },
+    queryArchive(filters?: unknown): ArchiveQueryResult {
+      return requireArchiveService().query(filters as ArchiveQueryFilters | undefined);
+    },
+    findArchiveAtPoint(
+      point: unknown,
+      radiusM?: unknown,
+      includeGaze?: unknown,
+    ): ArchiveNearHit[] {
+      return requireArchiveService().findAtPoint(
+        point as LatLon,
+        radiusM as number | undefined,
+        includeGaze as boolean | undefined,
+      );
+    },
+    async openArchiveClip(raw: unknown): Promise<PickResult> {
+      if (!session) throw new Error('session not initialized');
+      const request = parseOpenArchiveClipRequest(raw);
+      const resolved = path.resolve(request.path);
+      if (
+        archiveService &&
+        (archiveService.clipAvailability(resolved) === 'offline' ||
+          (isRecordingName(resolved) && !archiveService.fileExists(resolved)))
+      ) {
+        throw codedDesktopError(
+          'ARCHIVE_CLIP_OFFLINE',
+          `recording is offline or missing: ${resolved}`,
+          { name: path.basename(resolved), path: resolved },
+        );
+      }
+      const result = await session.openFile(resolved, { settings: request.settings });
+      if (result.ok) outputs.clearPending();
+      return result;
+    },
+    resolveArchiveClipForReveal(clipPath: unknown): string {
+      if (typeof clipPath !== 'string' || clipPath.trim().length === 0) {
+        throw codedDesktopError('INVALID_REQUEST', 'clip path must not be empty');
+      }
+      const resolved = path.resolve(clipPath);
+      const service = requireArchiveService();
+      const availability = service.clipAvailability(resolved);
+      if (availability === null) {
+        throw codedDesktopError(
+          'FS_NOT_FOUND',
+          `archive clip not found: ${resolved}`,
+          { name: path.basename(resolved) },
+        );
+      }
+      if (availability === 'offline' || !service.fileExists(resolved)) {
+        throw codedDesktopError(
+          'ARCHIVE_CLIP_OFFLINE',
+          `recording is offline or missing: ${resolved}`,
+          { name: path.basename(resolved), path: resolved },
+        );
+      }
+      return resolved;
+    },
+    beginArchiveExportPick(format?: unknown): {
+      defaultPath: string;
+      format: ArchiveExportFormat;
+      t: Translate;
+    } {
+      outputs.clearPendingArchiveExport();
+      const targetFormat: ArchiveExportFormat =
+        format === undefined
+          ? 'gpx'
+          : ARCHIVE_EXPORT_FORMATS.find((candidate) => candidate === format) ??
+            (() => {
+              throw codedDesktopError('INVALID_REQUEST', 'invalid archive export format');
+            })();
+      const lastDir = appState.lastOpenDir;
+      const baseDir =
+        (lastDir && options.dirExists(lastDir) ? lastDir : undefined) ??
+        appState.archiveRoots.find((dir) => options.dirExists(dir)) ??
+        os.homedir();
+      return {
+        defaultPath: path.join(baseDir, `archive.${targetFormat}`),
+        format: targetFormat,
+        t: currentTranslator(),
+      };
+    },
+    approveArchiveExportOut(outPath: string): void {
+      outputs.approveArchiveExport(outPath);
+    },
+    exportArchive(raw: unknown): string {
+      const request = parseArchiveExportRequest(raw);
+      const approved = outputs.consumeArchiveExport(request.outPath);
+      requireArchiveService().exportArchive({ ...request, outPath: approved });
+      outputs.recordArchiveExportOut(approved);
+      return approved;
+    },
+    pruneArchiveOffline(): number {
+      return requireArchiveService().pruneOffline();
+    },
     liveWindow,
     translator: currentTranslator,
   };
@@ -291,6 +452,28 @@ export function createShellController(options: ShellControllerOptions): ShellCon
     liveWindow,
     attachSession(nextSession: AppSession | null): void {
       session = nextSession;
+    },
+    attachArchiveService(nextService: ArchiveService | null): void {
+      archiveService = nextService;
+    },
+    attachArchivePosters(nextPosters: ArchivePosters | null): void {
+      archivePosters = nextPosters;
+    },
+    resolveArchivePoster(posterId: string): Promise<string | null> {
+      return archivePosters ? archivePosters.resolvePoster(posterId) : Promise.resolve(null);
+    },
+    getArchiveRoots: () => [...appState.archiveRoots],
+    addArchiveRootState(dir: string): string[] {
+      const next = addArchiveRoot(appState, dir);
+      options.stateStore.write(next);
+      appState = next;
+      return [...appState.archiveRoots];
+    },
+    removeArchiveRootState(dir: string): string[] {
+      const next = removeArchiveRoot(appState, dir);
+      options.stateStore.write(next);
+      appState = next;
+      return [...appState.archiveRoots];
     },
     videoPath: () => session?.videoPath() ?? null,
     attachExportRunner(runner: ExportRunnerPort | null): void {

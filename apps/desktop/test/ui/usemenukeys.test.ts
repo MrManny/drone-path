@@ -65,7 +65,7 @@ describe('useMenuKeys', () => {
     key('keydown', { key: 'ArrowDown' });
     expect(result.current.state.active).toBe(1);
     key('keydown', { key: 'Enter' });
-    expect(onActivate).toHaveBeenCalledWith('exportVideo');
+    expect(onActivate).toHaveBeenCalledWith('openFolder');
     expect(result.current.state.open).toBeNull();
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
   });
@@ -73,6 +73,7 @@ describe('useMenuKeys', () => {
   it('yields nothing for a disabled row and keeps the menu open', () => {
     const { result, onActivate } = mount(EMPTY);
     key('keydown', { key: 'f', altKey: true });
+    key('keydown', { key: 'ArrowDown' });
     key('keydown', { key: 'ArrowDown' });
     key('keydown', { key: ' ' });
     expect(onActivate).not.toHaveBeenCalled();
@@ -99,7 +100,7 @@ describe('useMenuKeys', () => {
     const { result, onActivate } = mount();
     act(() => result.current.dispatch({ type: 'toggle', menu: 'file' }));
     expect(result.current.state.open).toBe('file');
-    act(() => result.current.dispatch({ type: 'activateRow', index: 2 }));
+    act(() => result.current.dispatch({ type: 'activateRow', index: 3 }));
     expect(onActivate).toHaveBeenCalledWith('exportTelemetry');
     expect(result.current.state.open).toBeNull();
   });
@@ -194,7 +195,7 @@ describe('useMenuKeys closed-bar label arrows (#238)', () => {
     const { bar, teardown, result } = barSetup();
     const event = key('keydown', { key: 'ArrowUp' }, bar);
     expect(event.defaultPrevented).toBe(true);
-    expect(result.current.state).toMatchObject({ open: 'file', active: 3 });
+    expect(result.current.state).toMatchObject({ open: 'file', active: 4 });
     teardown();
   });
 
@@ -210,7 +211,7 @@ describe('useMenuKeys closed-bar label arrows (#238)', () => {
     key('keydown', { key: 'ArrowDown' }, bar);
     const endOpen = key('keydown', { key: 'End' }, bar);
     expect(endOpen.defaultPrevented).toBe(true);
-    expect(result.current.state).toMatchObject({ open: 'file', active: 3 });
+    expect(result.current.state).toMatchObject({ open: 'file', active: 4 });
     const homeOpen = key('keydown', { key: 'Home' }, bar);
     expect(homeOpen.defaultPrevented).toBe(true);
     expect(result.current.state).toMatchObject({ open: 'file', active: 0 });

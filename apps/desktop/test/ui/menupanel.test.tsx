@@ -44,12 +44,13 @@ describe('MenuPanel', () => {
     renderPanel();
     const panel = screen.getByRole('menu', { name: 'File' });
     const rows = [...panel.querySelectorAll('.menu-row')].map((row) => row.textContent);
-    expect(rows).toEqual(['Open…Ctrl+O', 'Export video…', 'Export telemetry…', 'Exit']);
+    expect(rows).toEqual(['Open…Ctrl+O', 'Open folder…', 'Export video…', 'Export telemetry…', 'Exit']);
     const order = [...panel.querySelectorAll('.menu-row, .menu-separator')].map((el) =>
       el.classList.contains('menu-separator') ? '—' : (el.textContent ?? ''),
     );
     expect(order).toEqual([
       'Open…Ctrl+O',
+      'Open folder…',
       'Export video…',
       'Export telemetry…',
       '—',
@@ -68,6 +69,7 @@ describe('MenuPanel', () => {
     );
     expect(state).toEqual({
       'Open…Ctrl+O': false,
+      'Open folder…': false,
       'Export video…': true,
       'Export telemetry…': true,
       Exit: false,
@@ -75,7 +77,7 @@ describe('MenuPanel', () => {
   });
 
   it('marks only the active row', () => {
-    renderPanel({ active: 1 });
+    renderPanel({ active: 2 });
     const panel = screen.getByRole('menu', { name: 'File' });
     const active = [...panel.querySelectorAll('.menu-row.active')].map((row) => row.textContent);
     expect(active).toEqual(['Export video…']);

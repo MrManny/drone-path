@@ -1,10 +1,12 @@
 import path from 'node:path';
 
 import { mimeFor } from 'drone-path-engine/assets';
-import { MEDIA_PATH } from '#shared/appurls.js';
+import { ARCHIVE_POSTER_PREFIX, MEDIA_PATH } from '#shared/appurls.js';
 import type { MapStyle } from 'drone-path-engine/config';
 import type { TileCoord } from 'drone-path-engine/plan';
 import { parseTilePathname } from 'drone-path-engine/tilecache';
+
+import { POSTER_ID_RE } from './archiveposters.js';
 
 export interface AppRoutes {
   exportRoot: string;
@@ -14,6 +16,7 @@ export interface AppRoutes {
 type AppAsset =
   | { kind: 'export'; filePath: string; mime: string }
   | { kind: 'video'; filePath: string }
+  | { kind: 'poster'; id: string }
   | {
       kind: 'tile';
       style: MapStyle;
@@ -26,6 +29,11 @@ export function resolveAppAsset(pathname: string, routes: AppRoutes): AppAsset {
     return routes.videoPath
       ? { kind: 'video', filePath: routes.videoPath }
       : { kind: 'not-found' };
+  }
+
+  if (pathname.startsWith(ARCHIVE_POSTER_PREFIX)) {
+    const id = pathname.slice(ARCHIVE_POSTER_PREFIX.length);
+    return POSTER_ID_RE.test(id) ? { kind: 'poster', id } : { kind: 'not-found' };
   }
 
   const tile = parseTilePathname(pathname);

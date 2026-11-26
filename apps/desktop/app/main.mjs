@@ -12,8 +12,10 @@ import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, dialog, Menu, net, protocol, session, shell } from 'electron';
 
 import { resolveAppAsset } from '../dist/appassets.js';
-import { appStateFile, uiExportRoot } from '../dist/apppaths.js';
+import { appStateFile, archivePosterCacheDir, uiExportRoot } from '../dist/apppaths.js';
+import { createArchivePosters } from '../dist/archiveposters.js';
 import { APP_ORIGIN, isAllowedAppUrl, resolveDevUrl } from '../dist/shared/appurls.js';
+import { createArchiveService } from '../dist/archiveservice.js';
 import { createAppSession } from '../dist/appsession.js';
 import { DEFAULT_LOCALE, resolveLocale, translator } from '../dist/shared/desktop-i18n/messages.js';
 import { ERROR_PREFIX, errorMessage } from 'drone-path-core/errors';
@@ -205,6 +207,11 @@ export async function handleRequest(controller, tileTraffic, request, csp, root 
   switch (plan.kind) {
     case 'video':
       return videoResponse(request, plan.filePath, csp);
+    case 'poster': {
+      const file = await controller.resolveArchivePoster(plan.id);
+      if (!file || !fs.existsSync(file)) return notFound(csp, root);
+      return fileResponse(file, 'image/jpeg', 200, csp);
+    }
     case 'tile': {
       // Always through the tile traffic: it serves cached tiles immediately,
       // retries tiles whose earlier download failed (so they recover once
@@ -228,7 +235,8 @@ export async function handleRequest(controller, tileTraffic, request, csp, root 
  */
 async function initServices(controller) {
   const config = controller.getConfig();
-  await requireFfmpegTools(resolveFfmpegTools(config));
+  const tools = resolveFfmpegTools(config);
+  await requireFfmpegTools(tools);
   // One polite tile queue for the whole app: on-demand tiles and the export
   // prefetch share its request budget, and on-demand tiles the player needs
   // right now jump the queue.
@@ -244,6 +252,26 @@ async function initServices(controller) {
       onPreparing: () => controller.sendToWindow(IPC_EVENT_CHANNELS.onPreparing),
       onPrepareProgress: (progress) =>
         controller.sendToWindow(IPC_EVENT_CHANNELS.onPrepareProgress, progress),
+    }),
+  );
+  const posters = createArchivePosters({
+    cacheDir: archivePosterCacheDir(),
+    getTools: async () => tools,
+    log,
+  });
+  controller.attachArchivePosters(posters);
+  controller.attachArchiveService(
+    createArchiveService({
+      getRoots: () => controller.getArchiveRoots(),
+      addRootState: (dir) => controller.addArchiveRootState(dir),
+      removeRootState: (dir) => controller.removeArchiveRootState(dir),
+      onScanProgress: (progress) =>
+        controller.sendToWindow(IPC_EVENT_CHANNELS.onArchiveScanProgress, progress),
+      log,
+      deps: {
+        getTools: async () => tools,
+        registerPoster: (clip) => posters.register(clip),
+      },
     }),
   );
   controller.attachExportRunner(

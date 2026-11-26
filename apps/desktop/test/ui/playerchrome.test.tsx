@@ -154,7 +154,7 @@ describe('PlayerChrome workspace structure', () => {
   it('keeps the menu, transport and timeline actions reachable', () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     openMenu('File');
-    for (const name of ['Open…', 'Export video…', 'Export telemetry…', 'Exit']) {
+    for (const name of ['Open…', 'Open folder…', 'Export video…', 'Export telemetry…', 'Exit']) {
       expect(within(menuBar()).getByRole('menuitem', { name })).toBeTruthy();
     }
     openMenu('View');
@@ -270,6 +270,30 @@ describe('PlayerChrome workspace structure', () => {
   it('applies the frame the driver already reached when the scene arrives', async () => {
     render(<Chrome session={SESSION} settings={SETTINGS} onSettingsChange={() => {}} onOpen={() => {}} />);
     await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(0));
+  });
+
+  it('seeks to initialSeekSec when provided', async () => {
+    render(
+      <Chrome
+        session={SESSION}
+        settings={SETTINGS}
+        onSettingsChange={() => {}}
+        onOpen={() => {}}
+        initialSeekSec={1}
+      />,
+    );
+    const video = document.querySelector('video') as HTMLVideoElement;
+    let currentTime = 0;
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: (v: number) => {
+        currentTime = v;
+      },
+      configurable: true,
+    });
+    act(() => flushRaf());
+    await waitFor(() => expect(fakeScene.setFrame).toHaveBeenCalledWith(30));
+    expect(currentTime).toBeCloseTo(30.5 / 30);
   });
 
   it('seeks the video into the target frame span and repaints the scene when scrubbing', async () => {

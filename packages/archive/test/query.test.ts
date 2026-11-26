@@ -3,7 +3,15 @@ import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 
 import { cleanupTmpDirs, probeFixture, tmpDir } from '../../../test/fixtures/core.js';
-import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from '../src/query.js';
+import {
+  listArchive,
+  listArchiveFlightOverviews,
+  listArchiveFlights,
+  listArchiveSegments,
+  nearArchive,
+  parseDateBound,
+  pruneArchiveOffline,
+} from '../src/query.js';
 import type { SparseSample } from '../src/scan-track.js';
 import { ArchiveStore, CLIP_FINGERPRINT_VERSION } from '../src/store.js';
 import type { ClipUpdate } from '../src/store.js';
@@ -220,4 +228,40 @@ it('lists and filters ranked segments and matching clips/flights', () => {
   expect(listArchive(db, { segmentType: 'smooth-glide', minSmoothness: 0.8 }).map(({ path: p }) => p)).toEqual(['beta.mp4']);
   expect(listArchiveFlights(db, { segmentType: 'hover' }).map(({ clips }) => clips[0].path)).toEqual(['gamma.mp4']);
   expect(() => listArchiveSegments(db, { minSmoothness: 1.5 })).toThrow('expected a smoothness score between 0 and 1');
+});
+
+it('lists decimated flight overviews without transferring full 500-point tracks', () => {
+  const fullSegment = Array.from({ length: 100 }, (_, i) => ({
+    lat: 46.6 + i * 0.0001,
+    lon: 14.2 + i * 0.0001,
+    tSec: i,
+  }));
+  const overviewSegment = [fullSegment[0], fullSegment[50], fullSegment[99]];
+  const sample = clip('flight.mp4', [
+    { lat: 46.6, lon: 14.2, tSec: 0, segment: 0 },
+    { lat: 46.6099, lon: 14.2099, tSec: 99, segment: 0 },
+  ]);
+  sample.record.track = [fullSegment];
+  sample.overview = [overviewSegment];
+
+  const db = index(sample);
+  const fullFlights = listArchiveFlights(db);
+  expect(fullFlights[0].clips[0].track[0]).toHaveLength(100);
+
+  const overviewFlights = listArchiveFlightOverviews(db);
+  expect(overviewFlights).toHaveLength(1);
+  expect(overviewFlights[0].clips[0].track).toEqual([overviewSegment]);
+  expect(listArchiveFlights(db, {}, { overview: true })[0].clips[0].track).toEqual([overviewSegment]);
+});
+
+it('prunes offline clips via pruneArchiveOffline while keeping online clips intact', () => {
+  const points = [{ lat: 46, lon: 14, tSec: 1, segment: 0 }];
+  const db = index(
+    clip('keep.mp4', points, 'online'),
+    clip('gone-1.mp4', points, 'offline'),
+    clip('gone-2.mp4', points, 'offline'),
+  );
+  expect(pruneArchiveOffline(db)).toBe(2);
+  expect(listArchive(db).map(({ path: p }) => p)).toEqual(['keep.mp4']);
+  expect(pruneArchiveOffline(db)).toBe(0);
 });

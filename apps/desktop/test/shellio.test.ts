@@ -44,7 +44,7 @@ const PATCH: SettingsPatch = {
 };
 
 function stateFixture(overrides: Partial<AppState> = {}): AppState {
-  return { settings: PATCH, lastOpenDir: null, language: null, ...overrides };
+  return { settings: PATCH, lastOpenDir: null, language: null, archiveRoots: [], ...overrides };
 }
 
 const UNREADABLE_CASES: Array<[string, string]> = [

@@ -27,6 +27,7 @@
     "pack": "electron-builder --publish never"
   },
   "dependencies": {
+    "drone-path-archive": "~1.1.1",
     "drone-path-core": "~1.1.1",
     "drone-path-engine": "~1.1.1",
     "electron-updater": "~6.8.11",

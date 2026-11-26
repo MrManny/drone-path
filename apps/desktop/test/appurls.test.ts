@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   APP_ORIGIN,
+  ARCHIVE_POSTER_PREFIX,
   MEDIA_PATH,
   TILE_BASE,
+  archivePosterUrlFor,
   isAllowedAppUrl,
   mediaUrlFor,
   parseLoopbackDevUrl,
@@ -11,12 +13,16 @@ import {
 } from '../shared/appurls.js';
 
 describe('protocol and URL constants', () => {
-  it('derives tile and media URLs from APP_ORIGIN', () => {
+  it('derives tile, media, and archive poster URLs from APP_ORIGIN', () => {
     expect(APP_ORIGIN).toBe('app://bundle');
     expect(MEDIA_PATH).toBe('/media/video');
     expect(TILE_BASE).toBe('app://bundle/tiles');
+    expect(ARCHIVE_POSTER_PREFIX).toBe('/archive/poster/');
     expect(mediaUrlFor('/clips/flight 1.mp4')).toBe(
       'app://bundle/media/video?v=%2Fclips%2Fflight%201.mp4',
+    );
+    expect(archivePosterUrlFor('0123456789abcdef')).toBe(
+      'app://bundle/archive/poster/0123456789abcdef',
     );
   });
 });

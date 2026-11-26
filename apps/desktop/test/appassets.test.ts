@@ -79,3 +79,35 @@ describe('resolveAppAsset (video)', () => {
     expect(resolveAppAsset('/media/video', routes()).kind).toBe('not-found');
   });
 });
+
+describe('resolveAppAsset (archive posters)', () => {
+  it('parses valid 16-to-64 lowercase hex poster ids', () => {
+    const id16 = '0123456789abcdef';
+    const id32 = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    const id64 = 'f'.repeat(64);
+    expect(resolveAppAsset(`/archive/poster/${id16}`, routes())).toEqual({
+      kind: 'poster',
+      id: id16,
+    });
+    expect(resolveAppAsset(`/archive/poster/${id32}`, routes())).toEqual({
+      kind: 'poster',
+      id: id32,
+    });
+    expect(resolveAppAsset(`/archive/poster/${id64}`, routes())).toEqual({
+      kind: 'poster',
+      id: id64,
+    });
+  });
+
+  it.for([
+    { name: 'empty id', pathname: '/archive/poster/' },
+    { name: 'short hex id', pathname: '/archive/poster/0123456789abcde' },
+    { name: 'long hex id', pathname: `/archive/poster/${'a'.repeat(65)}` },
+    { name: 'uppercase hex', pathname: '/archive/poster/0123456789ABCDEF' },
+    { name: 'traversal', pathname: '/archive/poster/../secret' },
+    { name: 'nested slash', pathname: '/archive/poster/0123456789abcdef/extra' },
+    { name: 'extension suffix', pathname: '/archive/poster/0123456789abcdef.jpg' },
+  ])('rejects $name', ({ pathname }) => {
+    expect(resolveAppAsset(pathname, routes())).toEqual({ kind: 'not-found' });
+  });
+});

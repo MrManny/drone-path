@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
+import { parsePickRequest } from '../src/appsession.js';
 import type { AppSession, PickResult } from '../src/appsession.js';
 import { emptyAppState } from '../src/appstate.js';
 import type { AppState } from '../src/appstate.js';
@@ -126,6 +127,7 @@ describe('createShellController IPC coordination and update state', () => {
     const out = path.resolve('clips', 'out', 'flight_map.mp4');
     const session: AppSession = {
       pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+      openFile: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
       getSession: () => null,
       videoPath: () => video,
       saveTrack: vi.fn(),
@@ -182,5 +184,150 @@ describe('createShellController IPC coordination and update state', () => {
         payload: { code: 'UPDATE_RESTART_FAILED', detail: 'installer failed' },
       },
     ]);
+  });
+
+  it('opens archive clips via session.openFile, clears pending outputs, and reports offline clips', async () => {
+    const { controller } = makeController();
+    const video = path.resolve('clips', 'flight.mp4');
+    const out = path.resolve('clips', 'out', 'flight_map.mp4');
+    const session: AppSession = {
+      pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+      openFile: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+      getSession: () => null,
+      videoPath: () => video,
+      saveTrack: vi.fn(),
+    };
+    const runner: ExportRunnerPort = {
+      start: vi.fn(),
+      cancel: vi.fn(),
+      running: () => false,
+    };
+    let exists = true;
+    let availability: 'online' | 'offline' | null = 'online';
+    const pruneOffline = vi.fn(() => 3);
+    const exportArchive = vi.fn();
+    controller.attachSession(session);
+    controller.attachExportRunner(runner);
+    controller.attachArchiveService({
+      listRoots: () => [],
+      addRoot: () => [],
+      removeRoot: () => [],
+      scan: async () => ({ scanned: 0 }),
+      cancelScan: () => {},
+      query: () => ({ flights: [], totalCount: 0, offlineCount: 0 }),
+      findAtPoint: () => [],
+      exportArchive,
+      pruneOffline,
+      clipAvailability: () => availability,
+      fileExists: () => exists,
+    });
+
+    controller.ipc.approveExportOut(out);
+    await expect(
+      controller.ipc.openArchiveClip({
+        path: video,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+        seekSec: 5,
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(session.openFile).toHaveBeenCalledWith(
+      video,
+      parsePickRequest({ settings: settingsPatchOf(DEFAULT_CONFIG) }),
+    );
+    expect(() => controller.ipc.startExport({ outPath: out, config: {} })).toThrow(
+      'output path was not approved by save dialog',
+    );
+
+    exists = false;
+    await expect(
+      controller.ipc.openArchiveClip({
+        path: video,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+      }),
+    ).rejects.toMatchObject({
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      params: { name: 'flight.mp4', path: video },
+    });
+
+    exists = true;
+    availability = 'offline';
+    await expect(
+      controller.ipc.openArchiveClip({
+        path: video,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+      }),
+    ).rejects.toMatchObject({
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      params: { name: 'flight.mp4', path: video },
+    });
+
+    expect(controller.ipc.pruneArchiveOffline()).toBe(3);
+    expect(pruneOffline).toHaveBeenCalledTimes(1);
+  });
+
+  it('validates revealArchiveClip, archive export approvals, and poster resolution', async () => {
+    const { controller } = makeController();
+    const video = path.resolve('clips', 'flight.mp4');
+    const archiveOut = path.resolve('clips', 'archive.gpx');
+    let availability: 'online' | 'offline' | null = 'online';
+    let exists = true;
+    const exportArchive = vi.fn();
+
+    controller.attachArchiveService({
+      listRoots: () => [],
+      addRoot: () => [],
+      removeRoot: () => [],
+      scan: async () => ({ scanned: 0 }),
+      cancelScan: () => {},
+      query: () => ({ flights: [], totalCount: 0, offlineCount: 0 }),
+      findAtPoint: () => [],
+      exportArchive,
+      pruneOffline: () => 0,
+      clipAvailability: () => availability,
+      fileExists: () => exists,
+    });
+
+    expect(() => controller.ipc.resolveArchiveClipForReveal('')).toThrow(
+      expect.objectContaining({ code: 'INVALID_REQUEST' }),
+    );
+    expect(controller.ipc.resolveArchiveClipForReveal(video)).toBe(video);
+
+    availability = null;
+    expect(() => controller.ipc.resolveArchiveClipForReveal(video)).toThrow(
+      expect.objectContaining({ code: 'FS_NOT_FOUND' }),
+    );
+
+    availability = 'offline';
+    expect(() => controller.ipc.resolveArchiveClipForReveal(video)).toThrow(
+      expect.objectContaining({ code: 'ARCHIVE_CLIP_OFFLINE' }),
+    );
+
+    availability = 'online';
+    exists = false;
+    expect(() => controller.ipc.resolveArchiveClipForReveal(video)).toThrow(
+      expect.objectContaining({ code: 'ARCHIVE_CLIP_OFFLINE' }),
+    );
+
+    expect(controller.ipc.beginArchiveExportPick('html')).toMatchObject({
+      format: 'html',
+      defaultPath: expect.stringMatching(/archive\.html$/),
+    });
+    expect(() => controller.ipc.beginArchiveExportPick('exe')).toThrow(
+      expect.objectContaining({ code: 'INVALID_REQUEST' }),
+    );
+
+    controller.ipc.approveArchiveExportOut(archiveOut);
+    expect(() => controller.ipc.exportArchive({ outPath: archiveOut, format: 'html' })).toThrow(
+      expect.objectContaining({ code: 'INVALID_REQUEST' }),
+    );
+    // Validation failure did not consume the pending approval.
+    expect(controller.ipc.exportArchive({ outPath: archiveOut, format: 'gpx' })).toBe(archiveOut);
+    expect(exportArchive).toHaveBeenCalledWith({ outPath: archiveOut, format: 'gpx' });
+    expect(controller.ipc.resolveKnownOutput({ out: archiveOut })).toBe(archiveOut);
+
+    await expect(controller.resolveArchivePoster('0123456789abcdef')).resolves.toBeNull();
+    const resolvePoster = vi.fn(async () => '/cache/poster.jpg');
+    controller.attachArchivePosters({ register: vi.fn(), resolvePoster });
+    await expect(controller.resolveArchivePoster('0123456789abcdef')).resolves.toBe('/cache/poster.jpg');
   });
 });

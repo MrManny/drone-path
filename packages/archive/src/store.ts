@@ -67,6 +67,10 @@ interface FlightClipRow extends ClipRow {
   split_from_key: string | null;
 }
 
+interface FlightClipOverviewRow extends FlightClipRow {
+  overview_json: string;
+}
+
 interface SegmentRow {
   segment_type: ShotType;
   start_sec: number;
@@ -100,6 +104,14 @@ function decodeFlightClip(row: FlightClipRow): IndexedFlightClip {
   };
 }
 
+function decodeClipOverview(row: FlightClipOverviewRow): IndexedFlightClip {
+  const clip = decodeFlightClip(row);
+  return {
+    ...clip,
+    record: { ...clip.record, track: JSON.parse(row.overview_json) as ScanPoint[][] },
+  };
+}
+
 function decodeSegment(row: SegmentRow): KinematicShot {
   return {
     type: row.segment_type,
@@ -111,6 +123,16 @@ function decodeSegment(row: SegmentRow): KinematicShot {
     meanSpeedMps: row.mean_speed_mps,
     meanYawRateDegPerSec: row.mean_yaw_rate_deg_per_sec,
   };
+}
+
+function normalizeForCompare(target: string): string {
+  const resolved = path.resolve(target);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function isWithinRoot(root: string, filePath: string): boolean {
+  const rel = path.relative(normalizeForCompare(root), normalizeForCompare(filePath));
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
 const SCHEMA = `
@@ -264,6 +286,15 @@ export class ArchiveStore {
     return this.transaction('BEGIN', () => this.selectClipViewport(bbox, availability, segmentFilter));
   }
 
+  listClipOverviews(
+    bbox?: Bbox,
+    availability?: IndexedClip['availability'],
+    segmentFilter?: SegmentFilter,
+  ): IndexedFlightClip[] {
+    if (bbox === undefined) return this.selectClips(undefined, availability, false, segmentFilter, true);
+    return this.transaction('BEGIN', () => this.selectClipViewport(bbox, availability, segmentFilter, true));
+  }
+
   private clipMatchesViewport(bbox: Bbox, key: string, record: ScanRecord): boolean {
     const raw = record.bbox;
     if (raw === null) return false;
@@ -275,8 +306,9 @@ export class ArchiveStore {
     bbox?: Bbox,
     availability?: IndexedClip['availability'],
     segmentFilter?: SegmentFilter,
+    overviewOnly = false,
   ): IndexedFlightClip[] {
-    const clips = this.selectClips(bbox, availability, false, segmentFilter);
+    const clips = this.selectClips(bbox, availability, false, segmentFilter, overviewOnly);
     if (bbox === undefined) return clips;
     return clips.filter(({ key, record }) => this.clipMatchesViewport(bbox, key, record));
   }
@@ -424,6 +456,34 @@ export class ArchiveStore {
     });
   }
 
+  removeClipsUnder(root: string): number {
+    return this.transaction('BEGIN IMMEDIATE', () => {
+      const rows = this.db.prepare(`
+        SELECT clip_key, json_extract(record_json, '$.path') AS clip_path FROM clips
+      `).all() as { clip_key: string; clip_path: string | null }[];
+      const matched = rows
+        .filter((row) => typeof row.clip_path === 'string' && isWithinRoot(root, row.clip_path))
+        .map((row) => row.clip_key);
+      if (matched.length === 0) return 0;
+      const remove = this.db.prepare('DELETE FROM clips WHERE clip_key = ?');
+      for (const key of matched) remove.run(key);
+      this.refreshFlights();
+      this.db.exec('UPDATE archive_revision SET revision = revision + 1');
+      return matched.length;
+    });
+  }
+
+  pruneOffline(): number {
+    return this.transaction('BEGIN IMMEDIATE', () => {
+      const { changes } = this.db.prepare("DELETE FROM clips WHERE availability = 'offline'").run();
+      const count = Number(changes);
+      if (count === 0) return 0;
+      this.refreshFlights();
+      this.db.exec('UPDATE archive_revision SET revision = revision + 1');
+      return count;
+    });
+  }
+
   private revision(): number {
     return this.db.prepare('SELECT revision FROM archive_revision').get()?.revision as number;
   }
@@ -475,14 +535,21 @@ export class ArchiveStore {
 
   private selectClips(
     bbox: Bbox | undefined, availability: IndexedClip['availability'] | undefined, includeArcs: boolean,
-    segmentFilter?: SegmentFilter,
+    segmentFilter?: SegmentFilter, overviewOnly = false,
   ): IndexedFlightClip[] {
     const { clauses, values } = this.clipFilterClauses(bbox, availability, includeArcs, segmentFilter);
     const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+    const columns = overviewOnly
+      ? `clips.clip_key, clips.availability, clips.size, clips.mtime_ms, clips.srt_size, clips.srt_mtime_ms,
+         clips.schema_version, json_set(clips.record_json, '$.track', json('[]')) AS record_json,
+         clips.overview_json, clip_flights.flight_id, clip_flights.flight_order, clip_flights.split_from_key`
+      : '*';
     const rows = this.db.prepare(`
-      SELECT * FROM clips JOIN clip_flights USING (clip_key) ${where} ORDER BY clip_key
+      SELECT ${columns} FROM clips JOIN clip_flights USING (clip_key) ${where} ORDER BY clip_key
     `).all(...values);
-    return (rows as unknown as FlightClipRow[]).map(decodeFlightClip);
+    return overviewOnly
+      ? (rows as unknown as FlightClipOverviewRow[]).map(decodeClipOverview)
+      : (rows as unknown as FlightClipRow[]).map(decodeFlightClip);
   }
 
   private refreshFlights(): void {

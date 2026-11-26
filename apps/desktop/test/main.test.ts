@@ -449,6 +449,7 @@ describe('handleRequest (#405)', () => {
     if (videoPath !== null) {
       controller.attachSession({
         pick: vi.fn(),
+        openFile: vi.fn(),
         getSession: () => null,
         videoPath: () => videoPath,
         saveTrack: vi.fn(),
@@ -558,6 +559,51 @@ describe('handleRequest (#405)', () => {
     expect(res.headers.get('content-security-policy')).toBe(csp);
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(await res.text()).toBe('png-bytes');
+  });
+
+  it('serves cached or generated archive posters with image/jpeg and security headers, and 404s when missing', async () => {
+    const root = tmpDir();
+    const posterFile = path.join(tmpDir(), 'poster.jpg');
+    fs.writeFileSync(posterFile, 'jpeg-bytes');
+    mockFileFetch();
+    const controller = makeRequestController();
+    const resolvePoster = vi.fn(async (id: string) =>
+      id === '0123456789abcdef0123456789abcdef' ? posterFile : null,
+    );
+    controller.attachArchivePosters({ register: vi.fn(), resolvePoster });
+    const tileTraffic = { ensure: vi.fn() };
+
+    const hit = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/archive/poster/0123456789abcdef0123456789abcdef`),
+      csp,
+      root,
+    );
+    expect(resolvePoster).toHaveBeenCalledWith('0123456789abcdef0123456789abcdef');
+    expect(hit.status).toBe(200);
+    expect(hit.headers.get('content-type')).toBe('image/jpeg');
+    expect(hit.headers.get('content-security-policy')).toBe(csp);
+    expect(hit.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await hit.text()).toBe('jpeg-bytes');
+
+    const miss = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/archive/poster/fedcba9876543210fedcba9876543210`),
+      csp,
+      root,
+    );
+    expect(miss.status).toBe(404);
+
+    const invalid = await handleRequest(
+      controller,
+      tileTraffic,
+      new Request(`${APP_ORIGIN}/archive/poster/..%2Fsecret`),
+      csp,
+      root,
+    );
+    expect(invalid.status).toBe(404);
   });
 
   it('serves static export files and falls back to 404.html or plain 404 and 400 bad request', async () => {

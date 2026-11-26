@@ -17,10 +17,29 @@ export interface AppState {
   settings: SettingsPatch | null;
   lastOpenDir: string | null;
   language: string | null;
+  archiveRoots: string[];
 }
 
 export function emptyAppState(): AppState {
-  return { settings: null, lastOpenDir: null, language: null };
+  return { settings: null, lastOpenDir: null, language: null, archiveRoots: [] };
+}
+
+function archiveRootKey(dir: string): string {
+  const resolved = path.resolve(dir);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+export function normalizeArchiveRoots(dirs: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const dir of dirs) {
+    const resolved = path.resolve(dir);
+    const key = archiveRootKey(resolved);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(resolved);
+  }
+  return out;
 }
 
 function fillMissingSettings(raw: unknown): unknown {
@@ -37,7 +56,27 @@ const APP_STATE_SHAPE = {
   settings: z.unknown().optional(),
   lastOpenDir: z.unknown().optional(),
   language: z.unknown().optional(),
+  archiveRoots: z.unknown().optional(),
 } as z.ZodRawShape;
+
+const ARCHIVE_ROOTS = z
+  .optional(
+    z.array(
+      z
+        .string({
+          error: (issue) =>
+            `invalid app state: archiveRoots: ${String(issue.input)}`,
+        })
+        .refine((value) => value.trim().length > 0, {
+          error: () => 'invalid app state: archiveRoots entries must be non-empty strings',
+        }),
+      {
+        error: (issue) =>
+          `invalid app state: archiveRoots: ${String(issue.input)}`,
+      },
+    ),
+  )
+  .transform((value) => normalizeArchiveRoots(value ?? []));
 
 const LAST_OPEN_DIR = z
   .optional(
@@ -72,6 +111,7 @@ export function parseAppState(raw: unknown): AppState {
     settings,
     lastOpenDir: parseValue(LAST_OPEN_DIR, state.lastOpenDir),
     language: typeof state.language === 'string' ? state.language : null,
+    archiveRoots: parseValue(ARCHIVE_ROOTS, state.archiveRoots),
   };
 }
 
@@ -87,6 +127,7 @@ export function serializeAppState(state: AppState): string {
   }
   if (state.lastOpenDir !== null) out.lastOpenDir = state.lastOpenDir;
   if (state.language !== null) out.language = state.language;
+  if (state.archiveRoots.length > 0) out.archiveRoots = state.archiveRoots;
   return `${JSON.stringify(out, null, 2)}\n`;
 }
 
@@ -101,4 +142,27 @@ export function applyAppState(config: RenderConfig, state: AppState): RenderConf
 
 export function rememberOpenedFile(state: AppState, filePath: string): AppState {
   return { ...state, lastOpenDir: path.dirname(filePath) };
+}
+
+export function addArchiveRoot(state: AppState, dir: string): AppState {
+  if (typeof dir !== 'string' || dir.trim().length === 0) {
+    throw new Error('archive root must be a non-empty path');
+  }
+  return {
+    ...state,
+    archiveRoots: normalizeArchiveRoots([...state.archiveRoots, dir]),
+  };
+}
+
+export function removeArchiveRoot(state: AppState, dir: string): AppState {
+  if (typeof dir !== 'string' || dir.trim().length === 0) {
+    throw new Error('archive root must be a non-empty path');
+  }
+  const target = archiveRootKey(dir);
+  return {
+    ...state,
+    archiveRoots: normalizeArchiveRoots(state.archiveRoots).filter(
+      (existing) => archiveRootKey(existing) !== target,
+    ),
+  };
 }

@@ -146,3 +146,271 @@ describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) =
     }
   });
 });
+
+describe('ArchiveStore.removeClipsUnder', () => {
+  function sampleClip(filePath: string, key = process.platform === 'win32' ? filePath.toLowerCase() : filePath) {
+    return {
+      key,
+      availability: 'online' as const,
+      fingerprint: { size: 100, mtimeMs: 1000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+      record: {
+        path: filePath,
+        size: 100,
+        mtimeMs: 1000,
+        status: 'ok' as const,
+        video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 90, width: 1920, height: 1080, durationSec: 3 },
+        cameraCreationTime: '2026-01-01T10:00:00Z',
+        telemetry: { source: 'srt' as const, method: 'srt-cues' as const, fixCount: 1, noLock: 0, trackDistanceM: 10 },
+        bbox: { minLat: 46.6, maxLat: 46.6, minLon: 14.2, maxLon: 14.2 },
+        track: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+        error: null,
+      },
+      overview: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+      samples: [{ segment: 0, lat: 46.6, lon: 14.2, tSec: 0 }],
+      gaze: [{ tSec: 0, polygon: [{ lat: 46.6, lon: 14.2 }, { lat: 46.61, lon: 14.2 }, { lat: 46.61, lon: 14.21 }] }],
+      segments: [{
+        type: 'hover' as const,
+        startSec: 0,
+        endSec: 3,
+        durationSec: 3,
+        smoothness: 0.9,
+        exposureStable: true,
+        meanSpeedMps: 0.1,
+        meanYawRateDegPerSec: 0.2,
+      }],
+    };
+  }
+
+  it('removes nested clips under the given root, cascades related rows, refreshes flights, and bumps revision', () => {
+    const base = tmpDir();
+    const rootA = path.join(base, 'flights');
+    const rootOther = path.join(base, 'flights-archive');
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const clip1 = sampleClip(path.join(rootA, 'day1', 'DJI_0001.MP4'));
+      const clip2 = sampleClip(path.join(rootA, 'DJI_0002.MP4'));
+      const clipOther = sampleClip(path.join(rootOther, 'DJI_0003.MP4'));
+      store.commit(0, [clip1, clip2, clipOther], [], [], []);
+      expect(store.snapshot().revision).toBe(1);
+
+      const deleted = store.removeClipsUnder(rootA + path.sep);
+      expect(deleted).toBe(2);
+
+      const snap = store.snapshot();
+      expect(snap.revision).toBe(2);
+      expect(snap.clips.map((c) => c.record.path)).toEqual([clipOther.record.path]);
+      expect(store.listClips().map((c) => c.record.path)).toEqual([clipOther.record.path]);
+      expect(store.readSamples(clip1.key)).toEqual([]);
+      expect(store.readSegments(clip1.key)).toEqual([]);
+    } finally {
+      store.close();
+    }
+
+    const raw = new DatabaseSync(dbFile);
+    try {
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_gaze').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_flights').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_samples').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM segments').get()?.count).toBe(1);
+    } finally {
+      raw.close();
+    }
+  });
+
+  it('returns 0 and leaves revision unchanged when no clips match', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const clip = sampleClip(path.join(base, 'kept', 'DJI_0001.MP4'));
+      store.commit(0, [clip], [], [], []);
+      expect(store.removeClipsUnder(path.join(base, 'empty'))).toBe(0);
+      expect(store.snapshot().revision).toBe(1);
+      expect(store.snapshot().clips).toHaveLength(1);
+    } finally {
+      store.close();
+    }
+  });
+
+  if (process.platform === 'win32') {
+    it('matches paths case-insensitively on win32', () => {
+      const base = tmpDir();
+      const dbFile = path.join(base, 'archive.sqlite');
+      const store = new ArchiveStore(dbFile);
+      try {
+        const root = path.join(base, 'Flights');
+        const clip = sampleClip(path.join(base, 'flights', 'DJI_0001.MP4'));
+        store.commit(0, [clip], [], [], []);
+        expect(store.removeClipsUnder(root.toUpperCase())).toBe(1);
+        expect(store.snapshot().clips).toHaveLength(0);
+      } finally {
+        store.close();
+      }
+    });
+  }
+});
+
+describe('ArchiveStore.listClipOverviews', () => {
+  it('returns decimated overview tracks instead of full record.track and honors filters', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const fullTrack = Array.from({ length: 120 }, (_, i) => ({
+        lat: 46.6 + i * 0.0001,
+        lon: 14.2 + i * 0.0001,
+        tSec: i,
+      }));
+      const overviewTrack = [
+        [fullTrack[0], fullTrack[60], fullTrack[119]],
+      ];
+      const clipA = {
+        key: 'a.mp4',
+        availability: 'online' as const,
+        fingerprint: { size: 100, mtimeMs: 1000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+        record: {
+          path: 'a.mp4',
+          size: 100,
+          mtimeMs: 1000,
+          status: 'ok' as const,
+          video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 3600, width: 1920, height: 1080, durationSec: 120 },
+          cameraCreationTime: '2026-01-01T10:00:00Z',
+          telemetry: { source: 'srt' as const, method: 'srt-cues' as const, fixCount: 120, noLock: 0, trackDistanceM: 420 },
+          bbox: { minLat: 46.6, maxLat: 46.612, minLon: 14.2, maxLon: 14.212 },
+          track: [fullTrack],
+          error: null,
+        },
+        overview: overviewTrack,
+        samples: [{ segment: 0, lat: 46.6, lon: 14.2, tSec: 0 }],
+        segments: [{
+          type: 'smooth-glide' as const,
+          startSec: 0,
+          endSec: 10,
+          durationSec: 10,
+          smoothness: 0.9,
+          exposureStable: true,
+          meanSpeedMps: 4,
+          meanYawRateDegPerSec: 0.2,
+        }],
+      };
+      const clipB = {
+        ...clipA,
+        key: 'b.mp4',
+        availability: 'offline' as const,
+        record: {
+          ...clipA.record,
+          path: 'b.mp4',
+          bbox: { minLat: 10, maxLat: 10.01, minLon: 10, maxLon: 10.01 },
+          track: [[{ lat: 10, lon: 10, tSec: 0 }]],
+        },
+        overview: [[{ lat: 10, lon: 10, tSec: 0 }]],
+        samples: [{ segment: 0, lat: 10, lon: 10, tSec: 0 }],
+        segments: undefined,
+      };
+      store.commit(0, [clipA, clipB], [], [], []);
+
+      const full = store.listClips();
+      expect(full[0].record.track[0]).toHaveLength(120);
+
+      const overviews = store.listClipOverviews();
+      expect(overviews).toHaveLength(2);
+      expect(overviews[0].record.track).toEqual(overviewTrack);
+      expect(overviews[0].record.telemetry).toEqual(clipA.record.telemetry);
+      expect(overviews[0].flight.flightId).toBe(full[0].flight.flightId);
+
+      expect(
+        store.listClipOverviews(
+          { minLat: 46.5, maxLat: 46.7, minLon: 14.1, maxLon: 14.3 },
+          'online',
+          { segmentType: 'smooth-glide', minSmoothness: 0.8 },
+        ).map((c) => c.key),
+      ).toEqual(['a.mp4']);
+    } finally {
+      store.close();
+    }
+  });
+});
+
+describe('ArchiveStore.pruneOffline', () => {
+  function offlineOrOnlineClip(
+    filePath: string,
+    availability: 'online' | 'offline',
+    cameraCreationTime = '2026-01-01T10:00:00Z',
+    size = 100,
+  ) {
+    const key = process.platform === 'win32' ? filePath.toLowerCase() : filePath;
+    return {
+      key,
+      availability,
+      fingerprint: { size, mtimeMs: 1000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+      record: {
+        path: filePath,
+        size,
+        mtimeMs: 1000,
+        status: 'ok' as const,
+        video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 90, width: 1920, height: 1080, durationSec: 3 },
+        cameraCreationTime,
+        telemetry: { source: 'srt' as const, method: 'srt-cues' as const, fixCount: 1, noLock: 0, trackDistanceM: 10 },
+        bbox: { minLat: 46.6, maxLat: 46.6, minLon: 14.2, maxLon: 14.2 },
+        track: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+        error: null,
+      },
+      overview: [[{ lat: 46.6, lon: 14.2, tSec: 0 }, { lat: 46.6, lon: 14.2, tSec: 3 }]],
+      samples: [
+        { segment: 0, lat: 46.6, lon: 14.2, tSec: 0 },
+        { segment: 0, lat: 46.6, lon: 14.2, tSec: 3 },
+      ],
+      gaze: [{ tSec: 0, polygon: [{ lat: 46.6, lon: 14.2 }, { lat: 46.61, lon: 14.2 }, { lat: 46.61, lon: 14.21 }] }],
+      segments: [{
+        type: 'hover' as const,
+        startSec: 0,
+        endSec: 3,
+        durationSec: 3,
+        smoothness: 0.9,
+        exposureStable: true,
+        meanSpeedMps: 0.1,
+        meanYawRateDegPerSec: 0.2,
+      }],
+    };
+  }
+
+  it('deletes offline clips, cascades related rows, refreshes flights, and bumps revision', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const offlineA = offlineOrOnlineClip(path.join(base, 'DJI_0001.MP4'), 'offline', '2026-01-01T10:00:00Z', 4_000_000_000);
+      const onlineB = offlineOrOnlineClip(path.join(base, 'DJI_0002.MP4'), 'online', '2026-01-01T10:00:03Z', 200);
+      const offlineC = offlineOrOnlineClip(path.join(base, 'DJI_0003.MP4'), 'offline', '2026-01-01T12:00:00Z', 100);
+      store.commit(0, [offlineA, onlineB, offlineC], [], [], []);
+      expect(store.snapshot().revision).toBe(1);
+      expect(store.listClips().find((c) => c.key === onlineB.key)?.flight.splitFromKey).toBe(offlineA.key);
+
+      expect(store.pruneOffline()).toBe(2);
+
+      const snap = store.snapshot();
+      expect(snap.revision).toBe(2);
+      expect(snap.clips.map((c) => c.key)).toEqual([onlineB.key]);
+      const remaining = store.listClips();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]?.flight.splitFromKey).toBeNull();
+      expect(store.readSamples(offlineA.key)).toEqual([]);
+      expect(store.readSegments(offlineA.key)).toEqual([]);
+      expect(store.pruneOffline()).toBe(0);
+      expect(store.snapshot().revision).toBe(2);
+    } finally {
+      store.close();
+    }
+
+    const raw = new DatabaseSync(dbFile);
+    try {
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_gaze').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_flights').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_samples').get()?.count).toBe(2);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM segments').get()?.count).toBe(1);
+    } finally {
+      raw.close();
+    }
+  });
+});

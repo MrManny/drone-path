@@ -14,8 +14,9 @@ Drone Path reads geo-coordinates from DJI's telemetry in two ways:
 - **`.SRT` sidecar** next to the recording when no CAM meta stream is present.
 
 It is a CLI tool first so scripts and agents can drive it, paired with a
-[desktop app](docs/user/desktop-app.md) for humans to review flights and export
-overlays on a synchronized timeline.
+[desktop app](docs/user/desktop-app.md) for humans to browse a multi-clip
+[recording archive](docs/user/archive.md), review flights, and export overlays
+on a synchronized timeline.
 
 ![Desktop app: a drone recording beside the synchronized flight map](docs/images/app-main-window.jpg)
 
@@ -85,10 +86,14 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux
 AppImage) from [GitHub Releases](https://github.com/MrManny/drone-path/releases),
 or run `npm run build && npm run app` from a checkout.
 
-The app shows the recording and the synchronized flight map side by side —
-togglable to a corner map overlay — on one shared timeline. The
-[Desktop app guide](docs/user/desktop-app.md) covers loading a recording,
-marking a passage, exporting video, and saving per-frame telemetry JSON.
+The app supports two connected modes: **Archive** for indexing watched folders,
+browsing inferred flights on a multi-flight map, searching **"What filmed here?"**
+by location or camera gaze, filtering by shot type or smoothness, managing
+offline drives, and exporting combined tracks or interactive HTML maps; and
+**Review** for inspecting a recording beside its synchronized flight map (or
+corner map overlay) on one shared timeline. See the
+[Desktop app guide](docs/user/desktop-app.md) and
+[Archive workspace guide](docs/user/archive.md).
 
 ## User manual
 
@@ -97,6 +102,7 @@ desktop app as offline help:
 
 - [Getting started](docs/user/getting-started.md) — requirements, install options, and your first render.
 - [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, exporting video, and saving telemetry JSON.
+- [Archive workspace](docs/user/archive.md) — watched folders, multi-flight map, point search, filters, offline drives, and archive exports.
 - [Keyboard shortcuts](docs/user/keyboard-shortcuts.md) — every shortcut of the review player at a glance.
 - [CLI usage](docs/user/cli.md) — rendering, archive indexing/search, MCP server, and track exports.
 - [CLI and config reference](docs/user/cli-reference.md) — every option and config key with its default.

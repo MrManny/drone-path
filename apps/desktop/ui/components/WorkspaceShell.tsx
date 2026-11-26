@@ -13,6 +13,7 @@ import type { TimelinePanelProps } from './TimelinePanel.js';
 import { TransportBar } from './TransportBar.js';
 import type { TransportBarProps } from './TransportBar.js';
 import { WorkspaceHeader } from './WorkspaceHeader.js';
+import type { WorkspaceMode } from './WorkspaceHeader.js';
 
 interface WorkspaceShellProps {
   hasRecording: boolean;
@@ -20,8 +21,13 @@ interface WorkspaceShellProps {
   durationSec: number | null;
   dialogs: Dialogs;
   onOpen: () => void;
+  onOpenFolder?: () => void;
   onHelp: () => void;
   onExit: () => void;
+  mode?: WorkspaceMode;
+  showModeSwitch?: boolean;
+  onModeChange?: (mode: WorkspaceMode) => void;
+  showFooterControls?: boolean;
   itemTitles?: Partial<Record<MenuItemId, string>>;
   extraActions?: Partial<Record<MenuItemId, () => void>>;
   hotkeyHandlers?: Omit<PlayerActionHandlers, 'openRecording' | 'closeOverlay'>;
@@ -38,8 +44,13 @@ export function WorkspaceShell({
   durationSec,
   dialogs,
   onOpen,
+  onOpenFolder,
   onHelp,
   onExit,
+  mode,
+  showModeSwitch,
+  onModeChange,
+  showFooterControls = true,
   itemTitles,
   extraActions,
   hotkeyHandlers,
@@ -75,6 +86,7 @@ export function WorkspaceShell({
 
   const menuActions: Partial<Record<MenuItemId, () => void>> = {
     open: onOpen,
+    openFolder: onOpenFolder,
     appSettings: () => dispatchDialog({ type: 'openSettings' }),
     settings: toggleMapAppearance,
     documentation: onHelp,
@@ -93,11 +105,20 @@ export function WorkspaceShell({
         onActivate={(item) => menuActions[item]?.()}
         onMenuOpenChange={setMenuOpen}
       />
-      <WorkspaceHeader durationSec={durationSec} />
+      <WorkspaceHeader
+        durationSec={durationSec}
+        mode={mode}
+        showModeSwitch={showModeSwitch}
+        onModeChange={onModeChange}
+      />
       <main className="workspace-main">
         {stage}
-        {transport ? <TransportBar dispatch={dispatch} {...transport} /> : <TransportBar disabled />}
-        {timeline ? <TimelinePanel dispatch={dispatch} {...timeline} /> : <TimelinePanel disabled />}
+        {showFooterControls ? (
+          <>
+            {transport ? <TransportBar dispatch={dispatch} {...transport} /> : <TransportBar disabled />}
+            {timeline ? <TimelinePanel dispatch={dispatch} {...timeline} /> : <TimelinePanel disabled />}
+          </>
+        ) : null}
       </main>
       {children}
     </div>

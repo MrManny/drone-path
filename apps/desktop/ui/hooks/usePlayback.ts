@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageVideo } from '../../shared/ipc.js';
 import type { Scene } from 'drone-path-engine/renderer/scene';
 import { createFrameDriver } from '../lib/framedriver.js';
-import { clampFrame, formatTimeReadout, frameMidTime } from '../lib/frametime.js';
+import { clampFrame, formatTimeReadout, frameMidTime, framesForSeconds } from '../lib/frametime.js';
 import type { LoopState } from '../lib/loop.js';
 import { clampHandleFrame, markLoopPoint, resolveLoop } from '../lib/loop.js';
 
@@ -36,13 +36,18 @@ export function usePlayback(
   video: PageVideo,
   durationSec: number,
   loopControl?: [LoopState, Dispatch<SetStateAction<LoopState>>],
+  initialSeekSec?: number,
 ): Playback {
+  const initialFrame =
+    initialSeekSec !== undefined && Number.isFinite(initialSeekSec) && initialSeekSec > 0
+      ? clampFrame(framesForSeconds(video.fps, initialSeekSec), video.frames)
+      : 0;
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<Scene | null>(null);
-  const latestIndexRef = useRef(0);
+  const latestIndexRef = useRef(initialFrame);
   const driverRef = useRef<ReturnType<typeof createFrameDriver> | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -82,11 +87,12 @@ export function usePlayback(
     });
     driverRef.current = driver;
     driver.start();
+    if (initialFrame > 0) driver.scrub(initialFrame);
     return () => {
       driver.stop();
       driverRef.current = null;
     };
-  }, [video, durationSec]);
+  }, [video, durationSec, initialFrame]);
 
   useEffect(() => {
     driverRef.current?.setLoop(loop);

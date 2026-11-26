@@ -65,7 +65,7 @@ describe('MenuBar', () => {
     const names = within(panel)
       .getAllByRole('menuitem')
       .map((row) => row.textContent);
-    expect(names).toEqual(['Open…Ctrl+O', 'Export video…', 'Export telemetry…', 'Exit']);
+    expect(names).toEqual(['Open…Ctrl+O', 'Open folder…', 'Export video…', 'Export telemetry…', 'Exit']);
     fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
     const viewNames = within(screen.getByRole('menu', { name: 'View' }))
       .getAllByRole('menuitem')
@@ -97,6 +97,9 @@ describe('MenuBar', () => {
     expect(screen.queryByRole('menu', { name: 'File' })).toBeNull();
 
     openFile();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open folder…' }));
+
+    openFile();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Export video…' }));
 
     openFile();
@@ -120,6 +123,7 @@ describe('MenuBar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'About' }));
     expect(handlers.onActivate.mock.calls.map(([item]) => item)).toEqual([
       'open',
+      'openFolder',
       'exportVideo',
       'exportTelemetry',
       'exit',
@@ -237,7 +241,7 @@ describe('MenuBar', () => {
     pressKey({ key: 'f', altKey: true });
     pressKey({ key: 'ArrowDown' });
     pressKey({ key: 'Enter' });
-    expect(handlers.onActivate).toHaveBeenCalledWith('exportVideo');
+    expect(handlers.onActivate).toHaveBeenCalledWith('openFolder');
     expect(handlers.onMenuOpenChange).toHaveBeenLastCalledWith(false);
   });
 
@@ -280,8 +284,9 @@ describe('MenuBar APG keyboard model (#238)', () => {
     pressKey({ key: 'f', altKey: true });
     const rows = fileRows();
     pressKey({ key: 'ArrowDown' });
-    expect(document.activeElement).toBe(rows[1]);
-    expect(rows[1].getAttribute('aria-disabled')).toBe('true');
+    pressKey({ key: 'ArrowDown' });
+    expect(document.activeElement).toBe(rows[2]);
+    expect(rows[2].getAttribute('aria-disabled')).toBe('true');
     pressKey({ key: 'Enter' });
     expect(screen.queryByRole('menu', { name: 'File' })).toBeTruthy();
   });
@@ -345,7 +350,7 @@ describe('MenuBar APG keyboard model (#238)', () => {
     pressKey({ key: 'f', altKey: true });
     const rows = fileRows();
     pressKey({ key: 'End' });
-    expect(document.activeElement).toBe(rows[3]);
+    expect(document.activeElement).toBe(rows[4]);
     pressKey({ key: 'Home' });
     expect(document.activeElement).toBe(rows[0]);
   });
@@ -356,6 +361,6 @@ describe('MenuBar APG keyboard model (#238)', () => {
     const rows = fileRows();
     expect(rows[0].getAttribute('aria-disabled')).toBe('true');
     pressKey({ key: 'Home' });
-    expect(document.activeElement).toBe(rows[3]);
+    expect(document.activeElement).toBe(rows[4]);
   });
 });

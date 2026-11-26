@@ -6,7 +6,7 @@ Grab the packaged desktop app (Windows NSIS installer or portable exe, Linux App
 
 ## The menu bar
 
-Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…**, **Picture in picture** (`P`) and **Settings…**; **Help**, at the right edge, contains **User manual** and **About**. Items that cannot act right now — export, telemetry and Picture in picture without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
+Every command lives in the slim menu bar at the top of the workspace, as in other Windows apps: **File** holds **Open…** (`Ctrl+O`), **Open folder…**, **Export video…**, **Export telemetry…** and **Exit**; **View** holds **Map appearance…**, **Picture in picture** (`P`) and **Settings…**; **Help**, at the right edge, contains **User manual** and **About**. Items that cannot act right now — export, telemetry and Picture in picture without a loaded recording — sit disabled. The whole menu works with the mouse or the [keyboard](keyboard-shortcuts.md#menu-bar), and `Exit` closes the app, stopping a running export only after a confirmation.
 
 ## Changing the app language
 
@@ -14,9 +14,9 @@ Open **View → Settings…** and choose a **Language**. **System default** uses
 
 ## Loading a recording
 
-Launching the app lands in the review workspace with no recording loaded: the transport, timeline and export menu items sit disabled, and the map pane reads *No flight path yet*.
+Launching the app with no watched folders lands in the review workspace with no recording loaded: the transport, timeline and export menu items sit disabled, and the map pane reads *No flight path yet*. When watched folders are configured, the app launches into the [Archive workspace](archive.md) instead, and an **Archive | Review** tab strip in the header lets you move between browsing folders and reviewing the loaded clip.
 
-To load a recording, use the **Open…** button in the recording pane — **File → Open…** and `Ctrl+O` do the same. The dialog starts in the folder the last recording was opened from.
+To load a single recording, use the **Open…** button in the recording pane — **File → Open…** and `Ctrl+O` do the same. The dialog starts in the folder the last recording was opened from. To index a whole folder of recordings, choose **File → Open folder…**.
 
 Picking a drone recording opens the player as soon as the recording is read, its telemetry is loaded and the map is set up — no tile warm-up in between. The map draws the flight trail immediately and loads its tiles on demand, and playback is ready right away. Changing the map style, zoom or view in [Map appearance](#map-appearance) starts loading the tiles for the new view instead.
 

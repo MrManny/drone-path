@@ -65,6 +65,13 @@ function inputTypeOf(target: unknown): string {
   return typeof type === 'string' ? type.toLowerCase() : '';
 }
 
+function roleOf(target: unknown): string {
+  const role =
+    (target as { getAttribute?: (k: string) => unknown } | null | undefined)?.getAttribute?.('role') ??
+    (target as { role?: unknown } | null | undefined)?.role;
+  return typeof role === 'string' ? role.toLowerCase() : '';
+}
+
 function isTextEntry(target: unknown): boolean {
   const tag = tagNameOf(target);
   if (tag === 'SELECT' || tag === 'TEXTAREA') return true;
@@ -119,6 +126,13 @@ function mapAction(
 
   if (isTextEntry(event.target)) return null;
   if (ctrl || meta || alt) return null;
+
+  if (
+    roleOf(event.target) === 'tab' &&
+    (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'Home' || key === 'End')
+  ) {
+    return null;
+  }
 
   const directional = key === 'ArrowLeft' || key === 'ArrowRight';
   if (event.repeat === true && !directional) return null;
