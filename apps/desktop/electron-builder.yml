@@ -17,6 +17,7 @@ directories:
   output: dist-electron
 files:
   - dist/**
+  - '!dist/**/*.tsbuildinfo'
   - app/**
   - ui/out/**
   # The window icon is read at runtime; build resources are not packed by default.

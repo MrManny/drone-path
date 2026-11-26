@@ -46,8 +46,8 @@
     "THIRD-PARTY-NOTICES.md"
   ],
   "scripts": {
-    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.json",
-    "prepack": "npm run build:cli --prefix ../.."
+    "build": "tsc -b",
+    "prepack": "node ../../scripts/clean-package-dist.mjs && tsc -b"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "~2.4.0",

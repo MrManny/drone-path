@@ -9,8 +9,7 @@ Re-check `apps/desktop/package.json` and `apps/desktop/app/main.mjs` before rely
 
 ## How the app launches
 
-- **Production:** `npm run build`, then `npm run app` (starts Electron from `apps/desktop`). `npm ci` runs `build` via `prepare`, so a fresh checkout is
-  launchable as-is.
+- **Production:** `npm run build`, then `npm run app` (starts Electron from `apps/desktop`). Run `npm run build` after `npm ci` on a fresh checkout.
 - **Dev:** `npm run app:dev` serves the UI at `http://localhost:3210` and
   launches Electron with `--dev-url http://localhost:3210` once the server
   responds (see AGENTS.md for the webpack build note).

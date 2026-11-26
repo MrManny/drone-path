@@ -3,8 +3,7 @@
 - Run generators from the repository root:
   - `npm run docs:reference` — generates `docs/user/cli-reference.md` from `drone-path-engine/config`.
   - `npm run docs:schema` — generates the telemetry JSON schema from `src/telemetry-json-schema.ts`.
-  - `npm run build:manual` — compiles `docs/user/*.md` into the desktop app's offline help.
-  - `npm run build:info` — writes build identity metadata (`src/buildinfo.ts`).
+- Desktop build generators (`src/manual/build.ts` for offline help and `src/buildinfo.ts` for build identity metadata) run automatically as part of `npm run build`, `npm test`, and `npm run app:dev`.
 
 ## User manual
 

@@ -91,8 +91,14 @@ export function buildManual(paths: ManualBuildPaths): ManualBuildResult {
         : entry.page;
   }
 
-  fs.mkdirSync(path.dirname(paths.moduleFile), { recursive: true });
-  fs.writeFileSync(paths.moduleFile, bundleModuleSource(bundle));
+  const source = bundleModuleSource(bundle);
+  const existingModule = fs.existsSync(paths.moduleFile)
+    ? fs.readFileSync(paths.moduleFile, 'utf8')
+    : null;
+  if (existingModule !== source) {
+    fs.mkdirSync(path.dirname(paths.moduleFile), { recursive: true });
+    fs.writeFileSync(paths.moduleFile, source);
+  }
 
   const referenced = [
     ...new Set(compiled.flatMap((c) => c.refs.images.map((image) => image.file))),
@@ -105,7 +111,11 @@ export function buildManual(paths: ManualBuildPaths): ManualBuildResult {
     }
   }
   for (const file of referenced) {
-    fs.copyFileSync(path.join(paths.imagesDir, file), path.join(paths.assetDir, file));
+    const src = path.join(paths.imagesDir, file);
+    const dst = path.join(paths.assetDir, file);
+    if (!fs.existsSync(dst) || !fs.readFileSync(src).equals(fs.readFileSync(dst))) {
+      fs.copyFileSync(src, dst);
+    }
   }
   return { pages: compiled.length, images: referenced };
 }

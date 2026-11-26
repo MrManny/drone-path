@@ -18,8 +18,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "node ../../scripts/clean-package-dist.mjs && tsc -p tsconfig.json",
-    "prepack": "npm run build"
+    "build": "tsc -b",
+    "prepack": "node ../../scripts/clean-package-dist.mjs && tsc -b"
   },
   "author": "Manuel Warum",
   "license": "MIT",

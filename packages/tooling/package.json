@@ -10,9 +10,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "build:manual": "node dist/manual/build.js",
-    "build:info": "node dist/buildinfo.js",
+    "build": "tsc -b",
     "docs:reference": "node dist/manual/reference.js",
     "docs:schema": "node dist/telemetry-json-schema.js"
   },
