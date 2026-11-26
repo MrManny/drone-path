@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest';
 import type { AppState } from '../src/appstate.js';
 import {
   APP_STATE_VERSION,
+  addArchiveRoot,
   applyAppState,
   emptyAppState,
   parseAppState,
   rememberOpenedFile,
+  removeArchiveRoot,
   serializeAppState,
 } from '../src/appstate.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
@@ -30,7 +32,7 @@ const PATCH: SettingsPatch = {
 };
 
 function stateFixture(overrides: Partial<AppState> = {}): AppState {
-  return { settings: PATCH, lastOpenDir: null, language: null, ...overrides };
+  return { settings: PATCH, lastOpenDir: null, language: null, archiveRoots: [], ...overrides };
 }
 
 const HUD_CASES: Array<[string, HudLayout]> = [
@@ -63,6 +65,11 @@ const INVALID_CASES: Array<[string, unknown]> = [
     { version: APP_STATE_VERSION, settings: { ...PATCH, zoom: -1 } },
   ],
   ['a mistyped last-opened folder', { version: APP_STATE_VERSION, lastOpenDir: 42 }],
+  ['a mistyped archiveRoots field', { version: APP_STATE_VERSION, archiveRoots: 'flights' }],
+  ['a null archiveRoots field', { version: APP_STATE_VERSION, archiveRoots: null }],
+  ['an archiveRoots entry that is not a string', { version: APP_STATE_VERSION, archiveRoots: [42] }],
+  ['an empty archiveRoots entry', { version: APP_STATE_VERSION, archiveRoots: [''] }],
+  ['a whitespace-only archiveRoots entry', { version: APP_STATE_VERSION, archiveRoots: ['   '] }],
 ];
 
 describe('parseAppState / serializeAppState', () => {
@@ -181,5 +188,42 @@ describe('rememberOpenedFile', () => {
     const next = rememberOpenedFile(stateFixture(), path.join('recs', 'flight.mp4'));
     expect(next.settings).toEqual(PATCH);
     expect(next.lastOpenDir).toBe('recs');
+  });
+});
+
+describe('archiveRoots persistence and helpers', () => {
+  it('omits archiveRoots when empty and round-trips non-empty normalized roots', () => {
+    const emptyText = serializeAppState(emptyAppState());
+    expect(JSON.parse(emptyText)).not.toHaveProperty('archiveRoots');
+
+    const rootA = path.resolve('flights', 'day1');
+    const rootB = path.resolve('flights', 'day2');
+    const state = stateFixture({ archiveRoots: [rootA, rootB] });
+    const serialized = serializeAppState(state);
+    expect(JSON.parse(serialized).archiveRoots).toEqual([rootA, rootB]);
+    expect(parseAppState(JSON.parse(serialized))).toEqual(state);
+  });
+
+  it('deduplicates and normalizes archiveRoots when parsing', () => {
+    const raw = {
+      version: APP_STATE_VERSION,
+      archiveRoots: [path.join('flights', 'a', '.'), path.join('flights', 'a'), path.join('flights', 'b')],
+    };
+    const parsed = parseAppState(raw);
+    expect(parsed.archiveRoots).toEqual([path.resolve('flights', 'a'), path.resolve('flights', 'b')]);
+  });
+
+  it('adds and removes archiveRoots purely', () => {
+    const dirA = path.resolve('flights', 'a');
+    const dirB = path.resolve('flights', 'b');
+    const s1 = addArchiveRoot(emptyAppState(), dirA);
+    expect(s1.archiveRoots).toEqual([dirA]);
+    const s2 = addArchiveRoot(s1, `${dirA}${path.sep}`);
+    expect(s2.archiveRoots).toEqual([dirA]);
+    const s3 = addArchiveRoot(s2, dirB);
+    expect(s3.archiveRoots).toEqual([dirA, dirB]);
+    const s4 = removeArchiveRoot(s3, dirA);
+    expect(s4.archiveRoots).toEqual([dirB]);
+    expect(() => addArchiveRoot(emptyAppState(), '  ')).toThrow('archive root must be a non-empty path');
   });
 });

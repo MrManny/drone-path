@@ -240,6 +240,49 @@ function registerWindowHandlers(controller, devUrl) {
 
 /**
  * @param {IpcController} controller
+ * @param {string | null} devUrl
+ */
+function registerArchiveHandlers(controller, devUrl) {
+  handle(devUrl, IPC_INVOKE_CHANNELS.pickArchiveFolder, async () => {
+    const t = controller.translator();
+    /** @type {Electron.OpenDialogOptions} */
+    const options = {
+      title: t('native.chooseArchiveFolder'),
+      properties: ['openDirectory'],
+    };
+    const result = await showDialogWithParent(
+      controller.liveWindow(),
+      dialog.showOpenDialog.bind(dialog),
+      options,
+    );
+    const chosen = result.canceled ? null : (result.filePaths?.[0] ?? null);
+    if (!chosen) return { ok: false, canceled: true };
+    return { ok: true, ...controller.addArchiveRoot(chosen) };
+  });
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.listArchiveRoots, () => controller.listArchiveRoots());
+  handle(devUrl, IPC_INVOKE_CHANNELS.removeArchiveRoot, (dir) => ({
+    ok: true,
+    roots: controller.removeArchiveRoot(dir),
+  }));
+  handle(devUrl, IPC_INVOKE_CHANNELS.scanArchive, async (roots) => ({
+    ok: true,
+    ...(await controller.scanArchive(roots)),
+  }));
+  handle(devUrl, IPC_INVOKE_CHANNELS.cancelArchiveScan, () => {
+    controller.cancelArchiveScan();
+    return { ok: true };
+  });
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.queryArchive, (filters) =>
+    controller.queryArchive(filters),
+  );
+  handleQuery(devUrl, IPC_INVOKE_CHANNELS.findArchiveAtPoint, (point, radiusM, includeGaze) =>
+    controller.findArchiveAtPoint(point, radiusM, includeGaze),
+  );
+  handle(devUrl, IPC_INVOKE_CHANNELS.openArchiveClip, (raw) => controller.openArchiveClip(raw));
+}
+
+/**
+ * @param {IpcController} controller
  * @param {IpcHandlersOptions} options
  */
 export function registerIpcHandlers(controller, { devUrl, log }) {
@@ -250,4 +293,5 @@ export function registerIpcHandlers(controller, { devUrl, log }) {
   registerTrackHandlers(controller, devUrl, log);
   registerUpdateHandlers(controller, devUrl);
   registerWindowHandlers(controller, devUrl);
+  registerArchiveHandlers(controller, devUrl);
 }

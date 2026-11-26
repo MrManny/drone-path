@@ -113,6 +113,16 @@ function decodeSegment(row: SegmentRow): KinematicShot {
   };
 }
 
+function normalizeForCompare(target: string): string {
+  const resolved = path.resolve(target);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
+function isWithinRoot(root: string, filePath: string): boolean {
+  const rel = path.relative(normalizeForCompare(root), normalizeForCompare(filePath));
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
 const SCHEMA = `
   CREATE TABLE archive_revision (revision INTEGER NOT NULL) STRICT;
   INSERT INTO archive_revision VALUES (0);
@@ -421,6 +431,23 @@ export class ArchiveStore {
       if (updates.length + online.length + offline.length + removed.length > 0) {
         this.db.exec('UPDATE archive_revision SET revision = revision + 1');
       }
+    });
+  }
+
+  removeClipsUnder(root: string): number {
+    return this.transaction('BEGIN IMMEDIATE', () => {
+      const rows = this.db.prepare(`
+        SELECT clip_key, json_extract(record_json, '$.path') AS clip_path FROM clips
+      `).all() as { clip_key: string; clip_path: string | null }[];
+      const matched = rows
+        .filter((row) => typeof row.clip_path === 'string' && isWithinRoot(root, row.clip_path))
+        .map((row) => row.clip_key);
+      if (matched.length === 0) return 0;
+      const remove = this.db.prepare('DELETE FROM clips WHERE clip_key = ?');
+      for (const key of matched) remove.run(key);
+      this.refreshFlights();
+      this.db.exec('UPDATE archive_revision SET revision = revision + 1');
+      return matched.length;
     });
   }
 

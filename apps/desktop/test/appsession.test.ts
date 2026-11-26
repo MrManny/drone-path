@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createAppSession,
   frameExactDuration,
+  parseOpenArchiveClipRequest,
   parsePickRequest,
   parseTrackSaveRequest,
   prepareUiSession,
@@ -226,6 +227,47 @@ describe('createAppSession', () => {
     });
     if (release) release(PREPARED);
     expect(await first).toEqual({ ok: true });
+  });
+
+  it('opens a recording directly via openFile sharing validation, preparation, and concurrency guard', async () => {
+    const file = mp4('archive-clip.mp4');
+    const prepare = vi.fn(async (): Promise<PreparedUiSession> => PREPARED);
+    const onPreparing = vi.fn();
+    const session = makeSession({ config: CONFIG, pickFile: vi.fn(), prepare, onPreparing });
+
+    expect(await session.openFile(file, REQUEST)).toEqual({ ok: true });
+    expect(onPreparing).toHaveBeenCalledWith(file);
+    expect(session.getSession()).toBe(SESSION);
+    expect(session.videoPath()).toBe(file);
+
+    const missing = path.join(tmpDir(), 'missing.mp4');
+    expect(await session.openFile(missing, REQUEST)).toEqual({
+      ok: false,
+      code: 'NOT_READABLE_MP4',
+      detail: `not a readable .mp4 file: ${missing}`,
+      params: { name: 'missing.mp4' },
+    });
+  });
+});
+
+describe('parseOpenArchiveClipRequest', () => {
+  it('accepts path, settings, and optional seekSec', () => {
+    expect(
+      parseOpenArchiveClipRequest({ path: '/clips/a.mp4', settings: REQUEST.settings, seekSec: 12.5 }),
+    ).toEqual({ path: '/clips/a.mp4', settings: REQUEST.settings, seekSec: 12.5 });
+    expect(
+      parseOpenArchiveClipRequest({ path: '/clips/a.mp4', settings: REQUEST.settings }),
+    ).toEqual({ path: '/clips/a.mp4', settings: REQUEST.settings });
+  });
+
+  it('rejects empty path, negative seekSec, and unknown keys', () => {
+    expect(() => parseOpenArchiveClipRequest({ path: '', settings: REQUEST.settings })).toThrow();
+    expect(() =>
+      parseOpenArchiveClipRequest({ path: '/clips/a.mp4', settings: REQUEST.settings, seekSec: -1 }),
+    ).toThrow();
+    expect(() =>
+      parseOpenArchiveClipRequest({ path: '/clips/a.mp4', settings: REQUEST.settings, extra: true }),
+    ).toThrow();
   });
 });
 

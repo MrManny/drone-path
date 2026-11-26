@@ -15,6 +15,7 @@ describe('MENU_BAR', () => {
   it('lists the File items in acceptance order with separators', () => {
     expect(menuOf('file').items).toEqual([
       { id: 'open', label: 'Open…', icon: 'folderOpen', hint: 'Ctrl+O' },
+      { id: 'openFolder', label: 'Open folder…', icon: 'folderOpen' },
       { id: 'exportVideo', label: 'Export video…', icon: 'export' },
       { id: 'exportTelemetry', label: 'Export telemetry…', icon: 'telemetry' },
       { id: 'exit', label: 'Exit', icon: 'exit', separatorBefore: true },
@@ -105,6 +106,18 @@ describe('itemEnabled', () => {
     {
       name: 'Open waits while a recording is opening',
       id: 'open',
+      flags: { hasRecording: false, opening: true },
+      want: false,
+    },
+    {
+      name: 'Open folder is live when idle',
+      id: 'openFolder',
+      flags: { hasRecording: false, opening: false },
+      want: true,
+    },
+    {
+      name: 'Open folder waits while a recording is opening',
+      id: 'openFolder',
       flags: { hasRecording: false, opening: true },
       want: false,
     },

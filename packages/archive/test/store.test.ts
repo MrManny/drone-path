@@ -146,3 +146,107 @@ describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) =
     }
   });
 });
+
+describe('ArchiveStore.removeClipsUnder', () => {
+  function sampleClip(filePath: string, key = process.platform === 'win32' ? filePath.toLowerCase() : filePath) {
+    return {
+      key,
+      availability: 'online' as const,
+      fingerprint: { size: 100, mtimeMs: 1000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+      record: {
+        path: filePath,
+        size: 100,
+        mtimeMs: 1000,
+        status: 'ok' as const,
+        video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 90, width: 1920, height: 1080, durationSec: 3 },
+        cameraCreationTime: '2026-01-01T10:00:00Z',
+        telemetry: { source: 'srt' as const, method: 'srt-cues' as const, fixCount: 1, noLock: 0, trackDistanceM: 10 },
+        bbox: { minLat: 46.6, maxLat: 46.6, minLon: 14.2, maxLon: 14.2 },
+        track: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+        error: null,
+      },
+      overview: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+      samples: [{ segment: 0, lat: 46.6, lon: 14.2, tSec: 0 }],
+      gaze: [{ tSec: 0, polygon: [{ lat: 46.6, lon: 14.2 }, { lat: 46.61, lon: 14.2 }, { lat: 46.61, lon: 14.21 }] }],
+      segments: [{
+        type: 'hover' as const,
+        startSec: 0,
+        endSec: 3,
+        durationSec: 3,
+        smoothness: 0.9,
+        exposureStable: true,
+        meanSpeedMps: 0.1,
+        meanYawRateDegPerSec: 0.2,
+      }],
+    };
+  }
+
+  it('removes nested clips under the given root, cascades related rows, refreshes flights, and bumps revision', () => {
+    const base = tmpDir();
+    const rootA = path.join(base, 'flights');
+    const rootOther = path.join(base, 'flights-archive');
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const clip1 = sampleClip(path.join(rootA, 'day1', 'DJI_0001.MP4'));
+      const clip2 = sampleClip(path.join(rootA, 'DJI_0002.MP4'));
+      const clipOther = sampleClip(path.join(rootOther, 'DJI_0003.MP4'));
+      store.commit(0, [clip1, clip2, clipOther], [], [], []);
+      expect(store.snapshot().revision).toBe(1);
+
+      const deleted = store.removeClipsUnder(rootA + path.sep);
+      expect(deleted).toBe(2);
+
+      const snap = store.snapshot();
+      expect(snap.revision).toBe(2);
+      expect(snap.clips.map((c) => c.record.path)).toEqual([clipOther.record.path]);
+      expect(store.listClips().map((c) => c.record.path)).toEqual([clipOther.record.path]);
+      expect(store.readSamples(clip1.key)).toEqual([]);
+      expect(store.readSegments(clip1.key)).toEqual([]);
+    } finally {
+      store.close();
+    }
+
+    const raw = new DatabaseSync(dbFile);
+    try {
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_gaze').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_flights').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_samples').get()?.count).toBe(1);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM segments').get()?.count).toBe(1);
+    } finally {
+      raw.close();
+    }
+  });
+
+  it('returns 0 and leaves revision unchanged when no clips match', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const clip = sampleClip(path.join(base, 'kept', 'DJI_0001.MP4'));
+      store.commit(0, [clip], [], [], []);
+      expect(store.removeClipsUnder(path.join(base, 'empty'))).toBe(0);
+      expect(store.snapshot().revision).toBe(1);
+      expect(store.snapshot().clips).toHaveLength(1);
+    } finally {
+      store.close();
+    }
+  });
+
+  if (process.platform === 'win32') {
+    it('matches paths case-insensitively on win32', () => {
+      const base = tmpDir();
+      const dbFile = path.join(base, 'archive.sqlite');
+      const store = new ArchiveStore(dbFile);
+      try {
+        const root = path.join(base, 'Flights');
+        const clip = sampleClip(path.join(base, 'flights', 'DJI_0001.MP4'));
+        store.commit(0, [clip], [], [], []);
+        expect(store.removeClipsUnder(root.toUpperCase())).toBe(1);
+        expect(store.snapshot().clips).toHaveLength(0);
+      } finally {
+        store.close();
+      }
+    });
+  }
+});

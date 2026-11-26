@@ -18,6 +18,7 @@ import { restyleSession } from '../lib/restylemeta.js';
 import { trackScope } from '../lib/tracksave.js';
 import { OpenNotice } from './OpenNotice.js';
 import { PlayerStage } from './PlayerStage.js';
+import type { WorkspaceMode } from './WorkspaceHeader.js';
 import { WorkspaceShell } from './WorkspaceShell.js';
 
 export interface PlayerChromeProps {
@@ -25,12 +26,17 @@ export interface PlayerChromeProps {
   settings: RenderConfig;
   onSettingsChange: (config: RenderConfig) => void;
   onOpen: () => void;
+  onOpenFolder?: () => void;
   onHelp: () => void;
   onExit: () => void;
   dialogs: Dialogs;
   openState?: PickState;
   onDismissOpenState?: () => void;
   loopControl?: [LoopState, Dispatch<SetStateAction<LoopState>>];
+  initialSeekSec?: number;
+  mode?: WorkspaceMode;
+  showModeSwitch?: boolean;
+  onModeChange?: (mode: WorkspaceMode) => void;
   onExportVideo?: () => void;
   onExportTelemetry?: (range: FrameRange | null, scope: string) => void;
 }
@@ -42,12 +48,17 @@ export function PlayerChrome({
   settings,
   onSettingsChange,
   onOpen,
+  onOpenFolder,
   onHelp,
   onExit,
   dialogs,
   openState = IDLE_OPEN,
   onDismissOpenState,
   loopControl,
+  initialSeekSec,
+  mode,
+  showModeSwitch,
+  onModeChange,
   onExportVideo,
   onExportTelemetry,
 }: PlayerChromeProps) {
@@ -71,7 +82,7 @@ export function PlayerChrome({
     scrubRef,
     timeRef,
     playheadRef,
-  } = usePlayback(video, durationSec, loopControl);
+  } = usePlayback(video, durationSec, loopControl, initialSeekSec);
   const { dispatchDialog } = dialogs;
   const [layout, setLayout] = useState<StageLayout>('split');
   const swap = useCallback(() => setLayout((prev) => (prev === 'split' ? 'overlay' : 'split')), []);
@@ -124,8 +135,12 @@ export function PlayerChrome({
       durationSec={durationSec}
       dialogs={dialogs}
       onOpen={onOpen}
+      onOpenFolder={onOpenFolder}
       onHelp={onHelp}
       onExit={onExit}
+      mode={mode}
+      showModeSwitch={showModeSwitch}
+      onModeChange={onModeChange}
       itemTitles={{ exportTelemetry: t('playerChrome.telemetryScope', { scope }) }}
       extraActions={{
         exportVideo: onExportVideo ?? (() => dispatchDialog({ type: 'openExport' })),

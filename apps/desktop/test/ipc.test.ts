@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'v
 
 import { registerIpcHandlers } from '../app/ipc.mjs';
 import { appStateFile } from '../src/apppaths.js';
+import { parsePickRequest } from '../src/appsession.js';
 import type { AppSession } from '../src/appsession.js';
 import type { AppState } from '../src/appstate.js';
 import { emptyAppState } from '../src/appstate.js';
@@ -39,6 +40,7 @@ const harness = vi.hoisted(() => {
     },
     dialog: {
       showSaveDialog: vi.fn(),
+      showOpenDialog: vi.fn(),
       showMessageBox: vi.fn(),
     },
     shell: {
@@ -79,6 +81,7 @@ function makeController(options: {
   });
   const session: AppSession = {
     pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+    openFile: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
     getSession: vi.fn(() => null),
     videoPath: () => video,
     saveTrack: vi.fn(() => {}),
@@ -643,7 +646,7 @@ describe('structured IPC error codes and contract parity (#394, #413)', () => {
       Parameters<IpcEventSender>[1] extends infer _ ? Parameters<Parameters<AppBridge<Locale>['onUpdateRestartFailed']>[0]>[0] : never
     >();
     const allChannels = [...Object.values(IPC_INVOKE_CHANNELS), ...Object.values(IPC_EVENT_CHANNELS)];
-    expect(new Set(allChannels).size).toBe(22);
+    expect(new Set(allChannels).size).toBe(31);
     expectTypeOf<IpcEventChannel>().toEqualTypeOf<
       (typeof IPC_EVENT_CHANNELS)[keyof typeof IPC_EVENT_CHANNELS]
     >();
@@ -926,5 +929,94 @@ describe('pick, settings, export, track, update, and window IPC handlers (#405)'
     await expect(
       closeHandler({ senderFrame: { url: 'https://attacker.example/' } }),
     ).rejects.toThrow('untrusted ipc sender');
+  });
+});
+
+describe('archive IPC handlers (#326)', () => {
+  it('picks, lists, scans, cancels, queries, finds near points, removes roots, and opens clips', async () => {
+    const dir = tmpDir();
+    const { controller, session } = makeController({ video: path.join(dir, 'clip.mp4') });
+    let roots: string[] = [];
+    const scan = vi.fn(async () => ({ scanned: 2 }));
+    const cancelScan = vi.fn();
+    const query = vi.fn(() => ({ flights: [], totalCount: 0, offlineCount: 0 }));
+    const findAtPoint = vi.fn(() => []);
+    let fileExists = true;
+    controller.attachArchiveService({
+      listRoots: () => [...roots],
+      addRoot: (nextDir) => {
+        roots = [nextDir];
+        return [...roots];
+      },
+      removeRoot: (targetDir) => {
+        roots = roots.filter((r) => r !== path.resolve(targetDir));
+        return [...roots];
+      },
+      scan,
+      cancelScan,
+      query,
+      findAtPoint,
+      fileExists: () => fileExists,
+    });
+    setup(controller);
+
+    harness.dialog.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickArchiveFolder)).toEqual({ ok: false, canceled: true });
+
+    harness.dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [dir] });
+    expect(await invoke(IPC_INVOKE_CHANNELS.pickArchiveFolder)).toEqual({
+      ok: true,
+      root: path.resolve(dir),
+      roots: [path.resolve(dir)],
+    });
+    expect(harness.dialog.showOpenDialog).toHaveBeenLastCalledWith({
+      title: 'Choose a folder of drone recordings',
+      properties: ['openDirectory'],
+    });
+    expect(await invoke(IPC_INVOKE_CHANNELS.listArchiveRoots)).toEqual([path.resolve(dir)]);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.scanArchive, [dir])).toEqual({ ok: true, scanned: 2 });
+    expect(scan).toHaveBeenCalledWith([dir]);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.cancelArchiveScan)).toEqual({ ok: true });
+    expect(cancelScan).toHaveBeenCalledTimes(1);
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.queryArchive, { availability: 'online' })).toEqual({
+      flights: [],
+      totalCount: 0,
+      offlineCount: 0,
+    });
+    expect(query).toHaveBeenCalledWith({ availability: 'online' });
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.findArchiveAtPoint, { lat: 46.6, lon: 14.2 }, 50, false)).toEqual([]);
+    expect(findAtPoint).toHaveBeenCalledWith({ lat: 46.6, lon: 14.2 }, 50, false);
+
+    const clipPath = path.join(dir, 'clip.mp4');
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.openArchiveClip, {
+        path: clipPath,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+        seekSec: 4,
+      }),
+    ).toEqual({ ok: true });
+    expect(session.openFile).toHaveBeenCalledWith(
+      clipPath,
+      parsePickRequest({ settings: settingsPatchOf(DEFAULT_CONFIG) }),
+    );
+
+    fileExists = false;
+    expect(
+      await invoke(IPC_INVOKE_CHANNELS.openArchiveClip, {
+        path: clipPath,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+      }),
+    ).toEqual({
+      ok: false,
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      detail: `recording is offline or missing: ${clipPath}`,
+      params: { name: 'clip.mp4' },
+    });
+
+    expect(await invoke(IPC_INVOKE_CHANNELS.removeArchiveRoot, dir)).toEqual({ ok: true, roots: [] });
   });
 });

@@ -86,8 +86,8 @@ describe('reduceMenu keyboard navigation', () => {
   it('walks the rows with ArrowDown and wraps', () => {
     const downs = (count: number): MenuEvent[] =>
       Array.from({ length: count }, () => ({ type: 'keyDown', key: 'ArrowDown' }) as const);
-    expect(run(downs(4), LOADED, opened).state.active).toBe(3);
-    expect(run(downs(5), LOADED, opened).state.active).toBe(0);
+    expect(run(downs(5), LOADED, opened).state.active).toBe(4);
+    expect(run(downs(6), LOADED, opened).state.active).toBe(0);
   });
 
   it('walks upwards from the end and wraps', () => {
@@ -99,7 +99,7 @@ describe('reduceMenu keyboard navigation', () => {
       LOADED,
       opened,
     );
-    expect(state.active).toBe(2);
+    expect(state.active).toBe(3);
   });
 
   it('switches menus with the arrow keys, preselecting the first row', () => {
@@ -148,19 +148,19 @@ describe('reduceMenu keyboard navigation', () => {
 
   it('jumps to the first and last enabled items on Home and End (#406)', () => {
     expect(run([{ type: 'keyDown', key: 'Home' }], LOADED, { ...opened, active: 2 }).state.active).toBe(0);
-    expect(run([{ type: 'keyDown', key: 'End' }], LOADED, { ...opened, active: 0 }).state.active).toBe(3);
+    expect(run([{ type: 'keyDown', key: 'End' }], LOADED, { ...opened, active: 0 }).state.active).toBe(4);
 
     const openingFlags: MenuFlags = { hasRecording: true, opening: true };
-    expect(run([{ type: 'keyDown', key: 'Home' }], openingFlags, { ...opened, active: 1 }).state.active).toBe(3);
+    expect(run([{ type: 'keyDown', key: 'Home' }], openingFlags, { ...opened, active: 1 }).state.active).toBe(4);
 
     const emptyOpeningFlags: MenuFlags = { hasRecording: false, opening: true };
-    expect(run([{ type: 'keyDown', key: 'Home' }], emptyOpeningFlags, { ...opened, active: 1 }).state.active).toBe(3);
-    expect(run([{ type: 'keyDown', key: 'End' }], emptyOpeningFlags, { ...opened, active: 0 }).state.active).toBe(3);
+    expect(run([{ type: 'keyDown', key: 'Home' }], emptyOpeningFlags, { ...opened, active: 1 }).state.active).toBe(4);
+    expect(run([{ type: 'keyDown', key: 'End' }], emptyOpeningFlags, { ...opened, active: 0 }).state.active).toBe(4);
   });
 });
 
 describe('reduceMenu activation rules', () => {
-  const onDisabled: MenuState = { open: 'file', active: 1, altPending: false, label: 0 };
+  const onDisabled: MenuState = { open: 'file', active: 2, altPending: false, label: 0 };
 
   it('keeps the menu open and yields nothing for a disabled row', () => {
     const { state, commands } = run([{ type: 'keyDown', key: 'Enter' }], EMPTY, onDisabled);

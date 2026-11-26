@@ -28,7 +28,7 @@ vi.mock('electron', () => ({
       ipcHarness.registered.set(channel, handler);
     },
   },
-  dialog: { showSaveDialog: vi.fn(), showMessageBox: vi.fn() },
+  dialog: { showSaveDialog: vi.fn(), showOpenDialog: vi.fn(), showMessageBox: vi.fn() },
   shell: { showItemInFolder: vi.fn(), openPath: vi.fn() },
 }));
 
@@ -92,7 +92,7 @@ describe('preload bridge runtime contracts', () => {
     expect(fs.readFileSync(preloadPath, 'utf8')).toBe(buildPreloadSource());
   });
 
-  it('exposes the exact 22 invoke and event methods in a sandboxed preload', () => {
+  it('exposes the exact 31 invoke and event methods in a sandboxed preload', () => {
     const { api } = loadPreloadInSandbox();
     const expected = [
       ...Object.keys(IPC_INVOKE_CHANNELS),

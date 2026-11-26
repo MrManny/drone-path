@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
+import { parsePickRequest } from '../src/appsession.js';
 import type { AppSession, PickResult } from '../src/appsession.js';
 import { emptyAppState } from '../src/appstate.js';
 import type { AppState } from '../src/appstate.js';
@@ -126,6 +127,7 @@ describe('createShellController IPC coordination and update state', () => {
     const out = path.resolve('clips', 'out', 'flight_map.mp4');
     const session: AppSession = {
       pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+      openFile: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
       getSession: () => null,
       videoPath: () => video,
       saveTrack: vi.fn(),
@@ -182,5 +184,65 @@ describe('createShellController IPC coordination and update state', () => {
         payload: { code: 'UPDATE_RESTART_FAILED', detail: 'installer failed' },
       },
     ]);
+  });
+
+  it('opens archive clips via session.openFile, clears pending outputs, and reports offline clips', async () => {
+    const { controller } = makeController();
+    const video = path.resolve('clips', 'flight.mp4');
+    const out = path.resolve('clips', 'out', 'flight_map.mp4');
+    const session: AppSession = {
+      pick: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+      openFile: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+      getSession: () => null,
+      videoPath: () => video,
+      saveTrack: vi.fn(),
+    };
+    const runner: ExportRunnerPort = {
+      start: vi.fn(),
+      cancel: vi.fn(),
+      running: () => false,
+    };
+    let exists = true;
+    controller.attachSession(session);
+    controller.attachExportRunner(runner);
+    controller.attachArchiveService({
+      listRoots: () => [],
+      addRoot: () => [],
+      removeRoot: () => [],
+      scan: async () => ({ scanned: 0 }),
+      cancelScan: () => {},
+      query: () => ({ flights: [], totalCount: 0, offlineCount: 0 }),
+      findAtPoint: () => [],
+      fileExists: () => exists,
+    });
+
+    controller.ipc.approveExportOut(out);
+    await expect(
+      controller.ipc.openArchiveClip({
+        path: video,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+        seekSec: 5,
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(session.openFile).toHaveBeenCalledWith(
+      video,
+      parsePickRequest({ settings: settingsPatchOf(DEFAULT_CONFIG) }),
+    );
+    expect(() => controller.ipc.startExport({ outPath: out, config: {} })).toThrow(
+      'output path was not approved by save dialog',
+    );
+
+    exists = false;
+    await expect(
+      controller.ipc.openArchiveClip({
+        path: video,
+        settings: settingsPatchOf(DEFAULT_CONFIG),
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      detail: `recording is offline or missing: ${video}`,
+      params: { name: 'flight.mp4' },
+    });
   });
 });

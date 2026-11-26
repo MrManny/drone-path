@@ -5,6 +5,7 @@ export type MenuId = 'file' | 'view' | 'help';
 
 export type MenuItemId =
   | 'open'
+  | 'openFolder'
   | 'exportVideo'
   | 'exportTelemetry'
   | 'settings'
@@ -52,6 +53,7 @@ export function menuBar(t: Translate): readonly MenuDef[] {
       align: 'start',
       items: [
         { id: 'open', label: t('menumodel.open'), icon: 'folderOpen', hint: 'Ctrl+O' },
+        { id: 'openFolder', label: t('menumodel.openFolder'), icon: 'folderOpen' },
         { id: 'exportVideo', label: t('menumodel.exportVideo'), icon: 'export' },
         { id: 'exportTelemetry', label: t('menumodel.exportTelemetry'), icon: 'telemetry' },
         { id: 'exit', label: t('menumodel.exit'), icon: 'exit', separatorBefore: true },
@@ -91,6 +93,7 @@ export interface MenuFlags {
 export function itemEnabled(id: MenuItemId, flags: MenuFlags): boolean {
   switch (id) {
     case 'open':
+    case 'openFolder':
       return !flags.opening;
     case 'exportVideo':
     case 'exportTelemetry':

@@ -1,5 +1,6 @@
 import type { FrameRange } from 'drone-path-core/frame-range';
-import type { Bbox } from 'drone-path-core/geo';
+import type { Bbox, LatLon } from 'drone-path-core/geo';
+import type { ShotType } from 'drone-path-core/shot-segmentation';
 import type { AppearanceSettings, ExportRequest, RenderConfig, SettingsPatch } from 'drone-path-engine/config';
 import type { PrepareProgress, RecordingSummary } from 'drone-path-engine/pipeline';
 import type { CaptureProgress } from 'drone-path-engine/render';
@@ -23,6 +24,14 @@ export const IPC_INVOKE_CHANNELS = {
   getUpdateState: 'dronepath:update:state',
   restartToUpdate: 'dronepath:update:restart',
   closeWindow: 'dronepath:window:close',
+  pickArchiveFolder: 'dronepath:archive:pick-folder',
+  listArchiveRoots: 'dronepath:archive:roots',
+  removeArchiveRoot: 'dronepath:archive:remove-root',
+  scanArchive: 'dronepath:archive:scan',
+  cancelArchiveScan: 'dronepath:archive:cancel-scan',
+  queryArchive: 'dronepath:archive:query',
+  findArchiveAtPoint: 'dronepath:archive:find-at-point',
+  openArchiveClip: 'dronepath:archive:open-clip',
 } as const;
 
 export const IPC_EVENT_CHANNELS = {
@@ -32,6 +41,7 @@ export const IPC_EVENT_CHANNELS = {
   onPrepareProgress: 'dronepath:preparing:progress',
   onUpdateReady: 'dronepath:update:ready',
   onUpdateRestartFailed: 'dronepath:update:restart-failed',
+  onArchiveScanProgress: 'dronepath:archive:scan-progress',
 } as const;
 
 export type InvokeMethodName = keyof typeof IPC_INVOKE_CHANNELS;
@@ -102,6 +112,95 @@ export type ExportOutcome =
   | ({ status: 'error' } & StructuredError)
   | { status: 'canceled' };
 
+export type ArchiveAvailability = 'online' | 'offline';
+export type ArchiveScanStatus = 'ok' | 'no-telemetry' | 'no-gps' | 'error';
+
+export interface ArchiveTrackPoint {
+  lat: number;
+  lon: number;
+  tSec: number;
+}
+
+export interface ArchiveClipDto {
+  path: string;
+  size: number | null;
+  mtimeMs: number | null;
+  status: ArchiveScanStatus;
+  availability: ArchiveAvailability;
+  video: {
+    fps: { num: number; den: number; value: number; str: string };
+    frames: number;
+    width: number;
+    height: number;
+    durationSec: number | null;
+  } | null;
+  cameraCreationTime: string | null;
+  telemetry: {
+    source: string;
+    method: string;
+    fixCount: number;
+    noLock: number;
+    trackDistanceM: number;
+  } | null;
+  bbox: Bbox | null;
+  track: ArchiveTrackPoint[][];
+  error: string | null;
+}
+
+export interface ArchiveFlightClipDto extends ArchiveClipDto {
+  splitFromKey: string | null;
+}
+
+export interface ArchiveFlightDto {
+  flightId: string;
+  clips: ArchiveFlightClipDto[];
+}
+
+export interface ArchiveQueryFilters {
+  bbox?: Bbox;
+  afterMs?: number;
+  beforeMs?: number;
+  minDistanceM?: number;
+  availability?: ArchiveAvailability;
+  segmentType?: ShotType;
+  minSmoothness?: number;
+}
+
+export interface ArchiveQueryResult {
+  flights: ArchiveFlightDto[];
+  totalCount: number;
+  offlineCount: number;
+}
+
+export interface ArchiveNearHit {
+  clip: ArchiveClipDto;
+  tSec: number;
+  distanceM: number;
+  matchType: 'track' | 'gaze';
+}
+
+export interface ArchiveScanProgress {
+  phase: 'scanning' | 'done' | 'canceled' | 'error';
+  scanned: number;
+  total?: number;
+  currentPath?: string;
+  status: 'running' | 'done' | 'canceled' | 'error';
+}
+
+export interface OpenArchiveClipRequest {
+  path: string;
+  settings: AppearanceSettings;
+  seekSec?: number;
+}
+
+export type ArchivePickFolderResult =
+  | { ok: true; root: string; roots: string[] }
+  | IpcCanceled
+  | IpcFailure;
+
+export type ArchiveRemoveRootResult = { ok: true; roots: string[] } | IpcFailure;
+export type ArchiveScanResult = { ok: true; scanned: number } | IpcFailure;
+
 export interface IpcInvokeMap<TLocale extends string = string> {
   [IPC_INVOKE_CHANNELS.pickRecording]: {
     args: [request: PickRequest];
@@ -167,6 +266,38 @@ export interface IpcInvokeMap<TLocale extends string = string> {
     args: [];
     result: void;
   };
+  [IPC_INVOKE_CHANNELS.pickArchiveFolder]: {
+    args: [];
+    result: ArchivePickFolderResult;
+  };
+  [IPC_INVOKE_CHANNELS.listArchiveRoots]: {
+    args: [];
+    result: string[];
+  };
+  [IPC_INVOKE_CHANNELS.removeArchiveRoot]: {
+    args: [dir: string];
+    result: ArchiveRemoveRootResult;
+  };
+  [IPC_INVOKE_CHANNELS.scanArchive]: {
+    args: [roots?: string[]];
+    result: ArchiveScanResult;
+  };
+  [IPC_INVOKE_CHANNELS.cancelArchiveScan]: {
+    args: [];
+    result: IpcAck;
+  };
+  [IPC_INVOKE_CHANNELS.queryArchive]: {
+    args: [filters?: ArchiveQueryFilters];
+    result: ArchiveQueryResult;
+  };
+  [IPC_INVOKE_CHANNELS.findArchiveAtPoint]: {
+    args: [point: LatLon, radiusM?: number, includeGaze?: boolean];
+    result: ArchiveNearHit[];
+  };
+  [IPC_INVOKE_CHANNELS.openArchiveClip]: {
+    args: [request: OpenArchiveClipRequest];
+    result: PickResult;
+  };
 }
 
 export interface IpcEventMap {
@@ -176,6 +307,7 @@ export interface IpcEventMap {
   [IPC_EVENT_CHANNELS.onPrepareProgress]: PrepareProgress;
   [IPC_EVENT_CHANNELS.onUpdateReady]: void;
   [IPC_EVENT_CHANNELS.onUpdateRestartFailed]: StructuredError;
+  [IPC_EVENT_CHANNELS.onArchiveScanProgress]: ArchiveScanProgress;
 }
 
 export type AppBridge<TLocale extends string = string> = {

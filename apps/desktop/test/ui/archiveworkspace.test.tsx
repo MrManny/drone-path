@@ -1,0 +1,255 @@
+// @vitest-environment jsdom
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { DEFAULT_CONFIG } from 'drone-path-engine/config';
+import type { Scene } from 'drone-path-engine/renderer/scene';
+import type {
+  ArchivePickFolderResult,
+  ArchiveQueryResult,
+  ArchiveScanProgress,
+  ArchiveScanResult,
+  IpcAck,
+  PickOutputResult,
+  PickResult,
+} from '../../shared/ipc.js';
+import Page from '../../ui/app/page.js';
+import { SESSION, installRafStub, installResizeObserverStub } from './harness.js';
+
+vi.mock('../../ui/components/MapIsland.js', async () => {
+  const { createFakeScene, delayedMapIslandMock } = await import('./harness.js');
+  return delayedMapIslandMock(createFakeScene());
+});
+
+vi.mock('drone-path-engine/renderer/boot', async () => {
+  const { createFakeScene } = await import('./harness.js');
+  return {
+    bootScene: (): Scene => createFakeScene(),
+  };
+});
+
+vi.mock('leaflet', () => ({ default: {} }));
+
+vi.mock('../../ui/components/ExportPreview.js', async () => {
+  const { stubExportPreviewMock } = await import('./harness.js');
+  return stubExportPreviewMock();
+});
+
+const SAMPLE_CLIP_PATH = 'E:\\Drone\\Flights\\DJI_0001.MP4';
+const SAMPLE_OFFLINE_PATH = 'E:\\Drone\\Flights\\DJI_0002.MP4';
+
+const SAMPLE_QUERY: ArchiveQueryResult = {
+  totalCount: 2,
+  offlineCount: 1,
+  flights: [
+    {
+      flightId: 'flight-1',
+      clips: [
+        {
+          path: SAMPLE_CLIP_PATH,
+          size: 1024,
+          mtimeMs: 1000,
+          status: 'ok',
+          availability: 'online',
+          video: {
+            fps: { num: 30, den: 1, value: 30, str: '30' },
+            frames: 90,
+            width: 1920,
+            height: 1080,
+            durationSec: 3,
+          },
+          cameraCreationTime: '2026-01-01T10:00:00Z',
+          telemetry: {
+            source: 'srt',
+            method: 'srt-cues',
+            fixCount: 3,
+            noLock: 0,
+            trackDistanceM: 120,
+          },
+          bbox: { minLat: 46.6, maxLat: 46.61, minLon: 14.2, maxLon: 14.21 },
+          track: [[{ lat: 46.6, lon: 14.2, tSec: 0 }]],
+          error: null,
+          splitFromKey: null,
+        },
+        {
+          path: SAMPLE_OFFLINE_PATH,
+          size: 2048,
+          mtimeMs: 2000,
+          status: 'ok',
+          availability: 'offline',
+          video: {
+            fps: { num: 30, den: 1, value: 30, str: '30' },
+            frames: 150,
+            width: 1920,
+            height: 1080,
+            durationSec: 5,
+          },
+          cameraCreationTime: '2026-01-01T10:05:00Z',
+          telemetry: null,
+          bbox: null,
+          track: [],
+          error: null,
+          splitFromKey: null,
+        },
+      ],
+    },
+  ],
+};
+
+function installArchiveBridge(options: {
+  initialRoots?: string[];
+  queryResult?: ArchiveQueryResult;
+  scanResult?: ArchiveScanResult;
+} = {}) {
+  let roots = [...(options.initialRoots ?? [])];
+  let progressListener: ((progress: ArchiveScanProgress) => void) | undefined;
+
+  const bridge = {
+    getLanguage: vi.fn(async () => ({ preference: null as string | null, locale: 'en' })),
+    saveLanguage: vi.fn(async (preference: string | null) => ({
+      ok: true,
+      preference,
+      locale: preference ?? 'en',
+    })),
+    getSettings: vi.fn(async () => DEFAULT_CONFIG),
+    saveSettings: vi.fn(async () => ({ ok: true })),
+    getSession: vi.fn(async () => SESSION),
+    pickRecording: vi.fn(async (): Promise<PickResult> => ({ ok: false, canceled: true })),
+    onPreparing: vi.fn(() => () => {}),
+    onPrepareProgress: vi.fn(() => () => {}),
+    onUpdateReady: vi.fn(() => () => {}),
+    onUpdateRestartFailed: vi.fn(() => () => {}),
+    getUpdateState: vi.fn(async () => ({ ready: false })),
+    restartToUpdate: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
+    pickExportOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: false, canceled: true })),
+    startExport: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
+    pickTrackOutput: vi.fn(async (): Promise<PickOutputResult> => ({ ok: false, canceled: true })),
+    saveTrack: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
+    closeWindow: vi.fn(async () => {}),
+    listArchiveRoots: vi.fn(async () => [...roots]),
+    pickArchiveFolder: vi.fn(async (): Promise<ArchivePickFolderResult> => {
+      const added = 'E:\\Drone\\Added';
+      roots = [...roots, added];
+      return { ok: true, root: added, roots: [...roots] };
+    }),
+    removeArchiveRoot: vi.fn(async (dir: string) => {
+      roots = roots.filter((r) => r !== dir);
+      return { ok: true as const, roots: [...roots] };
+    }),
+    scanArchive: vi.fn(async (): Promise<ArchiveScanResult> => options.scanResult ?? { ok: true, scanned: 2 }),
+    cancelArchiveScan: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
+    queryArchive: vi.fn(async () => options.queryResult ?? SAMPLE_QUERY),
+    findArchiveAtPoint: vi.fn(async () => []),
+    openArchiveClip: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
+    onArchiveScanProgress: vi.fn((cb: (progress: ArchiveScanProgress) => void) => {
+      progressListener = cb;
+      return () => {
+        progressListener = undefined;
+      };
+    }),
+  };
+  (window as { dronepath?: unknown }).dronepath = bridge;
+  return {
+    bridge,
+    emitProgress(progress: ArchiveScanProgress) {
+      act(() => {
+        progressListener?.(progress);
+      });
+    },
+  };
+}
+
+beforeEach(() => {
+  installRafStub();
+  installResizeObserverStub();
+});
+
+afterEach(() => {
+  cleanup();
+  delete (window as { dronepath?: unknown }).dronepath;
+});
+
+describe('Archive workspace and mode switch', () => {
+  it('stays in EmptyWorkspace when no watched folders exist at launch', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: [] });
+    render(<Page />);
+    await waitFor(() => expect(bridge.listArchiveRoots).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'Open…' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Workspace mode' })).toBeNull();
+    expect(bridge.scanArchive).not.toHaveBeenCalled();
+  });
+
+  it('opens directly into Archive mode and starts a background scan when watched folders exist', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    await waitFor(() => expect(screen.getByText('Watched folders')).toBeTruthy());
+    expect(bridge.scanArchive).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('2 recordings')).toBeTruthy();
+    expect(screen.getByText(/1 offline/)).toBeTruthy();
+    expect(screen.getByText('Offline')).toBeTruthy();
+
+    const modeGroup = screen.getByRole('group', { name: 'Workspace mode' });
+    expect(within(modeGroup).getByRole('button', { name: 'Archive' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(modeGroup).getByRole('button', { name: 'Review' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('opens an archive clip directly into Review and preserves Archive state across mode switches', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    fireEvent.click(clipButton);
+
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+    expect(bridge.openArchiveClip).toHaveBeenCalledWith({
+      path: SAMPLE_CLIP_PATH,
+      settings: expect.objectContaining({ zoom: 0 }),
+    });
+
+    const modeGroup = screen.getByRole('group', { name: 'Workspace mode' });
+    expect(within(modeGroup).getByRole('button', { name: 'Review' }).getAttribute('aria-pressed')).toBe('true');
+
+    // Switch back to Archive and verify state is preserved in memory without re-querying.
+    fireEvent.click(within(modeGroup).getByRole('button', { name: 'Archive' }));
+    expect(screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' })).toBeTruthy();
+    expect(bridge.listArchiveRoots).toHaveBeenCalledTimes(1);
+
+    // Switch back to Review and verify loaded recording is still present.
+    fireEvent.click(within(screen.getByRole('group', { name: 'Workspace mode' })).getByRole('button', { name: 'Review' }));
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+  });
+
+  it('supports File -> Open folder…, rescanning, canceling, and removing watched folders', async () => {
+    const { bridge, emitProgress } = installArchiveBridge({
+      initialRoots: [],
+      queryResult: { flights: [], totalCount: 0, offlineCount: 0 },
+    });
+    render(<Page />);
+    await waitFor(() => expect(bridge.listArchiveRoots).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
+    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Open folder…' }));
+
+    await waitFor(() => expect(screen.getByText('Watched folders')).toBeTruthy());
+    expect(bridge.pickArchiveFolder).toHaveBeenCalledTimes(1);
+    expect(bridge.scanArchive).toHaveBeenCalledWith(['E:\\Drone\\Added']);
+
+    emitProgress({
+      phase: 'scanning',
+      scanned: 1,
+      currentPath: 'E:\\Drone\\Added\\DJI_0010.MP4',
+      status: 'running',
+    });
+    expect(screen.getByRole('status').textContent).toBe('Scanning… 1 · DJI_0010.MP4');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel scan' }));
+    expect(bridge.cancelArchiveScan).toHaveBeenCalledTimes(1);
+
+    emitProgress({ phase: 'canceled', scanned: 1, status: 'canceled' });
+    expect(screen.getByRole('status').textContent).toBe('Scan canceled.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Added' }));
+    await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('E:\\Drone\\Added'));
+  });
+});

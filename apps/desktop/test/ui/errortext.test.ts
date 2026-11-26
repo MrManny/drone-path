@@ -141,6 +141,35 @@ describe.for<{ error: StructuredError; text: string; technical: string | null }>
     text: 'The file could not be revealed. Try again.',
     technical: 'REVEAL_FAILED',
   },
+  {
+    error: { code: 'ARCHIVE_SCAN_RUNNING', detail: 'an archive scan is already running' },
+    text: 'An archive scan is already running. Wait for it to finish or cancel it.',
+    technical: 'an archive scan is already running',
+  },
+  {
+    error: { code: 'ARCHIVE_SCAN_CANCELED', detail: 'archive scan canceled' },
+    text: 'Archive scan canceled.',
+    technical: 'archive scan canceled',
+  },
+  {
+    error: { code: 'ARCHIVE_ROOT_INVALID', detail: 'archive folder is not a readable directory' },
+    text: 'The selected folder could not be opened. Choose an existing folder.',
+    technical: 'archive folder is not a readable directory',
+  },
+  {
+    error: {
+      code: 'ARCHIVE_CLIP_OFFLINE',
+      params: { name: 'DJI_0001.MP4' },
+      detail: 'recording is offline or missing',
+    },
+    text: '"DJI_0001.MP4" is offline or missing from its folder. Reconnect the drive or rescan your folders.',
+    technical: 'recording is offline or missing',
+  },
+  {
+    error: { code: 'ARCHIVE_EXPORT_FAILED', detail: 'export failed' },
+    text: 'The archive export could not be completed. Try again.',
+    technical: 'export failed',
+  },
 ])('structured error $error.code', ({ error, text, technical }) => {
   it('maps directly by code without prose regexes and keeps technical details', () => {
     expect(describeError(error)).toEqual({ text, technical });

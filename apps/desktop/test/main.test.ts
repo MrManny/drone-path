@@ -449,6 +449,7 @@ describe('handleRequest (#405)', () => {
     if (videoPath !== null) {
       controller.attachSession({
         pick: vi.fn(),
+        openFile: vi.fn(),
         getSession: () => null,
         videoPath: () => videoPath,
         saveTrack: vi.fn(),

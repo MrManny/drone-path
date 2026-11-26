@@ -25,7 +25,7 @@ relative paths across workspace boundaries.
 | [Engine](packages/engine/AGENTS.md) | `drone-path-engine/*` | `core` | Option vocabulary (`src/config.ts`), map tiles, headless browser rendering, video pipeline |
 | [CLI](packages/cli/AGENTS.md) | `drone-path` | `core`, `archive`, `engine` | CLI entrypoints (`render`, `archive`, `mcp`, `extract-frame`), stdio, exit codes (`npm run build:cli`) |
 | [Tooling](packages/tooling/AGENTS.md) | `drone-path-tooling` | `core`, `engine` | CLI reference, JSON schema, offline manual, and build identity generators (`npm run docs:reference`, `docs:schema`) |
-| [Desktop](apps/desktop/AGENTS.md) | `drone-path-desktop` | `core`, `engine` | Electron main, Next.js UI (`ui/`), i18n catalogs, packaging (`npm run app`, `app:dev`, `app:pack`) |
+| [Desktop](apps/desktop/AGENTS.md) | `drone-path-desktop` | `core`, `archive`, `engine` | Electron main, Next.js UI (`ui/`), i18n catalogs, packaging (`npm run app`, `app:dev`, `app:pack`) |
 
 ## Testing
 

@@ -10,6 +10,7 @@ import type { FrameRange } from 'drone-path-core/frame-range';
 import { asRecord, parseValue, strictShape } from 'drone-path-core/validation';
 import { classifyError, codedDesktopError } from 'drone-path-desktop/shared/errors';
 import type {
+  OpenArchiveClipRequest,
   PageVideo,
   PickRequest,
   PickResult,
@@ -17,7 +18,7 @@ import type {
   UiSession,
 } from 'drone-path-desktop/shared/ipc';
 
-export type { PageVideo, PickRequest, PickResult, TrackSaveRequest, UiSession };
+export type { OpenArchiveClipRequest, PageVideo, PickRequest, PickResult, TrackSaveRequest, UiSession };
 import type { VideoProbe } from 'drone-path-core/ffmpeg';
 import { timeAt } from 'drone-path-core/frametime';
 import { isRecordingName } from 'drone-path-engine/recordings';
@@ -42,6 +43,41 @@ export function frameExactDuration(probe: VideoProbe): number {
 export function parsePickRequest(raw: unknown): PickRequest {
   const input = asRecord(raw);
   return { settings: parseAppearanceSettings(input.settings) };
+}
+
+const OPEN_ARCHIVE_CLIP_SHAPE = {
+  path: z.unknown().optional(),
+  settings: z.unknown().optional(),
+  seekSec: z.unknown().optional(),
+} as z.ZodRawShape;
+
+export function parseOpenArchiveClipRequest(raw: unknown): OpenArchiveClipRequest {
+  const input = parseValue(
+    strictShape(OPEN_ARCHIVE_CLIP_SHAPE, {
+      invalid: 'invalid open archive clip request',
+      unknownKey: (key) => `unknown open archive clip request key ${key}`,
+    }),
+    raw,
+  );
+  const clipPath = parseValue(
+    z
+      .string({ error: () => 'invalid open archive clip request: path' })
+      .refine((value) => value.trim().length > 0, {
+        error: () => 'invalid open archive clip request: path',
+      }),
+    input.path,
+  );
+  const settings = parseAppearanceSettings(input.settings);
+  const seekSec =
+    input.seekSec === undefined
+      ? undefined
+      : parseValue(
+          z.number({ error: () => 'invalid open archive clip request: seekSec' }).finite().min(0),
+          input.seekSec,
+        );
+  return seekSec === undefined
+    ? { path: clipPath, settings }
+    : { path: clipPath, settings, seekSec };
 }
 
 const TRACK_SAVE_SHAPE = {
@@ -146,6 +182,7 @@ export interface AppSessionOptions {
 
 export interface AppSession {
   pick(request: PickRequest): Promise<PickResult>;
+  openFile(filePath: string, request: PickRequest): Promise<PickResult>;
   getSession(): UiSession | null;
   videoPath(): string | null;
   saveTrack(file: string, range: FrameRange | null): void;
@@ -165,37 +202,50 @@ export function createAppSession(options: AppSessionOptions): AppSession {
   let videoPath: string | null = null;
   let picking = false;
 
+  async function loadResolvedVideo(targetPath: string, request: PickRequest): Promise<PickResult> {
+    const resolved = path.resolve(targetPath);
+    if (!isReadableVideo(resolved, io.isFile)) {
+      log(`rejected: ${resolved}`);
+      return {
+        ok: false,
+        code: 'NOT_READABLE_MP4',
+        detail: `not a readable .mp4 file: ${resolved}`,
+        params: { name: path.basename(resolved) },
+      };
+    }
+    onPreparing(resolved);
+    prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
+    videoPath = resolved;
+    log(`loaded: ${resolved}`);
+    return { ok: true };
+  }
+
+  async function runExclusive(work: () => Promise<PickResult>): Promise<PickResult> {
+    if (picking) {
+      return { ok: false, code: 'PICK_IN_PROGRESS', detail: 'a pick is already in progress' };
+    }
+    picking = true;
+    try {
+      return await work();
+    } catch (e) {
+      const failure = classifyError(e);
+      log(`error: ${failure.detail ?? failure.code}`);
+      return { ok: false, ...failure };
+    } finally {
+      picking = false;
+    }
+  }
+
   return {
-    async pick(request: PickRequest): Promise<PickResult> {
-      if (picking) {
-        return { ok: false, code: 'PICK_IN_PROGRESS', detail: 'a pick is already in progress' };
-      }
-      picking = true;
-      try {
+    pick(request: PickRequest): Promise<PickResult> {
+      return runExclusive(async () => {
         const picked = await pickFile();
         if (picked === null) return { ok: false, canceled: true };
-        const resolved = path.resolve(picked);
-        if (!isReadableVideo(resolved, io.isFile)) {
-          log(`rejected: ${resolved}`);
-          return {
-            ok: false,
-            code: 'NOT_READABLE_MP4',
-            detail: `not a readable .mp4 file: ${resolved}`,
-            params: { name: path.basename(resolved) },
-          };
-        }
-        onPreparing(resolved);
-        prepared = await prepare(resolved, { ...config, ...request.settings }, log, onPrepareProgress);
-        videoPath = resolved;
-        log(`loaded: ${resolved}`);
-        return { ok: true };
-      } catch (e) {
-        const failure = classifyError(e);
-        log(`error: ${failure.detail ?? failure.code}`);
-        return { ok: false, ...failure };
-      } finally {
-        picking = false;
-      }
+        return loadResolvedVideo(picked, request);
+      });
+    },
+    openFile(filePath: string, request: PickRequest): Promise<PickResult> {
+      return runExclusive(() => loadResolvedVideo(filePath, request));
     },
     getSession: () => prepared?.session ?? null,
     videoPath: () => videoPath,
