@@ -20,6 +20,7 @@ import type { ArchiveMapClipItem, ArchiveMapCluster } from '../lib/archivecluste
 import { formatArchiveDistance } from '../lib/archivedistance.js';
 import { formatTime } from '../lib/frametime.js';
 import { useTranslation } from '../lib/i18n.js';
+import type { ArchiveMapView } from '../hooks/useArchiveWorkspace.js';
 import { ArchivePointPopover } from './ArchivePointPopover.js';
 import { BusyStatus } from './BusyStatus.js';
 
@@ -48,6 +49,8 @@ export interface ArchiveMapProps {
   onSelectClip: (clipPath: string) => void;
   onOpenClip?: (clipPath: string, seekSec?: number) => void;
   onViewportChange: (bbox: Bbox | null) => void;
+  initialMapView?: ArchiveMapView | null;
+  onMapViewChange?: (view: ArchiveMapView) => void;
   onStyleChange?: (style: MapStyle) => void;
   pointQueryActive?: boolean;
   onTogglePointQuery?: () => void;
@@ -141,6 +144,8 @@ export function ArchiveMap({
   onSelectClip,
   onOpenClip,
   onViewportChange,
+  initialMapView = null,
+  onMapViewChange,
   onStyleChange,
   pointQueryActive = false,
   onTogglePointQuery,
@@ -170,11 +175,15 @@ export function ArchiveMap({
 
   const onSelectClipRef = useRef(onSelectClip);
   const onViewportChangeRef = useRef(onViewportChange);
+  const initialMapViewRef = useRef(initialMapView);
+  const onMapViewChangeRef = useRef(onMapViewChange);
   const onPointQueryRef = useRef(onPointQuery);
   const pointQueryActiveRef = useRef(pointQueryActive);
   useEffect(() => {
     onSelectClipRef.current = onSelectClip;
     onViewportChangeRef.current = onViewportChange;
+    initialMapViewRef.current = initialMapView;
+    onMapViewChangeRef.current = onMapViewChange;
     onPointQueryRef.current = onPointQuery;
     pointQueryActiveRef.current = pointQueryActive;
   });
@@ -216,6 +225,15 @@ export function ArchiveMap({
     selectedRef.current = selectedClipPath;
     hoveredRef.current = hoveredClipPath;
   }, [selectedClipPath, hoveredClipPath]);
+
+  const emitMapView = useCallback((map: Leaflet.Map) => {
+    if (typeof map.getCenter !== 'function') return;
+    const center = map.getCenter();
+    onMapViewChangeRef.current?.({
+      center: { lat: clampLat(center.lat), lon: wrapLon(center.lng) },
+      zoom: map.getZoom(),
+    });
+  }, []);
 
   const scheduleViewportUpdate = useCallback((map: Leaflet.Map) => {
     if (suppressViewportRef.current) {
@@ -264,6 +282,16 @@ export function ArchiveMap({
       if (initialBounds) {
         fullBoundsRef.current = initialBounds;
         setFullBounds(initialBounds);
+      }
+
+      const savedView = initialMapViewRef.current;
+      if (savedView) {
+        // Restoring a saved view marks auto-fit done so spatialBounds updates do not override it.
+        hasAutoFittedRef.current = true;
+        suppressViewportRef.current = true;
+        map.setView([savedView.center.lat, savedView.center.lon], savedView.zoom);
+        suppressViewportRef.current = false;
+      } else if (initialBounds) {
         hasAutoFittedRef.current = true;
         suppressViewportRef.current = true;
         map.fitBounds(toLeafletBounds(L, initialBounds), { padding: [32, 32], maxZoom: 16 });
@@ -279,6 +307,7 @@ export function ArchiveMap({
       const handleMoveOrZoom = () => {
         setZoom(map.getZoom());
         scheduleViewportUpdate(map);
+        emitMapView(map);
       };
 
       map.on('zoomend', handleMoveOrZoom);
@@ -312,7 +341,7 @@ export function ArchiveMap({
       tileLayerRef.current = null;
       vectorGroupRef.current = null;
     };
-  }, [scheduleViewportUpdate]);
+  }, [emitMapView, scheduleViewportUpdate]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -533,8 +562,9 @@ export function ArchiveMap({
       map.fitBounds(toLeafletBounds(L, target), { padding: [32, 32], maxZoom: 16 });
       suppressViewportRef.current = false;
       setZoom(map.getZoom());
+      emitMapView(map);
     }
-  }, [spatialBounds]);
+  }, [emitMapView, spatialBounds]);
 
   const activeClipItem =
     (hoveredClipPath ? itemByPath.get(hoveredClipPath) : undefined) ??

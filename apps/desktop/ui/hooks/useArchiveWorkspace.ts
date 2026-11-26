@@ -17,6 +17,11 @@ import { useMountedRef } from './useMountedRef.js';
 
 const DEFAULT_POINT_QUERY_RADIUS_M = 100;
 
+export interface ArchiveMapView {
+  center: LatLon;
+  zoom: number;
+}
+
 export interface ArchiveFilterState {
   afterDate: string;
   beforeDate: string;
@@ -134,6 +139,9 @@ export interface ArchiveWorkspaceState {
   scanProgress: ArchiveScanProgress | null;
   error: StructuredError | null;
   viewportBbox: Bbox | null;
+  mapView: ArchiveMapView | null;
+  selectedClipPath: string | null;
+  filtersOpen: boolean;
   pointHits: ArchiveNearHit[] | null;
   pointQueryCoord: LatLon | null;
   pointQueryLoading: boolean;
@@ -142,6 +150,9 @@ export interface ArchiveWorkspaceState {
   activeFilterCount: number;
   activeQueryFilters: ArchiveQueryFilters | undefined;
   setViewportBbox: (bbox: Bbox | null) => void;
+  setMapView: (view: ArchiveMapView | null) => void;
+  setSelectedClipPath: (clipPath: string | null) => void;
+  setFiltersOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   setPointQueryActive: (active: boolean) => void;
   togglePointQuery: () => void;
   queryAtPoint: (point: LatLon, radiusM?: number) => Promise<void>;
@@ -222,6 +233,9 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const [scanProgress, setScanProgress] = useState<ArchiveScanProgress | null>(null);
   const [error, setError] = useState<StructuredError | null>(null);
   const [viewportBbox, setViewportBboxState] = useState<Bbox | null>(null);
+  const [mapView, setMapView] = useState<ArchiveMapView | null>(null);
+  const [selectedClipPath, setSelectedClipPath] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [pointHits, setPointHits] = useState<ArchiveNearHit[] | null>(null);
   const [pointQueryCoord, setPointQueryCoord] = useState<LatLon | null>(null);
   const [pointQueryLoading, setPointQueryLoading] = useState(false);
@@ -437,6 +451,7 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
         }
         rootsRef.current = result.roots;
         setRoots(result.roots);
+        setSelectedClipPath((prev) => (prev !== null && isPathUnderRoot(dir, prev) ? null : prev));
         clearPointQuery();
         const nextFilters =
           filtersRef.current.folderRoot === dir
@@ -534,6 +549,9 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     scanProgress,
     error,
     viewportBbox,
+    mapView,
+    selectedClipPath,
+    filtersOpen,
     pointHits,
     pointQueryCoord,
     pointQueryLoading,
@@ -542,6 +560,9 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     activeFilterCount,
     activeQueryFilters,
     setViewportBbox,
+    setMapView,
+    setSelectedClipPath,
+    setFiltersOpen,
     setPointQueryActive,
     togglePointQuery,
     queryAtPoint,
