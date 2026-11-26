@@ -36,6 +36,7 @@ function makeHarness(overrides: {
   initialRoots?: string[];
   scanArchive?: (dirs: readonly string[], options: IndexedScanOptions) => Promise<ScanRecord[]>;
   listArchiveFlights?: () => ArchiveFlight[];
+  listArchiveFlightOverviews?: () => ArchiveFlight[];
   nearArchive?: () => NearHit[];
   removeClipsUnder?: (root: string) => number;
   isDir?: (dir: string) => boolean;
@@ -53,6 +54,9 @@ function makeHarness(overrides: {
       }),
   );
   const listArchiveFlights = vi.fn(overrides.listArchiveFlights ?? (() => []));
+  const listArchiveFlightOverviews = overrides.listArchiveFlightOverviews
+    ? vi.fn(overrides.listArchiveFlightOverviews)
+    : undefined;
   const nearArchive = vi.fn(overrides.nearArchive ?? (() => []));
 
   const service = createArchiveService({
@@ -73,13 +77,22 @@ function makeHarness(overrides: {
       getTools: async () => TOOLS,
       scanArchive,
       listArchiveFlights,
+      ...(listArchiveFlightOverviews ? { listArchiveFlightOverviews } : {}),
       nearArchive,
       withArchiveStore: (_db, run) =>
         run({ removeClipsUnder } as unknown as ArchiveStore),
     },
   });
 
-  return { service, progressEvents, removeClipsUnder, scanArchive, listArchiveFlights, nearArchive };
+  return {
+    service,
+    progressEvents,
+    removeClipsUnder,
+    scanArchive,
+    listArchiveFlights,
+    listArchiveFlightOverviews,
+    nearArchive,
+  };
 }
 
 describe('createArchiveService', () => {
@@ -208,5 +221,18 @@ describe('createArchiveService', () => {
 
     await expect(service.scan([missing])).rejects.toThrow(/ENOENT/);
     expect(progressEvents.at(-1)).toEqual({ phase: 'error', scanned: 0, status: 'error' });
+  });
+
+  it('uses listArchiveFlightOverviews for viewport queries when provided', () => {
+    const flights: ArchiveFlight[] = [
+      { flightId: 'f1', clips: [{ ...makeScanRecord('a.mp4'), availability: 'online', splitFromKey: null }] },
+    ];
+    const { service, listArchiveFlightOverviews, listArchiveFlights } = makeHarness({
+      listArchiveFlightOverviews: () => flights,
+    });
+    const bbox = { minLat: 46, maxLat: 47, minLon: 14, maxLon: 15 };
+    expect(service.query({ bbox })).toEqual({ flights, totalCount: 1, offlineCount: 0 });
+    expect(listArchiveFlightOverviews).toHaveBeenCalledWith(expect.any(String), { bbox });
+    expect(listArchiveFlights).not.toHaveBeenCalled();
   });
 });

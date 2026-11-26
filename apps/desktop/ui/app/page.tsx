@@ -169,6 +169,8 @@ export default function Page() {
           archive={archive}
           hasRecording={loaded !== null}
           openState={pickState}
+          mapStyle={settings.style}
+          onMapStyleChange={(style) => handleSettingsChange({ ...settings, style })}
           onOpen={handlePick}
           onOpenFolder={handleOpenFolder}
           onOpenClip={handleOpenArchiveClip}

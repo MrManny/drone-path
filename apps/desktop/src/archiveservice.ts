@@ -6,9 +6,10 @@ import { z } from 'zod';
 import { scanArchive as defaultScanArchive } from 'drone-path-archive/indexed-scan';
 import { archiveDbPath } from 'drone-path-archive/paths';
 import {
-  listArchiveFlights as defaultListArchiveFlights,
+  listArchiveFlightOverviews as defaultListArchiveFlightOverviews,
   nearArchive as defaultNearArchive,
 } from 'drone-path-archive/query';
+import type { listArchiveFlights as defaultListArchiveFlights } from 'drone-path-archive/query';
 import { withArchiveStore as defaultWithArchiveStore } from 'drone-path-archive/store';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { LatLon } from 'drone-path-core/geo';
@@ -29,6 +30,7 @@ export interface ArchiveServiceDeps {
   getTools?: () => Promise<FfmpegToolPaths>;
   scanArchive?: typeof defaultScanArchive;
   listArchiveFlights?: typeof defaultListArchiveFlights;
+  listArchiveFlightOverviews?: typeof defaultListArchiveFlightOverviews;
   nearArchive?: typeof defaultNearArchive;
   withArchiveStore?: typeof defaultWithArchiveStore;
 }
@@ -129,7 +131,10 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
   const isDir = deps.isDir ?? defaultIsDir;
   const isFile = deps.isFile ?? defaultIsFile;
   const scanArchiveFn = deps.scanArchive ?? defaultScanArchive;
-  const listArchiveFlightsFn = deps.listArchiveFlights ?? defaultListArchiveFlights;
+  const listArchiveFlightOverviewsFn =
+    deps.listArchiveFlightOverviews ??
+    deps.listArchiveFlights ??
+    defaultListArchiveFlightOverviews;
   const nearArchiveFn = deps.nearArchive ?? defaultNearArchive;
   const withArchiveStoreFn = deps.withArchiveStore ?? defaultWithArchiveStore;
   const onScanProgress = options.onScanProgress ?? ((): void => {});
@@ -231,7 +236,7 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
     query(filters?: ArchiveQueryFilters): ArchiveQueryResult {
       const parsed =
         filters === undefined ? {} : parseValue(QUERY_FILTERS_SCHEMA, filters);
-      const flights = listArchiveFlightsFn(dbPath, parsed);
+      const flights = listArchiveFlightOverviewsFn(dbPath, parsed);
       let totalCount = 0;
       let offlineCount = 0;
       for (const flight of flights) {

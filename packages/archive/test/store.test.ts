@@ -250,3 +250,84 @@ describe('ArchiveStore.removeClipsUnder', () => {
     });
   }
 });
+
+describe('ArchiveStore.listClipOverviews', () => {
+  it('returns decimated overview tracks instead of full record.track and honors filters', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const fullTrack = Array.from({ length: 120 }, (_, i) => ({
+        lat: 46.6 + i * 0.0001,
+        lon: 14.2 + i * 0.0001,
+        tSec: i,
+      }));
+      const overviewTrack = [
+        [fullTrack[0], fullTrack[60], fullTrack[119]],
+      ];
+      const clipA = {
+        key: 'a.mp4',
+        availability: 'online' as const,
+        fingerprint: { size: 100, mtimeMs: 1000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+        record: {
+          path: 'a.mp4',
+          size: 100,
+          mtimeMs: 1000,
+          status: 'ok' as const,
+          video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 3600, width: 1920, height: 1080, durationSec: 120 },
+          cameraCreationTime: '2026-01-01T10:00:00Z',
+          telemetry: { source: 'srt' as const, method: 'srt-cues' as const, fixCount: 120, noLock: 0, trackDistanceM: 420 },
+          bbox: { minLat: 46.6, maxLat: 46.612, minLon: 14.2, maxLon: 14.212 },
+          track: [fullTrack],
+          error: null,
+        },
+        overview: overviewTrack,
+        samples: [{ segment: 0, lat: 46.6, lon: 14.2, tSec: 0 }],
+        segments: [{
+          type: 'smooth-glide' as const,
+          startSec: 0,
+          endSec: 10,
+          durationSec: 10,
+          smoothness: 0.9,
+          exposureStable: true,
+          meanSpeedMps: 4,
+          meanYawRateDegPerSec: 0.2,
+        }],
+      };
+      const clipB = {
+        ...clipA,
+        key: 'b.mp4',
+        availability: 'offline' as const,
+        record: {
+          ...clipA.record,
+          path: 'b.mp4',
+          bbox: { minLat: 10, maxLat: 10.01, minLon: 10, maxLon: 10.01 },
+          track: [[{ lat: 10, lon: 10, tSec: 0 }]],
+        },
+        overview: [[{ lat: 10, lon: 10, tSec: 0 }]],
+        samples: [{ segment: 0, lat: 10, lon: 10, tSec: 0 }],
+        segments: undefined,
+      };
+      store.commit(0, [clipA, clipB], [], [], []);
+
+      const full = store.listClips();
+      expect(full[0].record.track[0]).toHaveLength(120);
+
+      const overviews = store.listClipOverviews();
+      expect(overviews).toHaveLength(2);
+      expect(overviews[0].record.track).toEqual(overviewTrack);
+      expect(overviews[0].record.telemetry).toEqual(clipA.record.telemetry);
+      expect(overviews[0].flight.flightId).toBe(full[0].flight.flightId);
+
+      expect(
+        store.listClipOverviews(
+          { minLat: 46.5, maxLat: 46.7, minLon: 14.1, maxLon: 14.3 },
+          'online',
+          { segmentType: 'smooth-glide', minSmoothness: 0.8 },
+        ).map((c) => c.key),
+      ).toEqual(['a.mp4']);
+    } finally {
+      store.close();
+    }
+  });
+});
