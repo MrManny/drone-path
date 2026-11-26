@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ArchiveFlightDto } from '../../shared/ipc.js';
+import type { ArchiveFlightDto, ArchiveNearHit } from '../../shared/ipc.js';
 import { ArchiveMap } from '../../ui/components/ArchiveMap.js';
 import { installResizeObserverStub } from './harness.js';
 
@@ -14,7 +14,7 @@ const leafletMock = vi.hoisted(() => {
     styleHistory: Record<string, unknown>[];
     tooltip?: string;
     on: (ev: string, fn: Handler) => FakeLayer;
-    trigger: (ev: string) => void;
+    trigger: (ev: string, evData?: unknown) => void;
     addTo: (group: unknown) => FakeLayer;
     remove: () => void;
     setStyle: (opts: Record<string, unknown>) => void;
@@ -34,8 +34,8 @@ const leafletMock = vi.hoisted(() => {
         handlers.set(ev, list);
         return layer;
       },
-      trigger(ev) {
-        for (const fn of handlers.get(ev) ?? []) fn();
+      trigger(ev, evData) {
+        for (const fn of handlers.get(ev) ?? []) fn(evData);
       },
       addTo() {
         return layer;
@@ -135,6 +135,9 @@ const leafletMock = vi.hoisted(() => {
     circleMarker: vi.fn((_pt: [number, number], opts: Record<string, unknown>) =>
       makeLayer('circleMarker', opts),
     ),
+    DomEvent: {
+      stopPropagation: vi.fn(),
+    },
   };
 
   return {
@@ -149,8 +152,8 @@ const leafletMock = vi.hoisted(() => {
     setZoom(z: number) {
       zoomLevel = z;
     },
-    triggerMap(ev: string) {
-      for (const fn of mapHandlers.get(ev) ?? []) fn();
+    triggerMap(ev: string, evData?: unknown) {
+      for (const fn of mapHandlers.get(ev) ?? []) fn(evData);
     },
     reset() {
       zoomLevel = 13;
@@ -371,5 +374,181 @@ describe('ArchiveMap', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Fit all' }));
     expect(onViewportChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('queries point on track click without resetting view and toggles ground point-query mode', async () => {
+    const onSelectClip = vi.fn();
+    const onPointQuery = vi.fn();
+    const onTogglePointQuery = vi.fn();
+    const { rerender } = render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={onSelectClip}
+        onViewportChange={vi.fn()}
+        pointQueryActive={false}
+        onTogglePointQuery={onTogglePointQuery}
+        onPointQuery={onPointQuery}
+      />,
+    );
+
+    await waitFor(() => expect(leafletMock.polylines).toHaveLength(2));
+    const fitsBefore = leafletMock.fakeMap.fitBounds.mock.calls.length;
+
+    // Ground click does nothing while point-query mode is off.
+    act(() => {
+      leafletMock.triggerMap('click', { latlng: { lat: 46.602, lng: 14.202 } });
+    });
+    expect(onPointQuery).not.toHaveBeenCalled();
+
+    // Track polyline click selects the clip and queries the clicked coordinate.
+    act(() => {
+      leafletMock.polylines[0].trigger('click', { latlng: { lat: 46.603, lng: 14.203 } });
+    });
+    expect(onSelectClip).toHaveBeenCalledWith('E:\\Flights\\DJI_0001.MP4');
+    expect(onPointQuery).toHaveBeenCalledWith({ lat: 46.603, lon: 14.203 }, expect.any(Number));
+    expect(leafletMock.fakeMap.fitBounds.mock.calls.length).toBe(fitsBefore);
+
+    const toggle = screen.getByRole('button', { name: 'What filmed here?' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(onTogglePointQuery).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={onSelectClip}
+        onViewportChange={vi.fn()}
+        pointQueryActive={true}
+        onTogglePointQuery={onTogglePointQuery}
+        onPointQuery={onPointQuery}
+        pointQueryCoord={{ lat: 46.604, lon: 14.204 }}
+        pointHits={[]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'What filmed here?' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('archive-map-canvas').className).toContain('is-point-query');
+    expect(leafletMock.L.circleMarker).toHaveBeenCalledWith(
+      [46.604, 14.204],
+      expect.objectContaining({ interactive: false }),
+    );
+    const focusMarker = leafletMock.circleMarkers.at(-1)!;
+
+    act(() => {
+      leafletMock.triggerMap('click', { latlng: { lat: 46.608, lng: 14.208 } });
+    });
+    expect(onPointQuery).toHaveBeenLastCalledWith({ lat: 46.608, lon: 14.208 }, expect.any(Number));
+
+    rerender(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={onSelectClip}
+        onViewportChange={vi.fn()}
+        pointQueryActive={true}
+        onTogglePointQuery={onTogglePointQuery}
+        onPointQuery={onPointQuery}
+        pointQueryCoord={null}
+        pointHits={null}
+      />,
+    );
+    expect(focusMarker.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders ranked track and gaze hits in popover, seeks on click, handles offline hits, and supports empty dismissal', async () => {
+    const onOpenClip = vi.fn();
+    const onClearPointQuery = vi.fn();
+    const hits: ArchiveNearHit[] = [
+      {
+        clip: FLIGHTS[0].clips[0],
+        tSec: 65,
+        distanceM: 0,
+        matchType: 'gaze',
+      },
+      {
+        clip: {
+          ...FLIGHTS[0].clips[0],
+          path: 'E:\\Flights\\DJI_0003.MP4',
+        },
+        tSec: 12,
+        distanceM: 42.4,
+        matchType: 'track',
+      },
+      {
+        clip: FLIGHTS[0].clips[1],
+        tSec: 8,
+        distanceM: 18,
+        matchType: 'track',
+      },
+    ];
+
+    const { rerender } = render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onOpenClip={onOpenClip}
+        onViewportChange={vi.fn()}
+        pointQueryCoord={{ lat: 46.605, lon: 14.205 }}
+        pointHits={hits}
+        pointQueryLoading={false}
+        onClearPointQuery={onClearPointQuery}
+      />,
+    );
+
+    const popover = await screen.findByRole('region', { name: 'Clips at selected point' });
+    expect(popover.textContent).toContain('Camera view');
+    expect(popover.textContent).toContain('Track');
+    expect(popover.textContent).toContain('1:05');
+    expect(popover.textContent).toContain('0:12');
+    expect(popover.textContent).toContain('0 m');
+    expect(popover.textContent).toContain('42 m');
+
+    const gazeHitBtn = screen.getByRole('button', { name: 'Open DJI_0001.MP4 at 1:05 in Review' });
+    fireEvent.click(gazeHitBtn);
+    expect(onOpenClip).toHaveBeenCalledWith('E:\\Flights\\DJI_0001.MP4', 65);
+
+    const trackHitBtn = screen.getByRole('button', { name: 'Open DJI_0003.MP4 at 0:12 in Review' });
+    fireEvent.click(trackHitBtn);
+    expect(onOpenClip).toHaveBeenCalledWith('E:\\Flights\\DJI_0003.MP4', 12);
+
+    const offlineBtn = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'DJI_0002.MP4 at 0:08 (offline)',
+    });
+    expect(offlineBtn.disabled).toBe(true);
+    expect(offlineBtn.textContent).toContain('Offline');
+    expect(offlineBtn.textContent).toContain('Offline or missing. Reconnect the drive or rescan to open.');
+
+    // Escape closes popover.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClearPointQuery).toHaveBeenCalledTimes(1);
+
+    // Empty hits show non-blocking feedback without clearing map polylines.
+    rerender(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onOpenClip={onOpenClip}
+        onViewportChange={vi.fn()}
+        pointQueryCoord={{ lat: 46.605, lon: 14.205 }}
+        pointHits={[]}
+        pointQueryLoading={false}
+        onClearPointQuery={onClearPointQuery}
+      />,
+    );
+    expect(screen.getByText('No clips passed near or filmed this spot.')).toBeTruthy();
+    expect(leafletMock.polylines).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(onClearPointQuery).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClearPointQuery).toHaveBeenCalledTimes(3);
   });
 });

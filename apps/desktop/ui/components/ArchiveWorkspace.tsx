@@ -27,7 +27,7 @@ interface ArchiveWorkspaceProps {
   onMapStyleChange?: (style: MapStyle) => void;
   onOpen: () => void;
   onOpenFolder: () => void;
-  onOpenClip: (path: string) => void;
+  onOpenClip: (path: string, seekSec?: number) => void;
   onHelp: () => void;
   onExit: () => void;
   onDismissOpenState?: () => void;
@@ -67,7 +67,14 @@ export function ArchiveWorkspace({
     lastPrunedCount,
     scanProgress,
     error,
+    pointHits,
+    pointQueryCoord,
+    pointQueryLoading,
+    pointQueryActive,
     setViewportBbox,
+    togglePointQuery,
+    queryAtPoint,
+    clearPointQuery,
     removeFolder,
     rescan,
     cancelScan,
@@ -353,6 +360,13 @@ export function ArchiveWorkspace({
               onOpenClip={onOpenClip}
               onViewportChange={setViewportBbox}
               onStyleChange={onMapStyleChange}
+              pointQueryActive={pointQueryActive}
+              onTogglePointQuery={togglePointQuery}
+              pointQueryCoord={pointQueryCoord}
+              pointHits={pointHits}
+              pointQueryLoading={pointQueryLoading}
+              onPointQuery={(point, radiusM) => void queryAtPoint(point, radiusM)}
+              onClearPointQuery={clearPointQuery}
             />
           </section>
           {confirmPruneOpen && offlineCount > 0 ? (

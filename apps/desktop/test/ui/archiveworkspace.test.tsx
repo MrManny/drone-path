@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CONFIG } from 'drone-path-engine/config';
 import type { Scene } from 'drone-path-engine/renderer/scene';
 import type {
+  ArchiveNearHit,
   ArchivePickFolderResult,
   ArchivePruneOfflineResult,
   ArchiveQueryResult,
@@ -29,7 +30,86 @@ vi.mock('drone-path-engine/renderer/boot', async () => {
   };
 });
 
-vi.mock('leaflet', () => ({ default: {} }));
+const workspaceLeafletMock = vi.hoisted(() => {
+  type Handler = (ev?: unknown) => void;
+  const mapHandlers = new Map<string, Handler[]>();
+  const fakeMap = {
+    fitBounds: vi.fn(),
+    setView: vi.fn(),
+    getZoom: vi.fn(() => 13),
+    getBounds: vi.fn(() => ({
+      getSouthWest: () => ({ lat: 46.5, lng: 14.1 }),
+      getNorthEast: () => ({ lat: 46.7, lng: 14.3 }),
+    })),
+    zoomIn: vi.fn(),
+    zoomOut: vi.fn(),
+    invalidateSize: vi.fn(),
+    on: vi.fn((ev: string, fn: Handler) => {
+      const list = mapHandlers.get(ev) ?? [];
+      list.push(fn);
+      mapHandlers.set(ev, list);
+    }),
+    remove: vi.fn(),
+  };
+  const makeLayer = () => {
+    const handlers = new Map<string, Handler[]>();
+    const layer = {
+      on: (ev: string, fn: Handler) => {
+        const list = handlers.get(ev) ?? [];
+        list.push(fn);
+        handlers.set(ev, list);
+        return layer;
+      },
+      trigger: (ev: string, evData?: unknown) => {
+        for (const fn of handlers.get(ev) ?? []) fn(evData);
+      },
+      addTo: () => layer,
+      remove: vi.fn(),
+      setStyle: vi.fn(),
+      bringToFront: vi.fn(),
+      bindTooltip: () => layer,
+    };
+    return layer;
+  };
+  const polylines: ReturnType<typeof makeLayer>[] = [];
+  return {
+    L: {
+      map: vi.fn(() => fakeMap),
+      canvas: vi.fn(() => ({})),
+      tileLayer: vi.fn(() => ({ addTo: vi.fn(), remove: vi.fn() })),
+      layerGroup: vi.fn(() => {
+        const group = {
+          addTo: vi.fn(() => group),
+          clearLayers: vi.fn(() => {
+            polylines.length = 0;
+          }),
+        };
+        return group;
+      }),
+      latLngBounds: vi.fn((sw: [number, number], ne: [number, number]) => ({
+        _southWest: { lat: sw[0], lng: sw[1] },
+        _northEast: { lat: ne[0], lng: ne[1] },
+      })),
+      polyline: vi.fn(() => {
+        const layer = makeLayer();
+        polylines.push(layer);
+        return layer;
+      }),
+      circleMarker: vi.fn(() => makeLayer()),
+      DomEvent: { stopPropagation: vi.fn() },
+    },
+    polylines,
+    triggerMap(ev: string, evData?: unknown) {
+      for (const fn of mapHandlers.get(ev) ?? []) fn(evData);
+    },
+    reset() {
+      mapHandlers.clear();
+      polylines.length = 0;
+    },
+  };
+});
+
+vi.mock('leaflet', () => ({ default: workspaceLeafletMock.L }));
 
 vi.mock('../../ui/components/ExportPreview.js', async () => {
   const { stubExportPreviewMock } = await import('./harness.js');
@@ -102,6 +182,7 @@ function installArchiveBridge(options: {
   queryResult?: ArchiveQueryResult;
   scanResult?: ArchiveScanResult;
   pruneResult?: ArchivePruneOfflineResult;
+  pointHits?: ArchiveNearHit[];
 } = {}) {
   let roots = [...(options.initialRoots ?? [])];
   let progressListener: ((progress: ArchiveScanProgress) => void) | undefined;
@@ -141,7 +222,7 @@ function installArchiveBridge(options: {
     scanArchive: vi.fn(async (): Promise<ArchiveScanResult> => options.scanResult ?? { ok: true, scanned: 2 }),
     cancelArchiveScan: vi.fn(async (): Promise<IpcAck> => ({ ok: true })),
     queryArchive: vi.fn(async () => options.queryResult ?? SAMPLE_QUERY),
-    findArchiveAtPoint: vi.fn(async () => []),
+    findArchiveAtPoint: vi.fn(async (): Promise<ArchiveNearHit[]> => options.pointHits ?? []),
     openArchiveClip: vi.fn(async (): Promise<PickResult> => ({ ok: true })),
     pruneArchiveOffline: vi.fn(
       async (): Promise<ArchivePruneOfflineResult> => options.pruneResult ?? { ok: true, removed: 1 },
@@ -165,6 +246,7 @@ function installArchiveBridge(options: {
 }
 
 beforeEach(() => {
+  workspaceLeafletMock.reset();
   installRafStub();
   installResizeObserverStub();
 });
@@ -367,5 +449,112 @@ describe('Archive workspace and mode switch', () => {
     await waitFor(() => expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText('Removed 1 missing clip from the archive.')).toBeTruthy());
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove missing clips…' }).disabled).toBe(true);
+  });
+
+  it('queries point matches from ground click, opens clip at seekSec, and preserves point state across switches', async () => {
+    const pointHits: ArchiveNearHit[] = [
+      {
+        clip: SAMPLE_QUERY.flights[0].clips[0],
+        tSec: 2,
+        distanceM: 0,
+        matchType: 'gaze',
+      },
+      {
+        clip: SAMPLE_QUERY.flights[0].clips[1],
+        tSec: 4,
+        distanceM: 15,
+        matchType: 'track',
+      },
+    ];
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      pointHits,
+    });
+    render(<Page />);
+
+    const whatFilmedBtn = await screen.findByRole('button', { name: 'What filmed here?' });
+    fireEvent.click(whatFilmedBtn);
+    expect(whatFilmedBtn.getAttribute('aria-pressed')).toBe('true');
+
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalledTimes(1));
+    act(() => {
+      workspaceLeafletMock.triggerMap('click', { latlng: { lat: 46.601, lng: 14.201 } });
+    });
+
+    await waitFor(() =>
+      expect(bridge.findArchiveAtPoint).toHaveBeenCalledWith(
+        { lat: 46.601, lon: 14.201 },
+        expect.any(Number),
+        true,
+      ),
+    );
+
+    const popover = await screen.findByRole('region', { name: 'Clips at selected point' });
+    expect(within(popover).getByText('Camera view')).toBeTruthy();
+    expect(within(popover).getByText('Track')).toBeTruthy();
+    expect(within(popover).getByText('Offline')).toBeTruthy();
+    expect(
+      within(popover).getByRole<HTMLButtonElement>('button', {
+        name: 'DJI_0002.MP4 at 0:04 (offline)',
+      }).disabled,
+    ).toBe(true);
+
+    fireEvent.click(
+      within(popover).getByRole('button', { name: 'Open DJI_0001.MP4 at 0:02 in Review' }),
+    );
+    await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
+    expect(bridge.openArchiveClip).toHaveBeenCalledWith({
+      path: SAMPLE_CLIP_PATH,
+      settings: expect.objectContaining({ zoom: 0 }),
+      seekSec: 2,
+    });
+
+    // Switch back to Archive and verify point-query state is preserved in memory.
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Workspace mode' })).getByRole('button', {
+        name: 'Archive',
+      }),
+    );
+    expect(screen.getByRole('region', { name: 'Clips at selected point' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'What filmed here?' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+  });
+
+  it('shows non-blocking empty feedback for ground clicks with no matches and dismisses cleanly', async () => {
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      pointHits: [],
+    });
+    render(<Page />);
+
+    const whatFilmedBtn = await screen.findByRole('button', { name: 'What filmed here?' });
+    fireEvent.click(whatFilmedBtn);
+
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalledTimes(1));
+    act(() => {
+      workspaceLeafletMock.triggerMap('click', { latlng: { lat: 46.62, lng: 14.22 } });
+    });
+
+    await waitFor(() => expect(bridge.findArchiveAtPoint).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('No clips passed near or filmed this spot.')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('region', { name: 'Clips at selected point' })).toBeNull();
+  });
+
+  it('surfaces an error notice if findArchiveAtPoint fails', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    bridge.findArchiveAtPoint.mockRejectedValueOnce(new Error('archive query failed'));
+    render(<Page />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'What filmed here?' }));
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalledTimes(1));
+    act(() => {
+      workspaceLeafletMock.triggerMap('click', { latlng: { lat: 46.62, lng: 14.22 } });
+    });
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.queryByRole('region', { name: 'Clips at selected point' })).toBeNull();
   });
 });
