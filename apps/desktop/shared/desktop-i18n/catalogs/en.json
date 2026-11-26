@@ -67,12 +67,20 @@
   "archivePointPopover.title": "Clips at this spot",
   "archiveWorkspace.addFolder": "Add folder…",
   "archiveWorkspace.cancelScan": "Cancel scan",
+  "archiveWorkspace.clipCount": {
+    "one": "{count} clip",
+    "other": "{count} clips"
+  },
   "archiveWorkspace.distanceKilometers": "{value} km",
   "archiveWorkspace.distanceMeters": "{value} m",
   "archiveWorkspace.emptyPrompt": "Add a folder of drone recordings to browse flights and open any clip for review.",
   "archiveWorkspace.errorBadge": "Unreadable",
   "archiveWorkspace.exportArchive": "Export…",
   "archiveWorkspace.flightHeading": "Flight {index}",
+  "archiveWorkspace.folderSummary": {
+    "one": "{count} folder · {name}",
+    "other": "{count} folders · {name}"
+  },
   "archiveWorkspace.noFolders": "No watched folders yet. Add a folder to index your drone recordings.",
   "archiveWorkspace.noRecordings": "No drone recordings found in your watched folders.",
   "archiveWorkspace.noTelemetryBadge": "No GPS",
@@ -113,6 +121,7 @@
   },
   "archiveWorkspace.scanning": "Scanning… {count}",
   "archiveWorkspace.scanningFile": "Scanning… {count} · {name}",
+  "archiveWorkspace.toggleFolders": "Toggle watched folders",
   "archiveWorkspace.watchedFolders": "Watched folders",
   "cameraControls.autoFitOnly": "auto-fit only",
   "cameraControls.autoFitZoom": "Auto-fit zoom",

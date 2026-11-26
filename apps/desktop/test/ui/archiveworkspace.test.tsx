@@ -378,6 +378,7 @@ describe('Archive workspace and mode switch', () => {
     emitProgress({ phase: 'canceled', scanned: 1, status: 'canceled' });
     expect(screen.getByRole('status').textContent).toBe('Scan canceled.');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle watched folders' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove Added' }));
     await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('E:\\Drone\\Added'));
   });
@@ -448,6 +449,8 @@ describe('Archive workspace and mode switch', () => {
     });
     render(<Page />);
 
+    const toggleFolders = await screen.findByRole('button', { name: 'Toggle watched folders' });
+    fireEvent.click(toggleFolders);
     await waitFor(() => expect(screen.getByText('DroneSD')).toBeTruthy());
     const offlineFolderRow = screen.getByText('DroneSD').closest('li') as HTMLElement;
     expect(offlineFolderRow.className).toContain('archive-folder-row-offline');
@@ -799,6 +802,23 @@ describe('Archive workspace and mode switch', () => {
     );
   });
 
+  it('starts with watched folders collapsed when roots exist and expands on toggle', async () => {
+    installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+
+    const toggle = await screen.findByRole('button', { name: 'Toggle watched folders' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByText('1 folder · Flights')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove Flights' })).toBeNull();
+    expect(screen.getByText('· 2 clips')).toBeTruthy();
+    expect(screen.getByText('0:08')).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('E:\\Drone\\Flights')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove Flights' })).toBeTruthy();
+  });
+
   it('clears selectedClipPath only when its watched folder is removed', async () => {
     const { bridge } = installArchiveBridge({
       initialRoots: ['E:\\Drone\\Flights', 'F:\\Drone\\Other'],
@@ -809,6 +829,7 @@ describe('Archive workspace and mode switch', () => {
     fireEvent.focus(clipButton);
     expect(clipButton.getAttribute('data-selected')).toBe('true');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle watched folders' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove Other' }));
     await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('F:\\Drone\\Other'));
     expect(

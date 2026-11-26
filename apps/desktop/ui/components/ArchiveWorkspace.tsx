@@ -3,8 +3,11 @@
 import { useCallback, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import {
+  ChevronDown,
+  ChevronUp,
   Download,
   Film,
+  Folder,
   FolderOpen,
   FolderPlus,
   RefreshCw,
@@ -93,6 +96,7 @@ export function ArchiveWorkspace({
   dialogs,
 }: ArchiveWorkspaceProps) {
   const t = useTranslation();
+  const [foldersExpanded, setFoldersExpanded] = useState(false);
   const [confirmPruneOpen, setConfirmPruneOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const {
@@ -193,7 +197,9 @@ export function ArchiveWorkspace({
           <aside className="archive-sidebar">
             <section className="archive-folders">
               <div className="archive-pane-header">
-                <h2 className="preview-title">{t('archiveWorkspace.watchedFolders')}</h2>
+                <h2 className="preview-title archive-folders-title">
+                  {t('archiveWorkspace.watchedFolders')}
+                </h2>
                 <div className="archive-folder-actions">
                   <button type="button" onClick={onOpenFolder}>
                     <FolderPlus aria-hidden="true" />
@@ -212,18 +218,28 @@ export function ArchiveWorkspace({
                       </button>
                     )
                   ) : null}
+                  {roots.length > 0 ? (
+                    <button
+                      type="button"
+                      className="archive-folder-toggle"
+                      aria-expanded={foldersExpanded}
+                      aria-label={t('archiveWorkspace.toggleFolders')}
+                      title={t('archiveWorkspace.toggleFolders')}
+                      onClick={() => setFoldersExpanded((expanded) => !expanded)}
+                    >
+                      {foldersExpanded ? (
+                        <ChevronUp aria-hidden="true" />
+                      ) : (
+                        <ChevronDown aria-hidden="true" />
+                      )}
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
-              {scanStatusText ? (
-                <p className="archive-scan-status hint" role="status">
-                  {scanStatusText}
-                </p>
-              ) : null}
-
               {roots.length === 0 ? (
-                <p className="hint">{t('archiveWorkspace.noFolders')}</p>
-              ) : (
+                <p className="hint archive-folders-empty">{t('archiveWorkspace.noFolders')}</p>
+              ) : foldersExpanded ? (
                 <ul className="archive-folder-list">
                   {roots.map((root) => {
                     const name = leafName(root) || root;
@@ -264,7 +280,28 @@ export function ArchiveWorkspace({
                     );
                   })}
                 </ul>
+              ) : (
+                <div className="archive-folders-summary">
+                  <Folder aria-hidden="true" />
+                  <span className="archive-folders-summary-text" title={roots[0]}>
+                    {t('archiveWorkspace.folderSummary', {
+                      count: roots.length,
+                      name: leafName(roots[0]) || roots[0],
+                    })}
+                  </span>
+                  {offlineRoots.size > 0 ? (
+                    <span className="archive-badge archive-badge-offline">
+                      {t('archiveWorkspace.offlineBadge')}
+                    </span>
+                  ) : null}
+                </div>
               )}
+
+              {scanStatusText ? (
+                <p className="archive-scan-status hint" role="status">
+                  {scanStatusText}
+                </p>
+              ) : null}
             </section>
 
             <section
@@ -283,16 +320,27 @@ export function ArchiveWorkspace({
               ) : null}
 
               <div className="archive-clips-summary">
-                <div className="archive-clips-counts">
-                  <span className="readout">
-                    {t('archiveWorkspace.recordingCount', { count: totalCount })}
-                  </span>
-                  {offlineCount > 0 ? (
-                    <span className="hint">
-                      {' · '}
-                      {t('archiveWorkspace.offlineCount', { count: offlineCount })}
+                <div className="archive-clips-status-row">
+                  <div className="archive-clips-counts">
+                    <span className="readout">
+                      {t('archiveWorkspace.recordingCount', { count: totalCount })}
                     </span>
-                  ) : null}
+                    {offlineCount > 0 ? (
+                      <span className="hint">
+                        {' · '}
+                        {t('archiveWorkspace.offlineCount', { count: offlineCount })}
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="archive-prune-trigger"
+                    disabled={offlineCount === 0 || scanning || pruning}
+                    onClick={() => setConfirmPruneOpen(true)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                    {t('archiveWorkspace.pruneOffline')}
+                  </button>
                 </div>
                 <div className="archive-clips-actions">
                   <button
@@ -315,15 +363,6 @@ export function ArchiveWorkspace({
                   >
                     <Download aria-hidden="true" />
                     <span>{t('archiveWorkspace.exportArchive')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="archive-prune-trigger"
-                    disabled={offlineCount === 0 || scanning || pruning}
-                    onClick={() => setConfirmPruneOpen(true)}
-                  >
-                    <Trash2 aria-hidden="true" />
-                    {t('archiveWorkspace.pruneOffline')}
                   </button>
                 </div>
               </div>
@@ -354,100 +393,121 @@ export function ArchiveWorkspace({
                 </div>
               ) : (
                 <div className="archive-flights">
-                  {flights.map((flight, index) => (
-                    <div key={flight.flightId} className="archive-flight">
-                      <h3 className="archive-flight-title">
-                        {t('archiveWorkspace.flightHeading', { index: index + 1 })}
-                      </h3>
-                      <ul className="archive-clip-list">
-                        {flight.clips.map((clip) => {
-                          const name = leafName(clip.path);
-                          const isSelected = selectedClipPath === clip.path;
-                          const isOffline = clip.availability === 'offline';
-                          const durationText =
-                            clip.video?.durationSec !== undefined && clip.video.durationSec !== null
-                              ? formatTime(clip.video.durationSec)
+                  {flights.map((flight, index) => {
+                    const totalDurationSec = flight.clips.reduce(
+                      (sum, clip) => sum + (clip.video?.durationSec ?? 0),
+                      0,
+                    );
+                    return (
+                      <div key={flight.flightId} className="archive-flight">
+                        <div className="archive-flight-header">
+                          <div className="archive-flight-heading-group">
+                            <h3 className="archive-flight-title">
+                              {t('archiveWorkspace.flightHeading', { index: index + 1 })}
+                            </h3>
+                            <span className="archive-flight-count">
+                              {'· '}
+                              {t('archiveWorkspace.clipCount', { count: flight.clips.length })}
+                            </span>
+                          </div>
+                          {totalDurationSec > 0 ? (
+                            <span className="archive-flight-duration hint">
+                              {formatTime(totalDurationSec)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <ul className="archive-clip-list">
+                          {flight.clips.map((clip) => {
+                            const name = leafName(clip.path);
+                            const isSelected = selectedClipPath === clip.path;
+                            const isOffline = clip.availability === 'offline';
+                            const durationText =
+                              clip.video?.durationSec !== undefined && clip.video.durationSec !== null
+                                ? formatTime(clip.video.durationSec)
+                                : '--';
+                            const distanceText = clip.telemetry
+                              ? formatArchiveDistance(clip.telemetry.trackDistanceM, t)
                               : '--';
-                          const distanceText = clip.telemetry
-                            ? formatArchiveDistance(clip.telemetry.trackDistanceM, t)
-                            : '--';
-                          const badge = isOffline
-                            ? t('archiveWorkspace.offlineBadge')
-                            : clip.status === 'no-telemetry' || clip.status === 'no-gps'
-                              ? t('archiveWorkspace.noTelemetryBadge')
-                              : clip.status === 'error'
-                                ? t('archiveWorkspace.errorBadge')
-                                : null;
-                          return (
-                            <li
-                              key={clip.path}
-                              className={`archive-clip-card${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
-                            >
-                              <button
-                                ref={(el) => {
-                                  if (el) clipButtonRefs.current.set(clip.path, el);
-                                  else clipButtonRefs.current.delete(clip.path);
-                                }}
-                                type="button"
-                                className={`archive-clip-row${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
-                                data-selected={isSelected ? 'true' : undefined}
-                                aria-label={
-                                  isOffline
-                                    ? t('archiveWorkspace.offlineClipLabel', { name })
-                                    : t('archiveWorkspace.openClip', { name })
-                                }
-                                title={
-                                  isOffline
-                                    ? t('archiveWorkspace.offlineClipHint', { path: clip.path })
-                                    : undefined
-                                }
-                                disabled={opening || isOffline}
-                                onFocus={() => setSelectedClipPath(clip.path)}
-                                onMouseEnter={() => setSelectedClipPath(clip.path)}
-                                onClick={() => {
-                                  setSelectedClipPath(clip.path);
-                                  onOpenClip(clip.path);
-                                }}
+                            const badge = isOffline
+                              ? t('archiveWorkspace.offlineBadge')
+                              : clip.status === 'no-telemetry' || clip.status === 'no-gps'
+                                ? t('archiveWorkspace.noTelemetryBadge')
+                                : clip.status === 'error'
+                                  ? t('archiveWorkspace.errorBadge')
+                                  : null;
+                            return (
+                              <li
+                                key={clip.path}
+                                className={`archive-clip-card${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
                               >
-                                <ClipPoster key={clip.posterId ?? 'none'} posterId={clip.posterId} />
-                                <div className="archive-clip-main">
-                                  <span className="archive-clip-name">{name}</span>
-                                  <span className="archive-clip-path hint" title={clip.path}>
-                                    {clip.path}
-                                  </span>
-                                </div>
-                                <div className="archive-clip-meta">
-                                  {badge ? (
-                                    <span
-                                      className={
-                                        isOffline
-                                          ? 'archive-badge archive-badge-offline'
-                                          : 'archive-badge'
-                                      }
-                                    >
-                                      {badge}
+                                <button
+                                  ref={(el) => {
+                                    if (el) clipButtonRefs.current.set(clip.path, el);
+                                    else clipButtonRefs.current.delete(clip.path);
+                                  }}
+                                  type="button"
+                                  className={`archive-clip-row${isSelected ? ' is-selected' : ''}${isOffline ? ' archive-clip-row-offline' : ''}`}
+                                  data-selected={isSelected ? 'true' : undefined}
+                                  aria-label={
+                                    isOffline
+                                      ? t('archiveWorkspace.offlineClipLabel', { name })
+                                      : t('archiveWorkspace.openClip', { name })
+                                  }
+                                  title={
+                                    isOffline
+                                      ? t('archiveWorkspace.offlineClipHint', { path: clip.path })
+                                      : undefined
+                                  }
+                                  disabled={opening || isOffline}
+                                  onFocus={() => setSelectedClipPath(clip.path)}
+                                  onMouseEnter={() => setSelectedClipPath(clip.path)}
+                                  onClick={() => {
+                                    setSelectedClipPath(clip.path);
+                                    onOpenClip(clip.path);
+                                  }}
+                                >
+                                  <ClipPoster key={clip.posterId ?? 'none'} posterId={clip.posterId} />
+                                  <div className="archive-clip-main">
+                                    <span className="archive-clip-name" title={clip.path}>
+                                      {name}
                                     </span>
-                                  ) : null}
-                                  <span className="readout">{durationText}</span>
-                                  <span className="readout">{distanceText}</span>
-                                </div>
-                              </button>
-                              <button
-                                type="button"
-                                className="archive-clip-reveal"
-                                aria-label={t('archiveWorkspace.revealClipLabel', { name })}
-                                title={t('archiveWorkspace.revealClip')}
-                                disabled={isOffline}
-                                onClick={() => void revealClip(clip.path)}
-                              >
-                                <FolderOpen aria-hidden="true" />
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
+                                    <div className="archive-clip-subline">
+                                      <span className="readout">
+                                        <span>{durationText}</span>
+                                        <span aria-hidden="true">{' · '}</span>
+                                        <span>{distanceText}</span>
+                                      </span>
+                                      {badge ? (
+                                        <span
+                                          className={
+                                            isOffline
+                                              ? 'archive-badge archive-badge-offline'
+                                              : 'archive-badge'
+                                          }
+                                        >
+                                          {badge}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="archive-clip-reveal"
+                                  aria-label={t('archiveWorkspace.revealClipLabel', { name })}
+                                  title={t('archiveWorkspace.revealClip')}
+                                  disabled={isOffline}
+                                  onClick={() => void revealClip(clip.path)}
+                                >
+                                  <FolderOpen aria-hidden="true" />
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
