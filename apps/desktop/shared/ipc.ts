@@ -171,6 +171,7 @@ export interface ArchiveQueryFilters {
   minSmoothness?: number;
   folderRoot?: string;
   flightId?: string;
+  detail?: 'overview' | 'full';
 }
 
 export const ARCHIVE_EXPORT_FORMATS = ['gpx', 'geojson', 'kml', 'kmz', 'html'] as const;

@@ -729,4 +729,50 @@ describe('ArchiveMap', () => {
     expect(fittedView.center.lon).toBeCloseTo(14.205, 6);
     expect(fittedView.zoom).toBe(16);
   });
+
+  it('emits onDetailViewportChange at zoom >= 14 and clears below 14', async () => {
+    const onDetailViewportChange = vi.fn();
+    leafletMock.setZoom(12);
+    render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+        onDetailViewportChange={onDetailViewportChange}
+      />,
+    );
+
+    await waitFor(() => expect(leafletMock.L.map).toHaveBeenCalledTimes(1));
+    expect(onDetailViewportChange).not.toHaveBeenCalled();
+
+    vi.useFakeTimers();
+    try {
+      leafletMock.setZoom(14);
+      act(() => {
+        leafletMock.triggerMap('zoomend');
+      });
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(onDetailViewportChange).toHaveBeenLastCalledWith({
+        minLat: 46.6,
+        maxLat: 46.61,
+        minLon: 14.2,
+        maxLon: 14.21,
+      });
+
+      leafletMock.setZoom(12);
+      act(() => {
+        leafletMock.triggerMap('zoomend');
+      });
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(onDetailViewportChange).toHaveBeenLastCalledWith(null);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

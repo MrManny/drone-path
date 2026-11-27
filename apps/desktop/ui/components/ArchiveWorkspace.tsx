@@ -122,6 +122,7 @@ export function ArchiveWorkspace({
     activeFilterCount,
     activeQueryFilters,
     setViewportBbox,
+    setDetailViewportBbox,
     setMapView,
     setSelectedClipPath,
     setFiltersOpen,
@@ -539,6 +540,7 @@ export function ArchiveWorkspace({
               onSelectClip={handleSelectClipFromMap}
               onOpenClip={onOpenClip}
               onViewportChange={setViewportBbox}
+              onDetailViewportChange={setDetailViewportBbox}
               initialMapView={mapView}
               onMapViewChange={setMapView}
               onStyleChange={onMapStyleChange}
