@@ -1,5 +1,36 @@
 # drone-path
 
+## 1.2.0
+
+### Core libraries
+
+- **New:** Score keyframe sharpness on demand with FFmpeg `blurdetect`
+  luminance analysis, and compute clip-wide sharpness timelines with SQLite
+  archive caching, bounded offline queries, and NDJSON export.
+- **New:** Provide decimated flight-track overviews for multi-flight map
+  rendering alongside full-detail track queries.
+- **Internal:** Streamlined workspace builds and test type-checking with
+  TypeScript project references (`tsc -b`).
+
+### CLI
+
+- **New:** Opt into frame sharpness scoring with
+  `drone-path extract-frame --sharpness` and MCP `clip_extract_keyframes`.
+- **New:** Analyze, query offline, and export clip-wide sharpness timelines
+  as JSON or NDJSON with `drone-path archive analyze-sharpness`,
+  `drone-path archive sharpness`, and MCP `archive_analyze_sharpness` /
+  `archive_get_sharpness`.
+
+### Desktop
+
+- **New:** Explore recordings in the new Archive workspace: add watched
+  folders, inspect flights on a Canvas-rendered multi-flight map with
+  higher-detail tracks at high zoom, jump straight into Review at a clicked
+  moment with "What filmed here?" point-in-view search, filter by date,
+  distance, shot type, or smoothness, preview lazy poster thumbnails, work
+  with offline drives, and export combined GPX, GeoJSON, KML, KMZ, or HTML
+  maps.
+
 ## 1.1.1
 
 ### Core libraries
