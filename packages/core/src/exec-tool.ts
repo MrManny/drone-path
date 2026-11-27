@@ -1,5 +1,5 @@
-import { execFile } from 'node:child_process';
-import type { ExecFileOptions } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import type { ChildProcess, ExecFileOptions, SpawnOptions } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -34,4 +34,12 @@ export async function runToolBinary(
     command, args, { windowsHide: true, ...opts, encoding: 'buffer' },
   );
   return stdout;
+}
+
+export function spawnTool(
+  command: string,
+  args: readonly string[],
+  opts?: SpawnOptions,
+): ChildProcess {
+  return spawn(command, args, { windowsHide: true, ...opts });
 }

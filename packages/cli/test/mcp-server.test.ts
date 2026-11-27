@@ -266,6 +266,8 @@ describe('MCP stdio protocol', () => {
       'archive_list_flights',
       'archive_find_at_point',
       'archive_list_segments',
+      'archive_analyze_sharpness',
+      'archive_get_sharpness',
       'clip_get_telemetry',
       'clip_extract_keyframes',
       'export_markers',
@@ -323,6 +325,14 @@ describe('MCP path boundary enforcement', () => {
     const checks: Array<[string, Record<string, unknown>, RegExp]> = [
       ['archive_scan', { dirs: [outside] }, /path is outside allowed roots/],
       ['archive_scan', { dirs: [linkDir] }, /path is outside allowed roots/],
+      ['archive_analyze_sharpness', { videoPath: outsideClip }, /path is outside allowed roots/],
+      ['archive_analyze_sharpness', { videoPath: linkedOutside }, /path is outside allowed roots/],
+      ['archive_get_sharpness', { videoPath: outsideClip }, /path is outside allowed roots/],
+      [
+        'archive_get_sharpness',
+        { videoPath: allowedClip, outPath: path.join(outside, 'sharp.ndjson') },
+        /path is outside allowed roots/,
+      ],
       ['clip_get_telemetry', { videoPath: traversal }, /path is outside allowed roots/],
       ['clip_get_telemetry', { videoPath: linkedOutside }, /path is outside allowed roots/],
       [

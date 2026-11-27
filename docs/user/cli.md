@@ -45,6 +45,13 @@ drone-path archive list --group-by flight
 
 # find clips passing within 250 m of a coordinate or seeing it in camera view
 drone-path archive near 46.62,14.31 --radius 250 --include-gaze
+
+# opt in to clip-wide sharpness timeline analysis (1 sample/sec by default)
+drone-path archive analyze-sharpness "flight.mp4" --json
+
+# query stored sharpness timelines offline or export the full timeline as NDJSON
+drone-path archive sharpness "flight.mp4" --start-sec 5 --end-sec 20 --json
+drone-path archive sharpness "flight.mp4" --ndjson
 ```
 
 ### Export NLE markers, maps, and combined tracks
@@ -245,6 +252,45 @@ drone-path archive export-tracks <out> [options]
 - **Combined tracks (`export-tracks`):** Writes `.gpx`, `.geojson`, `.kml`, or `.kmz`, preserving flight groups and segment boundaries and splitting tracks at the antimeridian. Because the archive stores simplified tracks and clip-relative sample times, exported tracks omit absolute altitudes and UTC timestamps.
 - **Launch redaction (`--redact-launch <m>`):** Uses each flight's full indexed endpoints even when filters exclude its first or last clip. A positive radius also omits camera footprints and clip labels from HTML maps. The saved archive index is unchanged; if a recording started after takeoff or stopped before landing, remaining route geometry may still reveal the flight area.
 
+### Analyze and query sharpness timelines
+
+Ordinary `archive scan` runs perform no sharpness analysis. Use `archive analyze-sharpness` to opt in per recording and `archive sharpness` to query stored timelines even when the source clip is offline:
+
+```sh
+drone-path archive analyze-sharpness <video> [options]
+drone-path archive sharpness <video> [options]
+```
+
+Options for `drone-path archive analyze-sharpness <video>`:
+
+| Option | Description |
+| --- | --- |
+| `--mode <mode>` | Sampling mode: `sampled` (1 sample/second via `stride = Math.max(1, Math.round(fps))`, default) or `every-frame` (`stride = 1`). |
+| `--analysis-width <px>` | Width in pixels for luminance analysis (default: `640`). |
+| `--min-edge-coverage <ratio>` | Minimum usable edge coverage ratio in `[0, 1]` before `sharpnessScore` becomes `null` (default: `0.002`). |
+| `--force` | Re-run analysis even when a matching cached run exists. |
+| `--ffmpeg <path>` | Path to the `ffmpeg` executable. |
+| `--ffprobe <path>` | Path to the `ffprobe` executable. |
+| `--archive-db <path>` | Override the per-user SQLite database path. |
+| `--json` | Write the analysis summary JSON object to stdout. |
+
+Options for `drone-path archive sharpness <video>`:
+
+| Option | Description |
+| --- | --- |
+| `--mode <mode>` | Filter to the latest run for `sampled` or `every-frame`. |
+| `--start-sec <sec>` | Earliest clip-relative timestamp in seconds, inclusive. |
+| `--end-sec <sec>` | Latest clip-relative timestamp in seconds, inclusive. |
+| `--limit <n>` | Maximum samples to return (`1`–`2000`, default `200`). |
+| `--offset <n>` | Sample offset for pagination (default `0`). |
+| `--ndjson` | Write the full matching timeline as NDJSON to stdout (unbounded). |
+| `--out <file>` | Write the full matching timeline as NDJSON to a file (refuses to overwrite the archive database). |
+| `--archive-db <path>` | Override the per-user SQLite database path. |
+| `--json` | Write the bounded sharpness timeline JSON object to stdout. |
+
+- **Caching & atomic publication:** Completed runs are keyed in SQLite by canonical clip path, video file fingerprint (`size`, `mtimeMs`), analyzer method and version (`ffmpeg-blurdetect` v1), and settings (`mode`, `stride`, `analysisWidth`, `minEdgeCoverage`). Repeat requests with matching inputs reuse the cached run (`cached: true`) without spawning FFmpeg. Each run is published in a single SQLite transaction after FFmpeg finishes, so interrupted or canceled runs leave no partial samples behind.
+- **Offline queries & NDJSON export:** Each stored sample records `frameIndex` (0-based source frame), clip-relative `tSec`, `sharpnessScore` (`number | null`), and `edgeCoverage`, matching `extract-frame --sharpness` at the same frames and settings. Queries remain available after the source drive is disconnected (`availability: "offline"`). Use `--limit` and `--offset` for bounded JSON pages or `--ndjson` / `--out <file>` for full timelines.
+
 ## MCP server
 
 ```sh
@@ -257,9 +303,9 @@ Starts a stdio JSON-RPC 2.0 Model Context Protocol (MCP) server over `stdin` and
 | --- | --- | --- |
 | `--allow-root <dir...>` | Required | One or more existing directories restricting all file and folder tool inputs and outputs. |
 | `--archive-db <path>` | Optional | Override the default per-user archive SQLite database path. |
-| `DRONE_PATH_MCP_ALLOW_OVERWRITE` | Env var (`1` or `true`) | Allows `export_markers` and `render_map_video` to overwrite existing output files (refused by default). |
+| `DRONE_PATH_MCP_ALLOW_OVERWRITE` | Env var (`1` or `true`) | Allows `archive_get_sharpness` (`outPath`), `export_markers`, and `render_map_video` to overwrite existing output files (refused by default). |
 
-- **Path boundaries & safety:** Every allowed root is resolved canonically via realpath, and every input or output path argument (including discovered clips and planned render outputs) is verified against those roots after resolving symlinks and `..` segments. Archive query tools filter results to clips inside the allowed roots, tools cannot overwrite the archive SQLite database (or its `-wal`, `-shm`, and `-journal` files), `export_markers` and `render_map_video` refuse to overwrite existing output files unless `DRONE_PATH_MCP_ALLOW_OVERWRITE=1` (or `true`), `render_map_video` caps each call to at most 10 recordings, and MCP logs redact absolute filesystem paths.
+- **Path boundaries & safety:** Every allowed root is resolved canonically via realpath, and every input or output path argument (including discovered clips and planned render outputs) is verified against those roots after resolving symlinks and `..` segments. Archive query tools filter results to clips inside the allowed roots, tools cannot overwrite the archive SQLite database (or its `-wal`, `-shm`, and `-journal` files), `archive_get_sharpness` (`outPath`), `export_markers`, and `render_map_video` refuse to overwrite existing output files unless `DRONE_PATH_MCP_ALLOW_OVERWRITE=1` (or `true`), `render_map_video` caps each call to at most 10 recordings, and MCP logs redact absolute filesystem paths.
 
 | Tool | Purpose | Key arguments |
 | --- | --- | --- |
@@ -268,6 +314,8 @@ Starts a stdio JSON-RPC 2.0 Model Context Protocol (MCP) server over `stdin` and
 | `archive_list_flights` | List matching clips grouped into inferred flights | Same filter fields as `archive_list_clips` |
 | `archive_find_at_point` | Find clips passing near or viewing a coordinate | `lat`, `lon`, `radiusM?`, `includeGaze?` |
 | `archive_list_segments` | List matching kinematic shot segments ordered by smoothness | Same filter fields as `archive_list_clips` |
+| `archive_analyze_sharpness` | Opt in to clip-wide sharpness analysis and cache the timeline in SQLite | `videoPath`, `mode?` (`sampled` \| `every-frame`), `analysisWidth?`, `minEdgeCoverage?`, `force?` |
+| `archive_get_sharpness` | Query stored sharpness timelines offline (bounded) or export full NDJSON | `videoPath`, `mode?`, `startSec?`, `endSec?`, `limit?` (1–2000, default 200), `offset?`, `outPath?` |
 | `clip_get_telemetry` | Probe a clip and return telemetry summary, shot segments, and sampled track records | `videoPath`, `includeSamples?`, `maxSamples?` (1–2000, default 100) |
 | `clip_extract_keyframes` | Extract JPEG keyframes, telemetry snapshots, and optional sharpness scores | `videoPath`, `at` (string or array), `maxWidth?`, `outDir?`, `sharpness?` |
 | `export_markers` | Write DaVinci Resolve CSV or FCPXML markers from explicit ranges or archive filters | `outputPath`, `ranges?` or `filters?` |

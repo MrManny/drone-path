@@ -14,6 +14,12 @@ import {
   parseDateBound,
 } from 'drone-path-archive/query';
 import type { ArchiveSegment, ListFilters } from 'drone-path-archive/query';
+import {
+  MAX_SHARPNESS_QUERY_LIMIT,
+  analyzeArchiveSharpness,
+  exportArchiveSharpnessNdjson,
+  getArchiveSharpness,
+} from 'drone-path-archive/sharpness';
 import { errorMessage } from 'drone-path-core/errors';
 import { probeVideo } from 'drone-path-core/ffmpeg';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
@@ -365,6 +371,98 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         isPathInAllowedRoots(seg.clip.path, ctx.allowedRoots),
       );
       return { count: segments.length, segments };
+    }),
+  );
+
+  sdkServer.registerTool(
+    'archive_analyze_sharpness',
+    {
+      description:
+        'Run or reuse opt-in clip-wide luminance sharpness analysis for an allowed recording and store the timeline in the archive database.',
+      inputSchema: z
+        .object({
+          videoPath: z.string().min(1),
+          mode: z.enum(['sampled', 'every-frame']).optional(),
+          analysisWidth: z.number().int().min(1).optional(),
+          minEdgeCoverage: z.number().finite().min(0).max(1).optional(),
+          force: z.boolean().optional(),
+        })
+        .strict(),
+    },
+    wrap(async (args) => {
+      const videoPath = assertPathInAllowedRoots(args.videoPath, ctx.allowedRoots);
+      assertNotArchiveDb(videoPath, ctx.archiveDb);
+      const result = await analyzeArchiveSharpness(ctx.archiveDb, videoPath, {
+        mode: args.mode,
+        analysisWidth: args.analysisWidth,
+        minEdgeCoverage: args.minEdgeCoverage,
+        force: args.force,
+        getTools: ctx.getTools,
+      });
+      return {
+        clipPath: result.clip.path,
+        clipKey: result.clipKey,
+        availability: result.clip.availability,
+        cached: result.cached,
+        run: result.run,
+      };
+    }),
+  );
+
+  sdkServer.registerTool(
+    'archive_get_sharpness',
+    {
+      description:
+        'Query stored archive sharpness timelines for an allowed recording (works offline) with optional time-range filters, bounded pagination, or full NDJSON export to outPath.',
+      inputSchema: z
+        .object({
+          videoPath: z.string().min(1),
+          mode: z.enum(['sampled', 'every-frame']).optional(),
+          startSec: z.number().finite().min(0).optional(),
+          endSec: z.number().finite().min(0).optional(),
+          limit: z.number().int().min(1).max(MAX_SHARPNESS_QUERY_LIMIT).optional(),
+          offset: z.number().int().min(0).optional(),
+          outPath: z.string().min(1).optional(),
+        })
+        .strict(),
+    },
+    wrap(async (args) => {
+      const videoPath = assertPathInAllowedRoots(args.videoPath, ctx.allowedRoots);
+      assertNotArchiveDb(videoPath, ctx.archiveDb);
+      if (args.outPath !== undefined) {
+        const outPath = assertPathInAllowedRoots(args.outPath, ctx.allowedRoots);
+        assertNotArchiveDb(outPath, ctx.archiveDb);
+        if (fs.existsSync(outPath) && !isMcpOverwriteAllowed()) {
+          throw new Error(
+            'refusing to overwrite existing sharpness export file (set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
+          );
+        }
+        const exported = exportArchiveSharpnessNdjson(ctx.archiveDb, videoPath, {
+          mode: args.mode,
+          startSec: args.startSec,
+          endSec: args.endSec,
+          outPath,
+        });
+        return {
+          clipPath: exported.clipPath,
+          clipKey: exported.clipKey,
+          availability: exported.availability,
+          analyzed: true,
+          run: exported.run,
+          outPath,
+          format: 'ndjson',
+          count: exported.count,
+        };
+      }
+
+      const timeline = getArchiveSharpness(ctx.archiveDb, videoPath, {
+        mode: args.mode,
+        startSec: args.startSec,
+        endSec: args.endSec,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return { ...timeline };
     }),
   );
 
