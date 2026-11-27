@@ -20,6 +20,7 @@ import {
   exportArchiveSharpnessNdjson,
   getArchiveSharpness,
 } from 'drone-path-archive/sharpness';
+import type { ArchiveSharpnessRun } from 'drone-path-archive/sharpness';
 import { errorMessage } from 'drone-path-core/errors';
 import { probeVideo } from 'drone-path-core/ffmpeg';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
@@ -57,6 +58,7 @@ import {
   assertPathInAllowedRoots,
   canonicalizePath,
   isPathInAllowedRoots,
+  isPathWithinRoot,
 } from './mcp-paths.js';
 
 export interface McpToolContext {
@@ -65,6 +67,36 @@ export interface McpToolContext {
   getTools: () => Promise<FfmpegToolPaths>;
   runBatch: typeof runBatch;
   log: LogFn;
+}
+
+function toAllowedRootRelativePath(
+  targetPath: string,
+  allowedRoots: readonly string[],
+): string {
+  let canonical: string;
+  try {
+    canonical = canonicalizePath(targetPath);
+  } catch {
+    return path.basename(targetPath);
+  }
+  for (const root of allowedRoots) {
+    if (isPathWithinRoot(canonical, root)) {
+      const rel = path.relative(root, canonical).split(path.sep).join('/');
+      return rel === '' ? path.basename(canonical) : rel;
+    }
+  }
+  return path.basename(canonical);
+}
+
+function sanitizeArchiveSharpnessRun(
+  run: ArchiveSharpnessRun,
+  allowedRoots: readonly string[],
+) {
+  const { clipKey: _omittedClipKey, ...rest } = run;
+  return {
+    ...rest,
+    clipPath: toAllowedRootRelativePath(run.clipKey, allowedRoots),
+  };
 }
 
 const DEFAULT_MAX_SAMPLES = 100;
@@ -403,11 +435,10 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         },
       });
       return {
-        clipPath: result.clip.path,
-        clipKey: result.clipKey,
+        clipPath: toAllowedRootRelativePath(result.clip.path, ctx.allowedRoots),
         availability: result.clip.availability,
         cached: result.cached,
-        run: result.run,
+        run: sanitizeArchiveSharpnessRun(result.run, ctx.allowedRoots),
       };
     }),
   );
@@ -426,7 +457,6 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
           limit: z.number().int().min(1).max(MAX_SHARPNESS_QUERY_LIMIT).optional(),
           offset: z.number().int().min(0).optional(),
           outPath: z.string().min(1).optional(),
-          overwrite: z.boolean().optional(),
         })
         .strict(),
     },
@@ -436,26 +466,22 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       if (args.outPath !== undefined) {
         const outPath = assertPathInAllowedRoots(args.outPath, ctx.allowedRoots);
         assertNotArchiveDb(outPath, ctx.archiveDb);
-        const overwriteAllowed = args.overwrite === true && isMcpOverwriteAllowed();
-        if (fs.existsSync(outPath) && !overwriteAllowed) {
-          throw new Error(
-            'refusing to overwrite existing sharpness export file (pass overwrite: true and set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
-          );
+        if (fs.existsSync(outPath)) {
+          throw new Error('refusing to overwrite existing sharpness export file');
         }
         const exported = exportArchiveSharpnessNdjson(ctx.archiveDb, videoPath, {
           mode: args.mode,
           startSec: args.startSec,
           endSec: args.endSec,
           outPath,
-          overwrite: overwriteAllowed,
+          overwrite: false,
         });
         return {
-          clipPath: exported.clipPath,
-          clipKey: exported.clipKey,
+          clipPath: toAllowedRootRelativePath(exported.clipPath, ctx.allowedRoots),
           availability: exported.availability,
           analyzed: true,
-          run: exported.run,
-          outPath,
+          run: sanitizeArchiveSharpnessRun(exported.run, ctx.allowedRoots),
+          outPath: toAllowedRootRelativePath(outPath, ctx.allowedRoots),
           format: 'ndjson',
           count: exported.count,
         };
@@ -468,7 +494,17 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         limit: args.limit,
         offset: args.offset,
       });
-      return { ...timeline };
+      return {
+        clipPath: toAllowedRootRelativePath(timeline.clipPath, ctx.allowedRoots),
+        availability: timeline.availability,
+        analyzed: timeline.analyzed,
+        run: timeline.run ? sanitizeArchiveSharpnessRun(timeline.run, ctx.allowedRoots) : null,
+        totalSamples: timeline.totalSamples,
+        limit: timeline.limit,
+        offset: timeline.offset,
+        truncated: timeline.truncated,
+        samples: timeline.samples,
+      };
     }),
   );
 

@@ -200,7 +200,22 @@ describe('archive sharpness MCP tools', () => {
     expect(() => passedOpts?.assertAllowedPath?.(path.join(root, '..', 'outside.SRT'))).toThrow(
       'path is outside allowed roots',
     );
-    expect(ok.structuredContent).toMatchObject({ cached: false, availability: 'online' });
+    expect(ok.structuredContent).toEqual({
+      clipPath: 'clip.mp4',
+      availability: 'online',
+      cached: false,
+      run: {
+        runId: 1,
+        clipPath: 'clip.mp4',
+        fingerprintKey: '{"size":3,"mtimeMs":1}',
+        method: 'ffmpeg-blurdetect',
+        version: '1',
+        settings: { mode: 'sampled', stride: 30, analysisWidth: 640, minEdgeCoverage: 0.002 },
+        sampleCount: 3,
+        analyzedAtMs: 1000,
+      },
+    });
+    expect(JSON.stringify(ok.structuredContent)).not.toContain(realRoot);
 
     const dbReject = await analyzeTool.handler({ videoPath: archiveDb });
     expect(dbReject.isError).toBe(true);
@@ -241,7 +256,27 @@ describe('archive sharpness MCP tools', () => {
 
     const queried = await getTool.handler({ videoPath, startSec: 0, endSec: 2, limit: 50 });
     expect(queried.isError).toBeUndefined();
-    expect(queried.structuredContent).toEqual(timeline);
+    expect(queried.structuredContent).toEqual({
+      clipPath: 'offline.mp4',
+      availability: 'offline',
+      analyzed: true,
+      run: {
+        runId: 1,
+        clipPath: 'offline.mp4',
+        fingerprintKey: '{"size":3,"mtimeMs":1}',
+        method: 'ffmpeg-blurdetect',
+        version: '1',
+        settings: { mode: 'sampled', stride: 30, analysisWidth: 640, minEdgeCoverage: 0.002 },
+        sampleCount: 2,
+        analyzedAtMs: 1000,
+      },
+      totalSamples: 2,
+      limit: 50,
+      offset: 0,
+      truncated: false,
+      samples: [{ frameIndex: 0, tSec: 0, sharpnessScore: 50, edgeCoverage: 0.01 }],
+    });
+    expect(JSON.stringify(queried.structuredContent)).not.toContain(realRoot);
     expect(getArchiveSharpness).toHaveBeenCalledWith(
       archiveDb,
       path.join(realRoot, 'offline.mp4'),
@@ -257,11 +292,13 @@ describe('archive sharpness MCP tools', () => {
     expect(overwriteBlocked.isError).toBe(true);
     expect(overwriteBlocked.content[0]?.text).toMatch(/refusing to overwrite/);
 
+    // Even with DRONE_PATH_MCP_ALLOW_OVERWRITE=1, MCP archive_get_sharpness stays create-only.
     vi.stubEnv('DRONE_PATH_MCP_ALLOW_OVERWRITE', '1');
-    const missingPerCallConfirm = await getTool.handler({ videoPath, outPath });
-    expect(missingPerCallConfirm.isError).toBe(true);
-    expect(missingPerCallConfirm.content[0]?.text).toMatch(/refusing to overwrite/);
+    const overwriteStillBlocked = await getTool.handler({ videoPath, outPath });
+    expect(overwriteStillBlocked.isError).toBe(true);
+    expect(overwriteStillBlocked.content[0]?.text).toMatch(/refusing to overwrite/);
 
+    const newOutPath = path.join(root, 'nested', 'timeline-new.ndjson');
     vi.mocked(exportArchiveSharpnessNdjson).mockReturnValue({
       clipPath: timeline.clipPath,
       clipKey: timeline.clipKey,
@@ -270,22 +307,19 @@ describe('archive sharpness MCP tools', () => {
       count: 2,
       ndjson: '{"frameIndex":0}\n{"frameIndex":30}\n',
     });
-    const overwriteAllowed = await getTool.handler({ videoPath, outPath, overwrite: true });
-    expect(overwriteAllowed.isError).toBeUndefined();
+    const exportOk = await getTool.handler({ videoPath, outPath: newOutPath });
+    expect(exportOk.isError).toBeUndefined();
     expect(exportArchiveSharpnessNdjson).toHaveBeenLastCalledWith(
       archiveDb,
       path.join(realRoot, 'offline.mp4'),
-      expect.objectContaining({ outPath: fs.realpathSync(outPath), overwrite: true }),
+      expect.objectContaining({ outPath: path.join(realRoot, 'nested', 'timeline-new.ndjson'), overwrite: false }),
     );
-    expect(overwriteAllowed.structuredContent).toMatchObject({
-      outPath: fs.realpathSync(outPath),
+    expect(exportOk.structuredContent).toMatchObject({
+      clipPath: 'offline.mp4',
+      outPath: 'nested/timeline-new.ndjson',
       format: 'ndjson',
       count: 2,
     });
-
-    vi.unstubAllEnvs();
-    const missingEnvConfirm = await getTool.handler({ videoPath, outPath, overwrite: true });
-    expect(missingEnvConfirm.isError).toBe(true);
-    expect(missingEnvConfirm.content[0]?.text).toMatch(/refusing to overwrite/);
+    expect(JSON.stringify(exportOk.structuredContent)).not.toContain(realRoot);
   });
 });
