@@ -453,7 +453,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
     'clip_extract_keyframes',
     {
       description:
-        'Extract targeted JPEG keyframes and nearest telemetry snapshots from a recording at specified timestamps or frame numbers.',
+        'Extract targeted JPEG keyframes, nearest telemetry snapshots, and optional luminance sharpness scores from a recording at specified timestamps or frame numbers.',
       inputSchema: z
         .object({
           videoPath: z.string().min(1),
@@ -463,6 +463,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
           ]),
           maxWidth: z.number().int().min(1).optional(),
           outDir: z.string().min(1).optional(),
+          sharpness: z.boolean().optional(),
         })
         .strict(),
     },
@@ -479,6 +480,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         at: requests,
         maxWidth: args.maxWidth,
         outDir,
+        sharpness: args.sharpness,
         tools,
       });
       return { videoPath, outDir, count: keyframes.length, keyframes };

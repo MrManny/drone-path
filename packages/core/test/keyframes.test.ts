@@ -277,5 +277,57 @@ describe('extractKeyframes', () => {
       iso: 400,
       shutterTime: 0.01,
     });
+    expect('sharpness' in kf).toBe(false);
+  });
+
+  it('attaches sharpness analysis when sharpness is enabled without altering JPEG extraction args', async () => {
+    const dir = tmpDir();
+    const outDir = path.join(dir, 'frames');
+    const videoPath = path.join(dir, 'clip.mp4');
+    vi.mocked(ffmpeg.probeVideo).mockResolvedValue(
+      probeFixture({ frames: 90, durationSec: 3, width: 1920, height: 1080 }),
+    );
+    vi.mocked(telemetry.loadTelemetrySamples).mockResolvedValue(null);
+    const runSpy = vi.mocked(execTool.runTool).mockImplementation(async (_cmd, args) => {
+      const outPath = args[args.length - 1];
+      if (outPath && outPath !== '-') {
+        fs.writeFileSync(outPath, 'jpeg');
+        return { stdout: '', stderr: '' };
+      }
+      return {
+        stdout: [
+          'frame:0    pts:0       pts_time:1',
+          'lavfi.blur=4',
+          'lavfi.signalstats.YAVG=12.75',
+        ].join('\n'),
+        stderr: '',
+      };
+    });
+
+    const [kf] = await extractKeyframes(videoPath, {
+      at: [{ kind: 'time', tSec: 1 }],
+      maxWidth: 640,
+      outDir,
+      sharpness: true,
+      tools,
+    });
+
+    expect(runSpy).toHaveBeenCalledTimes(2);
+    expect(runSpy.mock.calls[0]?.[1]).toEqual([
+      '-v', 'error',
+      '-y',
+      '-ss', '1.000',
+      '-i', videoPath,
+      '-frames:v', '1',
+      '-vf', 'scale=640:360',
+      kf.path,
+    ]);
+    expect(runSpy.mock.calls[1]?.[1]).toContain('-f');
+    expect(runSpy.mock.calls[1]?.[1]).toContain('null');
+    expect(kf.sharpness).toEqual({
+      sharpnessScore: 50,
+      edgeCoverage: 0.05,
+      analyzer: { method: 'ffmpeg-blurdetect', version: '1' },
+    });
   });
 });
