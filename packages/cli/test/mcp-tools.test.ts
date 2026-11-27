@@ -258,6 +258,10 @@ describe('archive sharpness MCP tools', () => {
     expect(overwriteBlocked.content[0]?.text).toMatch(/refusing to overwrite/);
 
     vi.stubEnv('DRONE_PATH_MCP_ALLOW_OVERWRITE', '1');
+    const missingPerCallConfirm = await getTool.handler({ videoPath, outPath });
+    expect(missingPerCallConfirm.isError).toBe(true);
+    expect(missingPerCallConfirm.content[0]?.text).toMatch(/refusing to overwrite/);
+
     vi.mocked(exportArchiveSharpnessNdjson).mockReturnValue({
       clipPath: timeline.clipPath,
       clipKey: timeline.clipKey,
@@ -266,7 +270,7 @@ describe('archive sharpness MCP tools', () => {
       count: 2,
       ndjson: '{"frameIndex":0}\n{"frameIndex":30}\n',
     });
-    const overwriteAllowed = await getTool.handler({ videoPath, outPath });
+    const overwriteAllowed = await getTool.handler({ videoPath, outPath, overwrite: true });
     expect(overwriteAllowed.isError).toBeUndefined();
     expect(exportArchiveSharpnessNdjson).toHaveBeenLastCalledWith(
       archiveDb,
@@ -278,5 +282,10 @@ describe('archive sharpness MCP tools', () => {
       format: 'ndjson',
       count: 2,
     });
+
+    vi.unstubAllEnvs();
+    const missingEnvConfirm = await getTool.handler({ videoPath, outPath, overwrite: true });
+    expect(missingEnvConfirm.isError).toBe(true);
+    expect(missingEnvConfirm.content[0]?.text).toMatch(/refusing to overwrite/);
   });
 });

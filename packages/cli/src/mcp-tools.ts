@@ -426,6 +426,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
           limit: z.number().int().min(1).max(MAX_SHARPNESS_QUERY_LIMIT).optional(),
           offset: z.number().int().min(0).optional(),
           outPath: z.string().min(1).optional(),
+          overwrite: z.boolean().optional(),
         })
         .strict(),
     },
@@ -435,9 +436,10 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
       if (args.outPath !== undefined) {
         const outPath = assertPathInAllowedRoots(args.outPath, ctx.allowedRoots);
         assertNotArchiveDb(outPath, ctx.archiveDb);
-        if (fs.existsSync(outPath) && !isMcpOverwriteAllowed()) {
+        const overwriteAllowed = args.overwrite === true && isMcpOverwriteAllowed();
+        if (fs.existsSync(outPath) && !overwriteAllowed) {
           throw new Error(
-            'refusing to overwrite existing sharpness export file (set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
+            'refusing to overwrite existing sharpness export file (pass overwrite: true and set DRONE_PATH_MCP_ALLOW_OVERWRITE=1 to allow)',
           );
         }
         const exported = exportArchiveSharpnessNdjson(ctx.archiveDb, videoPath, {
@@ -445,7 +447,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
           startSec: args.startSec,
           endSec: args.endSec,
           outPath,
-          overwrite: isMcpOverwriteAllowed(),
+          overwrite: overwriteAllowed,
         });
         return {
           clipPath: exported.clipPath,
