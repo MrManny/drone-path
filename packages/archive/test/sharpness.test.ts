@@ -198,6 +198,18 @@ describe('archive sharpness timelines', () => {
     const lines = fs.readFileSync(outNdjson, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
     expect(lines).toEqual(samples.slice(1, 4));
 
+    // Refuses to overwrite existing export file by default, unless overwrite: true is set.
+    expect(() =>
+      exportArchiveSharpnessNdjson(db, file, { startSec: 1, endSec: 3, outPath: outNdjson }),
+    ).toThrow('refusing to overwrite existing sharpness export file');
+    const overwritten = exportArchiveSharpnessNdjson(db, file, {
+      startSec: 1,
+      endSec: 2,
+      outPath: outNdjson,
+      overwrite: true,
+    });
+    expect(overwritten.count).toBe(2);
+
     expect(() => exportArchiveSharpnessNdjson(db, file, { outPath: db })).toThrow(
       'export file cannot overwrite the archive database',
     );

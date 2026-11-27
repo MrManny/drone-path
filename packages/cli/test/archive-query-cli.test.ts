@@ -237,7 +237,15 @@ it('routes archive sharpness queries with time-range, paging, and NDJSON export'
     '--archive-db', 'query.sqlite', '--ndjson', '--out', 'out.ndjson',
   ]);
   expect(exportArchiveSharpnessNdjson).toHaveBeenCalledWith(path.resolve('query.sqlite'), 'flight.mp4', {
-    mode: undefined, startSec: undefined, endSec: undefined, outPath: 'out.ndjson',
+    mode: undefined, startSec: undefined, endSec: undefined, outPath: 'out.ndjson', overwrite: false,
   });
   expect(output.mock.calls).toEqual([['{"frameIndex":30}\n{"frameIndex":60}\n']]);
+
+  await main([
+    'node', 'drone-path', 'archive', 'sharpness', 'flight.mp4',
+    '--archive-db', 'query.sqlite', '--out', 'out.ndjson', '--overwrite',
+  ]);
+  expect(exportArchiveSharpnessNdjson).toHaveBeenLastCalledWith(path.resolve('query.sqlite'), 'flight.mp4', {
+    mode: undefined, startSec: undefined, endSec: undefined, outPath: 'out.ndjson', overwrite: true,
+  });
 });

@@ -86,6 +86,7 @@ export interface ExportArchiveSharpnessNdjsonOptions {
   startSec?: number;
   endSec?: number;
   outPath?: string;
+  overwrite?: boolean;
 }
 
 export interface ExportArchiveSharpnessNdjsonResult {
@@ -506,7 +507,20 @@ export function exportArchiveSharpnessNdjson(
   if (options.outPath !== undefined) {
     assertNotArchiveDbTarget(db, options.outPath);
     fs.mkdirSync(path.dirname(options.outPath), { recursive: true });
-    fs.writeFileSync(options.outPath, result.ndjson, 'utf8');
+    try {
+      fs.writeFileSync(options.outPath, result.ndjson, {
+        encoding: 'utf8',
+        flag: options.overwrite ? 'w' : 'wx',
+      });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') {
+        throw new Error(
+          `refusing to overwrite existing sharpness export file: ${options.outPath}`,
+          { cause: error },
+        );
+      }
+      throw error;
+    }
   }
 
   return result;

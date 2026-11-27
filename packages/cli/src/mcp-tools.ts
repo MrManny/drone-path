@@ -442,6 +442,7 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
           startSec: args.startSec,
           endSec: args.endSec,
           outPath,
+          overwrite: isMcpOverwriteAllowed(),
         });
         return {
           clipPath: exported.clipPath,

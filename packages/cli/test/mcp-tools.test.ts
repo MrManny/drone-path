@@ -260,6 +260,11 @@ describe('archive sharpness MCP tools', () => {
     });
     const overwriteAllowed = await getTool.handler({ videoPath, outPath });
     expect(overwriteAllowed.isError).toBeUndefined();
+    expect(exportArchiveSharpnessNdjson).toHaveBeenLastCalledWith(
+      archiveDb,
+      path.join(realRoot, 'offline.mp4'),
+      expect.objectContaining({ outPath: fs.realpathSync(outPath), overwrite: true }),
+    );
     expect(overwriteAllowed.structuredContent).toMatchObject({
       outPath: fs.realpathSync(outPath),
       format: 'ndjson',

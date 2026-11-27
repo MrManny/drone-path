@@ -244,6 +244,7 @@ export function addArchiveQueries(program: Command): void {
     .option('--offset <n>', 'sample offset for pagination', nonNegativeInt)
     .option('--ndjson', 'write the full matching timeline as NDJSON to stdout')
     .option('--out <file>', 'write the full matching timeline as NDJSON to a file')
+    .option('--overwrite', 'allow overwriting an existing --out file')
     .option('--json', 'write the bounded sharpness timeline JSON to stdout')
     .action((video: string, options: QueryOptions & {
       mode?: SharpnessAnalysisMode;
@@ -253,6 +254,7 @@ export function addArchiveQueries(program: Command): void {
       offset?: number;
       ndjson?: boolean;
       out?: string;
+      overwrite?: boolean;
       json?: boolean;
     }) => {
       if (options.json && options.ndjson) {
@@ -265,6 +267,7 @@ export function addArchiveQueries(program: Command): void {
           startSec: options.startSec,
           endSec: options.endSec,
           outPath: options.out,
+          overwrite: Boolean(options.overwrite),
         });
         if (options.ndjson) {
           process.stdout.write(exported.ndjson);

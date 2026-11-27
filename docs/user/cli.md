@@ -284,7 +284,8 @@ Options for `drone-path archive sharpness <video>`:
 | `--limit <n>` | Maximum samples to return (`1`–`2000`, default `200`). |
 | `--offset <n>` | Sample offset for pagination (default `0`). |
 | `--ndjson` | Write the full matching timeline as NDJSON to stdout (unbounded). |
-| `--out <file>` | Write the full matching timeline as NDJSON to a file (refuses to overwrite the archive database). |
+| `--out <file>` | Write the full matching timeline as NDJSON to a file (refuses to overwrite existing files or the archive database by default). |
+| `--overwrite` | Allow overwriting an existing `--out` file. |
 | `--archive-db <path>` | Override the per-user SQLite database path. |
 | `--json` | Write the bounded sharpness timeline JSON object to stdout. |
 
