@@ -398,6 +398,9 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         minEdgeCoverage: args.minEdgeCoverage,
         force: args.force,
         getTools: ctx.getTools,
+        assertAllowedPath: (filePath) => {
+          assertPathInAllowedRoots(filePath, ctx.allowedRoots);
+        },
       });
       return {
         clipPath: result.clip.path,

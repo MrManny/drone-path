@@ -48,6 +48,7 @@ export interface AnalyzeArchiveSharpnessOptions {
   force?: boolean;
   signal?: AbortSignal;
   getTools: () => Promise<FfmpegToolPaths>;
+  assertAllowedPath?: (filePath: string) => void;
   onSample?: (sample: ClipSharpnessSample) => void;
 }
 
@@ -194,7 +195,7 @@ function resolveClipInStore(store: ArchiveStore, videoPath: string): IndexedClip
 
 function resolveRunForClip(
   store: ArchiveStore,
-  clipKey: string,
+  clip: IndexedClip,
   options?: { mode?: SharpnessAnalysisMode; runId?: number },
 ): SharpnessRunRecord | null {
   if (options?.runId !== undefined) {
@@ -202,27 +203,35 @@ function resolveRunForClip(
       throw new Error('expected a positive integer runId');
     }
     const run = store.getSharpnessRun(options.runId);
-    return run && run.clipKey === clipKey ? run : null;
+    return run && run.clipKey === clip.key ? run : null;
   }
-  return store.latestSharpnessRun(clipKey, options?.mode ? { mode: options.mode } : undefined);
+  const fingerprintKey = sharpnessFingerprintKey(clip.fingerprint.size, clip.fingerprint.mtimeMs);
+  return store.latestSharpnessRun(clip.key, {
+    fingerprintKey,
+    ...(options?.mode ? { mode: options.mode } : {}),
+  });
 }
 
-function assertNotArchiveDbTarget(db: string, output: string): void {
+function assertNotProtectedTarget(
+  output: string,
+  protectedFiles: readonly string[],
+  errorMessageText: string,
+): void {
   const resolveCandidate = (file: string) => (fs.existsSync(file) ? fs.realpathSync(file) : path.resolve(file));
   const outResolved = resolveCandidate(output);
-  for (const protectedFile of [db, `${db}-wal`, `${db}-shm`, `${db}-journal`]) {
-    const dbResolved = resolveCandidate(protectedFile);
+  for (const protectedFile of protectedFiles) {
+    const protectedResolved = resolveCandidate(protectedFile);
     const same = process.platform === 'win32'
-      ? outResolved.toLowerCase() === dbResolved.toLowerCase()
-      : outResolved === dbResolved;
+      ? outResolved.toLowerCase() === protectedResolved.toLowerCase()
+      : outResolved === protectedResolved;
     if (same) {
-      throw new Error('export file cannot overwrite the archive database');
+      throw new Error(errorMessageText);
     }
     if (fs.existsSync(output) && fs.existsSync(protectedFile)) {
       const targetStat = fs.statSync(output, { bigint: true });
-      const dbStat = fs.statSync(protectedFile, { bigint: true });
-      if (targetStat.dev === dbStat.dev && targetStat.ino === dbStat.ino) {
-        throw new Error('export file cannot overwrite the archive database');
+      const protectedStat = fs.statSync(protectedFile, { bigint: true });
+      if (targetStat.dev === protectedStat.dev && targetStat.ino === protectedStat.ino) {
+        throw new Error(errorMessageText);
       }
     }
   }
@@ -236,9 +245,12 @@ async function indexSingleClip(
   expectedMtimeMs: number,
   tools: FfmpegToolPaths,
   signal?: AbortSignal,
+  assertAllowedPath?: (filePath: string) => void,
 ): Promise<IndexedClip> {
+  const { revision } = withArchiveStore(db, (store) => store.snapshot());
   const sidecarFor = createSrtSidecarLookup();
   const sidecar = await sidecarFor(resolvedPath);
+  if (sidecar !== null) assertAllowedPath?.(sidecar);
   const srtStat = sidecar === null ? null : await stat(sidecar).catch(() => null);
   let overview: ClipUpdate['overview'] = [];
   let samples: ClipUpdate['samples'] = [];
@@ -268,6 +280,18 @@ async function indexSingleClip(
   if (currentStat.size !== expectedSize || currentStat.mtimeMs !== expectedMtimeMs) {
     throw new Error(`recording changed during sharpness analysis, rerun: ${resolvedPath}`);
   }
+  const currentSidecar = await sidecarFor(resolvedPath);
+  if (currentSidecar !== sidecar) {
+    throw new Error(`recording changed during sharpness analysis, rerun: ${resolvedPath}`);
+  }
+  const currentSrtStat = currentSidecar === null ? null : await stat(currentSidecar).catch(() => null);
+  const priorSrtSize = srtStat?.isFile() ? srtStat.size : null;
+  const priorSrtMtimeMs = srtStat?.isFile() ? srtStat.mtimeMs : null;
+  const nextSrtSize = currentSrtStat?.isFile() ? currentSrtStat.size : null;
+  const nextSrtMtimeMs = currentSrtStat?.isFile() ? currentSrtStat.mtimeMs : null;
+  if (priorSrtSize !== nextSrtSize || priorSrtMtimeMs !== nextSrtMtimeMs) {
+    throw new Error(`recording changed during sharpness analysis, rerun: ${resolvedPath}`);
+  }
 
   const update: ClipUpdate = {
     key,
@@ -275,8 +299,8 @@ async function indexSingleClip(
     fingerprint: {
       size: expectedSize,
       mtimeMs: expectedMtimeMs,
-      srtSize: srtStat?.isFile() ? srtStat.size : null,
-      srtMtimeMs: srtStat?.isFile() ? srtStat.mtimeMs : null,
+      srtSize: priorSrtSize,
+      srtMtimeMs: priorSrtMtimeMs,
       schemaVersion: CLIP_FINGERPRINT_VERSION,
     },
     record,
@@ -287,7 +311,6 @@ async function indexSingleClip(
   };
 
   withArchiveStore(db, (store) => {
-    const { revision } = store.snapshot();
     store.commit(revision, [update], [], [], []);
   });
   return update;
@@ -343,6 +366,7 @@ export async function analyzeArchiveSharpness(
       fileStat.mtimeMs,
       tools,
       options.signal,
+      options.assertAllowedPath,
     );
   }
 
@@ -387,10 +411,18 @@ export async function analyzeArchiveSharpness(
     onSample: options.onSample,
   });
 
+  const postStat = await stat(resolvedPath).catch((error) => {
+    throw new Error(`video file is not accessible: ${videoPath}`, { cause: error });
+  });
+  if (!postStat.isFile() || postStat.size !== fileStat.size || postStat.mtimeMs !== fileStat.mtimeMs) {
+    throw new Error(`recording changed during sharpness analysis, rerun: ${resolvedPath}`);
+  }
+
   const saved = withArchiveStore(db, (store) =>
     store.saveSharpnessRun({
       clipKey: key,
       fingerprintKey,
+      expectedFingerprint: { size: fileStat.size, mtimeMs: fileStat.mtimeMs },
       method: analyzed.analyzer.method,
       version: analyzed.analyzer.version,
       settingsJson,
@@ -421,7 +453,7 @@ export function getArchiveSharpness(
     if (!clip) {
       throw new Error(`clip is not indexed in archive: ${videoPath}`);
     }
-    const run = resolveRunForClip(store, clip.key, {
+    const run = resolveRunForClip(store, clip, {
       mode: options.mode,
       runId: options.runId,
     });
@@ -480,7 +512,7 @@ export function exportArchiveSharpnessNdjson(
     if (!clip) {
       throw new Error(`clip is not indexed in archive: ${videoPath}`);
     }
-    const run = resolveRunForClip(store, clip.key, {
+    const run = resolveRunForClip(store, clip, {
       mode: options.mode,
       runId: options.runId,
     });
@@ -505,7 +537,16 @@ export function exportArchiveSharpnessNdjson(
   });
 
   if (options.outPath !== undefined) {
-    assertNotArchiveDbTarget(db, options.outPath);
+    assertNotProtectedTarget(
+      options.outPath,
+      [db, `${db}-wal`, `${db}-shm`, `${db}-journal`],
+      'export file cannot overwrite the archive database',
+    );
+    assertNotProtectedTarget(
+      options.outPath,
+      [result.clipPath, videoPath],
+      'export file cannot overwrite the source recording',
+    );
     fs.mkdirSync(path.dirname(options.outPath), { recursive: true });
     try {
       fs.writeFileSync(options.outPath, result.ndjson, {

@@ -216,6 +216,76 @@ describe('archive sharpness timelines', () => {
     expect(() => exportArchiveSharpnessNdjson(db, file, { outPath: `${db}-wal` })).toThrow(
       'export file cannot overwrite the archive database',
     );
+    expect(() => exportArchiveSharpnessNdjson(db, file, { outPath: file, overwrite: true })).toThrow(
+      'export file cannot overwrite the source recording',
+    );
+  });
+
+  it('ignores stale fingerprint runs on default queries while preserving explicit runId and rejecting mid-analysis edits', async () => {
+    const { db, root, file } = setupClip();
+    analyzeClip.mockResolvedValueOnce({
+      analyzer: { method: 'ffmpeg-blurdetect', version: '1' },
+      mode: 'sampled',
+      stride: 30,
+      analysisWidth: 640,
+      minEdgeCoverage: 0.002,
+      samples: [{ frameIndex: 0, tSec: 0, sharpnessScore: 45, edgeCoverage: 0.01 }],
+    });
+    const first = await analyzeArchiveSharpness(db, file, { getTools });
+
+    // Modify the clip on disk and rescan without re-running sharpness analysis.
+    fs.appendFileSync(file, '-updated');
+    await scanArchive([root], { db, getTools });
+
+    // Default lookup must not return stale results for the previous fingerprint.
+    const staleDefault = getArchiveSharpness(db, file);
+    expect(staleDefault.analyzed).toBe(false);
+    expect(staleDefault.run).toBeNull();
+    expect(() => exportArchiveSharpnessNdjson(db, file)).toThrow('no sharpness analysis found for clip');
+
+    // Explicit runId still retrieves the historical run.
+    const byId = getArchiveSharpness(db, file, { runId: first.run.runId });
+    expect(byId.analyzed).toBe(true);
+    expect(byId.run?.runId).toBe(first.run.runId);
+
+    // Reject mid-run file changes before publishing.
+    analyzeClip.mockImplementationOnce(async () => {
+      fs.appendFileSync(file, '-mutated-mid-run');
+      return {
+        analyzer: { method: 'ffmpeg-blurdetect', version: '1' },
+        mode: 'sampled',
+        stride: 30,
+        analysisWidth: 640,
+        minEdgeCoverage: 0.002,
+        samples: [{ frameIndex: 0, tSec: 0, sharpnessScore: 60, edgeCoverage: 0.02 }],
+      };
+    });
+    await expect(analyzeArchiveSharpness(db, file, { getTools })).rejects.toThrow(
+      'recording changed during sharpness analysis',
+    );
+  });
+
+  it('validates discovered SRT sidecars via assertAllowedPath before reading and rejects mid-scan sidecar changes', async () => {
+    const { db, root, file } = setupClip();
+    const srt = path.join(root, 'DJI_0001.SRT');
+    fs.writeFileSync(srt, '1\n00:00:00,000 --> 00:00:01,000\n[latitude: 46.6] [longitude: 14.2]\n');
+
+    await expect(
+      analyzeArchiveSharpness(db, file, {
+        getTools,
+        assertAllowedPath: (target) => {
+          if (target.endsWith('.SRT')) throw new Error('sidecar outside allowed roots');
+        },
+      }),
+    ).rejects.toThrow('sidecar outside allowed roots');
+
+    probe.mockImplementationOnce(async () => {
+      fs.appendFileSync(srt, '\n');
+      return probeFixture({ fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 90, durationSec: 3, camMeta: null });
+    });
+    await expect(analyzeArchiveSharpness(db, file, { getTools })).rejects.toThrow(
+      'recording changed during sharpness analysis',
+    );
   });
 
   it('validates query bounds and missing clips', () => {

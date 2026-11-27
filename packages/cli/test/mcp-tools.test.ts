@@ -190,7 +190,15 @@ describe('archive sharpness MCP tools', () => {
     expect(analyzeArchiveSharpness).toHaveBeenCalledWith(
       archiveDb,
       fs.realpathSync(videoPath),
-      expect.objectContaining({ mode: 'sampled', force: true }),
+      expect.objectContaining({
+        mode: 'sampled',
+        force: true,
+        assertAllowedPath: expect.any(Function),
+      }),
+    );
+    const passedOpts = vi.mocked(analyzeArchiveSharpness).mock.calls[0]?.[2];
+    expect(() => passedOpts?.assertAllowedPath?.(path.join(root, '..', 'outside.SRT'))).toThrow(
+      'path is outside allowed roots',
     );
     expect(ok.structuredContent).toMatchObject({ cached: false, availability: 'online' });
 

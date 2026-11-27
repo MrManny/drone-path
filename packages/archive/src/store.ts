@@ -65,6 +65,7 @@ export interface SharpnessRunRecord {
 export interface SaveSharpnessRunInput {
   clipKey: string;
   fingerprintKey: string;
+  expectedFingerprint?: Pick<ClipFingerprint, 'size' | 'mtimeMs'>;
   method: string;
   version: string;
   settingsJson: string;
@@ -522,10 +523,20 @@ export class ArchiveStore {
 
   latestSharpnessRun(
     clipKey: string,
-    filter?: { mode?: SharpnessAnalysisMode; method?: string; version?: string; settingsJson?: string },
+    filter?: {
+      fingerprintKey?: string;
+      mode?: SharpnessAnalysisMode;
+      method?: string;
+      version?: string;
+      settingsJson?: string;
+    },
   ): SharpnessRunRecord | null {
     const clauses = ['clip_key = ?'];
     const values: SQLInputValue[] = [clipKey];
+    if (filter?.fingerprintKey !== undefined) {
+      clauses.push('fingerprint_key = ?');
+      values.push(filter.fingerprintKey);
+    }
     if (filter?.mode !== undefined) {
       clauses.push("json_extract(settings_json, '$.mode') = ?");
       values.push(filter.mode);
@@ -555,8 +566,16 @@ export class ArchiveStore {
   saveSharpnessRun(input: SaveSharpnessRunInput): SharpnessRunRecord {
     const analyzedAtMs = input.analyzedAtMs ?? Date.now();
     return this.transaction('BEGIN IMMEDIATE', () => {
-      if (!this.getClipByKey(input.clipKey)) {
+      const clip = this.getClipByKey(input.clipKey);
+      if (!clip) {
         throw new Error(`clip is not indexed in archive: ${input.clipKey}`);
+      }
+      if (
+        input.expectedFingerprint !== undefined &&
+        (clip.fingerprint.size !== input.expectedFingerprint.size ||
+          clip.fingerprint.mtimeMs !== input.expectedFingerprint.mtimeMs)
+      ) {
+        throw new Error(`clip fingerprint changed during sharpness analysis: ${input.clipKey}`);
       }
       this.db.prepare(`
         DELETE FROM sharpness_runs

@@ -527,10 +527,26 @@ describe('ArchiveStore sharpness runs and samples', () => {
       })).toEqual(run1);
       expect(store.latestSharpnessRun(clip.key)).toEqual(run2);
       expect(store.latestSharpnessRun(clip.key, { mode: 'sampled' })).toEqual(run1);
+      expect(store.latestSharpnessRun(clip.key, { fingerprintKey: '{"size":999,"mtimeMs":2000}' })).toBeNull();
       expect(store.countSharpnessSamples(run1.runId, { startSec: 0.5, endSec: 2 })).toBe(2);
       expect(store.readSharpnessSamples(run1.runId, { startSec: 0.5, endSec: 2, limit: 1, offset: 1 })).toEqual([
         { frameIndex: 60, tSec: 2, sharpnessScore: 52.1, edgeCoverage: 0.02 },
       ]);
+
+      // Rejects and rolls back when expectedFingerprint does not match the indexed clip.
+      expect(() =>
+        store.saveSharpnessRun({
+          clipKey: clip.key,
+          fingerprintKey: '{"size":501,"mtimeMs":2000}',
+          expectedFingerprint: { size: 501, mtimeMs: 2000 },
+          method: 'ffmpeg-blurdetect',
+          version: '1',
+          settingsJson: sampledSettings,
+          analyzedAtMs: 2500,
+          samples: [{ frameIndex: 0, tSec: 0, sharpnessScore: 50, edgeCoverage: 0.02 }],
+        }),
+      ).toThrow('clip fingerprint changed during sharpness analysis');
+      expect(store.latestSharpnessRun(clip.key)).toEqual(run2);
 
       // Duplicate frame_index fails PK constraint midway and must roll back the entire run atomically.
       expect(() =>

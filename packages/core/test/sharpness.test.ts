@@ -345,7 +345,7 @@ describe('analyzeClipSharpness', () => {
     ]);
   });
 
-  it('kills ffmpeg cleanly on AbortSignal and propagates the abort reason', async () => {
+  it('kills ffmpeg cleanly on AbortSignal and waits for child exit before settling', async () => {
     const dir = tmpDir();
     const videoPath = path.join(dir, 'clip.mp4');
     const child = fakeSpawnedChild();
@@ -353,14 +353,21 @@ describe('analyzeClipSharpness', () => {
     const controller = new AbortController();
     const abortErr = new Error('analysis canceled');
 
+    let settled = false;
     const promise = analyzeClipSharpness(tools, videoPath, {
       fps: 30,
       signal: controller.signal,
+    }).finally(() => {
+      settled = true;
     });
     controller.abort(abortErr);
 
-    await expect(promise).rejects.toBe(abortErr);
     expect(child.kill).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    child.emit('close', null);
+    await expect(promise).rejects.toBe(abortErr);
   });
 
   it('wraps spawn errors, rejects non-zero exits, and rejects empty metadata', async () => {

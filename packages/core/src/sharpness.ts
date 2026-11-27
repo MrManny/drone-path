@@ -293,6 +293,11 @@ export async function analyzeClipSharpness(
   };
 
   const stderrText = await new Promise<string>((resolve, reject) => {
+    if (options?.signal?.aborted) {
+      reject(options.signal.reason ?? new Error('clip sharpness analysis canceled'));
+      return;
+    }
+
     const child = spawnTool(
       tools.ffmpeg,
       [
@@ -311,6 +316,8 @@ export async function analyzeClipSharpness(
     let stdoutBuffer = '';
     let stderrBuffer = '';
     let settled = false;
+    let aborted = false;
+    let abortReason: unknown;
 
     const cleanup = (): void => {
       options?.signal?.removeEventListener('abort', onAbort);
@@ -324,21 +331,16 @@ export async function analyzeClipSharpness(
     };
 
     const onAbort = (): void => {
+      if (settled || aborted) return;
+      aborted = true;
+      abortReason = options?.signal?.reason ?? new Error('clip sharpness analysis canceled');
       child.kill();
-      child.stdout?.destroy();
-      child.stderr?.destroy();
-      const reason = options?.signal?.reason;
-      fail(reason ?? new Error('clip sharpness analysis canceled'));
     };
 
-    if (options?.signal?.aborted) {
-      onAbort();
-      return;
-    }
     options?.signal?.addEventListener('abort', onAbort, { once: true });
 
     child.stdout?.on('data', (chunk: Buffer | string) => {
-      if (settled) return;
+      if (settled || aborted) return;
       stdoutBuffer += typeof chunk === 'string' ? chunk : stdoutDecoder.write(chunk);
       let newlineIdx = stdoutBuffer.indexOf('\n');
       while (newlineIdx !== -1) {
@@ -350,16 +352,24 @@ export async function analyzeClipSharpness(
     });
 
     child.stderr?.on('data', (chunk: Buffer | string) => {
-      if (settled) return;
+      if (settled || aborted) return;
       stderrBuffer += typeof chunk === 'string' ? chunk : stderrDecoder.write(chunk);
     });
 
     child.once('error', (err: Error) => {
+      if (aborted) {
+        fail(abortReason);
+        return;
+      }
       fail(new Error('ffmpeg failed while analyzing clip sharpness', { cause: err }));
     });
 
     child.once('close', (code: number | null) => {
       if (settled) return;
+      if (aborted) {
+        fail(abortReason);
+        return;
+      }
       stdoutBuffer += stdoutDecoder.end();
       stderrBuffer += stderrDecoder.end();
       if (stdoutBuffer.length > 0) {
