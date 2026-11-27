@@ -67,6 +67,24 @@ npx drone-path archive export-tracks flights.gpx --redact-launch 150
 See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for all filters,
 shot-segment queries, and record formats.
 
+### Keyframe extraction & sharpness scoring (`extract-frame`)
+
+Extract targeted JPEG keyframes and telemetry snapshots, optionally scoring
+decoded luminance sharpness before JPEG encoding (`--sharpness` in CLI,
+`sharpness: true` in MCP `clip_extract_keyframes`; both off by default):
+
+```sh
+npx drone-path extract-frame "my-flight.mp4" --at 2.5,f90 --max-width 640 --sharpness --json
+```
+
+When enabled, each keyframe includes `sharpness: { sharpnessScore, edgeCoverage, analyzer }`:
+
+- **`sharpnessScore` (`number | null`)** — monotonic higher-is-sharper score in `(0, 100]` (`100 / (1 + blurWidth / 4)` from FFmpeg `blurdetect` at 640 px luminance width) for ranking frames within a shot.
+- **`edgeCoverage` (`number` in `[0, 1]`)** — fraction of the analysis frame with usable edges.
+- **`null` score** — returned when `edgeCoverage < 0.002` (flat sky, dark, or featureless frames) or when no reliable edge blur width can be measured.
+
+See [Extract keyframes](docs/user/cli.md#extract-keyframes) in the CLI manual for full details.
+
 ### MCP server for AI agents (`mcp`)
 
 Expose archive search, telemetry inspection, keyframe extraction, NLE timeline

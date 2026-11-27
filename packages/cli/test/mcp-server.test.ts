@@ -44,6 +44,16 @@ vi.mock('node:child_process', async (importOriginal) => {
     }
     if (command.toLowerCase().includes('ffmpeg')) {
       const outPath = args[args.length - 1];
+      if (args.includes('-f') && args[args.indexOf('-f') + 1] === 'null' && outPath === '-') {
+        return {
+          stdout: [
+            'frame:0    pts:0       pts_time:1',
+            'lavfi.blur=4',
+            'lavfi.signalstats.YAVG=12.75',
+          ].join('\n'),
+          stderr: '',
+        };
+      }
       if (outPath) {
         fs.mkdirSync(path.dirname(outPath), { recursive: true });
         fs.writeFileSync(outPath, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
@@ -556,17 +566,32 @@ describe('end-to-end offline MCP workflow', () => {
 
     const keyframes = await h.callTool<{
       count: number;
-      keyframes: Array<{ path: string; frame: number; width: number }>;
+      keyframes: Array<{
+        path: string;
+        frame: number;
+        width: number;
+        sharpness?: {
+          sharpnessScore: number | null;
+          edgeCoverage: number;
+          analyzer: { method: string; version: string };
+        };
+      }>;
     }>('clip_extract_keyframes', {
       videoPath,
       at: ['1.0', 'f90'],
       maxWidth: 640,
       outDir: kfDir,
+      sharpness: true,
     });
     expect(keyframes.parsed?.count).toBe(2);
     expect(keyframes.parsed?.keyframes[0]?.frame).toBe(30);
     expect(keyframes.parsed?.keyframes[1]?.frame).toBe(90);
     expect(keyframes.parsed?.keyframes[0]?.width).toBe(640);
+    expect(keyframes.parsed?.keyframes[0]?.sharpness).toEqual({
+      sharpnessScore: 50,
+      edgeCoverage: 0.05,
+      analyzer: { method: 'ffmpeg-blurdetect', version: '1' },
+    });
     expect(fs.existsSync(keyframes.parsed!.keyframes[0].path)).toBe(true);
 
     const csvExport = await h.callTool<{ outputPath: string; format: string; count: number }>(

@@ -8,6 +8,7 @@ interface ExtractFrameOptions {
   at: string;
   maxWidth?: number;
   outDir?: string;
+  sharpness?: boolean;
   ffmpeg?: string;
   ffprobe?: string;
   json?: boolean;
@@ -33,6 +34,7 @@ export async function runExtractFrame(argv: string[]): Promise<void> {
     .requiredOption('--at <specs>', 'comma-separated timestamps (s) or frames (fN, frame:N)')
     .option('--max-width <px>', 'maximum output width in pixels, preserving aspect ratio', parseMaxWidth)
     .option('--out-dir <dir>', 'output directory (defaults to video directory)')
+    .option('--sharpness', 'analyze decoded luminance sharpness for each extracted frame')
     .option('--ffmpeg <path>', 'path to the ffmpeg executable')
     .option('--ffprobe <path>', 'path to the ffprobe executable')
     .option('--json', 'write extracted keyframes JSON array to stdout');
@@ -56,6 +58,7 @@ export async function runExtractFrame(argv: string[]): Promise<void> {
       at: requests,
       maxWidth: opts.maxWidth,
       outDir: opts.outDir,
+      sharpness: opts.sharpness,
       tools,
       signal: controller.signal,
     });
@@ -64,8 +67,11 @@ export async function runExtractFrame(argv: string[]): Promise<void> {
       return;
     }
     for (const kf of keyframes) {
+      const sharpnessSuffix = kf.sharpness
+        ? `, sharpness ${kf.sharpness.sharpnessScore === null ? 'n/a' : kf.sharpness.sharpnessScore.toFixed(2)} (edge coverage ${(kf.sharpness.edgeCoverage * 100).toFixed(2)}%)`
+        : '';
       process.stdout.write(
-        `${kf.path} (frame ${kf.frame}, ${kf.tSec.toFixed(3)}s, ${kf.width}x${kf.height})\n`,
+        `${kf.path} (frame ${kf.frame}, ${kf.tSec.toFixed(3)}s, ${kf.width}x${kf.height}${sharpnessSuffix})\n`,
       );
     }
     process.stderr.write(`[drone-path] extracted ${keyframes.length} keyframe(s)\n`);

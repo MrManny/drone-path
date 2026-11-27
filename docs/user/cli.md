@@ -155,12 +155,17 @@ Extracts targeted JPEG keyframes and nearest telemetry snapshots from a single r
 | `--at <specs>` | Required comma-separated selectors: timestamps in seconds (`2.5`, `2.5s`) or 0-based frames (`f90`, `frame:90`). |
 | `--max-width <px>` | Maximum output width in pixels, preserving aspect ratio (with even JPEG height). |
 | `--out-dir <dir>` | Output directory (defaults to the source video's directory). |
+| `--sharpness` | Analyze decoded luminance sharpness for each extracted frame (off by default). |
 | `--ffmpeg <path>` | Path to the `ffmpeg` executable. |
 | `--ffprobe <path>` | Path to the `ffprobe` executable. |
 | `--json` | Write the extracted keyframes JSON array to stdout. |
 
 - **Selectors & seeking:** Time selectors must fall within `[0, duration]` and frame selectors within `[0, frames - 1]`. Extraction uses fast input seeking (`-ss` before `-i`) so preceding GOPs do not need to be decoded, and writes `<stem>_f<frame>_<ms>ms.jpg` files.
-- **Output & telemetry snapshots:** Without `--json`, each extracted frame prints `<path> (frame <n>, <t>s, <w>x<h>)` on stdout and a summary count on stderr. Each JSON entry includes `path`, `tSec`, `frame`, `width`, `height`, and a `telemetry` snapshot (`lat`, `lon`, `altRelM`, `altAbsM`, `speedMps`, `headingDeg`, `gimbalPitchDeg`, `gimbalYawDeg`, `iso`, `shutterTime`, or `null` if the recording has no telemetry).
+- **Output & telemetry snapshots:** Without `--json`, each extracted frame prints `<path> (frame <n>, <t>s, <w>x<h>)` on stdout (with `, sharpness <score> (edge coverage <pct>%)` appended when `--sharpness` is enabled) and a summary count on stderr. Each JSON entry includes `path`, `tSec`, `frame`, `width`, `height`, and a `telemetry` snapshot (`lat`, `lon`, `altRelM`, `altAbsM`, `speedMps`, `headingDeg`, `gimbalPitchDeg`, `gimbalYawDeg`, `iso`, `shutterTime`, or `null` if the recording has no telemetry).
+- **Sharpness scoring (`--sharpness` / MCP `sharpness`):** Off by default. When enabled, `extract-frame --sharpness` and MCP `clip_extract_keyframes` (`sharpness: true`) run the shared `ffmpeg-blurdetect` (`version: "1"`) analyzer on decoded grayscale luminance scaled to 640 px width before JPEG encoding, so scores are independent of JPEG compression and comparable across source resolutions. Each entry gains `sharpness: { sharpnessScore, edgeCoverage, analyzer }`:
+  - `sharpnessScore` (`number | null` in `(0, 100]`): monotonic higher-is-sharper score (`100 / (1 + blurWidth / 4)`). Use it to rank candidate frames within the same shot or similar scenes.
+  - `edgeCoverage` (`number` in `[0, 1]`): fraction of the 640 px analysis frame containing usable edges. Low values indicate flat surfaces such as clear sky, calm water, or very dark frames.
+  - `null` scores: `sharpnessScore` is `null` when `edgeCoverage < 0.002` (too few usable edges to measure blur reliably) or when FFmpeg `blurdetect` reports no valid edge blur width.
 
 ## Spatial archive
 
@@ -264,6 +269,6 @@ Starts a stdio JSON-RPC 2.0 Model Context Protocol (MCP) server over `stdin` and
 | `archive_find_at_point` | Find clips passing near or viewing a coordinate | `lat`, `lon`, `radiusM?`, `includeGaze?` |
 | `archive_list_segments` | List matching kinematic shot segments ordered by smoothness | Same filter fields as `archive_list_clips` |
 | `clip_get_telemetry` | Probe a clip and return telemetry summary, shot segments, and sampled track records | `videoPath`, `includeSamples?`, `maxSamples?` (1–2000, default 100) |
-| `clip_extract_keyframes` | Extract JPEG keyframes and telemetry snapshots | `videoPath`, `at` (string or array), `maxWidth?`, `outDir?` |
+| `clip_extract_keyframes` | Extract JPEG keyframes, telemetry snapshots, and optional sharpness scores | `videoPath`, `at` (string or array), `maxWidth?`, `outDir?`, `sharpness?` |
 | `export_markers` | Write DaVinci Resolve CSV or FCPXML markers from explicit ranges or archive filters | `outputPath`, `ranges?` or `filters?` |
 | `render_map_video` | Render flight-path map overlay videos (and optional track export) | `inputs`, `outDir?`, `outSuffix?`, `width?`, `height?`, `style?`, `view?`/`camera?`, `zoom?`, `zoomOut?`, `introSec?`, `outroSec?`, `trailColor?`, `hud?`, `codec?`, `quality?`, `preset?`, `trackOut?`, `skipExisting?`, `recurse?`, `frameStart?`, `frameEnd?` |

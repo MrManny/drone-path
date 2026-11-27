@@ -6,6 +6,8 @@ import { probeVideo } from './ffmpeg.js';
 import type { VideoProbe } from './ffmpeg.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import { timeAt } from './frametime.js';
+import { analyzeFrameSharpness } from './sharpness.js';
+import type { FrameSharpness } from './sharpness.js';
 import { loadTelemetrySamples } from './telemetry.js';
 import type { SourceSamples } from './telemetry.js';
 import { computeTelemetry } from './telemetry-math.js';
@@ -36,12 +38,14 @@ export interface ExtractedKeyframe {
   width: number;
   height: number;
   telemetry: TelemetrySnapshot | null;
+  sharpness?: FrameSharpness;
 }
 
 export interface ExtractKeyframesOptions {
   at: readonly KeyframeRequest[];
   maxWidth?: number;
   outDir?: string;
+  sharpness?: boolean;
   tools: FfmpegToolPaths;
   signal?: AbortSignal;
 }
@@ -297,14 +301,20 @@ export async function extractKeyframes(
         cause: e,
       });
     }
-    results.push({
+    const entry: ExtractedKeyframe = {
       path: outPath,
       tSec,
       frame,
       width,
       height,
       telemetry: snapshotAt(tSec, frame),
-    });
+    };
+    if (options.sharpness) {
+      entry.sharpness = await analyzeFrameSharpness(options.tools, videoPath, tSec, {
+        signal: options.signal,
+      });
+    }
+    results.push(entry);
   }
   return results;
 }
