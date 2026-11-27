@@ -5,11 +5,13 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { exportArchiveMap, exportArchiveMarkers, exportArchiveTracks } from 'drone-path-archive/export';
 import { listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveClip, ArchiveSegment } from 'drone-path-archive/query';
+import { exportArchiveSharpnessNdjson, getArchiveSharpness } from 'drone-path-archive/sharpness';
 
 import { main } from '../src/cli.js';
 
 vi.mock('drone-path-archive/query', { spy: true });
 vi.mock('drone-path-archive/export');
+vi.mock('drone-path-archive/sharpness');
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -180,5 +182,70 @@ it('routes archive export-markers through all list filters', async () => {
       segmentType: 'orbit',
       minSmoothness: 0.75,
     },
+  });
+});
+
+it('routes archive sharpness queries with time-range, paging, and NDJSON export', async () => {
+  const timeline = {
+    clipPath: 'flight.mp4',
+    clipKey: 'flight.mp4',
+    availability: 'offline' as const,
+    analyzed: true,
+    run: {
+      runId: 2,
+      clipKey: 'flight.mp4',
+      fingerprintKey: '{"size":1,"mtimeMs":1}',
+      method: 'ffmpeg-blurdetect',
+      version: '1',
+      settings: { mode: 'sampled' as const, stride: 30, analysisWidth: 640, minEdgeCoverage: 0.002 },
+      sampleCount: 10,
+      analyzedAtMs: 1000,
+    },
+    totalSamples: 5,
+    limit: 2,
+    offset: 1,
+    truncated: true,
+    samples: [
+      { frameIndex: 30, tSec: 1, sharpnessScore: 50, edgeCoverage: 0.01 },
+      { frameIndex: 60, tSec: 2, sharpnessScore: 60, edgeCoverage: 0.02 },
+    ],
+  };
+  vi.mocked(getArchiveSharpness).mockReturnValue(timeline);
+  const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+  await main([
+    'node', 'drone-path', 'archive', 'sharpness', 'flight.mp4',
+    '--archive-db', 'query.sqlite', '--mode', 'sampled',
+    '--start-sec', '1', '--end-sec', '5', '--limit', '2', '--offset', '1', '--json',
+  ]);
+  expect(getArchiveSharpness).toHaveBeenCalledWith(path.resolve('query.sqlite'), 'flight.mp4', {
+    mode: 'sampled', startSec: 1, endSec: 5, limit: 2, offset: 1,
+  });
+  expect(output.mock.calls).toEqual([[JSON.stringify(timeline) + '\n']]);
+
+  output.mockClear();
+  vi.mocked(exportArchiveSharpnessNdjson).mockReturnValue({
+    clipPath: 'flight.mp4',
+    clipKey: 'flight.mp4',
+    availability: 'offline',
+    run: timeline.run,
+    count: 2,
+    ndjson: '{"frameIndex":30}\n{"frameIndex":60}\n',
+  });
+  await main([
+    'node', 'drone-path', 'archive', 'sharpness', 'flight.mp4',
+    '--archive-db', 'query.sqlite', '--ndjson', '--out', 'out.ndjson',
+  ]);
+  expect(exportArchiveSharpnessNdjson).toHaveBeenCalledWith(path.resolve('query.sqlite'), 'flight.mp4', {
+    mode: undefined, startSec: undefined, endSec: undefined, outPath: 'out.ndjson', overwrite: false,
+  });
+  expect(output.mock.calls).toEqual([['{"frameIndex":30}\n{"frameIndex":60}\n']]);
+
+  await main([
+    'node', 'drone-path', 'archive', 'sharpness', 'flight.mp4',
+    '--archive-db', 'query.sqlite', '--out', 'out.ndjson', '--overwrite',
+  ]);
+  expect(exportArchiveSharpnessNdjson).toHaveBeenLastCalledWith(path.resolve('query.sqlite'), 'flight.mp4', {
+    mode: undefined, startSec: undefined, endSec: undefined, outPath: 'out.ndjson', overwrite: true,
   });
 });

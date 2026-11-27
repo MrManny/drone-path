@@ -62,10 +62,14 @@ npx drone-path archive near 46.62,14.31 --radius 250 --include-gaze --json
 # Export a standalone HTML map or combined track file, redacting launch/landing zones
 npx drone-path archive export-map flights.html --redact-launch 150
 npx drone-path archive export-tracks flights.gpx --redact-launch 150
+
+# Opt in to clip-wide sharpness timeline analysis and query it offline
+npx drone-path archive analyze-sharpness "my-flight.mp4" --json
+npx drone-path archive sharpness "my-flight.mp4" --start-sec 5 --end-sec 20 --json
 ```
 
 See the [CLI manual](docs/user/cli.md#scan-a-recording-library) for all filters,
-shot-segment queries, and record formats.
+shot-segment queries, opt-in sharpness timelines, and record formats.
 
 ### Keyframe extraction & sharpness scoring (`extract-frame`)
 

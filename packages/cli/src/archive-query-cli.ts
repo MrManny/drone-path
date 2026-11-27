@@ -4,7 +4,14 @@ import { exportArchiveMap, exportArchiveMarkers, exportArchiveTracks } from 'dro
 import { archiveDbPath } from 'drone-path-archive/paths';
 import { DEFAULT_RADIUS_M, listArchive, listArchiveFlights, listArchiveSegments, nearArchive, parseDateBound } from 'drone-path-archive/query';
 import type { ArchiveAvailability, ListFilters } from 'drone-path-archive/query';
+import {
+  DEFAULT_SHARPNESS_QUERY_LIMIT,
+  MAX_SHARPNESS_QUERY_LIMIT,
+  exportArchiveSharpnessNdjson,
+  getArchiveSharpness,
+} from 'drone-path-archive/sharpness';
 import type { Bbox, LatLon } from 'drone-path-core/geo';
+import type { SharpnessAnalysisMode } from 'drone-path-core/sharpness';
 import { SHOT_TYPES } from 'drone-path-core/shot-segmentation';
 import type { ShotType } from 'drone-path-core/shot-segmentation';
 
@@ -45,6 +52,34 @@ function smoothnessScore(text: string): number {
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     throw new Error('expected a smoothness score between 0 and 1');
   }
+  return value;
+}
+
+function nonNegativeSeconds(text: string): number {
+  const value = decimal(text);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error('expected a non-negative timestamp in seconds');
+  }
+  return value;
+}
+
+function boundedLimit(text: string): number {
+  const trimmed = text.trim();
+  if (!/^\d+$/u.test(trimmed)) {
+    throw new Error(`expected an integer limit between 1 and ${MAX_SHARPNESS_QUERY_LIMIT}`);
+  }
+  const value = Number(trimmed);
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_SHARPNESS_QUERY_LIMIT) {
+    throw new Error(`expected an integer limit between 1 and ${MAX_SHARPNESS_QUERY_LIMIT}`);
+  }
+  return value;
+}
+
+function nonNegativeInt(text: string): number {
+  const trimmed = text.trim();
+  if (!/^\d+$/u.test(trimmed)) throw new Error('expected a non-negative integer');
+  const value = Number(trimmed);
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error('expected a non-negative integer');
   return value;
 }
 
@@ -197,5 +232,90 @@ export function addArchiveQueries(program: Command): void {
       exportArchiveMarkers(archiveDbPath(options.archiveDb), output, {
         filters: listOptions(options),
       });
+    });
+
+  archiveCommand(program.command('sharpness'))
+    .description('Query stored sharpness timelines for an indexed recording (works offline).')
+    .argument('<video>', 'recording video file path')
+    .addOption(new Option('--mode <mode>', 'filter by analysis mode').choices(['sampled', 'every-frame']))
+    .option('--start-sec <sec>', 'earliest clip-relative timestamp in seconds, inclusive', nonNegativeSeconds)
+    .option('--end-sec <sec>', 'latest clip-relative timestamp in seconds, inclusive', nonNegativeSeconds)
+    .option('--limit <n>', `maximum samples to return (1-${MAX_SHARPNESS_QUERY_LIMIT}, default ${DEFAULT_SHARPNESS_QUERY_LIMIT})`, boundedLimit)
+    .option('--offset <n>', 'sample offset for pagination', nonNegativeInt)
+    .option('--ndjson', 'write the full matching timeline as NDJSON to stdout')
+    .option('--out <file>', 'write the full matching timeline as NDJSON to a file')
+    .option('--overwrite', 'allow overwriting an existing --out file')
+    .option('--json', 'write the bounded sharpness timeline JSON to stdout')
+    .action((video: string, options: QueryOptions & {
+      mode?: SharpnessAnalysisMode;
+      startSec?: number;
+      endSec?: number;
+      limit?: number;
+      offset?: number;
+      ndjson?: boolean;
+      out?: string;
+      overwrite?: boolean;
+      json?: boolean;
+    }) => {
+      if (options.json && options.ndjson) {
+        throw new Error('specify either --json or --ndjson, not both');
+      }
+      const db = archiveDbPath(options.archiveDb);
+      if (options.ndjson || options.out !== undefined) {
+        const exported = exportArchiveSharpnessNdjson(db, video, {
+          mode: options.mode,
+          startSec: options.startSec,
+          endSec: options.endSec,
+          outPath: options.out,
+          overwrite: Boolean(options.overwrite),
+        });
+        if (options.ndjson) {
+          process.stdout.write(exported.ndjson);
+        } else if (options.json) {
+          writeJson({
+            clipPath: exported.clipPath,
+            availability: exported.availability,
+            run: exported.run,
+            outPath: options.out,
+            format: 'ndjson',
+            count: exported.count,
+          });
+        } else {
+          process.stderr.write(
+            `[drone-path] exported ${exported.count} sharpness sample(s) to ${options.out}\n`,
+          );
+        }
+        return;
+      }
+
+      const timeline = getArchiveSharpness(db, video, {
+        mode: options.mode,
+        startSec: options.startSec,
+        endSec: options.endSec,
+        limit: options.limit,
+        offset: options.offset,
+      });
+      if (options.json) {
+        writeJson(timeline);
+        return;
+      }
+      if (!timeline.analyzed || !timeline.run) {
+        process.stdout.write(`No sharpness analysis found for ${timeline.clipPath}\n`);
+        return;
+      }
+      process.stdout.write(
+        `${timeline.clipPath} [${timeline.availability}] (${timeline.run.settings.mode}, stride ${timeline.run.settings.stride}, ${timeline.totalSamples} matching sample(s))\n`,
+      );
+      for (const sample of timeline.samples) {
+        const score = sample.sharpnessScore === null ? 'null' : sample.sharpnessScore.toFixed(2);
+        process.stdout.write(
+          `  frame ${sample.frameIndex} (${sample.tSec.toFixed(3)}s): sharpness ${score}, edge coverage ${(sample.edgeCoverage * 100).toFixed(2)}%\n`,
+        );
+      }
+      if (timeline.truncated) {
+        process.stdout.write(
+          `  ... showing ${timeline.samples.length} of ${timeline.totalSamples} sample(s) (use --offset/--limit or --ndjson)\n`,
+        );
+      }
     });
 }

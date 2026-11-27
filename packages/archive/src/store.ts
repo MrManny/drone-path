@@ -6,6 +6,7 @@ import type { SQLInputValue } from 'node:sqlite';
 import { groupFlights } from 'drone-path-core/flight-grouping';
 import type { FlightMembership } from 'drone-path-core/flight-grouping';
 import type { Bbox, LatLon } from 'drone-path-core/geo';
+import type { ClipSharpnessSample, SharpnessAnalysisMode } from 'drone-path-core/sharpness';
 import type { KinematicShot, ShotType } from 'drone-path-core/shot-segmentation';
 import { bboxIntersects, longitudeRanges, resolveTrackBbox } from 'drone-path-core/spatial';
 
@@ -16,7 +17,7 @@ import { groupSamples } from './scan-track.js';
 import type { ScanPoint, SparseSample } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 
-export const ARCHIVE_SCHEMA_VERSION = 4;
+export const ARCHIVE_SCHEMA_VERSION = 5;
 export const CLIP_FINGERPRINT_VERSION = 1;
 
 export interface SegmentFilter {
@@ -48,6 +49,53 @@ export interface ClipUpdate extends IndexedClip {
 
 export interface IndexedFlightClip extends IndexedClip {
   flight: FlightMembership;
+}
+
+export interface SharpnessRunRecord {
+  runId: number;
+  clipKey: string;
+  fingerprintKey: string;
+  method: string;
+  version: string;
+  settingsJson: string;
+  sampleCount: number;
+  analyzedAtMs: number;
+}
+
+export interface SaveSharpnessRunInput {
+  clipKey: string;
+  fingerprintKey: string;
+  expectedFingerprint?: Pick<ClipFingerprint, 'size' | 'mtimeMs'>;
+  method: string;
+  version: string;
+  settingsJson: string;
+  analyzedAtMs?: number;
+  samples: readonly ClipSharpnessSample[];
+}
+
+export interface SharpnessSampleFilter {
+  startSec?: number;
+  endSec?: number;
+  limit?: number;
+  offset?: number;
+}
+
+interface SharpnessRunRow {
+  run_id: number;
+  clip_key: string;
+  fingerprint_key: string;
+  method: string;
+  version: string;
+  settings_json: string;
+  sample_count: number;
+  analyzed_at_ms: number;
+}
+
+interface SharpnessSampleRow {
+  frame_index: number;
+  t_sec: number;
+  sharpness_score: number | null;
+  edge_coverage: number;
 }
 
 interface ClipRow {
@@ -122,6 +170,28 @@ function decodeSegment(row: SegmentRow): KinematicShot {
     exposureStable: row.exposure_stable === 1,
     meanSpeedMps: row.mean_speed_mps,
     meanYawRateDegPerSec: row.mean_yaw_rate_deg_per_sec,
+  };
+}
+
+function decodeSharpnessRun(row: SharpnessRunRow): SharpnessRunRecord {
+  return {
+    runId: row.run_id,
+    clipKey: row.clip_key,
+    fingerprintKey: row.fingerprint_key,
+    method: row.method,
+    version: row.version,
+    settingsJson: row.settings_json,
+    sampleCount: row.sample_count,
+    analyzedAtMs: row.analyzed_at_ms,
+  };
+}
+
+function decodeSharpnessSample(row: SharpnessSampleRow): ClipSharpnessSample {
+  return {
+    frameIndex: row.frame_index,
+    tSec: row.t_sec,
+    sharpnessScore: row.sharpness_score,
+    edgeCoverage: row.edge_coverage,
   };
 }
 
@@ -204,6 +274,32 @@ const SEGMENTS_SCHEMA = `
   CREATE INDEX IF NOT EXISTS segments_type_smoothness ON segments (segment_type, smoothness DESC);
 `;
 
+const SHARPNESS_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS sharpness_runs (
+    run_id INTEGER PRIMARY KEY,
+    clip_key TEXT NOT NULL REFERENCES clips (clip_key) ON DELETE CASCADE,
+    fingerprint_key TEXT NOT NULL,
+    method TEXT NOT NULL,
+    version TEXT NOT NULL,
+    settings_json TEXT NOT NULL,
+    sample_count INTEGER NOT NULL,
+    analyzed_at_ms INTEGER NOT NULL,
+    UNIQUE (clip_key, fingerprint_key, method, version, settings_json)
+  ) STRICT;
+  CREATE INDEX IF NOT EXISTS sharpness_runs_clip_latest
+    ON sharpness_runs (clip_key, analyzed_at_ms DESC, run_id DESC);
+  CREATE TABLE IF NOT EXISTS sharpness_samples (
+    run_id INTEGER NOT NULL REFERENCES sharpness_runs (run_id) ON DELETE CASCADE,
+    frame_index INTEGER NOT NULL,
+    t_sec REAL NOT NULL,
+    sharpness_score REAL,
+    edge_coverage REAL NOT NULL,
+    PRIMARY KEY (run_id, frame_index)
+  ) STRICT;
+  CREATE INDEX IF NOT EXISTS sharpness_samples_run_time
+    ON sharpness_samples (run_id, t_sec, frame_index);
+`;
+
 export class ArchiveStore {
   private readonly db: DatabaseSync;
 
@@ -250,6 +346,9 @@ export class ArchiveStore {
           this.db.exec('ALTER TABLE clips ADD COLUMN segments_indexed INTEGER NOT NULL DEFAULT 0');
         }
         this.db.exec(SEGMENTS_SCHEMA);
+      }
+      if (version < 5) {
+        this.db.exec(SHARPNESS_SCHEMA);
       }
       this.db.exec(`PRAGMA user_version = ${ARCHIVE_SCHEMA_VERSION}`);
     });
@@ -389,6 +488,191 @@ export class ArchiveStore {
       FROM segments WHERE clip_key = ? ORDER BY segment_index
     `).all(key) as unknown as SegmentRow[];
     return rows.map(decodeSegment);
+  }
+
+  getClipByKey(key: string): IndexedClip | null {
+    const row = this.db.prepare('SELECT * FROM clips WHERE clip_key = ?').get(key) as unknown as ClipRow | undefined;
+    return row ? decodeClip(row) : null;
+  }
+
+  getSharpnessRun(runId: number): SharpnessRunRecord | null {
+    const row = this.db.prepare(`
+      SELECT run_id, clip_key, fingerprint_key, method, version, settings_json, sample_count, analyzed_at_ms
+      FROM sharpness_runs
+      WHERE run_id = ?
+    `).get(runId) as unknown as SharpnessRunRow | undefined;
+    return row ? decodeSharpnessRun(row) : null;
+  }
+
+  findSharpnessRun(query: {
+    clipKey: string;
+    fingerprintKey: string;
+    method: string;
+    version: string;
+    settingsJson: string;
+  }): SharpnessRunRecord | null {
+    const row = this.db.prepare(`
+      SELECT run_id, clip_key, fingerprint_key, method, version, settings_json, sample_count, analyzed_at_ms
+      FROM sharpness_runs
+      WHERE clip_key = ? AND fingerprint_key = ? AND method = ? AND version = ? AND settings_json = ?
+    `).get(
+      query.clipKey, query.fingerprintKey, query.method, query.version, query.settingsJson,
+    ) as unknown as SharpnessRunRow | undefined;
+    return row ? decodeSharpnessRun(row) : null;
+  }
+
+  latestSharpnessRun(
+    clipKey: string,
+    filter?: {
+      fingerprintKey?: string;
+      mode?: SharpnessAnalysisMode;
+      method?: string;
+      version?: string;
+      settingsJson?: string;
+    },
+  ): SharpnessRunRecord | null {
+    const clauses = ['clip_key = ?'];
+    const values: SQLInputValue[] = [clipKey];
+    if (filter?.fingerprintKey !== undefined) {
+      clauses.push('fingerprint_key = ?');
+      values.push(filter.fingerprintKey);
+    }
+    if (filter?.mode !== undefined) {
+      clauses.push("json_extract(settings_json, '$.mode') = ?");
+      values.push(filter.mode);
+    }
+    if (filter?.method !== undefined) {
+      clauses.push('method = ?');
+      values.push(filter.method);
+    }
+    if (filter?.version !== undefined) {
+      clauses.push('version = ?');
+      values.push(filter.version);
+    }
+    if (filter?.settingsJson !== undefined) {
+      clauses.push('settings_json = ?');
+      values.push(filter.settingsJson);
+    }
+    const row = this.db.prepare(`
+      SELECT run_id, clip_key, fingerprint_key, method, version, settings_json, sample_count, analyzed_at_ms
+      FROM sharpness_runs
+      WHERE ${clauses.join(' AND ')}
+      ORDER BY analyzed_at_ms DESC, run_id DESC
+      LIMIT 1
+    `).get(...values) as unknown as SharpnessRunRow | undefined;
+    return row ? decodeSharpnessRun(row) : null;
+  }
+
+  saveSharpnessRun(input: SaveSharpnessRunInput): SharpnessRunRecord {
+    const analyzedAtMs = input.analyzedAtMs ?? Date.now();
+    return this.transaction('BEGIN IMMEDIATE', () => {
+      const clip = this.getClipByKey(input.clipKey);
+      if (!clip) {
+        throw new Error(`clip is not indexed in archive: ${input.clipKey}`);
+      }
+      if (
+        input.expectedFingerprint !== undefined &&
+        (clip.fingerprint.size !== input.expectedFingerprint.size ||
+          clip.fingerprint.mtimeMs !== input.expectedFingerprint.mtimeMs)
+      ) {
+        throw new Error(`clip fingerprint changed during sharpness analysis: ${input.clipKey}`);
+      }
+      this.db.prepare(`
+        DELETE FROM sharpness_runs
+        WHERE clip_key = ? AND fingerprint_key = ? AND method = ? AND version = ? AND settings_json = ?
+      `).run(
+        input.clipKey, input.fingerprintKey, input.method, input.version, input.settingsJson,
+      );
+      const inserted = this.db.prepare(`
+        INSERT INTO sharpness_runs (
+          clip_key, fingerprint_key, method, version, settings_json, sample_count, analyzed_at_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.clipKey,
+        input.fingerprintKey,
+        input.method,
+        input.version,
+        input.settingsJson,
+        input.samples.length,
+        analyzedAtMs,
+      );
+      const runId = Number(inserted.lastInsertRowid);
+      const addSample = this.db.prepare(`
+        INSERT INTO sharpness_samples (run_id, frame_index, t_sec, sharpness_score, edge_coverage)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      for (const sample of input.samples) {
+        addSample.run(
+          runId,
+          sample.frameIndex,
+          sample.tSec,
+          sample.sharpnessScore,
+          sample.edgeCoverage,
+        );
+      }
+      return {
+        runId,
+        clipKey: input.clipKey,
+        fingerprintKey: input.fingerprintKey,
+        method: input.method,
+        version: input.version,
+        settingsJson: input.settingsJson,
+        sampleCount: input.samples.length,
+        analyzedAtMs,
+      };
+    });
+  }
+
+  private sharpnessSampleWhere(
+    runId: number,
+    filter?: Pick<SharpnessSampleFilter, 'startSec' | 'endSec'>,
+  ): { where: string; values: SQLInputValue[] } {
+    const clauses = ['run_id = ?'];
+    const values: SQLInputValue[] = [runId];
+    if (filter?.startSec !== undefined) {
+      clauses.push('t_sec >= ?');
+      values.push(filter.startSec);
+    }
+    if (filter?.endSec !== undefined) {
+      clauses.push('t_sec <= ?');
+      values.push(filter.endSec);
+    }
+    return { where: `WHERE ${clauses.join(' AND ')}`, values };
+  }
+
+  countSharpnessSamples(
+    runId: number,
+    filter?: Pick<SharpnessSampleFilter, 'startSec' | 'endSec'>,
+  ): number {
+    const { where, values } = this.sharpnessSampleWhere(runId, filter);
+    const row = this.db.prepare(`SELECT COUNT(*) AS count FROM sharpness_samples ${where}`).get(...values) as {
+      count: number;
+    };
+    return row.count;
+  }
+
+  readSharpnessSamples(runId: number, filter?: SharpnessSampleFilter): ClipSharpnessSample[] {
+    const { where, values } = this.sharpnessSampleWhere(runId, filter);
+    let paging = '';
+    if (filter?.limit !== undefined) {
+      paging += ' LIMIT ?';
+      values.push(filter.limit);
+      if (filter.offset !== undefined) {
+        paging += ' OFFSET ?';
+        values.push(filter.offset);
+      }
+    } else if (filter?.offset !== undefined) {
+      paging += ' LIMIT -1 OFFSET ?';
+      values.push(filter.offset);
+    }
+    const rows = this.db.prepare(`
+      SELECT frame_index, t_sec, sharpness_score, edge_coverage
+      FROM sharpness_samples
+      ${where}
+      ORDER BY frame_index ASC
+      ${paging}
+    `).all(...values) as unknown as SharpnessSampleRow[];
+    return rows.map(decodeSharpnessSample);
   }
 
   listSegments(filters: {

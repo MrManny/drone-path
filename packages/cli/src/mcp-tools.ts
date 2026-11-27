@@ -14,6 +14,13 @@ import {
   parseDateBound,
 } from 'drone-path-archive/query';
 import type { ArchiveSegment, ListFilters } from 'drone-path-archive/query';
+import {
+  MAX_SHARPNESS_QUERY_LIMIT,
+  analyzeArchiveSharpness,
+  exportArchiveSharpnessNdjson,
+  getArchiveSharpness,
+} from 'drone-path-archive/sharpness';
+import type { ArchiveSharpnessRun } from 'drone-path-archive/sharpness';
 import { errorMessage } from 'drone-path-core/errors';
 import { probeVideo } from 'drone-path-core/ffmpeg';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
@@ -51,6 +58,7 @@ import {
   assertPathInAllowedRoots,
   canonicalizePath,
   isPathInAllowedRoots,
+  isPathWithinRoot,
 } from './mcp-paths.js';
 
 export interface McpToolContext {
@@ -59,6 +67,36 @@ export interface McpToolContext {
   getTools: () => Promise<FfmpegToolPaths>;
   runBatch: typeof runBatch;
   log: LogFn;
+}
+
+function toAllowedRootRelativePath(
+  targetPath: string,
+  allowedRoots: readonly string[],
+): string {
+  let canonical: string;
+  try {
+    canonical = canonicalizePath(targetPath);
+  } catch {
+    return path.basename(targetPath);
+  }
+  for (const root of allowedRoots) {
+    if (isPathWithinRoot(canonical, root)) {
+      const rel = path.relative(root, canonical).split(path.sep).join('/');
+      return rel === '' ? path.basename(canonical) : rel;
+    }
+  }
+  return path.basename(canonical);
+}
+
+function sanitizeArchiveSharpnessRun(
+  run: ArchiveSharpnessRun,
+  allowedRoots: readonly string[],
+) {
+  const { clipKey: _omittedClipKey, ...rest } = run;
+  return {
+    ...rest,
+    clipPath: toAllowedRootRelativePath(run.clipKey, allowedRoots),
+  };
 }
 
 const DEFAULT_MAX_SAMPLES = 100;
@@ -365,6 +403,108 @@ export function registerMcpTools(sdkServer: SdkMcpServer, ctx: McpToolContext): 
         isPathInAllowedRoots(seg.clip.path, ctx.allowedRoots),
       );
       return { count: segments.length, segments };
+    }),
+  );
+
+  sdkServer.registerTool(
+    'archive_analyze_sharpness',
+    {
+      description:
+        'Run or reuse opt-in clip-wide luminance sharpness analysis for an allowed recording and store the timeline in the archive database.',
+      inputSchema: z
+        .object({
+          videoPath: z.string().min(1),
+          mode: z.enum(['sampled', 'every-frame']).optional(),
+          analysisWidth: z.number().int().min(1).optional(),
+          minEdgeCoverage: z.number().finite().min(0).max(1).optional(),
+          force: z.boolean().optional(),
+        })
+        .strict(),
+    },
+    wrap(async (args) => {
+      const videoPath = assertPathInAllowedRoots(args.videoPath, ctx.allowedRoots);
+      assertNotArchiveDb(videoPath, ctx.archiveDb);
+      const result = await analyzeArchiveSharpness(ctx.archiveDb, videoPath, {
+        mode: args.mode,
+        analysisWidth: args.analysisWidth,
+        minEdgeCoverage: args.minEdgeCoverage,
+        force: args.force,
+        getTools: ctx.getTools,
+        assertAllowedPath: (filePath) => {
+          assertPathInAllowedRoots(filePath, ctx.allowedRoots);
+        },
+      });
+      return {
+        clipPath: toAllowedRootRelativePath(result.clip.path, ctx.allowedRoots),
+        availability: result.clip.availability,
+        cached: result.cached,
+        run: sanitizeArchiveSharpnessRun(result.run, ctx.allowedRoots),
+      };
+    }),
+  );
+
+  sdkServer.registerTool(
+    'archive_get_sharpness',
+    {
+      description:
+        'Query stored archive sharpness timelines for an allowed recording (works offline) with optional time-range filters, bounded pagination, or full NDJSON export to outPath.',
+      inputSchema: z
+        .object({
+          videoPath: z.string().min(1),
+          mode: z.enum(['sampled', 'every-frame']).optional(),
+          startSec: z.number().finite().min(0).optional(),
+          endSec: z.number().finite().min(0).optional(),
+          limit: z.number().int().min(1).max(MAX_SHARPNESS_QUERY_LIMIT).optional(),
+          offset: z.number().int().min(0).optional(),
+          outPath: z.string().min(1).optional(),
+        })
+        .strict(),
+    },
+    wrap(async (args) => {
+      const videoPath = assertPathInAllowedRoots(args.videoPath, ctx.allowedRoots);
+      assertNotArchiveDb(videoPath, ctx.archiveDb);
+      if (args.outPath !== undefined) {
+        const outPath = assertPathInAllowedRoots(args.outPath, ctx.allowedRoots);
+        assertNotArchiveDb(outPath, ctx.archiveDb);
+        if (fs.existsSync(outPath)) {
+          throw new Error('refusing to overwrite existing sharpness export file');
+        }
+        const exported = exportArchiveSharpnessNdjson(ctx.archiveDb, videoPath, {
+          mode: args.mode,
+          startSec: args.startSec,
+          endSec: args.endSec,
+          outPath,
+          overwrite: false,
+        });
+        return {
+          clipPath: toAllowedRootRelativePath(exported.clipPath, ctx.allowedRoots),
+          availability: exported.availability,
+          analyzed: true,
+          run: sanitizeArchiveSharpnessRun(exported.run, ctx.allowedRoots),
+          outPath: toAllowedRootRelativePath(outPath, ctx.allowedRoots),
+          format: 'ndjson',
+          count: exported.count,
+        };
+      }
+
+      const timeline = getArchiveSharpness(ctx.archiveDb, videoPath, {
+        mode: args.mode,
+        startSec: args.startSec,
+        endSec: args.endSec,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return {
+        clipPath: toAllowedRootRelativePath(timeline.clipPath, ctx.allowedRoots),
+        availability: timeline.availability,
+        analyzed: timeline.analyzed,
+        run: timeline.run ? sanitizeArchiveSharpnessRun(timeline.run, ctx.allowedRoots) : null,
+        totalSamples: timeline.totalSamples,
+        limit: timeline.limit,
+        offset: timeline.offset,
+        truncated: timeline.truncated,
+        samples: timeline.samples,
+      };
     }),
   );
 

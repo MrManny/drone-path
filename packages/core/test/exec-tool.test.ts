@@ -2,17 +2,19 @@ import type * as childProcessModule from 'node:child_process';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runTool } from '../src/exec-tool.js';
+import { runTool, spawnTool } from '../src/exec-tool.js';
 
-const mocks = vi.hoisted(() => ({ execFile: vi.fn() }));
+const mocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
 vi.mock('node:child_process', async (importOriginal) => ({
   ...(await importOriginal<typeof childProcessModule>()),
   execFile: mocks.execFile,
+  spawn: mocks.spawn,
 }));
 
 beforeEach(() => {
   mocks.execFile.mockReset();
+  mocks.spawn.mockReset();
 });
 
 describe('runTool', () => {
@@ -62,5 +64,21 @@ describe('runTool', () => {
     );
 
     await expect(runTool('ffmpeg', ['-version'])).rejects.toBe(failure);
+  });
+});
+
+describe('spawnTool', () => {
+  it('defaults windowsHide to true while forwarding command, args, and options', () => {
+    const fakeChild = { pid: 123 };
+    mocks.spawn.mockReturnValue(fakeChild);
+
+    expect(spawnTool('ffmpeg', ['-v', 'error'], { stdio: ['ignore', 'pipe', 'pipe'] })).toBe(
+      fakeChild,
+    );
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      'ffmpeg',
+      ['-v', 'error'],
+      { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
   });
 });

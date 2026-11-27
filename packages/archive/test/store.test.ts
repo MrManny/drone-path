@@ -50,8 +50,8 @@ it('does not initialize the archive in an existing database without an archive s
   }
 });
 
-describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) => {
-  it('adds segments schema and marks existing ok clips as segmentsPending', () => {
+describe.each([1, 2, 3, 4])('migrating archive schema v%i to v5', (sourceVersion) => {
+  it('adds segments and sharpness schema while preserving existing clips', () => {
     const file = path.join(tmpDir(), 'archive.sqlite');
     const legacy = new DatabaseSync(file);
     try {
@@ -106,6 +106,25 @@ describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) =
           ) STRICT;
         `);
       }
+      if (sourceVersion >= 4) {
+        legacy.exec(`
+          ALTER TABLE clips ADD COLUMN segments_indexed INTEGER NOT NULL DEFAULT 0;
+          CREATE TABLE segments (
+            clip_key TEXT NOT NULL REFERENCES clips (clip_key) ON DELETE CASCADE,
+            segment_index INTEGER NOT NULL,
+            segment_type TEXT NOT NULL,
+            start_sec REAL NOT NULL,
+            end_sec REAL NOT NULL,
+            duration_sec REAL NOT NULL,
+            smoothness REAL NOT NULL,
+            exposure_stable INTEGER NOT NULL,
+            mean_speed_mps REAL NOT NULL,
+            mean_yaw_rate_deg_per_sec REAL NOT NULL,
+            PRIMARY KEY (clip_key, segment_index)
+          ) STRICT;
+          CREATE INDEX segments_type_smoothness ON segments (segment_type, smoothness DESC);
+        `);
+      }
       const okRecord = JSON.stringify({
         path: 'ok.mp4', size: 1, mtimeMs: 1, status: 'ok', video: null,
         cameraCreationTime: null, telemetry: { source: 'srt', method: 'srt-cues', fixCount: 1, noLock: 0, trackDistanceM: 0 },
@@ -115,8 +134,13 @@ describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) =
         path: 'notel.mp4', size: 1, mtimeMs: 1, status: 'no-telemetry', video: null,
         cameraCreationTime: null, telemetry: null, bbox: null, track: [], error: null,
       });
-      legacy.prepare('INSERT INTO clips VALUES (?, ?, 1, 1, NULL, NULL, 1, NULL, NULL, NULL, NULL, ?, ?)').run('ok.mp4', 'online', okRecord, '[]');
-      legacy.prepare('INSERT INTO clips VALUES (?, ?, 1, 1, NULL, NULL, 1, NULL, NULL, NULL, NULL, ?, ?)').run('notel.mp4', 'online', noTelRecord, '[]');
+      if (sourceVersion >= 4) {
+        legacy.prepare('INSERT INTO clips VALUES (?, ?, 1, 1, NULL, NULL, 1, NULL, NULL, NULL, NULL, ?, ?, 1)').run('ok.mp4', 'online', okRecord, '[]');
+        legacy.prepare('INSERT INTO clips VALUES (?, ?, 1, 1, NULL, NULL, 1, NULL, NULL, NULL, NULL, ?, ?, 0)').run('notel.mp4', 'online', noTelRecord, '[]');
+      } else {
+        legacy.prepare('INSERT INTO clips VALUES (?, ?, 1, 1, NULL, NULL, 1, NULL, NULL, NULL, NULL, ?, ?)').run('ok.mp4', 'online', okRecord, '[]');
+        legacy.prepare('INSERT INTO clips VALUES (?, ?, 1, 1, NULL, NULL, 1, NULL, NULL, NULL, NULL, ?, ?)').run('notel.mp4', 'online', noTelRecord, '[]');
+      }
       legacy.exec(`PRAGMA user_version = ${sourceVersion}`);
     } finally {
       legacy.close();
@@ -127,9 +151,10 @@ describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) =
       const snap = store.snapshot();
       expect(snap.clips.map(({ key, segmentsPending }) => [key, segmentsPending])).toEqual([
         ['notel.mp4', false],
-        ['ok.mp4', true],
+        ['ok.mp4', sourceVersion < 4],
       ]);
       expect(store.readSegments('ok.mp4')).toEqual([]);
+      expect(store.latestSharpnessRun('ok.mp4')).toBeNull();
     } finally {
       store.close();
     }
@@ -140,6 +165,12 @@ describe.each([1, 2, 3])('migrating archive schema v%i to v4', (sourceVersion) =
       expect(check.prepare("SELECT name FROM sqlite_schema WHERE name = 'segments'").get()).toEqual({ name: 'segments' });
       expect(check.prepare("SELECT name FROM sqlite_schema WHERE name = 'segments_type_smoothness'").get()).toEqual({
         name: 'segments_type_smoothness',
+      });
+      expect(check.prepare("SELECT name FROM sqlite_schema WHERE name = 'sharpness_runs'").get()).toEqual({
+        name: 'sharpness_runs',
+      });
+      expect(check.prepare("SELECT name FROM sqlite_schema WHERE name = 'sharpness_samples'").get()).toEqual({
+        name: 'sharpness_samples',
       });
     } finally {
       check.close();
@@ -409,6 +440,143 @@ describe('ArchiveStore.pruneOffline', () => {
       expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_flights').get()?.count).toBe(1);
       expect(raw.prepare('SELECT COUNT(*) AS count FROM clip_samples').get()?.count).toBe(2);
       expect(raw.prepare('SELECT COUNT(*) AS count FROM segments').get()?.count).toBe(1);
+    } finally {
+      raw.close();
+    }
+  });
+});
+
+describe('ArchiveStore sharpness runs and samples', () => {
+  function indexedClip(filePath: string) {
+    const key = process.platform === 'win32' ? filePath.toLowerCase() : filePath;
+    return {
+      key,
+      availability: 'online' as const,
+      fingerprint: { size: 500, mtimeMs: 2000, srtSize: null, srtMtimeMs: null, schemaVersion: 1 },
+      record: {
+        path: filePath,
+        size: 500,
+        mtimeMs: 2000,
+        status: 'no-telemetry' as const,
+        video: { fps: { num: 30, den: 1, value: 30, str: '30' }, frames: 90, width: 1920, height: 1080, durationSec: 3 },
+        cameraCreationTime: null,
+        telemetry: null,
+        bbox: null,
+        track: [],
+        error: null,
+      },
+      overview: [],
+      samples: [],
+    };
+  }
+
+  it('saves runs atomically, supports time-range/paged reads, rolls back failed writes, and cascades on clip delete', () => {
+    const base = tmpDir();
+    const dbFile = path.join(base, 'archive.sqlite');
+    const store = new ArchiveStore(dbFile);
+    try {
+      const clip = indexedClip(path.join(base, 'DJI_0001.MP4'));
+      store.commit(0, [clip], [], [], []);
+      expect(store.getClipByKey(clip.key)?.record.path).toBe(clip.record.path);
+
+      const sampledSettings = JSON.stringify({
+        mode: 'sampled',
+        stride: 30,
+        analysisWidth: 640,
+        minEdgeCoverage: 0.002,
+      });
+      const everySettings = JSON.stringify({
+        mode: 'every-frame',
+        stride: 1,
+        analysisWidth: 640,
+        minEdgeCoverage: 0.002,
+      });
+
+      const run1 = store.saveSharpnessRun({
+        clipKey: clip.key,
+        fingerprintKey: '{"size":500,"mtimeMs":2000}',
+        method: 'ffmpeg-blurdetect',
+        version: '1',
+        settingsJson: sampledSettings,
+        analyzedAtMs: 1000,
+        samples: [
+          { frameIndex: 0, tSec: 0, sharpnessScore: 45.2, edgeCoverage: 0.01 },
+          { frameIndex: 30, tSec: 1, sharpnessScore: null, edgeCoverage: 0.0005 },
+          { frameIndex: 60, tSec: 2, sharpnessScore: 52.1, edgeCoverage: 0.02 },
+        ],
+      });
+      const run2 = store.saveSharpnessRun({
+        clipKey: clip.key,
+        fingerprintKey: '{"size":500,"mtimeMs":2000}',
+        method: 'ffmpeg-blurdetect',
+        version: '1',
+        settingsJson: everySettings,
+        analyzedAtMs: 2000,
+        samples: [
+          { frameIndex: 0, tSec: 0, sharpnessScore: 45.2, edgeCoverage: 0.01 },
+          { frameIndex: 1, tSec: 0.033, sharpnessScore: 44.8, edgeCoverage: 0.01 },
+        ],
+      });
+
+      expect(store.findSharpnessRun({
+        clipKey: clip.key,
+        fingerprintKey: '{"size":500,"mtimeMs":2000}',
+        method: 'ffmpeg-blurdetect',
+        version: '1',
+        settingsJson: sampledSettings,
+      })).toEqual(run1);
+      expect(store.latestSharpnessRun(clip.key)).toEqual(run2);
+      expect(store.latestSharpnessRun(clip.key, { mode: 'sampled' })).toEqual(run1);
+      expect(store.latestSharpnessRun(clip.key, { fingerprintKey: '{"size":999,"mtimeMs":2000}' })).toBeNull();
+      expect(store.countSharpnessSamples(run1.runId, { startSec: 0.5, endSec: 2 })).toBe(2);
+      expect(store.readSharpnessSamples(run1.runId, { startSec: 0.5, endSec: 2, limit: 1, offset: 1 })).toEqual([
+        { frameIndex: 60, tSec: 2, sharpnessScore: 52.1, edgeCoverage: 0.02 },
+      ]);
+
+      // Rejects and rolls back when expectedFingerprint does not match the indexed clip.
+      expect(() =>
+        store.saveSharpnessRun({
+          clipKey: clip.key,
+          fingerprintKey: '{"size":501,"mtimeMs":2000}',
+          expectedFingerprint: { size: 501, mtimeMs: 2000 },
+          method: 'ffmpeg-blurdetect',
+          version: '1',
+          settingsJson: sampledSettings,
+          analyzedAtMs: 2500,
+          samples: [{ frameIndex: 0, tSec: 0, sharpnessScore: 50, edgeCoverage: 0.02 }],
+        }),
+      ).toThrow('clip fingerprint changed during sharpness analysis');
+      expect(store.latestSharpnessRun(clip.key)).toEqual(run2);
+
+      // Duplicate frame_index fails PK constraint midway and must roll back the entire run atomically.
+      expect(() =>
+        store.saveSharpnessRun({
+          clipKey: clip.key,
+          fingerprintKey: '{"size":500,"mtimeMs":2001}',
+          method: 'ffmpeg-blurdetect',
+          version: '1',
+          settingsJson: sampledSettings,
+          analyzedAtMs: 3000,
+          samples: [
+            { frameIndex: 0, tSec: 0, sharpnessScore: 50, edgeCoverage: 0.02 },
+            { frameIndex: 0, tSec: 0, sharpnessScore: 51, edgeCoverage: 0.02 },
+          ],
+        }),
+      ).toThrow();
+      expect(store.latestSharpnessRun(clip.key)).toEqual(run2);
+
+      // Deleting the clip cascades to sharpness_runs and sharpness_samples.
+      store.commit(1, [], [], [], [clip.key]);
+      expect(store.latestSharpnessRun(clip.key)).toBeNull();
+      expect(store.readSharpnessSamples(run1.runId)).toEqual([]);
+    } finally {
+      store.close();
+    }
+
+    const raw = new DatabaseSync(dbFile);
+    try {
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM sharpness_runs').get()?.count).toBe(0);
+      expect(raw.prepare('SELECT COUNT(*) AS count FROM sharpness_samples').get()?.count).toBe(0);
     } finally {
       raw.close();
     }
