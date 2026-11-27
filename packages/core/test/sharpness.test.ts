@@ -401,4 +401,47 @@ describe('analyzeClipSharpness', () => {
     emptyChild.emit('close', 0);
     await expect(emptyPromise).rejects.toThrow(/no frame metadata/u);
   });
+
+  it('kills ffmpeg and rejects cleanly after exit when onSample throws during streaming or flush', async () => {
+    const dir = tmpDir();
+    const videoPath = path.join(dir, 'clip.mp4');
+    const streamChild = fakeSpawnedChild();
+    const flushChild = fakeSpawnedChild();
+    vi.mocked(execTool.spawnTool)
+      .mockReturnValueOnce(streamChild as unknown as ChildProcess)
+      .mockReturnValueOnce(flushChild as unknown as ChildProcess);
+
+    const streamErr = new Error('consumer failed mid-stream');
+    let streamSettled = false;
+    const streamPromise = analyzeClipSharpness(tools, videoPath, {
+      fps: 30,
+      onSample: () => {
+        throw streamErr;
+      },
+    }).finally(() => {
+      streamSettled = true;
+    });
+
+    streamChild.stdout.write(
+      'frame:0 pts:0 pts_time:0\nlavfi.blur=4\nlavfi.signalstats.YAVG=25.5\n' +
+        'frame:1 pts:30 pts_time:1\nlavfi.blur=4\nlavfi.signalstats.YAVG=25.5\n',
+    );
+    await vi.waitFor(() => expect(streamChild.kill).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(streamSettled).toBe(false);
+    streamChild.emit('close', null);
+    await expect(streamPromise).rejects.toBe(streamErr);
+
+    const flushErr = new Error('consumer failed on flush');
+    const flushPromise = analyzeClipSharpness(tools, videoPath, {
+      fps: 30,
+      onSample: () => {
+        throw flushErr;
+      },
+    });
+    flushChild.stdout.end('frame:0 pts:0 pts_time:0\nlavfi.blur=4\nlavfi.signalstats.YAVG=25.5');
+    flushChild.stderr.end();
+    flushChild.emit('close', 0);
+    await expect(flushPromise).rejects.toBe(flushErr);
+  });
 });

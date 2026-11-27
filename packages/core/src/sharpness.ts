@@ -316,8 +316,8 @@ export async function analyzeClipSharpness(
     let stdoutBuffer = '';
     let stderrBuffer = '';
     let settled = false;
-    let aborted = false;
-    let abortReason: unknown;
+    let terminating = false;
+    let pendingError: unknown;
 
     const cleanup = (): void => {
       options?.signal?.removeEventListener('abort', onAbort);
@@ -330,35 +330,43 @@ export async function analyzeClipSharpness(
       reject(err);
     };
 
-    const onAbort = (): void => {
-      if (settled || aborted) return;
-      aborted = true;
-      abortReason = options?.signal?.reason ?? new Error('clip sharpness analysis canceled');
+    const stopChild = (reason: unknown): void => {
+      if (settled || terminating) return;
+      terminating = true;
+      pendingError = reason;
       child.kill();
+    };
+
+    const onAbort = (): void => {
+      stopChild(options?.signal?.reason ?? new Error('clip sharpness analysis canceled'));
     };
 
     options?.signal?.addEventListener('abort', onAbort, { once: true });
 
     child.stdout?.on('data', (chunk: Buffer | string) => {
-      if (settled || aborted) return;
+      if (settled || terminating) return;
       stdoutBuffer += typeof chunk === 'string' ? chunk : stdoutDecoder.write(chunk);
-      let newlineIdx = stdoutBuffer.indexOf('\n');
-      while (newlineIdx !== -1) {
-        const line = stdoutBuffer.slice(0, newlineIdx);
-        stdoutBuffer = stdoutBuffer.slice(newlineIdx + 1);
-        parser.pushLine(line);
-        newlineIdx = stdoutBuffer.indexOf('\n');
+      try {
+        let newlineIdx = stdoutBuffer.indexOf('\n');
+        while (newlineIdx !== -1) {
+          const line = stdoutBuffer.slice(0, newlineIdx);
+          stdoutBuffer = stdoutBuffer.slice(newlineIdx + 1);
+          parser.pushLine(line);
+          newlineIdx = stdoutBuffer.indexOf('\n');
+        }
+      } catch (err) {
+        stopChild(err);
       }
     });
 
     child.stderr?.on('data', (chunk: Buffer | string) => {
-      if (settled || aborted) return;
+      if (settled || terminating) return;
       stderrBuffer += typeof chunk === 'string' ? chunk : stderrDecoder.write(chunk);
     });
 
     child.once('error', (err: Error) => {
-      if (aborted) {
-        fail(abortReason);
+      if (terminating) {
+        fail(pendingError);
         return;
       }
       fail(new Error('ffmpeg failed while analyzing clip sharpness', { cause: err }));
@@ -366,18 +374,23 @@ export async function analyzeClipSharpness(
 
     child.once('close', (code: number | null) => {
       if (settled) return;
-      if (aborted) {
-        fail(abortReason);
+      if (terminating) {
+        fail(pendingError);
         return;
       }
       stdoutBuffer += stdoutDecoder.end();
       stderrBuffer += stderrDecoder.end();
-      if (stdoutBuffer.length > 0) {
-        for (const line of stdoutBuffer.split(/\r?\n/u)) {
-          parser.pushLine(line);
+      try {
+        if (stdoutBuffer.length > 0) {
+          for (const line of stdoutBuffer.split(/\r?\n/u)) {
+            parser.pushLine(line);
+          }
         }
+        parser.flush();
+      } catch (err) {
+        fail(err);
+        return;
       }
-      parser.flush();
 
       if (code !== 0) {
         const detail = stderrBuffer.trim();
