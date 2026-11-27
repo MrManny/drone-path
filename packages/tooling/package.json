@@ -17,6 +17,6 @@
   "dependencies": {
     "drone-path-core": "*",
     "drone-path-engine": "*",
-    "marked": "~18.2.1"
+    "marked": "~18.3.0"
   }
 }
