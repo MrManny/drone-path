@@ -1,5 +1,12 @@
 # drone-path-archive
 
+## 1.2.0
+
+- **New:** Persist clip-wide sharpness timelines in the SQLite archive with
+  cached reuse, bounded offline queries, and NDJSON export.
+- **New:** Provide decimated flight overviews for multi-flight map
+  rendering alongside full-detail track queries.
+
 ## 1.1.1
 
 - **Fixed:** Archive HTML maps open with OpenTopoMap and let viewers switch to

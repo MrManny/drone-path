@@ -1,5 +1,11 @@
 # drone-path-core
 
+## 1.2.0
+
+- **New:** Score keyframe sharpness on demand with FFmpeg `blurdetect`
+  luminance analysis, and stream clip-wide sharpness timelines at sampled
+  or frame-by-frame intervals.
+
 ## 1.1.1
 
 ## 1.1.0

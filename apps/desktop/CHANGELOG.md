@@ -1,5 +1,14 @@
 # drone-path-desktop
 
+## 1.2.0
+
+- **New:** Browse your recording library in the new multi-clip Archive
+  workspace with watched folders, a Canvas-rendered multi-flight map (showing
+  higher-detail flight tracks when zoomed in), "What filmed here?"
+  point-in-view clip search, kinematic and date/distance filtering, lazy
+  poster thumbnails, offline drive support with safe pruning, and combined
+  GPX, GeoJSON, KML, KMZ, and HTML map exports.
+
 ## 1.1.1
 
 - **New:** Open the official Drone Path website from Help → About.

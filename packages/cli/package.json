@@ -1,6 +1,6 @@
 {
   "name": "drone-path",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Render flight-path map overlay videos (exactly the source frame rate and frame count) from DJI drone recordings - telemetry from the embedded CAM-meta (DVTM) stream or the .SRT sidecar.",
   "type": "module",
   "exports": {
@@ -26,7 +26,11 @@
     "map",
     "video",
     "ffmpeg",
-    "leaflet"
+    "leaflet",
+    "gpx",
+    "kml",
+    "mcp",
+    "davinci-resolve"
   ],
   "author": "Manuel Warum",
   "license": "MIT",
@@ -38,7 +42,7 @@
   "bugs": {
     "url": "https://github.com/MrManny/drone-path/issues"
   },
-  "homepage": "https://github.com/MrManny/drone-path#readme",
+  "homepage": "https://www.dronepath.dev",
   "files": [
     "bin/drone-path.mjs",
     "dist/**/*.js",
@@ -52,9 +56,9 @@
   "dependencies": {
     "@modelcontextprotocol/server": "~2.4.0",
     "commander": "~15.1.0",
-    "drone-path-archive": "~1.1.1",
-    "drone-path-core": "~1.1.1",
-    "drone-path-engine": "~1.1.1",
+    "drone-path-archive": "~1.2.0",
+    "drone-path-core": "~1.2.0",
+    "drone-path-engine": "~1.2.0",
     "zod": "~4.6.7"
   }
 }

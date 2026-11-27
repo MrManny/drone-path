@@ -1,5 +1,15 @@
 # drone-path
 
+## 1.2.0
+
+- **New:** Pass `--sharpness` to `drone-path extract-frame` (or `sharpness`
+  to MCP `clip_extract_keyframes`) to score extracted keyframes with FFmpeg
+  `blurdetect`.
+- **New:** Run `drone-path archive analyze-sharpness` and
+  `drone-path archive sharpness` (and MCP `archive_analyze_sharpness` /
+  `archive_get_sharpness`) for clip-wide SQLite sharpness timelines,
+  bounded offline queries, and NDJSON export.
+
 ## 1.1.1
 
 - **Fixed:** Archive HTML maps open with OpenTopoMap and let viewers switch to
