@@ -11,9 +11,10 @@ import { scanArchive as defaultScanArchive } from 'drone-path-archive/indexed-sc
 import { archiveDbPath } from 'drone-path-archive/paths';
 import {
   listArchiveFlightOverviews as defaultListArchiveFlightOverviews,
+  listArchiveFlights as defaultListArchiveFlights,
   nearArchive as defaultNearArchive,
 } from 'drone-path-archive/query';
-import type { ListFilters, listArchiveFlights as defaultListArchiveFlights } from 'drone-path-archive/query';
+import type { ListFilters } from 'drone-path-archive/query';
 import type { ScanRecord } from 'drone-path-archive/scanner';
 import { withArchiveStore as defaultWithArchiveStore } from 'drone-path-archive/store';
 import { errorMessage } from 'drone-path-core/errors';
@@ -97,6 +98,7 @@ const QUERY_FILTERS_SCHEMA = strictShape(
     minSmoothness: z.number().finite().min(0).max(1).optional(),
     folderRoot: z.string().min(1).optional(),
     flightId: z.string().min(1).optional(),
+    detail: z.enum(['overview', 'full']).optional(),
   },
   {
     invalid: 'invalid archive query filters',
@@ -138,7 +140,7 @@ export function parseArchiveExportRequest(raw: unknown): ArchiveExportRequest {
 }
 
 function toListFilters(filters: ArchiveQueryFilters): ListFilters {
-  const { folderRoot: _folderRoot, flightId: _flightId, ...rest } = filters;
+  const { folderRoot: _folderRoot, flightId: _flightId, detail: _detail, ...rest } = filters;
   return rest;
 }
 
@@ -199,6 +201,7 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
   const isDir = deps.isDir ?? defaultIsDir;
   const isFile = deps.isFile ?? defaultIsFile;
   const scanArchiveFn = deps.scanArchive ?? defaultScanArchive;
+  const listArchiveFlightsFn = deps.listArchiveFlights ?? defaultListArchiveFlights;
   const listArchiveFlightOverviewsFn =
     deps.listArchiveFlightOverviews ??
     deps.listArchiveFlights ??
@@ -347,7 +350,11 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
     query(filters?: ArchiveQueryFilters): ArchiveQueryResult {
       const parsed =
         filters === undefined ? {} : parseValue(QUERY_FILTERS_SCHEMA, filters);
-      const rawFlights = listArchiveFlightOverviewsFn(dbPath, toListFilters(parsed));
+      const listFilters = toListFilters(parsed);
+      const rawFlights =
+        parsed.detail === 'full'
+          ? listArchiveFlightsFn(dbPath, listFilters)
+          : listArchiveFlightOverviewsFn(dbPath, listFilters);
       const folderRoot = parsed.folderRoot ? path.resolve(parsed.folderRoot) : null;
       const flights: ArchiveFlightDto[] = [];
       let totalCount = 0;

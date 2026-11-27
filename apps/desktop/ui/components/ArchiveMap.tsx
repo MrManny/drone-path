@@ -39,6 +39,7 @@ const FLIGHT_PALETTE = [
 ] as const;
 
 const VIEWPORT_DEBOUNCE_MS = 180;
+export const ARCHIVE_DETAIL_MIN_ZOOM = 14;
 const DEFAULT_CENTER: [number, number] = [20, 0];
 const DEFAULT_ZOOM = 2;
 
@@ -49,6 +50,7 @@ export interface ArchiveMapProps {
   onSelectClip: (clipPath: string) => void;
   onOpenClip?: (clipPath: string, seekSec?: number) => void;
   onViewportChange: (bbox: Bbox | null) => void;
+  onDetailViewportChange?: (bbox: Bbox | null) => void;
   initialMapView?: ArchiveMapView | null;
   onMapViewChange?: (view: ArchiveMapView) => void;
   onStyleChange?: (style: MapStyle) => void;
@@ -144,6 +146,7 @@ export function ArchiveMap({
   onSelectClip,
   onOpenClip,
   onViewportChange,
+  onDetailViewportChange,
   initialMapView = null,
   onMapViewChange,
   onStyleChange,
@@ -175,6 +178,8 @@ export function ArchiveMap({
 
   const onSelectClipRef = useRef(onSelectClip);
   const onViewportChangeRef = useRef(onViewportChange);
+  const onDetailViewportChangeRef = useRef(onDetailViewportChange);
+  const lastDetailActiveRef = useRef(false);
   const initialMapViewRef = useRef(initialMapView);
   const onMapViewChangeRef = useRef(onMapViewChange);
   const onPointQueryRef = useRef(onPointQuery);
@@ -182,6 +187,7 @@ export function ArchiveMap({
   useEffect(() => {
     onSelectClipRef.current = onSelectClip;
     onViewportChangeRef.current = onViewportChange;
+    onDetailViewportChangeRef.current = onDetailViewportChange;
     initialMapViewRef.current = initialMapView;
     onMapViewChangeRef.current = onMapViewChange;
     onPointQueryRef.current = onPointQuery;
@@ -235,17 +241,34 @@ export function ArchiveMap({
     });
   }, []);
 
-  const scheduleViewportUpdate = useCallback((map: Leaflet.Map) => {
-    if (suppressViewportRef.current) {
-      suppressViewportRef.current = false;
-      return;
+  const emitDetailViewport = useCallback((map: Leaflet.Map, bbox?: Bbox) => {
+    const cb = onDetailViewportChangeRef.current;
+    if (!cb || typeof map.getZoom !== 'function' || typeof map.getBounds !== 'function') return;
+    if (map.getZoom() >= ARCHIVE_DETAIL_MIN_ZOOM) {
+      lastDetailActiveRef.current = true;
+      cb(bbox ?? boundsToBbox(map.getBounds()));
+    } else if (lastDetailActiveRef.current) {
+      lastDetailActiveRef.current = false;
+      cb(null);
     }
-    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
-    viewportTimerRef.current = setTimeout(() => {
-      viewportTimerRef.current = null;
-      onViewportChangeRef.current(boundsToBbox(map.getBounds()));
-    }, VIEWPORT_DEBOUNCE_MS);
   }, []);
+
+  const scheduleViewportUpdate = useCallback(
+    (map: Leaflet.Map) => {
+      if (suppressViewportRef.current) {
+        suppressViewportRef.current = false;
+        return;
+      }
+      if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
+      viewportTimerRef.current = setTimeout(() => {
+        viewportTimerRef.current = null;
+        const bbox = boundsToBbox(map.getBounds());
+        onViewportChangeRef.current(bbox);
+        emitDetailViewport(map, bbox);
+      }, VIEWPORT_DEBOUNCE_MS);
+    },
+    [emitDetailViewport],
+  );
 
   useEffect(() => {
     const host = hostRef.current;
@@ -303,6 +326,7 @@ export function ArchiveMap({
       }
 
       setZoom(map.getZoom());
+      emitDetailViewport(map);
 
       const handleMoveOrZoom = () => {
         setZoom(map.getZoom());
@@ -341,7 +365,7 @@ export function ArchiveMap({
       tileLayerRef.current = null;
       vectorGroupRef.current = null;
     };
-  }, [emitMapView, scheduleViewportUpdate]);
+  }, [emitDetailViewport, emitMapView, scheduleViewportUpdate]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -379,8 +403,9 @@ export function ArchiveMap({
       map.fitBounds(toLeafletBounds(L, spatialBounds), { padding: [32, 32], maxZoom: 16 });
       suppressViewportRef.current = false;
       setZoom(map.getZoom());
+      emitDetailViewport(map);
     }
-  }, [mapReady, spatialBounds]);
+  }, [emitDetailViewport, mapReady, spatialBounds]);
 
   useEffect(() => {
     const L = leafletRef.current;
@@ -562,9 +587,13 @@ export function ArchiveMap({
       map.fitBounds(toLeafletBounds(L, target), { padding: [32, 32], maxZoom: 16 });
       suppressViewportRef.current = false;
       setZoom(map.getZoom());
+      emitDetailViewport(map);
       emitMapView(map);
+    } else if (lastDetailActiveRef.current) {
+      lastDetailActiveRef.current = false;
+      onDetailViewportChangeRef.current?.(null);
     }
-  }, [emitMapView, spatialBounds]);
+  }, [emitDetailViewport, emitMapView, spatialBounds]);
 
   const activeClipItem =
     (hoveredClipPath ? itemByPath.get(hoveredClipPath) : undefined) ??

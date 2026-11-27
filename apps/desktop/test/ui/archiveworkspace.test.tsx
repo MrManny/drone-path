@@ -103,7 +103,7 @@ const workspaceLeafletMock = vi.hoisted(() => {
         _southWest: { lat: sw[0], lng: sw[1] },
         _northEast: { lat: ne[0], lng: ne[1] },
       })),
-      polyline: vi.fn(() => {
+      polyline: vi.fn((_coords?: unknown) => {
         const layer = makeLayer();
         polylines.push(layer);
         return layer;
@@ -938,5 +938,93 @@ describe('Archive workspace and mode switch', () => {
 
     await screen.findByText('Flight 1');
     expect(container.querySelector('.archive-flight-duration')).toBeNull();
+  });
+
+  it('fetches full-detail tracks at zoom >= 14 and reverts to overview when zoomed out', async () => {
+    const detailTrack = [
+      [
+        { tSec: 0, lat: 46.6, lon: 14.2 },
+        { tSec: 1, lat: 46.603, lon: 14.203 },
+        { tSec: 2, lat: 46.607, lon: 14.207 },
+        { tSec: 3, lat: 46.61, lon: 14.21 },
+      ],
+    ];
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    bridge.queryArchive.mockImplementation(async (filters?: ArchiveQueryFilters) => {
+      if (filters?.detail === 'full') {
+        return {
+          ...SAMPLE_QUERY,
+          flights: [
+            {
+              ...SAMPLE_QUERY.flights[0],
+              clips: [
+                { ...SAMPLE_QUERY.flights[0].clips[0], track: detailTrack },
+                SAMPLE_QUERY.flights[0].clips[1],
+              ],
+            },
+          ],
+        };
+      }
+      return SAMPLE_QUERY;
+    });
+
+    render(<Page />);
+    await screen.findByText('Flight 1');
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalledTimes(1));
+
+    const detailCallsBefore = bridge.queryArchive.mock.calls.filter(
+      ([arg]) => arg?.detail === 'full',
+    );
+    expect(detailCallsBefore).toHaveLength(0);
+
+    vi.useFakeTimers();
+    try {
+      workspaceLeafletMock.setViewState({ lat: 46.605, lng: 14.205 }, 15);
+      act(() => {
+        workspaceLeafletMock.triggerMap('zoomend');
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await waitFor(() => {
+      const detailCalls = bridge.queryArchive.mock.calls.filter(([arg]) => arg?.detail === 'full');
+      expect(detailCalls.length).toBeGreaterThanOrEqual(1);
+    });
+    await waitFor(() => {
+      const hasFourPointPolyline = workspaceLeafletMock.L.polyline.mock.calls.some(
+        ([coords]) => Array.isArray(coords) && coords.length === 4,
+      );
+      expect(hasFourPointPolyline).toBe(true);
+    });
+
+    const detailCountAtZoom15 = bridge.queryArchive.mock.calls.filter(
+      ([arg]) => arg?.detail === 'full',
+    ).length;
+
+    vi.useFakeTimers();
+    try {
+      workspaceLeafletMock.setViewState({ lat: 46.605, lng: 14.205 }, 12);
+      act(() => {
+        workspaceLeafletMock.triggerMap('zoomend');
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    await waitFor(() => {
+      expect(workspaceLeafletMock.polylines).toHaveLength(0);
+    });
+    expect(
+      bridge.queryArchive.mock.calls.filter(([arg]) => arg?.detail === 'full').length,
+    ).toBe(detailCountAtZoom15);
   });
 });

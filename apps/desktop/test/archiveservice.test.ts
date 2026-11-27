@@ -286,6 +286,21 @@ describe('createArchiveService', () => {
     expect(listArchiveFlights).not.toHaveBeenCalled();
   });
 
+  it('uses listArchiveFlights for detail: full viewport queries', () => {
+    const flights: ArchiveFlight[] = [
+      { flightId: 'f1', clips: [{ ...makeScanRecord('a.mp4'), availability: 'online', splitFromKey: null }] },
+    ];
+    const { service, listArchiveFlightOverviews, listArchiveFlights } = makeHarness({
+      listArchiveFlightOverviews: () => [],
+      listArchiveFlights: () => flights,
+    });
+    const bbox = { minLat: 46, maxLat: 47, minLon: 14, maxLon: 15 };
+    const result = service.query({ bbox, detail: 'full' });
+    expect(result.flights).toHaveLength(1);
+    expect(listArchiveFlights).toHaveBeenCalledWith(expect.any(String), { bbox });
+    expect(listArchiveFlightOverviews).not.toHaveBeenCalled();
+  });
+
   it('filters query results by folderRoot and flightId and registers poster entries', () => {
     const rootA = path.join(tmpDir(), 'rootA');
     const rootB = path.join(tmpDir(), 'rootB');

@@ -11,6 +11,7 @@ import type {
   ArchiveNearHit,
   ArchiveQueryFilters,
   ArchiveScanProgress,
+  ArchiveTrackPoint,
 } from '../../shared/ipc.js';
 import { tryAppBridge } from '../lib/backend.js';
 import { useMountedRef } from './useMountedRef.js';
@@ -150,6 +151,7 @@ export interface ArchiveWorkspaceState {
   activeFilterCount: number;
   activeQueryFilters: ArchiveQueryFilters | undefined;
   setViewportBbox: (bbox: Bbox | null) => void;
+  setDetailViewportBbox: (bbox: Bbox | null) => void;
   setMapView: (view: ArchiveMapView | null) => void;
   setSelectedClipPath: (clipPath: string | null) => void;
   setFiltersOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
@@ -241,11 +243,16 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   const [pointQueryLoading, setPointQueryLoading] = useState(false);
   const [pointQueryActive, setPointQueryActive] = useState(false);
   const [filters, setFiltersState] = useState<ArchiveFilterState>(DEFAULT_ARCHIVE_FILTERS);
+  const [detailTracksByPath, setDetailTracksByPath] = useState<
+    ReadonlyMap<string, ArchiveTrackPoint[][]>
+  >(() => new Map());
 
   const mounted = useMountedRef();
   const viewportBboxRef = useRef<Bbox | null>(null);
+  const detailBboxRef = useRef<Bbox | null>(null);
   const filtersRef = useRef<ArchiveFilterState>(DEFAULT_ARCHIVE_FILTERS);
   const querySeqRef = useRef(0);
+  const detailQuerySeqRef = useRef(0);
   const pointQuerySeqRef = useRef(0);
   const rootsRef = useRef(roots);
   useLayoutEffect(() => {
@@ -255,6 +262,34 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   useLayoutEffect(() => {
     onInitialRootsRef.current = onInitialRoots;
   }, [onInitialRoots]);
+
+  const fetchDetailTracks = useCallback(
+    async (bbox: Bbox, nextFilters: ArchiveFilterState = filtersRef.current) => {
+      const bridge = tryAppBridge();
+      if (!bridge || typeof bridge.queryArchive !== 'function') return;
+      const seq = (detailQuerySeqRef.current += 1);
+      const baseFilters = buildArchiveQueryFilters(nextFilters, null);
+      try {
+        const result = await bridge.queryArchive({
+          ...(baseFilters ?? {}),
+          bbox,
+          detail: 'full',
+        });
+        if (!mounted.current || detailQuerySeqRef.current !== seq) return;
+        const next = new Map<string, ArchiveTrackPoint[][]>();
+        for (const flight of result.flights) {
+          for (const clip of flight.clips) {
+            next.set(clip.path, clip.track);
+          }
+        }
+        setDetailTracksByPath(next);
+      } catch (e) {
+        if (!mounted.current || detailQuerySeqRef.current !== seq) return;
+        setError(classifyError(e));
+      }
+    },
+    [mounted],
+  );
 
   const refreshQuery = useCallback(
     async (
@@ -279,12 +314,16 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
         setTotalCount(result.totalCount);
         setOfflineCount(result.offlineCount);
         setOfflineRoots(computeOfflineRoots(activeRoots, result.flights, result.offlineRoots));
+        setDetailTracksByPath((prev) => (prev.size > 0 ? new Map() : prev));
+        if (detailBboxRef.current !== null) {
+          void fetchDetailTracks(detailBboxRef.current, nextFilters);
+        }
       } catch (e) {
         if (!mounted.current || querySeqRef.current !== seq) return;
         setError(classifyError(e));
       }
     },
-    [mounted],
+    [fetchDetailTracks, mounted],
   );
 
   const setViewportBbox = useCallback(
@@ -297,6 +336,21 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
       }
     },
     [refreshQuery],
+  );
+
+  const setDetailViewportBbox = useCallback(
+    (bbox: Bbox | null) => {
+      if (bbox === null) {
+        detailBboxRef.current = null;
+        detailQuerySeqRef.current += 1;
+        setDetailTracksByPath((prev) => (prev.size > 0 ? new Map() : prev));
+        return;
+      }
+      if (bboxEqual(detailBboxRef.current, bbox)) return;
+      detailBboxRef.current = bbox;
+      void fetchDetailTracks(bbox);
+    },
+    [fetchDetailTracks],
   );
 
   const clearPointQuery = useCallback(() => {
@@ -536,10 +590,21 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     [filters, viewportBbox],
   );
 
+  const displayFlights = useMemo(() => {
+    if (detailTracksByPath.size === 0) return flights;
+    return flights.map((flight) => ({
+      ...flight,
+      clips: flight.clips.map((clip) => {
+        const detailTrack = detailTracksByPath.get(clip.path);
+        return detailTrack ? { ...clip, track: detailTrack } : clip;
+      }),
+    }));
+  }, [detailTracksByPath, flights]);
+
   return {
     roots,
     offlineRoots,
-    flights,
+    flights: displayFlights,
     availableFlightIds,
     totalCount,
     offlineCount,
@@ -560,6 +625,7 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
     activeFilterCount,
     activeQueryFilters,
     setViewportBbox,
+    setDetailViewportBbox,
     setMapView,
     setSelectedClipPath,
     setFiltersOpen,
