@@ -12,7 +12,7 @@ interface DialogShellProps {
   blockedReason?: string;
   closeOnBackdrop?: boolean;
   panelClass?: string;
-  /** When this key changes, focus moves to [data-phase-focus] or back to the panel. */
+  /** When this key changes, focus moves to an enabled [data-phase-focus] target or the panel. */
   focusKey?: string;
   children: ReactNode;
 }
@@ -39,7 +39,7 @@ export function DialogShell({
     if (focusKey === undefined || seenFocusKey.current === focusKey) return;
     seenFocusKey.current = focusKey;
     const panel = panelRef.current;
-    const target = panel?.querySelector<HTMLElement>('[data-phase-focus]');
+    const target = panel?.querySelector<HTMLElement>('[data-phase-focus]:not(:disabled)');
     (target ?? panel)?.focus();
   }, [focusKey]);
 

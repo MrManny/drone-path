@@ -158,6 +158,12 @@ export function ArchiveWorkspace({
     buttons[nextIndex].focus();
   }, []);
 
+  function closeFoldersDialog() {
+    if (pruning) return;
+    if (confirmPruneOpen) setConfirmPruneOpen(false);
+    else setFoldersOpen(false);
+  }
+
   const scanStatusText = scanning
     ? scanProgress?.currentPath
       ? t('archiveWorkspace.scanningFile', {
@@ -177,6 +183,7 @@ export function ArchiveWorkspace({
       opening={opening}
       durationSec={null}
       dialogs={dialogs}
+      onCloseLocalOverlay={foldersOpen ? closeFoldersDialog : undefined}
       onOpen={onOpen}
       onOpenFolder={onOpenFolder}
       onHelp={onHelp}
@@ -350,11 +357,7 @@ export function ArchiveWorkspace({
               focusKey={confirmPruneOpen ? 'prune' : 'folders'}
               blockedReason={pruning ? t('archiveWorkspace.pruningOffline') : undefined}
               closeOnBackdrop={!pruning}
-              onClose={() => {
-                if (pruning) return;
-                if (confirmPruneOpen) setConfirmPruneOpen(false);
-                else setFoldersOpen(false);
-              }}
+              onClose={closeFoldersDialog}
             >
               {confirmPruneOpen ? (
                 <>

@@ -87,15 +87,17 @@ export function listArchiveFlights(
   options: { overview?: boolean } = {},
 ): ArchiveFlight[] {
   return withArchiveStore(db, (store) => {
-    const flights = groupFlightMembers(matchingClips(store, filters, options.overview === true));
-    let starts: Map<string, string | null> | undefined;
-    return [...flights].map(([flightId, members]) => {
+    const flights = [...groupFlightMembers(matchingClips(store, filters, options.overview === true))];
+    // Filters can omit the clip that started a flight.
+    const starts = options.overview
+      ? store.readFlightStartTimes(flights.flatMap(([id, members]) => members[0].flight.order === 0 ? [] : [id]))
+      : undefined;
+    return flights.map(([flightId, members]) => {
       const clips = members.map(({ clip, flight }) => ({ ...clip, splitFromKey: flight.splitFromKey }));
       if (!options.overview) return { flightId, clips };
-      // Filters can omit the clip that started a flight.
       const start = members[0].flight.order === 0
         ? clips[0].cameraCreationTime
-        : (starts ??= store.readFlightStartTimes()).get(flightId);
+        : starts?.get(flightId);
       const startMs = start ? zonedTimeMs(start) : NaN;
       return { flightId, clips, startMs: Number.isFinite(startMs) ? startMs : null };
     });

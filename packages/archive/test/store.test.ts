@@ -25,6 +25,22 @@ it('opens and reads a current archive while another connection holds a write res
   }
 });
 
+it('adds the flight-start index to an existing archive without changing its schema version', () => {
+  const file = path.join(tmpDir(), 'archive.sqlite');
+  new ArchiveStore(file).close();
+
+  const db = new DatabaseSync(file);
+  try {
+    db.exec('DROP INDEX clip_flight_starts');
+    new ArchiveStore(file).close();
+    expect(db.prepare('PRAGMA user_version').get()?.user_version).toBe(ARCHIVE_SCHEMA_VERSION);
+    expect(db.prepare("SELECT name FROM sqlite_schema WHERE name = 'clip_flight_starts'").get())
+      .toEqual({ name: 'clip_flight_starts' });
+  } finally {
+    db.close();
+  }
+});
+
 it('rejects an unsupported database schema and leaves its version intact', () => {
   const file = path.join(tmpDir(), 'archive.sqlite');
   const newer = ARCHIVE_SCHEMA_VERSION + 1;

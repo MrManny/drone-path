@@ -121,7 +121,7 @@ export function ArchiveFlightCard({ flight, index, matches, expanded, onToggle, 
               <span>{t('archiveWorkspace.clipCount', { count: clips.length })}</span>
               {totalDuration > 0 ? <span><span aria-hidden="true">{' · '}</span><span>{formatTime(totalDuration)}</span></span> : null}
             </span>
-            <span className="archive-clip-name" title={name}>{name}</span>
+            <span className="archive-clip-name" title={representative.path}>{name}</span>
             {multiple ? (
               <>
                 {allOffline ? <span className="archive-badge archive-badge-offline">{t('archiveWorkspace.offlineBadge')}</span> : null}
@@ -145,7 +145,7 @@ export function ArchiveFlightCard({ flight, index, matches, expanded, onToggle, 
                 <button className={`archive-clip-row${clip.availability === 'offline' ? ' archive-clip-row-offline' : ''}`}
                   {...clipButton(clip, actions, t)}>
                   <span className="archive-clip-main">
-                    <span className="archive-clip-name" title={clipName}>{clipName}</span>
+                    <span className="archive-clip-name" title={clip.path}>{clipName}</span>
                     <span className="archive-clip-subline">
                       <span className="readout">
                         <span>{duration === null ? '--' : formatTime(duration)}</span>

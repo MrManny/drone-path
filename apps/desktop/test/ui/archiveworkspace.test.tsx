@@ -475,7 +475,7 @@ describe('Archive workspace and mode switch', () => {
     const dialog = screen.getByRole('dialog', { name: 'Remove missing clips' });
     expect(within(dialog).getByText(/Remove 1 offline clip from the archive\?/)).toBeTruthy();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Remove missing clips' })).toBeNull();
     expect(bridge.pruneArchiveOffline).not.toHaveBeenCalled();
 
@@ -491,11 +491,20 @@ describe('Archive workspace and mode switch', () => {
         },
       ],
     });
+    let finishPrune!: (result: ArchivePruneOfflineResult) => void;
+    bridge.pruneArchiveOffline.mockImplementationOnce(() => new Promise((resolve) => {
+      finishPrune = resolve;
+    }));
     fireEvent.click(within(reopenedDialog).getByRole('button', { name: 'Remove missing clips' }));
-
-    await waitFor(() => expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(reopenedDialog, { key: 'Escape' });
+    fireEvent.keyDown(reopenedDialog, { key: 'o', ctrlKey: true });
+    expect(screen.getByRole('dialog', { name: 'Remove missing clips' })).toBe(reopenedDialog);
+    expect(bridge.pickRecording).not.toHaveBeenCalled();
+    expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1);
+    await act(async () => finishPrune({ ok: true, removed: 1 }));
     await waitFor(() => expect(screen.getByText('Removed 1 missing clip from the archive.')).toBeTruthy());
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove missing clips…' }).disabled).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'Watched folders' }));
   });
 
   it('queries point matches from ground click, opens clip at seekSec, and preserves point state across switches', async () => {
@@ -853,6 +862,27 @@ describe('Archive workspace and mode switch', () => {
     expect(screen.getByRole('button', { name: 'Remove Flights' })).toBeTruthy();
   });
 
+  it('keeps workspace shortcuts out of the Folders dialog and restores focus on Escape', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+    const opener = await screen.findByRole('button', { name: 'Folders · 1' });
+    opener.focus();
+    fireEvent.click(opener);
+    const folders = screen.getByRole('dialog', { name: 'Watched folders' });
+
+    fireEvent.keyDown(folders, { key: 'f', altKey: true });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(folders);
+    fireEvent.keyDown(folders, { key: 'o', ctrlKey: true });
+    expect(bridge.pickRecording).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(folders, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Watched folders' })).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    fireEvent.keyDown(opener, { key: 'o', ctrlKey: true });
+    expect(bridge.pickRecording).toHaveBeenCalledTimes(1);
+  });
+
   it('clears selectedClipPath only when its watched folder is removed', async () => {
     const { bridge } = installArchiveBridge({
       initialRoots: ['E:\\Drone\\Flights', 'F:\\Drone\\Other'],
@@ -1005,11 +1035,13 @@ describe('Archive workspace and mode switch', () => {
     expect(headings()).toEqual(['January 1, 2026']);
     expect(bridge.queryArchive.mock.calls).toHaveLength(queryCount);
     const card = screen.getByRole('button', { name: 'Show clips for Flight 3' });
-    expect(within(card).getByText('DJI_0002.MP4').getAttribute('title')).toBe('DJI_0002.MP4');
+    expect(within(card).getByText('DJI_0002.MP4').getAttribute('title')).toBe(SAMPLE_OFFLINE_PATH);
     fireEvent.click(card);
     const rows = [...container.querySelectorAll('.archive-clip-row')];
     expect(rows.map((row) => row.getAttribute('data-archive-clip'))).toEqual([SAMPLE_CLIP_PATH, SAMPLE_OFFLINE_PATH]);
-    expect(within(rows[1] as HTMLElement).getByText('Filename match')).toBeTruthy();
+    const matchingRow = within(rows[1] as HTMLElement);
+    expect(matchingRow.getByText('Filename match')).toBeTruthy();
+    expect(matchingRow.getByText('DJI_0002.MP4').getAttribute('title')).toBe(SAMPLE_OFFLINE_PATH);
 
     fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
     fireEvent.change(within(screen.getByRole('region', { name: 'Archive filters' })).getByLabelText('Flight'), {
