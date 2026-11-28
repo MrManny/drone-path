@@ -42,6 +42,12 @@ describe('generateCliReference', () => {
   it('is deterministic', () => {
     expect(generateCliReference()).toBe(text);
   });
+
+  it('documents frame extraction and links to the full option list', () => {
+    expect(text).toContain('drone-path extract-frame <video> --at <specs> [options]');
+    expect(text).toContain('`--sharpness`');
+    expect(text).toContain('[Extract keyframes](cli.md#extract-keyframes)');
+  });
 });
 
 describe('the checked-in CLI reference', () => {

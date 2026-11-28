@@ -1,5 +1,9 @@
 # drone-path-engine
 
+## 1.2.1
+
+- **Internal:** Reuse the render cancellation error across the render pipeline.
+
 ## 1.2.0
 
 - **Internal:** Updated `drone-path-core` to `1.2.0`.

@@ -1,5 +1,25 @@
 # drone-path
 
+## 1.2.1
+
+### Core libraries
+
+- **Internal:** Read flight start timestamps only for the flights in the current query.
+- **Internal:** Share decimal rounding and Mercator latitude clamping across callers.
+
+### CLI
+
+- **Fixed:** Find `extract-frame` in top-level `drone-path --help` and in the
+  CLI reference, which covers frame selection and sharpness scoring.
+
+### Desktop
+
+- **New:** Browse Archive flights in date groups with thumbnail cards, sort
+  newest or oldest first, and search by recording filename.
+- **New:** “What filmed here?” now prompts you to select a map point and
+  shows a Cancel button while point selection is active. Watched-folder
+  controls and missing-clip cleanup moved into the Folders dialog.
+
 ## 1.2.0
 
 ### Core libraries

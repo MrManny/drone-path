@@ -1,6 +1,6 @@
 {
   "name": "drone-path-core",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Extract drone telemetry from DJI CAM-meta video streams and SRT sidecars.",
   "type": "module",
   "exports": {
