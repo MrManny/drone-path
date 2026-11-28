@@ -1,3 +1,4 @@
+import { act } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { vi } from 'vitest';
@@ -130,16 +131,7 @@ export function delayedMapIslandMock(scene: Scene): MapIslandModule {
 }
 
 export function immediateMapIslandMock(scene: Scene): MapIslandModule {
-  return {
-    MapIsland: ({ onScene }) => {
-      const onSceneRef = useRef(onScene);
-      onSceneRef.current = onScene;
-      useEffect(() => {
-        onSceneRef.current(scene);
-      }, []);
-      return <div data-testid="map-island" />;
-    },
-  };
+  return slotMapIslandMock(() => scene);
 }
 
 export function slotMapIslandMock(getScene: () => Scene): MapIslandModule {
@@ -157,4 +149,10 @@ export function slotMapIslandMock(getScene: () => Scene): MapIslandModule {
 
 export function stubExportPreviewMock(): { ExportPreview: () => ReactElement } {
   return { ExportPreview: () => <div data-testid="export-preview" /> };
+}
+
+export function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): void {
+  act(() => {
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, ...init }));
+  });
 }

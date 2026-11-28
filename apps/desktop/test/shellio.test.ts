@@ -4,8 +4,6 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
-import type { SettingsPatch } from 'drone-path-engine/config';
-import type { AppState } from '../src/appstate.js';
 import {
   applyAppState,
   emptyAppState,
@@ -22,30 +20,13 @@ import {
   writeAppState,
 } from '../src/shellio.js';
 import { testConfig } from '../../../test/fixtures/engine.js';
+import { APP_STATE_SETTINGS, stateFixture } from './appstate-fixture.js';
 import { cleanupTmpDirs, tmpDir } from '../../../test/fixtures/core.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
   cleanupTmpDirs();
 });
-
-const PATCH: SettingsPatch = {
-  style: 'topo',
-  view: 'overview',
-  zoom: 16,
-  zoomOut: 2,
-  hud: { heading: true, alt: true, speed: true },
-  introSec: 1.5,
-  outroSec: 0,
-  trailColor: '#e63946',
-  codec: 'h265',
-  quality: 'low',
-  preset: 'veryfast',
-};
-
-function stateFixture(overrides: Partial<AppState> = {}): AppState {
-  return { settings: PATCH, lastOpenDir: null, language: null, archiveRoots: [], ...overrides };
-}
 
 const UNREADABLE_CASES: Array<[string, string]> = [
   ['corrupt JSON', '{oops'],
@@ -105,7 +86,7 @@ describe('writeAppState / saveAppStateSafely / createAppStateStore', () => {
     store.write(rememberOpenedFile(stateFixture(), path.join(dir, 'flight.mp4')));
     const restored = store.read();
     expect(restored.lastOpenDir).toBe(dir);
-    expect(settingsPatchOf(applyAppState(testConfig(), restored))).toEqual(PATCH);
+    expect(settingsPatchOf(applyAppState(testConfig(), restored))).toEqual(APP_STATE_SETTINGS);
   });
 });
 

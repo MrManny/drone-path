@@ -4,10 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createRef } from 'react';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TimelinePanel } from '../../ui/components/TimelinePanel.js';
+import { pointer } from './harness.js';
 import type { LoopState } from '../../ui/lib/loop.js';
 
 vi.mock('../../ui/components/Filmstrip.js', () => ({
@@ -71,12 +72,6 @@ function renderPanel({
     />,
   );
   return { dispatch, setLoopFrame, scrubTo, scrubRef, playheadRef };
-}
-
-function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): void {
-  act(() => {
-    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, ...init }));
-  });
 }
 
 describe('TimelinePanel header', () => {

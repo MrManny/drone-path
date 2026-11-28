@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { PageVideo } from '../../shared/ipc.js';
 import { createFrameDriver } from '../../ui/lib/framedriver.js';
+import { flushRaf, installRafStub } from './harness.js';
 
 const META: PageVideo = { src: '/video', fps: 30, frames: 300, width: 1920, height: 1080 };
 
@@ -15,16 +16,6 @@ interface FakeVideo {
 }
 
 type FrameCallback = (now: number, meta: { mediaTime: number }) => void;
-
-const rafQueue: Array<(now: number) => void> = [];
-let rafNow = 0;
-
-function flushRaf(): void {
-  for (const cb of rafQueue.splice(0)) {
-    rafNow += 100;
-    cb(rafNow);
-  }
-}
 
 function fakeVideo(): FakeVideo {
   const video: FakeVideo = {
@@ -90,15 +81,7 @@ function build(
   return { applyFrame, onIndex, driver };
 }
 
-beforeEach(() => {
-  rafQueue.length = 0;
-  rafNow = 0;
-  vi.stubGlobal('requestAnimationFrame', (cb: (now: number) => void): number => {
-    rafQueue.push(cb);
-    return rafQueue.length;
-  });
-  vi.stubGlobal('cancelAnimationFrame', (): void => {});
-});
+beforeEach(installRafStub);
 
 afterEach(() => {
   vi.unstubAllGlobals();

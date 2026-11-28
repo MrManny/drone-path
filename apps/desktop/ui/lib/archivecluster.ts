@@ -1,4 +1,4 @@
-import { project } from 'drone-path-core/geo';
+import { clampMercatorLatitude, project } from 'drone-path-core/geo';
 import type { Bbox } from 'drone-path-core/geo';
 
 import type {
@@ -9,8 +9,6 @@ import type {
 
 export const ARCHIVE_CLUSTER_MAX_ZOOM = 11;
 export const DEFAULT_CLUSTER_RADIUS_PX = 48;
-
-const MAX_MERCATOR_LAT = 85.05112878;
 
 export interface ArchiveMapClipItem {
   clip: ArchiveFlightClipDto;
@@ -39,10 +37,6 @@ export interface ArchiveClusterOptions {
 export interface ArchiveClusterResult {
   clusters: ArchiveMapCluster[];
   items: ArchiveMapClipItem[];
-}
-
-function clampLat(lat: number): number {
-  return Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));
 }
 
 function wrapLon(lon: number): number {
@@ -74,13 +68,13 @@ function boundsFromTrack(track: readonly (readonly ArchiveTrackPoint[])[]): Bbox
 }
 
 function centroidOfClip(bounds: Bbox, track: readonly (readonly ArchiveTrackPoint[])[]): { lat: number; lon: number } {
-  const lat = clampLat((bounds.minLat + bounds.maxLat) / 2);
+  const lat = clampMercatorLatitude((bounds.minLat + bounds.maxLat) / 2);
   if (bounds.minLon <= bounds.maxLon) {
     return { lat, lon: wrapLon((bounds.minLon + bounds.maxLon) / 2) };
   }
   const firstPoint = track.find((seg) => seg.length > 0)?.[0];
   return {
-    lat: firstPoint ? clampLat(firstPoint.lat) : lat,
+    lat: firstPoint ? clampMercatorLatitude(firstPoint.lat) : lat,
     lon: firstPoint ? wrapLon(firstPoint.lon) : wrapLon(bounds.minLon),
   };
 }
@@ -171,7 +165,7 @@ export function clusterArchiveClips(
   const allGroups: MutableCluster[] = [];
 
   for (const item of sorted) {
-    const { x, y } = project(item.lon, clampLat(item.lat), clampedZoom);
+    const { x, y } = project(item.lon, item.lat, clampedZoom);
     const gx = Math.floor(x / radiusPx);
     const gy = Math.floor(y / radiusPx);
 

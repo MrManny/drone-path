@@ -6,11 +6,12 @@ import type { Writable } from 'node:stream';
 import type { Browser, Page } from 'playwright-core';
 
 import { MIME } from './assets.js';
-import { ERR_RENDER_CANCELED, codedError, errorMessage } from 'drone-path-core/errors';
+import { ERR_RENDER_CANCELED, errorMessage } from 'drone-path-core/errors';
 import { RENDERER_DIR, serveAsset } from './serve.js';
 import type { CaptureFormat, Codec, EncodeSettings, Quality, MapStyle, RenderConfig } from './config.js';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { LogFn } from './logging.js';
+import { renderCanceledError } from './render-cancellation.js';
 
 const PAGE_LOAD_TIMEOUT_MS = 60000;
 const SCREENSHOT_TIMEOUT_MS = 60000;
@@ -412,10 +413,6 @@ async function captureFrame(
   }
 }
 
-function canceledError(cause?: unknown): Error {
-  return codedError(ERR_RENDER_CANCELED, { code: 'RENDER_CANCELED', cause });
-}
-
 async function workerLoop(
   run: WorkerRun,
   loop: FrameLoopState,
@@ -430,7 +427,7 @@ async function workerLoop(
     await page.waitForFunction('window.__READY === true', null, { timeout: PAGE_LOAD_TIMEOUT_MS });
     for (;;) {
       if (loop.failed) return;
-      if (run.signal?.aborted) throw canceledError();
+      if (run.signal?.aborted) throw renderCanceledError();
       const idx = loop.cursor++;
       if (idx >= run.frames) break;
       await captureFrame(run, loop, page, idx);
@@ -492,12 +489,12 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
   const stream = new OrderedFrameStream(encoder, workerCount);
   const abortEncode = (): void => {
     encoder.kill();
-    stream.abort(canceledError());
+    stream.abort(renderCanceledError());
   };
   signal?.addEventListener('abort', abortEncode, { once: true });
   try {
     await runWorkers({ ...ctx, active, url, stream, timing }, workerCount);
-    if (signal?.aborted) throw canceledError();
+    if (signal?.aborted) throw renderCanceledError();
     await finishEncode(encoder, stream, log, outPath);
   } catch (e) {
     encoder.kill();
@@ -505,7 +502,7 @@ async function captureAndEncode(active: Browser, env: RenderStageEnv): Promise<v
     if (signal?.aborted) {
       throw e instanceof Error && e.message === ERR_RENDER_CANCELED
         ? e
-        : canceledError(e);
+        : renderCanceledError(e);
     }
     throw e;
   } finally {
@@ -553,7 +550,7 @@ export async function renderVideo(
     onCapture,
     tools,
   };
-  if (signal?.aborted) throw canceledError();
+  if (signal?.aborted) throw renderCanceledError();
   const timing: RenderProfile = { evalMs: 0, captureMs: 0, emitMs: 0 };
   const { server, url } = await startServer({ html, style, tileCache, log });
   const env: RenderStageEnv = { ctx, url, timing, workerCount };
