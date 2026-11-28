@@ -40,7 +40,7 @@
     "directory": "packages/engine"
   },
   "dependencies": {
-    "@types/leaflet": "~1.9.22",
+    "@types/leaflet": "~1.9.23",
     "drone-path-core": "~1.2.0",
     "leaflet": "~1.9.4",
     "p-queue": "~10.0.0",
