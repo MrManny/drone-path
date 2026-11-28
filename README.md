@@ -124,7 +124,7 @@ desktop app as offline help:
 
 - [Getting started](docs/user/getting-started.md) — requirements, install options, and your first render.
 - [Desktop app](docs/user/desktop-app.md) — loading a recording, reviewing a flight, exporting video, and saving telemetry JSON.
-- [Archive workspace](docs/user/archive.md) — watched folders, multi-flight map, point search, filters, offline drives, and archive exports.
+- [Archive workspace](docs/user/archive.md) — dated flight cards, filename search, watched folders, map search, and archive exports.
 - [Keyboard shortcuts](docs/user/keyboard-shortcuts.md) — every shortcut of the review player at a glance.
 - [CLI usage](docs/user/cli.md) — rendering, archive indexing/search, MCP server, and track exports.
 - [CLI and config reference](docs/user/cli-reference.md) — every option and config key with its default.

@@ -310,9 +310,20 @@ export class ArchiveStore {
       this.db.exec('PRAGMA busy_timeout = 5000');
       this.db.exec('PRAGMA foreign_keys = ON');
       if (this.schemaVersion() !== ARCHIVE_SCHEMA_VERSION) this.migrate();
+      this.ensureFlightStartIndex();
     } catch (error) {
       this.db.close();
       throw error;
+    }
+  }
+
+  private ensureFlightStartIndex(): void {
+    // Older archive readers can still use the same schema after the index is added.
+    const present = this.db.prepare(
+      "SELECT 1 FROM sqlite_schema WHERE type = 'index' AND name = 'clip_flight_starts'",
+    ).get();
+    if (!present) {
+      this.db.exec('CREATE INDEX IF NOT EXISTS clip_flight_starts ON clip_flights (flight_id) WHERE flight_order = 0');
     }
   }
 
@@ -834,6 +845,16 @@ export class ArchiveStore {
     return overviewOnly
       ? (rows as unknown as FlightClipOverviewRow[]).map(decodeClipOverview)
       : (rows as unknown as FlightClipRow[]).map(decodeFlightClip);
+  }
+
+  readFlightStartTimes(flightIds: readonly string[]): Map<string, string | null> {
+    if (flightIds.length === 0) return new Map();
+    const rows = this.db.prepare(`
+      SELECT flight_id, json_extract(record_json, '$.cameraCreationTime') AS camera_time
+      FROM clip_flights JOIN clips USING (clip_key)
+      WHERE flight_order = 0 AND flight_id IN (SELECT value FROM json_each(?))
+    `).all(JSON.stringify(flightIds)) as { flight_id: string; camera_time: string | null }[];
+    return new Map(rows.map(({ flight_id, camera_time }) => [flight_id, camera_time]));
   }
 
   private refreshFlights(): void {

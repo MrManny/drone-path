@@ -384,6 +384,39 @@ describe('ArchiveMap', () => {
     expect(leafletMock.fakeMap.fitBounds.mock.calls.length).toBe(beforeFits + 1);
   });
 
+  it('exposes the point search toggle, prompt, and cancel control in keyboard order', async () => {
+    const onToggle = vi.fn();
+    render(
+      <ArchiveMap
+        flights={FLIGHTS}
+        style="satellite"
+        selectedClipPath={null}
+        onSelectClip={vi.fn()}
+        onViewportChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        pointQueryActive
+        onTogglePointQuery={onToggle}
+      />,
+    );
+
+    const canvas = await screen.findByTestId('archive-map-canvas');
+    const toggle = screen.getByRole('button', { name: 'What filmed here?' });
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    expect(canvas.classList.contains('is-point-query')).toBe(true);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText('Select a point on the map')).toBeTruthy();
+    const toolbar = toggle.parentElement!;
+    expect([...toolbar.querySelectorAll('button')]).toEqual([
+      screen.getByRole('button', { name: 'Satellite' }),
+      screen.getByRole('button', { name: 'Topographic' }),
+      toggle,
+      cancel,
+    ]);
+    fireEvent.click(cancel);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(toggle);
+  });
+
   it('debounces moveend viewport updates and resets viewport on Fit all', async () => {
     const onViewportChange = vi.fn();
     render(

@@ -11,18 +11,24 @@ When no watched folders are configured yet, launching the app opens the empty [R
 
 The app switches to **Archive** mode, remembers the folder, and scans it recursively in the background. When watched folders already exist at launch, the app opens directly into **Archive** mode and runs a background rescan.
 
-Once at least one folder is configured, the compact **Watched folders** bar stays collapsed by default, showing a single-line folder summary alongside its header controls:
+Click **Folders** above the Archive list to manage the watched folders:
 
 - **Add folder…** adds another watched folder and scans it.
-- **Rescan** (the icon button beside **Add folder…**) re-indexes all watched folders. Unchanged recordings and `.SRT` sidecars are reused, previously failed clips are retried, and clip availability is refreshed.
-- **Cancel scan** (replacing **Rescan** while a scan runs) stops an active scan cleanly without losing already indexed clips.
-- **Toggle watched folders** (the chevron button) expands or collapses the folder list so you can inspect full folder paths or click **Remove** to remove a watched folder from the list and immediately delete its indexed clips from the archive database. Video files on disk are never modified or deleted.
+- **Rescan** re-indexes all watched folders. It reuses unchanged recordings and `.SRT` sidecars, retries previously failed clips, and refreshes clip availability.
+- **Cancel scan** replaces **Rescan** during a scan and keeps clips that are already indexed.
+- **Remove** stops watching a folder and deletes its records from the archive index. Your video files stay on disk.
 
-Index data is stored in the same per-user SQLite archive database used by `drone-path archive` (see [Spatial archive](cli.md#spatial-archive)).
+The bottom of the sidebar shows scan progress or the latest scan result. The index uses the same per-user SQLite database as `drone-path archive` (see [Spatial archive](cli.md#spatial-archive)).
 
-![Archive workspace showing watched folders, flight list, and multi-flight satellite map](../images/app-archive-workspace.jpg)
+## Browsing and searching flights
 
-*The Archive workspace: collapsed **Watched folders** summary, flight-grouped clip list with poster thumbnails, and multi-flight tracks on the satellite map with the bottom-left readout bar.*
+The sidebar groups thumbnail cards by the date each flight started (UTC). Flights without a recording date appear under **Undated**. Use **Oldest first** or **Newest first** above the list to change the order.
+
+Type part of a filename in **Search filenames** to narrow the list. Search ignores case and works alongside **Filters**. A flight appears if one or more of its clips match. Expand the card to see which clips matched. Filename search only affects the sidebar. The map and exports use the Archive filters.
+
+A single-clip card opens the recording in Review. Expand a multi-clip card to open its individual clips or reveal them in your file manager. Offline clips stay visible with opening disabled. When you select a track on the map, Archive expands its flight and scrolls to the clip if the flight is visible in the sidebar.
+
+![Archive sidebar with dated thumbnail cards beside the satellite map](../images/app-archive-workspace.jpg)
 
 ## Switching between Archive and Review
 
@@ -38,21 +44,21 @@ The right-hand pane displays all matching GPS tracks on a Canvas-rendered map co
 
 - **Clustering:** At wider zoom levels (`zoom` 11 and below), nearby clips group into numbered coral clusters. Hover a cluster to see how many recordings it holds, and click it to zoom in until the individual flight tracks appear.
 - **Selection & readout:** Hovering or clicking a track highlights it and shows its filename, flight number, distance, and duration in the bottom-left readout bar, along with an **Open in Review** button for the selected online clip.
-- **Map style & navigation:** Switch between **Satellite** and **Topographic** basemaps in the top-left toolbar (shared with [Map appearance](desktop-app.md#map-appearance) in Review). Use **Fit all**, `+`, and `−` in the top-right toolbar to frame all matching tracks or step zoom levels. See [Tiles and attribution](tiles-and-attribution.md) for map sources and tile caching.
+- **Map style & navigation:** Switch between **Satellite** and **Topographic** basemaps in the top-left toolbar (shared with [Map appearance](desktop-app.md#map-appearance) in Review). Use **Fit all**, `+`, and `−` at the bottom right to frame all matching tracks or step zoom levels. See [Tiles and attribution](tiles-and-attribution.md) for map sources and tile caching.
 - **Viewport sync:** Panning or zooming updates the active map bounds automatically when **Only in map view** is enabled in the filter rail.
 
-At the compact 1024×600 minimum window size, the **Watched folders** header, clip list, and map controls remain single-line and reachable without clipping.
+![Compact Archive workspace with the map search prompt and Cancel control](../images/app-archive-compact.jpg)
 
-![Archive workspace at the compact 1024x600 window size](../images/app-archive-compact.jpg)
-
-*The Archive workspace at the compact 1024×600 window size.*
+*At the minimum 1024 × 600 window size, the search prompt moves below the top map controls.*
 
 ## Point-in-view search ("What filmed here?")
 
 Use point-in-view search to find every recording that flew near a coordinate or pointed its camera at that spot:
 
-1. Click **What filmed here?** in the map toolbar (or click directly on any flight track on the map).
-2. With **What filmed here?** active, click any location on the map.
+1. Click **What filmed here?** at the top right of the map.
+2. When **Select a point on the map** appears, click a location. Click **Cancel** to exit search mode.
+
+Clicking a flight track also searches that location.
 
 The **Clips at this spot** popover lists the clicked coordinates and ranked matches:
 
@@ -101,7 +107,7 @@ If a watched folder resides on a disconnected external drive or SD card, or if i
 - Watched folders whose files are missing or unreachable show an **Offline** badge and dim the folder name when expanded.
 - Opening an offline recording or using **Reveal in folder** is disabled until you reconnect the drive and click **Rescan**.
 
-To clean up records for files you permanently deleted or moved, click **Remove missing clips…** and confirm **Remove missing clips** in the dialog. This removes only the cached flight tracks and telemetry statistics for offline clips from the archive database — video files on disk are never touched.
+To clean up records for files you permanently deleted or moved, open **Folders**, click **Remove missing clips…**, and confirm **Remove missing clips** in the dialog. This removes only the cached flight tracks and telemetry statistics for offline clips from the archive database — video files on disk are never touched.
 
 ## Keyboard navigation
 

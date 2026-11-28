@@ -204,6 +204,11 @@ const SAMPLE_QUERY: ArchiveQueryResult = {
   ],
 };
 
+async function expandFirstFlight() {
+  const disclosure = await screen.findByRole('button', { name: 'Show clips for Flight 1' });
+  if (disclosure.getAttribute('aria-expanded') === 'false') fireEvent.click(disclosure);
+}
+
 function installArchiveBridge(options: {
   initialRoots?: string[];
   queryResult?: ArchiveQueryResult;
@@ -303,10 +308,11 @@ describe('Archive workspace and mode switch', () => {
     const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    await waitFor(() => expect(screen.getByText('Watched folders')).toBeTruthy());
+    await screen.findByRole('button', { name: 'Folders · 1' });
     expect(bridge.scanArchive).toHaveBeenCalledTimes(1);
     expect(screen.getByText('2 recordings')).toBeTruthy();
     expect(screen.getByText(/1 offline/)).toBeTruthy();
+    await expandFirstFlight();
     expect(screen.getByText('Offline')).toBeTruthy();
 
     const offlineButton = screen.getByRole<HTMLButtonElement>('button', {
@@ -327,7 +333,8 @@ describe('Archive workspace and mode switch', () => {
     const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
+    const clipButton = screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
     fireEvent.click(clipButton);
 
     await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
@@ -360,7 +367,7 @@ describe('Archive workspace and mode switch', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'File' }));
     fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Open folder…' }));
 
-    await waitFor(() => expect(screen.getByText('Watched folders')).toBeTruthy());
+    await screen.findByRole('button', { name: 'Folders · 1' });
     expect(bridge.pickArchiveFolder).toHaveBeenCalledTimes(1);
     expect(bridge.scanArchive).toHaveBeenCalledWith(['E:\\Drone\\Added']);
 
@@ -370,15 +377,18 @@ describe('Archive workspace and mode switch', () => {
       currentPath: 'E:\\Drone\\Added\\DJI_0010.MP4',
       status: 'running',
     });
-    expect(screen.getByRole('status').textContent).toBe('Scanning… 1 · DJI_0010.MP4');
+    const status = within(document.querySelector<HTMLElement>('.archive-index-status')!).getByRole('status');
+    expect(status.textContent).toBe('Scanning… 1 · DJI_0010.MP4');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Folders · 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel scan' }));
     expect(bridge.cancelArchiveScan).toHaveBeenCalledTimes(1);
 
     emitProgress({ phase: 'canceled', scanned: 1, status: 'canceled' });
-    expect(screen.getByRole('status').textContent).toBe('Scan canceled.');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle watched folders' }));
+    const folders = screen.getByRole('dialog', { name: 'Watched folders' });
+    expect(within(folders).getByRole('status').textContent).toBe('Scan canceled.');
+    fireEvent.click(within(folders).getByRole('button', { name: 'Rescan' }));
+    expect(bridge.scanArchive).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole('button', { name: 'Remove Added' }));
     await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('E:\\Drone\\Added'));
   });
@@ -407,7 +417,8 @@ describe('Archive workspace and mode switch', () => {
     render(<Page />);
 
     await screen.findByRole('region', { name: 'Archive flight map' });
-    const firstClip = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
+    const firstClip = screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
     const secondClip = screen.getByRole('button', { name: 'Open DJI_0002.MP4 in Review' });
 
     act(() => {
@@ -449,7 +460,7 @@ describe('Archive workspace and mode switch', () => {
     });
     render(<Page />);
 
-    const toggleFolders = await screen.findByRole('button', { name: 'Toggle watched folders' });
+    const toggleFolders = await screen.findByRole('button', { name: 'Folders · 2' });
     fireEvent.click(toggleFolders);
     await waitFor(() => expect(screen.getByText('DroneSD')).toBeTruthy());
     const offlineFolderRow = screen.getByText('DroneSD').closest('li') as HTMLElement;
@@ -464,11 +475,11 @@ describe('Archive workspace and mode switch', () => {
     const dialog = screen.getByRole('dialog', { name: 'Remove missing clips' });
     expect(within(dialog).getByText(/Remove 1 offline clip from the archive\?/)).toBeTruthy();
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Remove missing clips' })).toBeNull();
     expect(bridge.pruneArchiveOffline).not.toHaveBeenCalled();
 
-    fireEvent.click(pruneTrigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove missing clips…' }));
     const reopenedDialog = screen.getByRole('dialog', { name: 'Remove missing clips' });
     bridge.queryArchive.mockResolvedValueOnce({
       totalCount: 1,
@@ -480,11 +491,20 @@ describe('Archive workspace and mode switch', () => {
         },
       ],
     });
+    let finishPrune!: (result: ArchivePruneOfflineResult) => void;
+    bridge.pruneArchiveOffline.mockImplementationOnce(() => new Promise((resolve) => {
+      finishPrune = resolve;
+    }));
     fireEvent.click(within(reopenedDialog).getByRole('button', { name: 'Remove missing clips' }));
-
-    await waitFor(() => expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(reopenedDialog, { key: 'Escape' });
+    fireEvent.keyDown(reopenedDialog, { key: 'o', ctrlKey: true });
+    expect(screen.getByRole('dialog', { name: 'Remove missing clips' })).toBe(reopenedDialog);
+    expect(bridge.pickRecording).not.toHaveBeenCalled();
+    expect(bridge.pruneArchiveOffline).toHaveBeenCalledTimes(1);
+    await act(async () => finishPrune({ ok: true, removed: 1 }));
     await waitFor(() => expect(screen.getByText('Removed 1 missing clip from the archive.')).toBeTruthy());
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Remove missing clips…' }).disabled).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'Watched folders' }));
   });
 
   it('queries point matches from ground click, opens clip at seekSec, and preserves point state across switches', async () => {
@@ -598,16 +618,17 @@ describe('Archive workspace and mode switch', () => {
     const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    const openOnline = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
-    const img = openOnline.querySelector<HTMLImageElement>('img');
+    const disclosure = await screen.findByRole('button', { name: 'Show clips for Flight 1' });
+    const img = disclosure.querySelector<HTMLImageElement>('img');
     expect(img).not.toBeNull();
     expect(img!.getAttribute('loading')).toBe('lazy');
     expect(img!.getAttribute('src')).toBe(`app://bundle/archive/poster/${SAMPLE_POSTER_ID}`);
 
     fireEvent.error(img!);
-    expect(openOnline.querySelector('img')).toBeNull();
-    expect(openOnline.querySelector('.archive-clip-poster-fallback')).not.toBeNull();
+    expect(disclosure.querySelector('img')).toBeNull();
+    expect(disclosure.querySelector('.archive-clip-poster-fallback')).not.toBeNull();
 
+    await expandFirstFlight();
     const revealOnline = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Reveal DJI_0001.MP4 in folder',
     });
@@ -621,11 +642,32 @@ describe('Archive workspace and mode switch', () => {
     await waitFor(() => expect(bridge.revealArchiveClip).toHaveBeenCalledWith(SAMPLE_CLIP_PATH));
   });
 
+  it('opens or reveals a single clip directly from its flight card', async () => {
+    const { bridge } = installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      queryResult: {
+        flights: [{ flightId: 'solo', clips: [SAMPLE_QUERY.flights[0].clips[0]] }],
+        totalCount: 1,
+        offlineCount: 0,
+      },
+    });
+    render(<Page />);
+
+    const card = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    expect(card.getAttribute('aria-expanded')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal DJI_0001.MP4 in folder' }));
+    expect(bridge.revealArchiveClip).toHaveBeenCalledWith(SAMPLE_CLIP_PATH);
+    fireEvent.click(card);
+    await waitFor(() => expect(bridge.openArchiveClip).toHaveBeenCalledWith(
+      expect.objectContaining({ path: SAMPLE_CLIP_PATH }),
+    ));
+  });
+
   it('toggles the collapsible filter rail, queries with filters and viewport sync, and clears filters', async () => {
     const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
     const initialQueries = bridge.queryArchive.mock.calls.length;
 
     const toggle = screen.getByRole('button', { name: 'Filters' });
@@ -678,7 +720,7 @@ describe('Archive workspace and mode switch', () => {
     const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
     fireEvent.click(screen.getByRole('button', { name: 'Export…' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Export archive' });
@@ -719,7 +761,7 @@ describe('Archive workspace and mode switch', () => {
     const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
     fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
     const rail = screen.getByRole('region', { name: 'Archive filters' });
     const callsBefore = bridge.queryArchive.mock.calls.length;
@@ -752,7 +794,8 @@ describe('Archive workspace and mode switch', () => {
     expect(filterToggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByRole('region', { name: 'Archive filters' })).toBeTruthy();
 
-    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
+    const clipButton = screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
     fireEvent.focus(clipButton);
     expect(clipButton.getAttribute('data-selected')).toBe('true');
 
@@ -802,21 +845,42 @@ describe('Archive workspace and mode switch', () => {
     );
   });
 
-  it('starts with watched folders collapsed when roots exist and expands on toggle', async () => {
+  it('keeps folders in their own dialog and shows the collapsed flight summary', async () => {
     installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    const toggle = await screen.findByRole('button', { name: 'Toggle watched folders' });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.getByText('1 folder · Flights')).toBeTruthy();
+    const toggle = await screen.findByRole('button', { name: 'Folders · 1' });
+    expect(screen.queryByRole('dialog', { name: 'Watched folders' })).toBeNull();
+    expect(within(document.querySelector<HTMLElement>('.archive-index-status')!).getByText('Flights')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Remove Flights' })).toBeNull();
-    expect(screen.getByText('· 2 clips')).toBeTruthy();
+    expect(screen.getByText('2 clips')).toBeTruthy();
     expect(screen.getByText('0:08')).toBeTruthy();
 
     fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('dialog', { name: 'Watched folders' })).toBeTruthy();
     expect(screen.getByText('E:\\Drone\\Flights')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Remove Flights' })).toBeTruthy();
+  });
+
+  it('keeps workspace shortcuts out of the Folders dialog and restores focus on Escape', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    render(<Page />);
+    const opener = await screen.findByRole('button', { name: 'Folders · 1' });
+    opener.focus();
+    fireEvent.click(opener);
+    const folders = screen.getByRole('dialog', { name: 'Watched folders' });
+
+    fireEvent.keyDown(folders, { key: 'f', altKey: true });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(folders);
+    fireEvent.keyDown(folders, { key: 'o', ctrlKey: true });
+    expect(bridge.pickRecording).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(folders, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Watched folders' })).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    fireEvent.keyDown(opener, { key: 'o', ctrlKey: true });
+    expect(bridge.pickRecording).toHaveBeenCalledTimes(1);
   });
 
   it('clears selectedClipPath only when its watched folder is removed', async () => {
@@ -825,11 +889,12 @@ describe('Archive workspace and mode switch', () => {
     });
     render(<Page />);
 
-    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
+    const clipButton = screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
     fireEvent.focus(clipButton);
     expect(clipButton.getAttribute('data-selected')).toBe('true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle watched folders' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Folders · 2' }));
     fireEvent.click(screen.getByRole('button', { name: 'Remove Other' }));
     await waitFor(() => expect(bridge.removeArchiveRoot).toHaveBeenCalledWith('F:\\Drone\\Other'));
     expect(
@@ -847,7 +912,8 @@ describe('Archive workspace and mode switch', () => {
     installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
     render(<Page />);
 
-    const clipButton = await screen.findByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+    await expandFirstFlight();
+    const clipButton = screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
     fireEvent.click(clipButton);
     await waitFor(() => expect(document.querySelector('.pane-video video')).not.toBeNull());
 
@@ -937,7 +1003,101 @@ describe('Archive workspace and mode switch', () => {
     const { container } = render(<Page />);
 
     await screen.findByText('Flight 1');
-    expect(container.querySelector('.archive-flight-duration')).toBeNull();
+    expect(container.querySelector('.archive-flight-meta')?.textContent).toBe('1 clip');
+  });
+
+  it('groups and sorts flights by start date and searches filenames within the active Archive filters', async () => {
+    const [first, second] = SAMPLE_QUERY.flights[0].clips;
+    const older = {
+      flightId: 'older',
+      startMs: Date.parse('2026-01-01T23:58:00Z'),
+      clips: [first, { ...second, cameraCreationTime: '2026-01-02T00:01:00Z' }],
+    };
+    const newer = { flightId: 'newer', clips: [{ ...first, path: 'DJI_0003.MP4', cameraCreationTime: '2026-01-03T12:00:00Z' }] };
+    const undated = { flightId: 'undated', clips: [{ ...first, path: 'DJI_0004.MP4', cameraCreationTime: null }] };
+    const all = { flights: [newer, undated, older], totalCount: 4, offlineCount: 1 };
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'], queryResult: all });
+    bridge.queryArchive.mockImplementation(async (filters) => filters?.flightId === 'newer'
+      ? { flights: [newer], totalCount: 1, offlineCount: 0 }
+      : all);
+    const { container } = render(<Page />);
+
+    await screen.findByText('January 1, 2026');
+    const headings = () => [...container.querySelectorAll('.archive-date-heading')].map((heading) => heading.textContent);
+    expect(headings()).toEqual(['January 1, 2026', 'January 3, 2026', 'Undated']);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sort flights' }), { target: { value: 'newest' } });
+    expect(headings()).toEqual(['January 3, 2026', 'January 1, 2026', 'Undated']);
+
+    const search = screen.getByRole('searchbox', { name: 'Search filenames' });
+    const queryCount = bridge.queryArchive.mock.calls.length;
+    fireEvent.change(search, { target: { value: '  dji_0002.mp4  ' } });
+    expect(screen.getByText('1 filename match out of 4')).toBeTruthy();
+    expect(headings()).toEqual(['January 1, 2026']);
+    expect(bridge.queryArchive.mock.calls).toHaveLength(queryCount);
+    const card = screen.getByRole('button', { name: 'Show clips for Flight 3' });
+    expect(within(card).getByText('DJI_0002.MP4').getAttribute('title')).toBe(SAMPLE_OFFLINE_PATH);
+    fireEvent.click(card);
+    const rows = [...container.querySelectorAll('.archive-clip-row')];
+    expect(rows.map((row) => row.getAttribute('data-archive-clip'))).toEqual([SAMPLE_CLIP_PATH, SAMPLE_OFFLINE_PATH]);
+    const matchingRow = within(rows[1] as HTMLElement);
+    expect(matchingRow.getByText('Filename match')).toBeTruthy();
+    expect(matchingRow.getByText('DJI_0002.MP4').getAttribute('title')).toBe(SAMPLE_OFFLINE_PATH);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.change(within(screen.getByRole('region', { name: 'Archive filters' })).getByLabelText('Flight'), {
+      target: { value: 'newer' },
+    });
+    await screen.findByText('No filenames match your search.');
+    expect(screen.getByText('0 filename matches out of 1')).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export…' }).disabled).toBe(false);
+  });
+
+  it('expands a flight and scrolls to the clip selected from the map', async () => {
+    const [first, second] = SAMPLE_QUERY.flights[0].clips;
+    const track = [[first.track[0][0], { lat: 46.61, lon: 14.21, tSec: 1 }]];
+    installArchiveBridge({
+      initialRoots: ['E:\\Drone\\Flights'],
+      queryResult: { ...SAMPLE_QUERY, flights: [{ ...SAMPLE_QUERY.flights[0], clips: [{ ...first, track }, second] }] },
+    });
+    const scrollIntoView = vi.fn();
+    const prior = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<Page />);
+      const card = await screen.findByRole('button', { name: 'Show clips for Flight 1' });
+      expect(card.getAttribute('aria-expanded')).toBe('false');
+      await waitFor(() => expect(workspaceLeafletMock.polylines.length).toBeGreaterThan(0));
+      act(() => workspaceLeafletMock.polylines[0].trigger('click'));
+      const clip = screen.getByRole('button', { name: 'Open DJI_0001.MP4 in Review' });
+      expect(card.getAttribute('aria-expanded')).toBe('true');
+      expect(clip.getAttribute('data-selected')).toBe('true');
+      expect(scrollIntoView.mock.contexts).toContain(clip);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = prior;
+    }
+  });
+
+  it('cancels map search and ignores results from an in-flight query', async () => {
+    const { bridge } = installArchiveBridge({ initialRoots: ['E:\\Drone\\Flights'] });
+    let resolveHits!: (hits: ArchiveNearHit[]) => void;
+    bridge.findArchiveAtPoint.mockImplementation(() => new Promise((resolve) => { resolveHits = resolve; }));
+    render(<Page />);
+    const toggle = await screen.findByRole('button', { name: 'What filmed here?' });
+    await screen.findByText('Flight 1');
+    await waitFor(() => expect(workspaceLeafletMock.L.map).toHaveBeenCalled());
+    fireEvent.click(toggle);
+    expect(screen.getByText('Select a point on the map')).toBeTruthy();
+    expect(screen.getByTestId('archive-map-canvas').classList.contains('is-point-query')).toBe(true);
+    act(() => workspaceLeafletMock.triggerMap('click', { latlng: { lat: 46.6, lng: 14.2 } }));
+    await screen.findByRole('region', { name: 'Clips at selected point' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+    await act(async () => resolveHits([]));
+    expect(screen.queryByRole('region', { name: 'Clips at selected point' })).toBeNull();
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    expect(screen.queryByText('Select a point on the map')).toBeNull();
   });
 
   it('fetches full-detail tracks at zoom >= 14 and reverts to overview when zoomed out', async () => {

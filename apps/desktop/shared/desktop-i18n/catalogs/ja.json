@@ -53,6 +53,7 @@
   "archiveMap.noGpsInView": "現在の表示範囲に GPS 軌跡がありません。",
   "archiveMap.openSelected": "レビューで開く",
   "archiveMap.regionLabel": "アーカイブのフライト地図",
+  "archiveMap.selectPoint": "地図上の地点を選択",
   "archiveMap.whatFilmedHere": "この場所を撮影したクリップ",
   "archiveMap.whatFilmedHereHint": "地図上の任意の場所をクリックして、近くを飛行または撮影したクリップを検索します",
   "archivePointPopover.close": "閉じる",
@@ -65,6 +66,24 @@
   "archivePointPopover.regionLabel": "選択地点のクリップ",
   "archivePointPopover.searching": "一致するクリップを検索中…",
   "archivePointPopover.title": "この地点のクリップ",
+  "archiveWorkspace.filenameMatch": "ファイル名が一致",
+  "archiveWorkspace.filenameMatches": {
+    "other": "一致するファイル名 {count} 件"
+  },
+  "archiveWorkspace.flightClips": "{flight} のクリップを表示",
+  "archiveWorkspace.folders": "フォルダー · {count}",
+  "archiveWorkspace.gpsTrack": "GPS トラック",
+  "archiveWorkspace.indexStatus": "アーカイブインデックス",
+  "archiveWorkspace.newestFirst": "新しい順",
+  "archiveWorkspace.noFilenameMatches": "検索に一致するファイル名はありません。",
+  "archiveWorkspace.noFoldersStatus": "監視対象のフォルダーはありません",
+  "archiveWorkspace.oldestFirst": "古い順",
+  "archiveWorkspace.searchCount": {
+    "other": "全 {total} 件中 {count} 件が一致"
+  },
+  "archiveWorkspace.searchFilenames": "ファイル名を検索",
+  "archiveWorkspace.sortFlights": "フライトを並べ替え",
+  "archiveWorkspace.undated": "日付なし",
   "archiveWorkspace.addFolder": "フォルダーを追加…",
   "archiveWorkspace.cancelScan": "スキャンをキャンセル",
   "archiveWorkspace.clipCount": {
@@ -76,9 +95,6 @@
   "archiveWorkspace.errorBadge": "読み込み不可",
   "archiveWorkspace.exportArchive": "書き出し…",
   "archiveWorkspace.flightHeading": "フライト {index}",
-  "archiveWorkspace.folderSummary": {
-    "other": "{count} 件のフォルダー · {name}"
-  },
   "archiveWorkspace.folderSummaryMulti": "{count} 件のフォルダー · {name} (+{rest})",
   "archiveWorkspace.noFolders": "監視中のフォルダーはまだありません。フォルダーを追加して撮影動画をインデックス化してください。",
   "archiveWorkspace.noRecordings": "監視中のフォルダーにドローンの撮影動画が見つかりませんでした。",
@@ -115,7 +131,6 @@
   },
   "archiveWorkspace.scanning": "スキャン中… {count}",
   "archiveWorkspace.scanningFile": "スキャン中… {count} · {name}",
-  "archiveWorkspace.toggleFolders": "監視中のフォルダーを切り替え",
   "archiveWorkspace.watchedFolders": "監視中のフォルダー",
   "cameraControls.autoFitOnly": "自動調整のみ",
   "cameraControls.autoFitZoom": "ズームを自動調整",

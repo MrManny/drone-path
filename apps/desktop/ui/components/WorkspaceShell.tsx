@@ -20,6 +20,7 @@ interface WorkspaceShellProps {
   opening: boolean;
   durationSec: number | null;
   dialogs: Dialogs;
+  onCloseLocalOverlay?: () => void;
   onOpen: () => void;
   onOpenFolder?: () => void;
   onHelp: () => void;
@@ -43,6 +44,7 @@ export function WorkspaceShell({
   opening,
   durationSec,
   dialogs,
+  onCloseLocalOverlay,
   onOpen,
   onOpenFolder,
   onHelp,
@@ -61,14 +63,18 @@ export function WorkspaceShell({
   children,
 }: WorkspaceShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { active, modalOpen, dispatchDialog } = dialogs;
+  const { active, dispatchDialog } = dialogs;
+  const modalOpen = dialogs.modalOpen || onCloseLocalOverlay !== undefined;
   const mapAppearanceOpen = active === 'map-appearance';
 
   const toggleMapAppearance = useCallback(() => {
     dispatchDialog({ type: mapAppearanceOpen ? 'close' : 'openMapAppearance' });
   }, [mapAppearanceOpen, dispatchDialog]);
 
-  const closeOverlay = useCallback(() => dispatchDialog({ type: 'close' }), [dispatchDialog]);
+  const closeOverlay = useCallback(() => {
+    if (onCloseLocalOverlay) onCloseLocalOverlay();
+    else dispatchDialog({ type: 'close' });
+  }, [dispatchDialog, onCloseLocalOverlay]);
 
   const dispatch = usePlayerHotkeys(
     {

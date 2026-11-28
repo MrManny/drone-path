@@ -382,7 +382,11 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
             : posterIdFor(clip.path, clip.mtimeMs, clip.size);
           return { ...clip, posterId };
         });
-        flights.push({ flightId: flight.flightId, clips: mappedClips });
+        flights.push({
+          flightId: flight.flightId,
+          clips: mappedClips,
+          ...(flight.startMs !== undefined ? { startMs: flight.startMs } : {}),
+        });
       }
       const offlineRoots = options.getRoots().filter((root) => !isDir(root));
       return offlineRoots.length > 0

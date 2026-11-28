@@ -184,6 +184,7 @@ export function ArchiveMap({
   const onMapViewChangeRef = useRef(onMapViewChange);
   const onPointQueryRef = useRef(onPointQuery);
   const pointQueryActiveRef = useRef(pointQueryActive);
+  const pointToggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     onSelectClipRef.current = onSelectClip;
     onViewportChangeRef.current = onViewportChange;
@@ -603,7 +604,7 @@ export function ArchiveMap({
   const canFitAll = Boolean(fullBounds ?? spatialBounds);
 
   return (
-    <div className="archive-map-container" role="region" aria-label={t('archiveMap.regionLabel')}>
+    <div className={`archive-map-container${pointQueryActive ? ' is-searching' : ''}`} role="region" aria-label={t('archiveMap.regionLabel')}>
       <div
         ref={hostRef}
         className={`archive-map-canvas style-${style}${pointQueryActive ? ' is-point-query' : ''}`}
@@ -636,10 +637,10 @@ export function ArchiveMap({
           </div>
         ) : null}
 
-        <div className="archive-map-nav" role="group" aria-label={t('archiveMap.controls')}>
           {onTogglePointQuery ? (
             <button
               type="button"
+              ref={pointToggleRef}
               className="archive-map-btn archive-map-point-toggle"
               aria-pressed={Boolean(pointQueryActive)}
               title={t('archiveMap.whatFilmedHereHint')}
@@ -649,17 +650,18 @@ export function ArchiveMap({
               <span>{t('archiveMap.whatFilmedHere')}</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            className="archive-map-btn"
-            aria-label={t('archiveMap.fitAll')}
-            title={t('archiveMap.fitAll')}
-            disabled={!canFitAll}
-            onClick={handleFitAll}
-          >
-            <LocateFixed aria-hidden="true" />
-            <span>{t('archiveMap.fitAll')}</span>
-          </button>
+        {pointQueryActive && onTogglePointQuery ? (
+          <div className="archive-map-point-prompt">
+            <span role="status">{t('archiveMap.selectPoint')}</span>
+            <button type="button" className="archive-map-btn" onClick={() => {
+              onTogglePointQuery();
+              pointToggleRef.current?.focus();
+            }}>{t('native.cancel')}</button>
+          </div>
+        ) : null}
+      </div>
+      <div className="archive-map-bottom">
+        <div className="archive-map-nav" role="group" aria-label={t('archiveMap.controls')}>
           <button
             type="button"
             className="archive-map-icon-btn"
@@ -678,7 +680,64 @@ export function ArchiveMap({
           >
             <Minus aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            className="archive-map-btn"
+            aria-label={t('archiveMap.fitAll')}
+            title={t('archiveMap.fitAll')}
+            disabled={!canFitAll}
+            onClick={handleFitAll}
+          >
+            <LocateFixed aria-hidden="true" />
+            <span>{t('archiveMap.fitAll')}</span>
+          </button>
         </div>
+        {!pointQueryCoord && hoveredCluster ? (
+          <div className="archive-map-readout" role="status" aria-live="polite">
+            <span className="archive-map-readout-title">
+              {t('archiveWorkspace.recordingCount', { count: hoveredCluster.count })}
+            </span>
+            <span className="hint">{t('archiveMap.clusterZoomHint')}</span>
+          </div>
+        ) : !pointQueryCoord && activeClipItem ? (
+          <div className="archive-map-readout" role="status" aria-live="polite">
+            <div className="archive-map-readout-info">
+              <span className="archive-map-readout-title">
+                {leafName(activeClipItem.clip.path)}
+              </span>
+              <span className="archive-map-readout-meta readout">
+                {t('archiveWorkspace.flightHeading', { index: activeClipItem.flightIndex + 1 })}
+                {' · '}
+                {formatArchiveDistance(activeClipItem.clip.telemetry?.trackDistanceM, t)}
+                {' · '}
+                {activeClipItem.clip.video?.durationSec !== null &&
+                activeClipItem.clip.video?.durationSec !== undefined
+                  ? formatTime(activeClipItem.clip.video.durationSec)
+                  : '--'}
+              </span>
+              {activeClipItem.clip.availability === 'offline' ? (
+                <span className="archive-badge archive-badge-offline">
+                  {t('archiveWorkspace.offlineBadge')}
+                </span>
+              ) : null}
+            </div>
+            {onOpenClip &&
+            selectedClipPath === activeClipItem.clip.path &&
+            activeClipItem.clip.availability !== 'offline' ? (
+              <button
+                type="button"
+                className="archive-map-open-btn"
+                onClick={() => onOpenClip(activeClipItem.clip.path)}
+              >
+                {t('archiveMap.openSelected')}
+              </button>
+            ) : null}
+          </div>
+        ) : !pointQueryCoord && flights.length > 0 && spatialItems.length === 0 ? (
+          <div className="archive-map-readout" role="status">
+            <span className="hint">{t('archiveMap.noGpsInView')}</span>
+          </div>
+        ) : null}
       </div>
 
       {!mapReady || tilesLoading ? <BusyStatus>{t('mapCard.preparingMap')}</BusyStatus> : null}
@@ -691,53 +750,6 @@ export function ArchiveMap({
           onOpenClip={onOpenClip}
           onClose={() => onClearPointQuery?.()}
         />
-      ) : null}
-
-      {!pointQueryCoord && hoveredCluster ? (
-        <div className="archive-map-readout" role="status" aria-live="polite">
-          <span className="archive-map-readout-title">
-            {t('archiveWorkspace.recordingCount', { count: hoveredCluster.count })}
-          </span>
-          <span className="hint">{t('archiveMap.clusterZoomHint')}</span>
-        </div>
-      ) : !pointQueryCoord && activeClipItem ? (
-        <div className="archive-map-readout" role="status" aria-live="polite">
-          <div className="archive-map-readout-info">
-            <span className="archive-map-readout-title">
-              {leafName(activeClipItem.clip.path)}
-            </span>
-            <span className="archive-map-readout-meta readout">
-              {t('archiveWorkspace.flightHeading', { index: activeClipItem.flightIndex + 1 })}
-              {' · '}
-              {formatArchiveDistance(activeClipItem.clip.telemetry?.trackDistanceM, t)}
-              {' · '}
-              {activeClipItem.clip.video?.durationSec !== null &&
-              activeClipItem.clip.video?.durationSec !== undefined
-                ? formatTime(activeClipItem.clip.video.durationSec)
-                : '--'}
-            </span>
-            {activeClipItem.clip.availability === 'offline' ? (
-              <span className="archive-badge archive-badge-offline">
-                {t('archiveWorkspace.offlineBadge')}
-              </span>
-            ) : null}
-          </div>
-          {onOpenClip &&
-          selectedClipPath === activeClipItem.clip.path &&
-          activeClipItem.clip.availability !== 'offline' ? (
-            <button
-              type="button"
-              className="archive-map-open-btn"
-              onClick={() => onOpenClip(activeClipItem.clip.path)}
-            >
-              {t('archiveMap.openSelected')}
-            </button>
-          ) : null}
-        </div>
-      ) : !pointQueryCoord && flights.length > 0 && spatialItems.length === 0 ? (
-        <div className="archive-map-readout" role="status">
-          <span className="hint">{t('archiveMap.noGpsInView')}</span>
-        </div>
       ) : null}
     </div>
   );

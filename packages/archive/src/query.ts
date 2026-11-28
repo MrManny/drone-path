@@ -8,7 +8,7 @@ import { groupFlightMembers } from './flight-members.js';
 import { groupSamples } from './scan-track.js';
 import type { ScanRecord } from './scanner.js';
 import { withArchiveStore } from './store.js';
-import type { IndexedClip, SegmentFilter } from './store.js';
+import type { ArchiveStore, IndexedClip, SegmentFilter } from './store.js';
 
 export { parseDateBound } from './camera-time.js';
 
@@ -20,6 +20,7 @@ export type FlightListClip = ArchiveClip & { splitFromKey: string | null };
 export interface ArchiveFlight {
   flightId: string;
   clips: FlightListClip[];
+  startMs?: number | null;
 }
 
 export interface ListFilters {
@@ -65,21 +66,19 @@ function toClip({ record, availability }: IndexedClip): ArchiveClip {
   return { ...record, availability };
 }
 
-function matchingClips(db: string, filters: ListFilters, overview = false) {
+function matchingClips(store: ArchiveStore, filters: ListFilters, overview = false) {
   const segmentFilter = segmentFilterOf(filters);
-  return withArchiveStore(db, (store) => {
-    const clips = overview
-      ? store.listClipOverviews(filters.bbox, filters.availability, segmentFilter)
-      : store.listClips(filters.bbox, filters.availability, segmentFilter);
-    return clips.flatMap((indexed) => {
-      const clip = toClip(indexed);
-      return matchesMetadata(clip, filters) ? [{ clip, flight: indexed.flight }] : [];
-    });
+  const clips = overview
+    ? store.listClipOverviews(filters.bbox, filters.availability, segmentFilter)
+    : store.listClips(filters.bbox, filters.availability, segmentFilter);
+  return clips.flatMap((indexed) => {
+    const clip = toClip(indexed);
+    return matchesMetadata(clip, filters) ? [{ clip, flight: indexed.flight }] : [];
   });
 }
 
 export function listArchive(db: string, filters: ListFilters = {}): ArchiveClip[] {
-  return matchingClips(db, filters).map(({ clip }) => clip);
+  return withArchiveStore(db, (store) => matchingClips(store, filters).map(({ clip }) => clip));
 }
 
 export function listArchiveFlights(
@@ -87,10 +86,22 @@ export function listArchiveFlights(
   filters: ListFilters = {},
   options: { overview?: boolean } = {},
 ): ArchiveFlight[] {
-  const flights = groupFlightMembers(matchingClips(db, filters, options.overview === true));
-  return [...flights].map(([flightId, members]) => ({
-    flightId, clips: members.map(({ clip, flight }) => ({ ...clip, splitFromKey: flight.splitFromKey })),
-  }));
+  return withArchiveStore(db, (store) => {
+    const flights = [...groupFlightMembers(matchingClips(store, filters, options.overview === true))];
+    // Filters can omit the clip that started a flight.
+    const starts = options.overview
+      ? store.readFlightStartTimes(flights.flatMap(([id, members]) => members[0].flight.order === 0 ? [] : [id]))
+      : undefined;
+    return flights.map(([flightId, members]) => {
+      const clips = members.map(({ clip, flight }) => ({ ...clip, splitFromKey: flight.splitFromKey }));
+      if (!options.overview) return { flightId, clips };
+      const start = members[0].flight.order === 0
+        ? clips[0].cameraCreationTime
+        : starts?.get(flightId);
+      const startMs = start ? zonedTimeMs(start) : NaN;
+      return { flightId, clips, startMs: Number.isFinite(startMs) ? startMs : null };
+    });
+  });
 }
 
 export function listArchiveFlightOverviews(db: string, filters: ListFilters = {}): ArchiveFlight[] {
