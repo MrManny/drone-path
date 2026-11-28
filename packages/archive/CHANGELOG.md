@@ -1,5 +1,9 @@
 # drone-path-archive
 
+## 1.2.1
+
+- **Internal:** Read flight start timestamps only for the flights in the current query.
+
 ## 1.2.0
 
 - **New:** Persist clip-wide sharpness timelines in the SQLite archive with

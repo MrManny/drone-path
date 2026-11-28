@@ -20,6 +20,14 @@ describe('buildProgram', () => {
     expect(program.name()).toBe('drone-path');
     expect(program.helpInformation()).toMatch(/Usage: drone-path\b/);
   });
+
+  it('points to the frame extraction command in top-level help', () => {
+    const program = buildProgram();
+    const write = vi.fn();
+    program.configureOutput({ writeOut: write });
+    program.outputHelp();
+    expect(write.mock.calls.flat().join('')).toContain('drone-path extract-frame --help');
+  });
 });
 
 describe('parseCliArgs', () => {

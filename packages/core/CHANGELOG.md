@@ -1,5 +1,9 @@
 # drone-path-core
 
+## 1.2.1
+
+- **Internal:** Share decimal rounding and Mercator latitude clamping across callers.
+
 ## 1.2.0
 
 - **New:** Score keyframe sharpness on demand with FFmpeg `blurdetect`

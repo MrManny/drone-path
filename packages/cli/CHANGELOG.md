@@ -1,5 +1,10 @@
 # drone-path
 
+## 1.2.1
+
+- **Fixed:** Find `extract-frame` in top-level `drone-path --help` and in the
+  CLI reference, which covers frame selection and sharpness scoring.
+
 ## 1.2.0
 
 - **New:** Pass `--sharpness` to `drone-path extract-frame` (or `sharpness`

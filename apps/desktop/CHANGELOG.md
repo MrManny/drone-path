@@ -1,5 +1,13 @@
 # drone-path-desktop
 
+## 1.2.1
+
+- **New:** Browse Archive flights in date groups with thumbnail cards, sort
+  newest or oldest first, and search by recording filename.
+- **New:** “What filmed here?” now prompts you to select a map point and
+  shows a Cancel button while point selection is active. Watched-folder
+  controls and missing-clip cleanup moved into the Folders dialog.
+
 ## 1.2.0
 
 - **New:** Browse your recording library in the new multi-clip Archive

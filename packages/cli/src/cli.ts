@@ -55,7 +55,9 @@ export function buildProgram(): Command {
   program.option(CONFIG_FILE_OPTION.flags, CONFIG_FILE_OPTION.help);
   return program.addHelpText(
     'after',
-    '\nLibrary inventory: drone-path archive scan --help\nMCP stdio server:  drone-path mcp --help',
+    '\nLibrary inventory: drone-path archive scan --help\n' +
+      'MCP stdio server:  drone-path mcp --help\n' +
+      'Frame extraction: drone-path extract-frame --help',
   );
 }
 
