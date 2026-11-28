@@ -1,5 +1,6 @@
 import { bearingDeg, gpsFixOrNull, haversineM } from './geo.js';
 import type { LatLon } from './geo.js';
+import { roundTo } from './rounding.js';
 import type { TrackRecord } from './track.js';
 
 export const SHOT_TYPES = [
@@ -53,12 +54,6 @@ const EXPOSURE_REL_THRESHOLD = 0.25;
 const EXPOSURE_CCT_THRESHOLD_K = 200;
 const SHORT_CLIP_MAX_S = 4;
 const BLIP_MAX_DURATION_S = 2;
-
-function roundTo(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  const rounded = Math.round(value * factor) / factor;
-  return rounded === 0 ? 0 : rounded;
-}
 
 function shortestAngleDiffDeg(fromDeg: number, toDeg: number): number {
   return ((((toDeg - fromDeg + 540) % 360) + 360) % 360) - 180;

@@ -18,6 +18,11 @@ export interface MercatorPixel {
 export const EARTH_RADIUS_M = 6371008.8;
 export const DEG_TO_RAD = Math.PI / 180;
 export const RAD_TO_DEG = 180 / Math.PI;
+const MAX_MERCATOR_LAT = 85.05112878;
+
+export function clampMercatorLatitude(lat: number): number {
+  return Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));
+}
 
 // (0, 0) is DJI's "no GPS lock" placeholder before the first fix, not a real fix.
 export function isGpsFix(lat: number, lon: number): boolean {
@@ -74,7 +79,7 @@ export function project(lon: number, lat: number, zoom: number): MercatorPixel {
   const scale = 256 * 2 ** zoom;
   const x = ((lon + 180) / 360) * scale;
   const sinLat = Math.sin(
-    Math.max(-85.05112878, Math.min(85.05112878, lat)) * DEG_TO_RAD,
+    clampMercatorLatitude(lat) * DEG_TO_RAD,
   );
   const y =
     (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale;

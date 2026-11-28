@@ -8,6 +8,7 @@ import type { RenderConfig } from 'drone-path-engine/config';
 import { resolveConfig } from 'drone-path-engine/configfile';
 import { userDataDir } from 'drone-path-engine/paths';
 
+import { isRegularFile } from './file-status.js';
 import type { SessionIo } from './appsession.js';
 import { emptyAppState, parseAppState, serializeAppState } from './appstate.js';
 import type { AppState } from './appstate.js';
@@ -64,13 +65,7 @@ export function createAppStateStore(
 }
 
 export const nodeSessionIo: SessionIo = {
-  isFile(filePath: string): boolean {
-    try {
-      return fs.statSync(filePath).isFile();
-    } catch {
-      return false;
-    }
-  },
+  isFile: isRegularFile,
   writeTrack: writeTrackFile,
 };
 

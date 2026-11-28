@@ -4,6 +4,7 @@ import { runTool, spawnTool } from './exec-tool.js';
 import { probeVideo } from './ffmpeg.js';
 import type { FfmpegToolPaths } from './ffmpeg-tools.js';
 import { timeAt } from './frametime.js';
+import { roundTo } from './rounding.js';
 
 export const SHARPNESS_ANALYZER_METHOD = 'ffmpeg-blurdetect';
 export const SHARPNESS_ANALYZER_VERSION = '1';
@@ -68,12 +69,6 @@ export interface AnalyzeClipSharpnessOptions {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function roundTo(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  const rounded = Math.round(value * factor) / factor;
-  return rounded === 0 ? 0 : rounded;
 }
 
 function parseFiniteOrNull(raw: string): number | null {

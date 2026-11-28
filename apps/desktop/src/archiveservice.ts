@@ -33,6 +33,7 @@ import type {
   ArchiveQueryResult,
   ArchiveScanProgress,
 } from 'drone-path-desktop/shared/ipc';
+import { isRegularFile } from './file-status.js';
 import { posterIdFor } from './archiveposters.js';
 import type { PosterRegistration } from './archiveposters.js';
 
@@ -163,14 +164,6 @@ function defaultIsDir(dirPath: string): boolean {
   }
 }
 
-function defaultIsFile(filePath: string): boolean {
-  try {
-    return fs.statSync(filePath).isFile();
-  } catch {
-    return false;
-  }
-}
-
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
@@ -199,7 +192,7 @@ export function createArchiveService(options: ArchiveServiceOptions): ArchiveSer
   const deps = options.deps ?? {};
   const dbPath = deps.dbPath ?? archiveDbPath();
   const isDir = deps.isDir ?? defaultIsDir;
-  const isFile = deps.isFile ?? defaultIsFile;
+  const isFile = deps.isFile ?? isRegularFile;
   const scanArchiveFn = deps.scanArchive ?? defaultScanArchive;
   const listArchiveFlightsFn = deps.listArchiveFlights ?? defaultListArchiveFlights;
   const listArchiveFlightOverviewsFn =

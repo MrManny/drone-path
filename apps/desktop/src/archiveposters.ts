@@ -7,6 +7,8 @@ import { runTool } from 'drone-path-core/exec-tool';
 import type { FfmpegToolPaths } from 'drone-path-core/ffmpeg-tools';
 import type { ArchiveAvailability } from 'drone-path-desktop/shared/ipc';
 
+import { isRegularFile } from './file-status.js';
+
 export const POSTER_ID_RE = /^[a-f0-9]{16,64}$/;
 const DEFAULT_MAX_CONCURRENCY = 2;
 
@@ -53,14 +55,6 @@ export function posterIdFor(
   return crypto.createHash('sha256').update(identity, 'utf8').digest('hex').slice(0, 32);
 }
 
-function defaultIsFile(filePath: string): boolean {
-  try {
-    return fs.statSync(filePath).isFile();
-  } catch {
-    return false;
-  }
-}
-
 async function defaultRunFfmpeg(ffmpegPath: string, args: readonly string[]): Promise<void> {
   await runTool(ffmpegPath, args);
 }
@@ -68,7 +62,7 @@ async function defaultRunFfmpeg(ffmpegPath: string, args: readonly string[]): Pr
 /** Lazily extracts and caches mid-clip JPEG posters with bounded concurrency. */
 export function createArchivePosters(options: ArchivePostersOptions): ArchivePosters {
   const cacheDir = path.resolve(options.cacheDir);
-  const isFile = options.isFile ?? defaultIsFile;
+  const isFile = options.isFile ?? isRegularFile;
   const runFfmpeg = options.runFfmpeg ?? defaultRunFfmpeg;
   const maxConcurrency = Math.max(1, Math.floor(options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY));
   const log = options.log ?? ((): void => {});

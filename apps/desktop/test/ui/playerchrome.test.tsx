@@ -15,7 +15,7 @@ import type { LoopState } from '../../ui/lib/loop.js';
 import { INITIAL_PREPARE_PROGRESS } from 'drone-path-engine/plan';
 import type { PickState } from '../../ui/lib/pickstate.js';
 import { restyleMeta } from '../../ui/lib/restylemeta.js';
-import { SESSION, flushRaf, installRafStub, installResizeObserverStub } from './harness.js';
+import { SESSION, flushRaf, installRafStub, installResizeObserverStub, pointer } from './harness.js';
 
 const fakeScene = vi.hoisted((): Scene => ({
   setFrame: vi.fn(() => Promise.resolve()),
@@ -437,12 +437,6 @@ function key(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
     target.dispatchEvent(event);
   });
   return event;
-}
-
-function pointer(type: string, target: EventTarget, init: MouseEventInit = {}): void {
-  act(() => {
-    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, ...init }));
-  });
 }
 
 function menuBar(): HTMLElement {

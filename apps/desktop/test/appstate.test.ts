@@ -2,7 +2,6 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { AppState } from '../src/appstate.js';
 import {
   APP_STATE_VERSION,
   addArchiveRoot,
@@ -14,26 +13,9 @@ import {
   serializeAppState,
 } from '../src/appstate.js';
 import { DEFAULT_CONFIG, settingsPatchOf } from 'drone-path-engine/config';
-import type { HudLayout, SettingsPatch } from 'drone-path-engine/config';
+import type { HudLayout } from 'drone-path-engine/config';
 import { testConfig } from '../../../test/fixtures/engine.js';
-
-const PATCH: SettingsPatch = {
-  style: 'topo',
-  view: 'overview',
-  zoom: 16,
-  zoomOut: 2,
-  hud: { heading: true, alt: true, speed: true },
-  introSec: 1.5,
-  outroSec: 0,
-  trailColor: '#e63946',
-  codec: 'h265',
-  quality: 'low',
-  preset: 'veryfast',
-};
-
-function stateFixture(overrides: Partial<AppState> = {}): AppState {
-  return { settings: PATCH, lastOpenDir: null, language: null, archiveRoots: [], ...overrides };
-}
+import { APP_STATE_SETTINGS, stateFixture } from './appstate-fixture.js';
 
 const HUD_CASES: Array<[string, HudLayout]> = [
   ['no chip', { heading: false, alt: false, speed: false }],
@@ -54,15 +36,15 @@ const INVALID_CASES: Array<[string, unknown]> = [
   ],
   [
     'an invalid look value',
-    { version: APP_STATE_VERSION, settings: { ...PATCH, style: 'neon' } },
+    { version: APP_STATE_VERSION, settings: { ...APP_STATE_SETTINGS, style: 'neon' } },
   ],
   [
     'an unreadable trail color',
-    { version: APP_STATE_VERSION, settings: { ...PATCH, trailColor: 'neon' } },
+    { version: APP_STATE_VERSION, settings: { ...APP_STATE_SETTINGS, trailColor: 'neon' } },
   ],
   [
     'an invalid look constraint',
-    { version: APP_STATE_VERSION, settings: { ...PATCH, zoom: -1 } },
+    { version: APP_STATE_VERSION, settings: { ...APP_STATE_SETTINGS, zoom: -1 } },
   ],
   ['a mistyped last-opened folder', { version: APP_STATE_VERSION, lastOpenDir: 42 }],
   ['a mistyped archiveRoots field', { version: APP_STATE_VERSION, archiveRoots: 'flights' }],
@@ -90,7 +72,7 @@ describe('parseAppState / serializeAppState', () => {
   });
 
   it.each(HUD_CASES)('round-trips the %s HUD spelling byte-identically', (_label, hud) => {
-    const text = serializeAppState(stateFixture({ settings: { ...PATCH, hud } }));
+    const text = serializeAppState(stateFixture({ settings: { ...APP_STATE_SETTINGS, hud } }));
     expect(serializeAppState(parseAppState(JSON.parse(text)))).toBe(text);
   });
 
@@ -123,7 +105,7 @@ describe('tolerant settings reading', () => {
   it('loads a v1 state without encoder settings or a trail color at the defaults', () => {
     const state = parseAppState({ version: 1, settings: V1_SETTINGS });
     expect(state.settings).toEqual({
-      ...PATCH,
+      ...APP_STATE_SETTINGS,
       trailColor: null,
       codec: 'h264',
       quality: 'high',
@@ -162,7 +144,7 @@ describe('applyAppState', () => {
   it('restores the persisted look over the resolved config', () => {
     const config = testConfig();
     const merged = applyAppState(config, stateFixture());
-    expect(settingsPatchOf(merged)).toEqual(PATCH);
+    expect(settingsPatchOf(merged)).toEqual(APP_STATE_SETTINGS);
     expect(merged.workers).toBe(config.workers);
     expect(merged.outDir).toBe(config.outDir);
     expect(merged.tileCache).toBe(config.tileCache);
@@ -186,7 +168,7 @@ describe('rememberOpenedFile', () => {
 
   it('keeps the persisted look while moving the folder', () => {
     const next = rememberOpenedFile(stateFixture(), path.join('recs', 'flight.mp4'));
-    expect(next.settings).toEqual(PATCH);
+    expect(next.settings).toEqual(APP_STATE_SETTINGS);
     expect(next.lastOpenDir).toBe('recs');
   });
 });

@@ -297,9 +297,11 @@ describe('ArchiveMap', () => {
     await waitFor(() => expect(leafletMock.L.map).toHaveBeenCalledTimes(1));
     expect(leafletMock.mapCalls[0]).toMatchObject({ preferCanvas: true });
     expect(leafletMock.L.canvas).toHaveBeenCalledWith({ padding: 0.5 });
-    expect(leafletMock.tileLayers[0].url).toBe('app://bundle/tiles/satellite/{z}/{x}/{y}.png');
-    expect(leafletMock.fakeMap.fitBounds).toHaveBeenCalledTimes(1);
-    expect(leafletMock.polylines).toHaveLength(2);
+    await waitFor(() => {
+      expect(leafletMock.tileLayers[0]?.url).toBe('app://bundle/tiles/satellite/{z}/{x}/{y}.png');
+      expect(leafletMock.fakeMap.fitBounds).toHaveBeenCalledTimes(1);
+      expect(leafletMock.polylines).toHaveLength(2);
+    });
     expect(leafletMock.polylines[0].options.renderer).toBe(leafletMock.canvasInstances[0]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Topographic' }));

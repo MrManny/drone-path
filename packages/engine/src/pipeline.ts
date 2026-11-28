@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { ERR_OUTPUT_VERIFICATION, ERR_RENDER_CANCELED, codedError, errorMessage } from 'drone-path-core/errors';
+import { ERR_OUTPUT_VERIFICATION, codedError, errorMessage } from 'drone-path-core/errors';
+import { renderCanceledError } from './render-cancellation.js';
 import type { Bbox } from 'drone-path-core/geo';
 import { probeVideo } from 'drone-path-core/ffmpeg';
 import { outputMatchesSource, verifyOutput } from './ffmpeg-output.js';
@@ -349,10 +350,6 @@ async function viewPlanStage(env: PrepareStageEnv, tel: Telemetry): Promise<Over
   return overview;
 }
 
-function canceledError(cause?: unknown): Error {
-  return codedError(ERR_RENDER_CANCELED, { code: 'RENDER_CANCELED', cause });
-}
-
 async function tileWarmStage(
   deps: PipelineDeps,
   config: RenderConfig,
@@ -360,7 +357,7 @@ async function tileWarmStage(
   log: LogFn,
   signal?: AbortSignal,
 ): Promise<PrefetchStats> {
-  if (signal?.aborted) throw canceledError();
+  if (signal?.aborted) throw renderCanceledError();
   let tileStats: PrefetchStats;
   try {
     tileStats = await deps.prefetchTiles({
@@ -370,10 +367,10 @@ async function tileWarmStage(
       signal,
     });
   } catch (err) {
-    if (signal?.aborted) throw canceledError(err);
+    if (signal?.aborted) throw renderCanceledError(err);
     throw err;
   }
-  if (signal?.aborted) throw canceledError();
+  if (signal?.aborted) throw renderCanceledError();
   if (tileStats.downloaded) {
     log(`tiles: ${tileStats.downloaded} downloaded, ${tileStats.failed} placeholders`);
   }
@@ -596,7 +593,7 @@ export async function processRecording(
   const t0 = Date.now();
   const deps = resolveDeps(options.deps, config.tileCache);
   const tools = options.tools ?? resolveFfmpegTools(config);
-  if (options.signal?.aborted) throw canceledError();
+  if (options.signal?.aborted) throw renderCanceledError();
 
   const prep = await prepareWithEnv({
     videoPath,
@@ -607,7 +604,7 @@ export async function processRecording(
     report: createPrepareReporter(options.onProgress),
   });
 
-  if (options.signal?.aborted) throw canceledError();
+  if (options.signal?.aborted) throw renderCanceledError();
 
   if (config.trackOut) {
     writeTrackExport(config.trackOut, prep, log);
