@@ -53,6 +53,7 @@
   "archiveMap.noGpsInView": "No hay rutas GPS en la vista actual.",
   "archiveMap.openSelected": "Abrir en Revisión",
   "archiveMap.regionLabel": "Mapa de vuelos del archivo",
+  "archiveMap.selectPoint": "Selecciona un punto en el mapa",
   "archiveMap.whatFilmedHere": "¿Qué se grabó aquí?",
   "archiveMap.whatFilmedHereHint": "Haz clic en cualquier punto del mapa para buscar clips que pasaron cerca o lo grabaron",
   "archivePointPopover.close": "Cerrar",
@@ -65,6 +66,26 @@
   "archivePointPopover.regionLabel": "Clips en el punto seleccionado",
   "archivePointPopover.searching": "Buscando clips coincidentes…",
   "archivePointPopover.title": "Clips en este punto",
+  "archiveWorkspace.filenameMatch": "Nombre de archivo coincidente",
+  "archiveWorkspace.filenameMatches": {
+    "one": "{count} nombre de archivo coincidente",
+    "other": "{count} nombres de archivo coincidentes"
+  },
+  "archiveWorkspace.flightClips": "Mostrar clips de {flight}",
+  "archiveWorkspace.folders": "Carpetas · {count}",
+  "archiveWorkspace.gpsTrack": "Trayectoria GPS",
+  "archiveWorkspace.indexStatus": "Índice del archivo",
+  "archiveWorkspace.newestFirst": "Más recientes primero",
+  "archiveWorkspace.noFilenameMatches": "Ningún nombre de archivo coincide con tu búsqueda.",
+  "archiveWorkspace.noFoldersStatus": "No hay carpetas supervisadas",
+  "archiveWorkspace.oldestFirst": "Más antiguos primero",
+  "archiveWorkspace.searchCount": {
+    "one": "{count} nombre de archivo coincidente de {total}",
+    "other": "{count} nombres de archivo coincidentes de {total}"
+  },
+  "archiveWorkspace.searchFilenames": "Buscar nombres de archivo",
+  "archiveWorkspace.sortFlights": "Ordenar vuelos",
+  "archiveWorkspace.undated": "Sin fecha",
   "archiveWorkspace.addFolder": "Añadir carpeta…",
   "archiveWorkspace.cancelScan": "Cancelar análisis",
   "archiveWorkspace.clipCount": {
@@ -77,10 +98,6 @@
   "archiveWorkspace.errorBadge": "Ilegible",
   "archiveWorkspace.exportArchive": "Exportar…",
   "archiveWorkspace.flightHeading": "Vuelo {index}",
-  "archiveWorkspace.folderSummary": {
-    "one": "{count} carpeta · {name}",
-    "other": "{count} carpetas · {name}"
-  },
   "archiveWorkspace.folderSummaryMulti": "{count} carpetas · {name} (+{rest})",
   "archiveWorkspace.noFolders": "Aún no hay carpetas vigiladas. Añade una carpeta para indexar tus grabaciones de dron.",
   "archiveWorkspace.noRecordings": "No se encontraron grabaciones de dron en tus carpetas vigiladas.",
@@ -122,7 +139,6 @@
   },
   "archiveWorkspace.scanning": "Analizando… {count}",
   "archiveWorkspace.scanningFile": "Analizando… {count} · {name}",
-  "archiveWorkspace.toggleFolders": "Mostrar u ocultar carpetas vigiladas",
   "archiveWorkspace.watchedFolders": "Carpetas vigiladas",
   "cameraControls.autoFitOnly": "solo ajuste automático",
   "cameraControls.autoFitZoom": "Ajustar zoom automáticamente",

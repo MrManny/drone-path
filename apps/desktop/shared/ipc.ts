@@ -159,6 +159,7 @@ export interface ArchiveFlightClipDto extends ArchiveClipDto {
 export interface ArchiveFlightDto {
   flightId: string;
   clips: ArchiveFlightClipDto[];
+  startMs?: number | null;
 }
 
 export interface ArchiveQueryFilters {

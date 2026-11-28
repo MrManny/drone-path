@@ -836,6 +836,14 @@ export class ArchiveStore {
       : (rows as unknown as FlightClipRow[]).map(decodeFlightClip);
   }
 
+  readFlightStartTimes(): Map<string, string | null> {
+    const rows = this.db.prepare(`
+      SELECT flight_id, json_extract(record_json, '$.cameraCreationTime') AS camera_time
+      FROM clip_flights JOIN clips USING (clip_key) WHERE flight_order = 0
+    `).all() as { flight_id: string; camera_time: string | null }[];
+    return new Map(rows.map(({ flight_id, camera_time }) => [flight_id, camera_time]));
+  }
+
   private refreshFlights(): void {
     const rows = this.db.prepare(`
       SELECT clip_key, size, json_extract(record_json, '$.cameraCreationTime') AS camera_time,

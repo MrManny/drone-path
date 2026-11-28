@@ -361,8 +361,9 @@ export function useArchiveWorkspace(onInitialRoots?: () => void): ArchiveWorkspa
   }, []);
 
   const togglePointQuery = useCallback(() => {
-    setPointQueryActive((prev) => !prev);
-  }, []);
+    if (pointQueryActive) clearPointQuery();
+    setPointQueryActive(!pointQueryActive);
+  }, [clearPointQuery, pointQueryActive]);
 
   const queryAtPoint = useCallback(
     async (point: LatLon, radiusM: number = DEFAULT_POINT_QUERY_RADIUS_M): Promise<void> => {

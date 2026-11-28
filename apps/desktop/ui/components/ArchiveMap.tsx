@@ -184,6 +184,7 @@ export function ArchiveMap({
   const onMapViewChangeRef = useRef(onMapViewChange);
   const onPointQueryRef = useRef(onPointQuery);
   const pointQueryActiveRef = useRef(pointQueryActive);
+  const pointToggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     onSelectClipRef.current = onSelectClip;
     onViewportChangeRef.current = onViewportChange;
@@ -603,7 +604,7 @@ export function ArchiveMap({
   const canFitAll = Boolean(fullBounds ?? spatialBounds);
 
   return (
-    <div className="archive-map-container" role="region" aria-label={t('archiveMap.regionLabel')}>
+    <div className={`archive-map-container${pointQueryActive ? ' is-searching' : ''}`} role="region" aria-label={t('archiveMap.regionLabel')}>
       <div
         ref={hostRef}
         className={`archive-map-canvas style-${style}${pointQueryActive ? ' is-point-query' : ''}`}
@@ -636,10 +637,10 @@ export function ArchiveMap({
           </div>
         ) : null}
 
-        <div className="archive-map-nav" role="group" aria-label={t('archiveMap.controls')}>
           {onTogglePointQuery ? (
             <button
               type="button"
+              ref={pointToggleRef}
               className="archive-map-btn archive-map-point-toggle"
               aria-pressed={Boolean(pointQueryActive)}
               title={t('archiveMap.whatFilmedHereHint')}
@@ -649,17 +650,17 @@ export function ArchiveMap({
               <span>{t('archiveMap.whatFilmedHere')}</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            className="archive-map-btn"
-            aria-label={t('archiveMap.fitAll')}
-            title={t('archiveMap.fitAll')}
-            disabled={!canFitAll}
-            onClick={handleFitAll}
-          >
-            <LocateFixed aria-hidden="true" />
-            <span>{t('archiveMap.fitAll')}</span>
-          </button>
+        {pointQueryActive && onTogglePointQuery ? (
+          <div className="archive-map-point-prompt">
+            <span role="status">{t('archiveMap.selectPoint')}</span>
+            <button type="button" className="archive-map-btn" onClick={() => {
+              onTogglePointQuery();
+              pointToggleRef.current?.focus();
+            }}>{t('native.cancel')}</button>
+          </div>
+        ) : null}
+      </div>
+      <div className="archive-map-nav" role="group" aria-label={t('archiveMap.controls')}>
           <button
             type="button"
             className="archive-map-icon-btn"
@@ -678,7 +679,17 @@ export function ArchiveMap({
           >
             <Minus aria-hidden="true" />
           </button>
-        </div>
+          <button
+            type="button"
+            className="archive-map-btn"
+            aria-label={t('archiveMap.fitAll')}
+            title={t('archiveMap.fitAll')}
+            disabled={!canFitAll}
+            onClick={handleFitAll}
+          >
+            <LocateFixed aria-hidden="true" />
+            <span>{t('archiveMap.fitAll')}</span>
+          </button>
       </div>
 
       {!mapReady || tilesLoading ? <BusyStatus>{t('mapCard.preparingMap')}</BusyStatus> : null}

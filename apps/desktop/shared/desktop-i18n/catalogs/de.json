@@ -53,6 +53,7 @@
   "archiveMap.noGpsInView": "Keine GPS-Spuren im aktuellen Ausschnitt.",
   "archiveMap.openSelected": "In Prüfung öffnen",
   "archiveMap.regionLabel": "Archiv-Flugkarte",
+  "archiveMap.selectPoint": "Punkt auf der Karte auswählen",
   "archiveMap.whatFilmedHere": "Was wurde hier gefilmt?",
   "archiveMap.whatFilmedHereHint": "Klicke auf einen Punkt auf der Karte, um Clips zu finden, die dort vorbeiflogen oder filmten",
   "archivePointPopover.close": "Schließen",
@@ -65,6 +66,26 @@
   "archivePointPopover.regionLabel": "Clips am gewählten Punkt",
   "archivePointPopover.searching": "Passende Clips werden gesucht…",
   "archivePointPopover.title": "Clips an dieser Stelle",
+  "archiveWorkspace.filenameMatch": "Passender Dateiname",
+  "archiveWorkspace.filenameMatches": {
+    "one": "{count} passender Dateiname",
+    "other": "{count} passende Dateinamen"
+  },
+  "archiveWorkspace.flightClips": "Clips für {flight} anzeigen",
+  "archiveWorkspace.folders": "Ordner · {count}",
+  "archiveWorkspace.gpsTrack": "GPS-Spur",
+  "archiveWorkspace.indexStatus": "Archivindex",
+  "archiveWorkspace.newestFirst": "Neueste zuerst",
+  "archiveWorkspace.noFilenameMatches": "Keine Dateinamen entsprechen der Suche.",
+  "archiveWorkspace.noFoldersStatus": "Keine überwachten Ordner",
+  "archiveWorkspace.oldestFirst": "Älteste zuerst",
+  "archiveWorkspace.searchCount": {
+    "one": "{count} passender Dateiname von {total}",
+    "other": "{count} passende Dateinamen von {total}"
+  },
+  "archiveWorkspace.searchFilenames": "Dateinamen suchen",
+  "archiveWorkspace.sortFlights": "Flüge sortieren",
+  "archiveWorkspace.undated": "Ohne Datum",
   "archiveWorkspace.addFolder": "Ordner hinzufügen…",
   "archiveWorkspace.cancelScan": "Scan abbrechen",
   "archiveWorkspace.clipCount": {
@@ -77,10 +98,6 @@
   "archiveWorkspace.errorBadge": "Nicht lesbar",
   "archiveWorkspace.exportArchive": "Exportieren…",
   "archiveWorkspace.flightHeading": "Flug {index}",
-  "archiveWorkspace.folderSummary": {
-    "one": "{count} Ordner · {name}",
-    "other": "{count} Ordner · {name}"
-  },
   "archiveWorkspace.folderSummaryMulti": "{count} Ordner · {name} (+{rest})",
   "archiveWorkspace.noFolders": "Noch keine überwachten Ordner. Füge einen Ordner hinzu, um deine Drohnenaufnahmen zu indizieren.",
   "archiveWorkspace.noRecordings": "Keine Drohnenaufnahmen in den überwachten Ordnern gefunden.",
@@ -122,7 +139,6 @@
   },
   "archiveWorkspace.scanning": "Wird gescannt… {count}",
   "archiveWorkspace.scanningFile": "Wird gescannt… {count} · {name}",
-  "archiveWorkspace.toggleFolders": "Überwachte Ordner ein-/ausblenden",
   "archiveWorkspace.watchedFolders": "Überwachte Ordner",
   "cameraControls.autoFitOnly": "Nur automatisch",
   "cameraControls.autoFitZoom": "Automatischer Zoom",

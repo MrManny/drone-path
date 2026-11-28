@@ -53,6 +53,7 @@
   "archiveMap.noGpsInView": "Aucune trace GPS dans la vue actuelle.",
   "archiveMap.openSelected": "Ouvrir dans Examen",
   "archiveMap.regionLabel": "Carte des vols de l’archive",
+  "archiveMap.selectPoint": "Sélectionner un point sur la carte",
   "archiveMap.whatFilmedHere": "Qu’est-ce qui a filmé ici ?",
   "archiveMap.whatFilmedHereHint": "Clique sur un point de la carte pour trouver les clips qui sont passés près ou l’ont filmé",
   "archivePointPopover.close": "Fermer",
@@ -65,6 +66,26 @@
   "archivePointPopover.regionLabel": "Clips au point sélectionné",
   "archivePointPopover.searching": "Recherche des clips correspondants…",
   "archivePointPopover.title": "Clips à cet endroit",
+  "archiveWorkspace.filenameMatch": "Nom de fichier correspondant",
+  "archiveWorkspace.filenameMatches": {
+    "one": "{count} nom de fichier correspondant",
+    "other": "{count} noms de fichiers correspondants"
+  },
+  "archiveWorkspace.flightClips": "Afficher les clips de {flight}",
+  "archiveWorkspace.folders": "Dossiers · {count}",
+  "archiveWorkspace.gpsTrack": "Trace GPS",
+  "archiveWorkspace.indexStatus": "Index de l’archive",
+  "archiveWorkspace.newestFirst": "Plus récents d’abord",
+  "archiveWorkspace.noFilenameMatches": "Aucun nom de fichier ne correspond à votre recherche.",
+  "archiveWorkspace.noFoldersStatus": "Aucun dossier surveillé",
+  "archiveWorkspace.oldestFirst": "Plus anciens d’abord",
+  "archiveWorkspace.searchCount": {
+    "one": "{count} nom de fichier correspondant sur {total}",
+    "other": "{count} noms de fichiers correspondants sur {total}"
+  },
+  "archiveWorkspace.searchFilenames": "Rechercher des noms de fichiers",
+  "archiveWorkspace.sortFlights": "Trier les vols",
+  "archiveWorkspace.undated": "Sans date",
   "archiveWorkspace.addFolder": "Ajouter un dossier…",
   "archiveWorkspace.cancelScan": "Annuler l’analyse",
   "archiveWorkspace.clipCount": {
@@ -77,10 +98,6 @@
   "archiveWorkspace.errorBadge": "Illisible",
   "archiveWorkspace.exportArchive": "Exporter…",
   "archiveWorkspace.flightHeading": "Vol {index}",
-  "archiveWorkspace.folderSummary": {
-    "one": "{count} dossier · {name}",
-    "other": "{count} dossiers · {name}"
-  },
   "archiveWorkspace.folderSummaryMulti": "{count} dossiers · {name} (+{rest})",
   "archiveWorkspace.noFolders": "Aucun dossier surveillé pour le moment. Ajoute un dossier pour indexer tes enregistrements de drone.",
   "archiveWorkspace.noRecordings": "Aucun enregistrement de drone trouvé dans tes dossiers surveillés.",
@@ -122,7 +139,6 @@
   },
   "archiveWorkspace.scanning": "Analyse… {count}",
   "archiveWorkspace.scanningFile": "Analyse… {count} · {name}",
-  "archiveWorkspace.toggleFolders": "Afficher ou masquer les dossiers surveillés",
   "archiveWorkspace.watchedFolders": "Dossiers surveillés",
   "cameraControls.autoFitOnly": "ajustement automatique uniquement",
   "cameraControls.autoFitZoom": "Zoom automatique",

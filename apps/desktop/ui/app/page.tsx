@@ -167,6 +167,7 @@ export default function Page() {
       {mode === 'archive' ? (
         <ArchiveWorkspace
           archive={archive}
+          locale={language.locale}
           hasRecording={loaded !== null}
           openState={pickState}
           mapStyle={settings.style}

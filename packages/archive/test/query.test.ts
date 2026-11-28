@@ -150,6 +150,9 @@ it('assembles filtered flight members in recording order with their split predec
     ],
   }]);
   expect(listArchiveFlights(db, { availability: 'online' })).toEqual([{ ...flight, clips: [flight.clips[1]] }]);
+  expect(listArchiveFlightOverviews(db, { afterMs: Date.parse('2025-02-02T00:00:01Z') })).toEqual([
+    { ...flight, clips: [flight.clips[1]], startMs: Date.parse(time) },
+  ]);
   expect(listArchive(db)).toEqual([
     { ...next.record, availability: 'online' }, { ...first.record, availability: 'offline' },
   ]);

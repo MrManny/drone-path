@@ -53,6 +53,7 @@
   "archiveMap.noGpsInView": "No GPS tracks in the current view.",
   "archiveMap.openSelected": "Open in Review",
   "archiveMap.regionLabel": "Archive flight map",
+  "archiveMap.selectPoint": "Select a point on the map",
   "archiveMap.whatFilmedHere": "What filmed here?",
   "archiveMap.whatFilmedHereHint": "Click any spot on the map to find clips that flew near or filmed it",
   "archivePointPopover.close": "Close",
@@ -65,6 +66,26 @@
   "archivePointPopover.regionLabel": "Clips at selected point",
   "archivePointPopover.searching": "Finding matching clips…",
   "archivePointPopover.title": "Clips at this spot",
+  "archiveWorkspace.filenameMatch": "Filename match",
+  "archiveWorkspace.filenameMatches": {
+    "one": "{count} matching filename",
+    "other": "{count} matching filenames"
+  },
+  "archiveWorkspace.flightClips": "Show clips for {flight}",
+  "archiveWorkspace.folders": "Folders · {count}",
+  "archiveWorkspace.gpsTrack": "GPS track",
+  "archiveWorkspace.indexStatus": "Archive index",
+  "archiveWorkspace.newestFirst": "Newest first",
+  "archiveWorkspace.noFilenameMatches": "No filenames match your search.",
+  "archiveWorkspace.noFoldersStatus": "No watched folders",
+  "archiveWorkspace.oldestFirst": "Oldest first",
+  "archiveWorkspace.searchCount": {
+    "one": "{count} filename match out of {total}",
+    "other": "{count} filename matches out of {total}"
+  },
+  "archiveWorkspace.searchFilenames": "Search filenames",
+  "archiveWorkspace.sortFlights": "Sort flights",
+  "archiveWorkspace.undated": "Undated",
   "archiveWorkspace.addFolder": "Add folder…",
   "archiveWorkspace.cancelScan": "Cancel scan",
   "archiveWorkspace.clipCount": {
@@ -77,10 +98,6 @@
   "archiveWorkspace.errorBadge": "Unreadable",
   "archiveWorkspace.exportArchive": "Export…",
   "archiveWorkspace.flightHeading": "Flight {index}",
-  "archiveWorkspace.folderSummary": {
-    "one": "{count} folder · {name}",
-    "other": "{count} folders · {name}"
-  },
   "archiveWorkspace.folderSummaryMulti": "{count} folders · {name} (+{rest})",
   "archiveWorkspace.noFolders": "No watched folders yet. Add a folder to index your drone recordings.",
   "archiveWorkspace.noRecordings": "No drone recordings found in your watched folders.",
@@ -122,7 +139,6 @@
   },
   "archiveWorkspace.scanning": "Scanning… {count}",
   "archiveWorkspace.scanningFile": "Scanning… {count} · {name}",
-  "archiveWorkspace.toggleFolders": "Toggle watched folders",
   "archiveWorkspace.watchedFolders": "Watched folders",
   "cameraControls.autoFitOnly": "auto-fit only",
   "cameraControls.autoFitZoom": "Auto-fit zoom",
